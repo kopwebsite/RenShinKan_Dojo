@@ -11,8 +11,8 @@ export function WorkshopsPage() {
           Focused practice for beginners, children, weapons study, and visitors.
         </h1>
         <p className="section-copy">
-          Workshop data is realistic mock content and marked as placeholder. It can
-          be replaced as dates are confirmed throughout the year.
+          Dates are announced as sessions are confirmed. Check back regularly or
+          subscribe to updates to hear about new workshops as they are scheduled.
         </p>
       </MotionSection>
 
@@ -21,7 +21,7 @@ export function WorkshopsPage() {
       </MotionSection>
 
       <MotionSection className="container-shell pb-20">
-        <div className="rounded-[2rem] bg-bamboo p-8 text-paper sm:p-10">
+        <div className="rounded-[2rem] bg-bamboo/90 p-8 text-paper backdrop-blur-sm sm:p-10">
           <p className="eyebrow text-paper/70">Updates</p>
           <h2 className="mt-4 max-w-2xl text-4xl leading-tight sm:text-5xl">
             Subscribe for class notes and new workshop announcements.

@@ -70,6 +70,7 @@ export type HistoricalPhoto = {
   sourceUrl: string;
   credit: string;
   rightsNote: string;
+  objectPosition?: string;
 };
 
 export type DojoBuildPhoto = HistoricalPhoto & {
@@ -123,12 +124,12 @@ export const quickInfo: IconContent[] = [
   },
   {
     title: "Built in 2013",
-    description: "A purpose-built dojo rooted in the Hang Dong community.",
+    description: "A dedicated training space rooted in the Hang Dong community.",
     icon: Home,
   },
   {
     title: "Hang Dong Location",
-    description: "In Baan Waen, Chiang Mai, with visitors invited to message ahead.",
+    description: "Located in Baan Waen, Hang Dong. Visitors are welcome to message ahead.",
     icon: MapPin,
   },
 ];
@@ -180,7 +181,7 @@ export const principles = [
   {
     title: "Protect Yourself and Your Partner",
     description:
-      "Ukemi, spacing, and controlled pins keep training cooperative and safety-conscious.",
+      "Ukemi, spacing, and controlled pins keep training cooperative and safe for both partners.",
   },
   {
     title: "Train Body and Mind",
@@ -375,13 +376,14 @@ export const aikidoHistoricalPhotos: HistoricalPhoto[] = [
     credit: "Unknown photographer.",
     rightsNote:
       "Marked public domain on Wikimedia Commons under PD-Japan-oldphoto and public domain in the United States.",
+    objectPosition: "top",
   },
   {
     id: "takeda-1888",
     src: assetPath("/history/sokaku-takeda-1888.jpg"),
-    alt: "Sokaku Takeda in a historical portrait from 1888.",
+    alt: "Sokaku Takeda in a historical full-length portrait from around 1888.",
     title: "Sokaku Takeda",
-    date: "1888",
+    date: "c. 1888",
     caption:
       "Takeda Sokaku, the Daito-ryu aiki-jujutsu teacher whose art strongly shaped Ueshiba's technical foundation.",
     sourceName: "Wikimedia Commons; source listed as Aiki News and Aikido FAQ",
@@ -389,6 +391,7 @@ export const aikidoHistoricalPhotos: HistoricalPhoto[] = [
     credit: "Unknown author.",
     rightsNote:
       "Marked public domain on Wikimedia Commons under PD-Japan-oldphoto and public domain in the United States.",
+    objectPosition: "top",
   },
   {
     id: "ueshiba-1939",
@@ -403,6 +406,7 @@ export const aikidoHistoricalPhotos: HistoricalPhoto[] = [
     credit: "Unknown photographer.",
     rightsNote:
       "Marked public domain on Wikimedia Commons under PD-Japan-oldphoto and public domain in the United States.",
+    objectPosition: "top",
   },
   {
     id: "calligraphy-1969",
@@ -429,6 +433,7 @@ export const aikidoHistoricalPhotos: HistoricalPhoto[] = [
     sourceUrl: "https://aikidocmu.wordpress.com/a-day/",
     credit: "Photo credited to Gaku Homma on the source page.",
     rightsNote: "Rights to confirm before publication.",
+    objectPosition: "top",
   },
   {
     id: "steady-walking-1968",
@@ -442,6 +447,7 @@ export const aikidoHistoricalPhotos: HistoricalPhoto[] = [
     sourceUrl: "https://aikidocmu.wordpress.com/a-day/",
     credit: "Photo credited to Gaku Homma on the source page.",
     rightsNote: "Rights to confirm before publication.",
+    objectPosition: "50% 20%",
   },
   {
     id: "aiki-shrine-1968",
@@ -455,6 +461,7 @@ export const aikidoHistoricalPhotos: HistoricalPhoto[] = [
     sourceUrl: "https://aikidocmu.wordpress.com/a-day/",
     credit: "Photo credited to Gaku Homma on the source page.",
     rightsNote: "Rights to confirm before publication.",
+    objectPosition: "top",
   },
   {
     id: "train-1968",
@@ -604,7 +611,7 @@ export const pcfAikidoImages = {
   sourceUrl: "https://www.peaceculturefoundation.org/aikido",
   classPractice: {
     src: assetPath("/pcf-aikido/aikido-class.jpg"),
-    alt: "Aikido students practicing on the mat at RenshinKan Dojo.",
+    alt: "Aikido students seated in seiza before the kamiza wall at RenshinKan Dojo.",
   },
   schedule: {
     src: assetPath("/pcf-aikido/class-schedule.png"),
@@ -653,7 +660,7 @@ export const dojoPhotos = [
   },
   {
     title: "Training Hall",
-    description: "The main training space — tatami mats, high ceilings, and room to move.",
+    description: "The main training space with tatami mats, high ceilings, and plenty of room to move.",
     alt: "RenshinKan Dojo interior training hall.",
     src: assetPath("/dojo-photos/workshop-location-dojo.webp"),
   },
@@ -693,19 +700,27 @@ export const dojoJourney = [
     variant: "tatami",
   },
   {
-    title: "Large Indoor Group",
-    description:
-      "A formal indoor portrait from the training space.",
-    alt: "Large indoor aikido group portrait at RenshinKan Dojo.",
-    imageSrc: assetPath("/renshinkan-gallery/class-photos/class_group_indoor_portrait_01.jpg"),
-    variant: "tatami",
-  },
-  {
     title: "Second Wide Group",
     description:
       "Another wide class portrait from the dojo floor.",
     alt: "Wide aikido class group portrait inside RenshinKan Dojo.",
     imageSrc: assetPath("/renshinkan-gallery/class-photos/class_group_dojo_wide_02.jpg"),
+    variant: "tatami",
+  },
+  {
+    title: "On The Mat",
+    description:
+      "Students and instructors gathered on the mat after practice.",
+    alt: "RenshinKan students on the mat.",
+    imageSrc: assetPath("/renshinkan-gallery/class-photos/on_the_mat_01.jpg"),
+    variant: "tatami",
+  },
+  {
+    title: "Mat Practice",
+    description:
+      "A moment captured during training at RenshinKan.",
+    alt: "Aikido training on the mat at RenshinKan Dojo.",
+    imageSrc: assetPath("/renshinkan-gallery/class-photos/on_the_mat_02.jpg"),
     variant: "tatami",
   },
 ];
@@ -734,12 +749,6 @@ export const classCarouselPhotos = [
     caption: "A class group photo facing the kamiza wall.",
     alt: "Class group seated in front of the RenshinKan Dojo front wall.",
     src: assetPath("/renshinkan-gallery/class-photos/class_group_dojo_front_wall_01.jpg"),
-  },
-  {
-    title: "Large Indoor Group",
-    caption: "A formal indoor portrait from the training space.",
-    alt: "Large indoor aikido group portrait at RenshinKan Dojo.",
-    src: assetPath("/renshinkan-gallery/class-photos/class_group_indoor_portrait_01.jpg"),
   },
   {
     title: "Second Wide Group",
@@ -989,20 +998,6 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
     rightsNote: "Source gallery does not state reuse terms; rights to confirm before publication.",
   },
   {
-    id: "interclub-group-august-2013",
-    src: assetPath("/renshinkan-build/crops/interclub-group-august-2013.jpg"),
-    alt: "Interclub aikido group photo at RenshinKan Dojo in August 2013.",
-    title: "Interclub Practice",
-    date: "August 18, 2013",
-    caption:
-      "A later gallery panel shows the dojo hosting interclub practice, connecting the new space to the wider aikido community.",
-    sourceName: "Peace Culture Foundation RenshinKan Dojo build gallery",
-    sourceUrl: siteInfo.foundationUrl,
-    sourceFile: "Build_09.png",
-    credit: "Peace Culture Foundation; photographer not listed.",
-    rightsNote: "Source gallery does not state reuse terms; rights to confirm before publication.",
-  },
-  {
     id: "interclub-community-august-2013",
     src: assetPath("/renshinkan-build/crops/interclub-community-august-2013.jpg"),
     alt: "RenshinKan Dojo community members eating together after practice.",
@@ -1059,7 +1054,7 @@ export const instructors: Instructor[] = [
     rank: "1st dan",
     trainingBackground:
       "Started aikido at the Chiang Mai University Aikido Club in 2003 and trained under Sombat Tapanya and Teerarat Boripantakul.",
-    imageSrc: assetPath("/instructors/major-kittisak-siriparp.jpg"),
+    imageSrc: assetPath("/instructors/major-kittisak-siriparp-current.png"),
     imageAlt: "Major Kittisak Siriparp in aikido uniform at RenshinKan Dojo.",
   },
   {
@@ -1068,7 +1063,7 @@ export const instructors: Instructor[] = [
     rank: "1st dan",
     trainingBackground:
       "Started aikido at the Chiang Mai University Aikido Club in 2002 and trained under Sombat Tapanya and Teerarat Boripantakul.",
-    imageSrc: assetPath("/instructors/fuengwich-maneekarn.jpg"),
+    imageSrc: assetPath("/instructors/major-kittisak-siriparp.png"),
     imageAlt: "Fuengwich Maneekarn in aikido uniform at RenshinKan Dojo.",
   },
   {
@@ -1077,7 +1072,7 @@ export const instructors: Instructor[] = [
     rank: "1st dan",
     trainingBackground:
       "Started aikido at the Chiang Mai University Aikido Club in 2012 and trained under Sombat Tapanya and Teerarat Boripantakul.",
-    imageSrc: assetPath("/instructors/siriphorn-manokeaw.jpg"),
+    imageSrc: assetPath("/instructors/siriphorn-manokeaw-current.png"),
     imageAlt: "Siriphorn Manokeaw in aikido uniform at RenshinKan Dojo.",
   },
 ];
@@ -1092,7 +1087,7 @@ export const classTracks: IconContent[] = [
   {
     title: "Children & Teens",
     description:
-      "Confidence, coordination, focus, and respect taught through age-aware practice.",
+      "Confidence, coordination, focus, and respect taught through practice designed for children and teens.",
     icon: Sparkles,
   },
   {
@@ -1187,24 +1182,34 @@ export const beltLevels = [
 
 export const faqs = [
   {
+    question: "Do I need experience to join?",
+    answer:
+      "Not at all. Everyone is welcome, regardless of background. Aikido is learned from the very beginning, and new students are introduced gradually alongside people at all levels.",
+  },
+  {
+    question: "What age is welcome?",
+    answer:
+      "All ages are welcome at RenshinKan. We have classes for children, teens, adults, and older students. If you are unsure whether a class is the right fit for your age group, just come along and see.",
+  },
+  {
     question: "Is aikido safe for children?",
     answer:
-      "Aikido can be practiced in a safety-conscious way because students learn falling, spacing, and partner care gradually. Parents should still message ahead so the dojo can advise on class fit and readiness.",
+      "Yes! Aikido is often described as the art of non-violence. Its techniques are built around blending with force rather than meeting it head on. As long as students take practice seriously and follow the guidance of their instructor, it is a very safe art. Students learn falling, spacing, and partner care gradually, so no one is pushed beyond what they are ready for.",
   },
   {
     question: "Can parents watch?",
     answer:
-      "Yes. The dojo has a viewing deck with seating for observing class, which helps parents understand the tone and rhythm of practice.",
+      "Yes! The dojo has a viewing deck with seating so parents can observe class and get a feel for the tone and rhythm of practice. Parents are also very welcome to join in on the mat themselves. Aikido is a great activity to share as a family.",
   },
   {
     question: "What should beginners wear?",
     answer:
-      "Loose-fitting long trousers and a T-shirt are suitable for a first visit. Students who already have a keikogi may wear it.",
+      "Comfortable, loose trousers and a T-shirt are perfectly fine for a first visit. There is no need to buy a keikogi right away. Students are only expected to get one when they feel ready and settled in. If you are interested in getting a keikogi, the dojo can help point you in the right direction.",
   },
   {
     question: "Does aikido involve competition?",
     answer:
-      "RenshinKan frames aikido as cooperative, non-competitive practice. Students work with partners to build timing, balance, and self-control.",
+      "Aikido has no competitions or tournaments. It is a cooperative martial art. Both partners work together, taking turns as the one who initiates and the one who receives. The goal is to learn timing, balance, and how to move safely with another person, not to win.",
   },
   {
     question: "How do students learn to fall safely?",
@@ -1212,9 +1217,19 @@ export const faqs = [
       "Students begin with low, careful ukemi practice, learning how to protect the head, soften impact, and move with the floor before techniques become more dynamic.",
   },
   {
+    question: "I am super busy. Can I still come?",
+    answer:
+      "Yes. Aikido is great exercise and stretching for both the body and the mind, and even one session a week makes a difference. Come every day or just once a week. Whatever your schedule allows. There is no pressure to attend at any fixed frequency.",
+  },
+  {
+    question: "How much is the monthly dojo upkeep fee?",
+    answer:
+      "The dojo recommends a contribution of 1,500 baht per month to help cover running expenses. Instructors are not paid, and all contributions go directly back into maintaining and running the dojo.",
+  },
+  {
     question: "How do we arrange a first visit?",
     answer:
-      "Use the contact form or message ahead through the dojo’s social channel. Visitors can ask which class is best for their age, experience, and goals.",
+      "Feel free to drop in at any class time. No booking needed. If you prefer to reach out first, you are welcome to contact us ahead of time. Visiting aikidoka are recommended to get in touch before coming so we can make sure the timing works well.",
   },
 ];
 
@@ -1272,6 +1287,30 @@ export const newsletters = [
   },
 ];
 
+export const recentEvents = [
+  {
+    title: "Belt Promotion Day",
+    date: "Recent event",
+    summary:
+      "Students demonstrated their techniques and received certificates at the most recent examination day. Photos and notes will be shared here and on our Facebook page.",
+    status: "Photos and notes coming soon",
+  },
+  {
+    title: "Community Practice",
+    date: "Recent event",
+    summary:
+      "An open practice session brought together students at all levels. Class highlights and photos will be shared here shortly.",
+    status: "Recap coming soon",
+  },
+  {
+    title: "Workshop Visit",
+    date: "Recent event",
+    summary:
+      "A visiting instructor joined the dojo for a special practice session. Notes and reflections will be posted here after the event.",
+    status: "Details coming soon",
+  },
+];
+
 export const facebookTimeline = {
   pageName: "Aikido Chiang Mai - Renshinkan Dojo",
   pageUrl: siteInfo.facebookUrl,
@@ -1298,7 +1337,7 @@ export const communityValues: IconContent[] = [
   {
     title: "Community Safety",
     description:
-      "The dojo’s culture supports listening, calm boundaries, and steady self-development.",
+      "The dojo’s culture supports listening, calm boundaries, and steady personal growth.",
     icon: ShieldCheck,
   },
   {
@@ -1352,7 +1391,7 @@ export const cmuAikidoClub = {
     alt: "Chiang Mai University official sub-logo signature.",
   },
   intro:
-    "RenshinKan belongs to a wider northern Thailand aikido community. AikidoCMU is the long-running Chiang Mai University club, a student-centered practice group connected to the same culture of cooperative training, calm movement, and non-aggressive conflict resolution.",
+    "RenshinKan belongs to a wider northern Thailand aikido community. AikidoCMU is the long-running Chiang Mai University club, a practice group connected to the same culture of cooperative training, calm movement, and peaceful conflict resolution.",
   background: [
     "The public AikidoCMU history describes Ajarn Sombat Tapanya continuing aikido after moving to Chiang Mai University in the mid-1980s, first sharing practice space with the judo club.",
     "The club is described as forming around 1986, with Ajarn Teerarat Boripantakul helping sustain the group and senior Thai aikido teachers supporting its development.",
@@ -1424,14 +1463,14 @@ export const pcfDojoPhotos = [
   {
     src: "https://images.squarespace-cdn.com/content/v1/5ef17fec6947fc50b4ef6d98/1593060476288-40T0WMOMLWFVPWMDLUTL/LibLab_books.jpg",
     alt: "Stacks of books from the Peace Culture Foundation's LibLab community literacy programme.",
-    title: "LibLab — Books for Communities",
+    title: "LibLab: Books for Communities",
     caption: "The foundation's LibLab programme puts books into communities that need them.",
   },
   {
     src: "https://images.squarespace-cdn.com/content/v1/5ef17fec6947fc50b4ef6d98/2f4dd984-ed92-41a9-8604-fff8aa60a18e/book-table-open-book-nature-landscapes-3ab79f-1024.jpg",
     alt: "An open book resting on a table surrounded by nature.",
     title: "Learning in Every Setting",
-    caption: "Peace culture is built through education — in classrooms, dojos, and communities alike.",
+    caption: "Peace culture is built through education, in classrooms, dojos, and communities alike.",
   },
   {
     src: "https://images.squarespace-cdn.com/content/v1/5ef17fec6947fc50b4ef6d98/1741073068980-EH76HR39CGJYDBF9YF8U/image+%2834%29.png",
@@ -1443,43 +1482,55 @@ export const pcfDojoPhotos = [
     src: "https://images.squarespace-cdn.com/content/v1/5ef17fec6947fc50b4ef6d98/1599217309955-OT5DYFE5SY5LMYRCHE9L/115881800_718580105643534_3910442649120489109_n.jpg",
     alt: "Dr. Sombat Tapanya, founder of the Peace Culture Foundation.",
     title: "Dr. Sombat Tapanya",
-    caption: "Founder of the Peace Culture Foundation — the person behind both the foundation's mission and RenshinKan Dojo.",
+    caption: "Founder of the Peace Culture Foundation and the person behind both its mission and RenshinKan Dojo.",
     featured: true,
-  },
-  {
-    src: "https://images.squarespace-cdn.com/content/v1/5ef17fec6947fc50b4ef6d98/1593060513117-TRIJ889BHRBY9UP73AFN/Dojo_driveway.jpg",
-    alt: "The driveway leading to RenshinKan Dojo — a quiet, welcoming community space.",
-    title: "A Community Space",
-    caption: "The dojo is more than a training hall. It's a place built around mutual care and shared purpose.",
-  },
-  {
-    src: "https://images.squarespace-cdn.com/content/v1/5ef17fec6947fc50b4ef6d98/1599385152949-9RIW20V9HP3CDURKCYIM/Fukakusa_visit.jpg",
-    alt: "Fukakusa Shihan (8th Dan Aikikai) visiting RenshinKan Dojo in Chiang Mai in 2016.",
-    title: "International Connections",
-    caption: "Fukakusa Shihan (8th Dan Aikikai) visiting Chiang Mai in 2016 — aikido as a global language of respect.",
   },
 ];
 
 export const relatedDojos = [
   {
-    name: "All Dojo Chiang Mai Thailand",
-    description:
-      "The regional aikido network that sets the belt promotion standard used at RenshinKan. The All Dojo framework connects affiliated dojos across Chiang Mai under a shared examination system.",
-    url: null as string | null,
-    location: "Chiang Mai, Thailand",
-  },
-  {
     name: "Thai Aikikai",
     description:
-      "The Aikikai-affiliated national body overseeing dan and kyu examinations in Thailand. RenshinKan examinations are conducted under Aikikai standard through this affiliation.",
-    url: null as string | null,
-    location: "Thailand",
+      "The national governing body for Aikido in Thailand, founded 1975 under Motohiro Fukakusa Shihan (8th Dan Aikikai). Affiliated with the Aikikai Foundation in Tokyo — all belt examinations at RenshinKan are certified through this organisation.",
+    url: "https://thaiaikikairenbuka.wixsite.com/renbukandojo" as string | null,
+    facebook: "https://www.facebook.com/AAT.renbukan/" as string | null,
+    logo: "https://static.wixstatic.com/media/15845a_3353925468b240e29081a6c2e5a18a76~mv2.png" as string | null,
+    location: "Bangkok, Thailand (national body)",
   },
   {
     name: "Aikido Chiang Mai University Club",
     description:
-      "The long-running CMU university club — covered in detail above. Open to students, international visitors, and community members who train with consistent discipline.",
-    url: "https://aikidocmu.wordpress.com/about/",
+      "A long-running university club open to students, international visitors, and community members. Trains Monday, Wednesday, and Friday evenings at CMU's gymnasium. Free for CMU students; open to the general public.",
+    url: "https://aikidocmu.wordpress.com/about/" as string | null,
+    facebook: "https://www.facebook.com/CMUAIKIDO/" as string | null,
+    logo: "https://aikidocmu.wordpress.com/wp-content/uploads/2008/09/renbukan-logo.png" as string | null,
     location: "Chiang Mai University, Suthep Road",
+  },
+  {
+    name: "Ai Dojo",
+    description:
+      "An Aikido dojo in the Suthep district of Chiang Mai, part of the wider local aikido community sharing the same Aikikai affiliation.",
+    url: null as string | null,
+    facebook: "https://www.facebook.com/Ai-Dojo-421619891270261/" as string | null,
+    logo: null as string | null,
+    location: "Suthep, Chiang Mai",
+  },
+  {
+    name: "All Dojo Chiang Mai",
+    description:
+      "A dojo in the Saraphi district south of Chiang Mai city. Part of the local aikido network with the same Aikikai affiliation. No active online presence — contact directly to visit or enquire.",
+    url: null as string | null,
+    facebook: null as string | null,
+    logo: null as string | null,
+    location: "Saraphi, Chiang Mai",
+  },
+  {
+    name: "Aikido Kids Chiangmai",
+    description:
+      "A child- and family-focused Aikido programme based at AllGym Chiangmai. Classes for children from age 3, youth, and women — a welcoming entry point for families interested in aikido.",
+    url: null as string | null,
+    facebook: "https://www.facebook.com/aikidokidsatchiangmai/" as string | null,
+    logo: null as string | null,
+    location: "Suthep, Chiang Mai",
   },
 ];

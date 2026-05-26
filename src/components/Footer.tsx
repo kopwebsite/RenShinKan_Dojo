@@ -4,7 +4,7 @@ import { googleMapsUrl, navigation, siteInfo, socialLinks } from "../data/siteCo
 
 export function Footer() {
   return (
-    <footer className="mt-24 border-t border-ink/10 bg-charcoal text-paper">
+    <footer className="border-t border-ink/10 bg-charcoal/90 text-paper backdrop-blur-sm">
       <div className="container-shell grid gap-10 py-14 lg:grid-cols-[1.15fr_0.85fr_1fr]">
         <div>
           <p className="eyebrow text-mist/75">RenshinKan Dojo</p>

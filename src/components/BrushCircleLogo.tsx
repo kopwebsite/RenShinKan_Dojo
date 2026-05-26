@@ -134,6 +134,9 @@ export function BrushCircleLogo({
                 strokeLinejoin="round"
                 strokeWidth="23"
                 pathLength={1}
+                strokeDasharray={1}
+                strokeDashoffset={1}
+                opacity={0}
                 filter={`url(#${roughId})`}
               />
               <path
@@ -145,6 +148,9 @@ export function BrushCircleLogo({
                 strokeLinejoin="round"
                 strokeWidth="22"
                 pathLength={1}
+                strokeDasharray={1}
+                strokeDashoffset={1}
+                opacity={0}
                 filter={`url(#${roughId})`}
               />
               <path
@@ -156,6 +162,9 @@ export function BrushCircleLogo({
                 strokeLinejoin="round"
                 strokeWidth="14"
                 pathLength={1}
+                strokeDasharray={1}
+                strokeDashoffset={1}
+                opacity={0}
                 filter={`url(#${roughId})`}
               />
               <path
@@ -167,6 +176,9 @@ export function BrushCircleLogo({
                 strokeLinejoin="round"
                 strokeWidth="14"
                 pathLength={1}
+                strokeDasharray={1}
+                strokeDashoffset={1}
+                opacity={0}
                 filter={`url(#${roughId})`}
               />
             </mask>

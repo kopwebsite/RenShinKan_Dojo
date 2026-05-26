@@ -1,9 +1,13 @@
+import { useState } from "react";
 import { FacebookTimelineEmbed } from "../components/FacebookTimelineEmbed";
 import { NewsletterSignup } from "../components/NewsletterSignup";
 import { MotionSection } from "../components/MotionSection";
-import { newsletters } from "../data/siteContent";
+import { newsletters, recentEvents } from "../data/siteContent";
 
 export function NewsletterPage() {
+  const [activeEventIndex, setActiveEventIndex] = useState(0);
+  const activeEvent = recentEvents[activeEventIndex];
+
   return (
     <>
       <MotionSection className="container-shell py-20">
@@ -13,6 +17,57 @@ export function NewsletterPage() {
           Sign up for beginner guidance, parent notes, workshop announcements, and
           reflections on calm practice.
         </p>
+      </MotionSection>
+
+      <MotionSection id="recent-events" className="container-shell scroll-mt-28 pb-20">
+        <div className="mb-8 grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
+          <div>
+            <p className="eyebrow">Recent Events</p>
+            <h2 className="section-title">Dojo moments to share with the community.</h2>
+          </div>
+          <p className="section-copy mt-0">
+            Catch up on recent classes, belt promotion days, visiting instructor
+            sessions, and other moments from the mat.
+          </p>
+        </div>
+
+        {/* Featured event */}
+        <article className="surface rounded-[2rem] p-8 sm:p-10">
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-sm font-bold text-bamboo">{activeEvent.date}</p>
+            <span className="rounded-full border border-ink/10 bg-paper/70 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-charcoal/60">
+              {activeEvent.status}
+            </span>
+          </div>
+          <h3 className="mt-5 text-4xl leading-tight text-ink sm:text-5xl">{activeEvent.title}</h3>
+          <p className="mt-5 max-w-3xl text-base leading-7 text-charcoal/75">{activeEvent.summary}</p>
+        </article>
+
+        {/* Mini title cards */}
+        {recentEvents.length > 1 && (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            {recentEvents.map((event, index) => {
+              const isActive = index === activeEventIndex;
+              return (
+                <button
+                  key={event.title}
+                  type="button"
+                  onClick={() => setActiveEventIndex(index)}
+                  className={`rounded-[1.5rem] border p-5 text-left transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo ${
+                    isActive
+                      ? "border-bamboo bg-bamboo/8 shadow-soft"
+                      : "surface hover:border-ink/20"
+                  }`}
+                >
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-bamboo">{event.date}</p>
+                  <p className={`mt-2 text-base font-medium leading-snug ${isActive ? "text-bamboo" : "text-ink"}`}>
+                    {event.title}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </MotionSection>
 
       <MotionSection className="container-shell pb-20">

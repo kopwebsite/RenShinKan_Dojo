@@ -3,7 +3,8 @@
   top: 0;
   z-index: 100;
   height: 60px;
-  background: var(--color-bg);
+  background: rgba(250, 246, 236, 0.94);
+  backdrop-filter: blur(10px);
   transition:
     background 200ms ease,
     border-color 200ms ease,
@@ -13,8 +14,8 @@
 
 .headerScrolled {
   border-bottom: 1px solid var(--color-border);
-  background: rgba(250, 246, 240, 0.92);
-  backdrop-filter: blur(8px);
+  background: rgba(250, 246, 236, 0.86);
+  backdrop-filter: blur(12px);
 }
 
 .headerInner {
@@ -148,6 +149,7 @@
   padding: 10px 0;
   border-radius: 12px;
   background: var(--color-dropdown-bg);
+  backdrop-filter: blur(12px);
   box-shadow:
     0 12px 32px rgba(31, 27, 22, 0.08),
     0 2px 8px rgba(31, 27, 22, 0.04);
@@ -195,14 +197,9 @@
 }
 
 .languageDropdown {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  color: var(--color-text-secondary);
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1;
   white-space: nowrap;
 }
 
@@ -219,12 +216,11 @@
 .languageSelectShell {
   position: relative;
   display: inline-flex;
-  width: 76px;
   height: 46px;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  overflow: hidden;
+  gap: 6px;
+  padding: 0 10px 0 8px;
   border: 1px solid rgba(31, 27, 22, 0.08);
   border-radius: 999px;
   background:
@@ -233,6 +229,7 @@
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.72),
     0 8px 22px rgba(31, 27, 22, 0.08);
+  cursor: pointer;
   transition:
     border-color 150ms ease,
     background 150ms ease,
@@ -241,7 +238,7 @@
 }
 
 .languageSelectShell:hover,
-.languageSelectShell:focus-within {
+.languageSelectShell:focus-visible {
   border-color: rgba(200, 49, 42, 0.32);
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.68), rgba(245, 239, 230, 0.9)),
@@ -252,23 +249,27 @@
   transform: translateY(-1px);
 }
 
-.languageSelectShell:focus-within {
+.languageSelectShell:focus-visible {
   outline: 2px solid var(--color-brand-red);
   outline-offset: 3px;
 }
 
-.languageFlag {
-  display: inline-flex;
-  width: 25px;
-  height: 25px;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.74);
-  box-shadow: 0 0 0 1px rgba(31, 27, 22, 0.06);
-  font-size: 21px;
+.langCode {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--color-text-primary);
   line-height: 1;
+}
+
+.languageFlag {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgba(31, 27, 22, 0.08);
 }
 
 .languageCaret {
@@ -283,19 +284,82 @@
   transition: transform 150ms ease;
 }
 
-.languageSelectShell:focus-within .languageCaret {
+.languageCaret[data-open="true"] {
   transform: rotate(180deg);
 }
 
-.languageSelect {
+.langPanel {
   position: absolute;
-  inset: 0;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 150;
+  min-width: 176px;
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+  border-radius: 12px;
+  background: var(--color-dropdown-bg);
+  backdrop-filter: blur(12px);
+  box-shadow:
+    0 12px 32px rgba(31, 27, 22, 0.08),
+    0 2px 8px rgba(31, 27, 22, 0.04);
+}
+
+.langOption {
+  position: relative;
+  display: flex;
   width: 100%;
-  height: 100%;
+  align-items: center;
+  gap: 10px;
   border: 0;
-  opacity: 0;
+  padding: 10px 16px;
+  background: transparent;
   cursor: pointer;
-  appearance: none;
+  text-align: left;
+  transition:
+    background 150ms ease,
+    padding-left 150ms ease;
+}
+
+.langOption::before {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 0;
+  width: 2px;
+  content: "";
+  background: var(--color-brand-red);
+  transform: scaleY(0);
+  transform-origin: center;
+  transition: transform 150ms ease;
+}
+
+.langOption:hover,
+.langOption[data-active="true"] {
+  background: var(--color-dropdown-hover);
+  padding-left: 18px;
+}
+
+.langOption:hover::before,
+.langOption[data-active="true"]::before {
+  transform: scaleY(1);
+}
+
+.langOptionFlag {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgba(31, 27, 22, 0.08);
+}
+
+.langOptionLabel {
+  font-family: "Cormorant Garamond", "Playfair Display", Georgia, serif;
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--color-text-primary);
+  line-height: 1.2;
 }
 
 .ctaButton,
@@ -386,6 +450,7 @@
   min-height: 100dvh;
   overflow-y: auto;
   background: var(--color-bg);
+  backdrop-filter: blur(12px);
   color: var(--color-text-primary);
 }
 
@@ -438,6 +503,25 @@
   color: var(--color-brand-red);
 }
 
+.mobileAccordionLabel {
+  flex: 1 1 auto;
+  color: inherit;
+  font-family: "Cormorant Garamond", "Playfair Display", Georgia, serif;
+  font-size: 28px;
+  font-weight: 450;
+  line-height: 1.1;
+  text-decoration: none;
+}
+
+.mobileChevronButton {
+  flex: 0 0 auto;
+  border: 0;
+  padding: 4px 0 4px 8px;
+  background: transparent;
+  cursor: pointer;
+  line-height: 1;
+}
+
 .mobileChevron {
   flex: 0 0 auto;
   color: var(--color-text-primary);
@@ -445,9 +529,10 @@
   font-size: 18px;
   opacity: 0.65;
   transition: transform 200ms ease;
+  display: block;
 }
 
-.mobileAccordionButton[aria-expanded="true"] .mobileChevron {
+.mobileChevronButton[aria-expanded="true"] .mobileChevron {
   transform: rotate(180deg);
 }
 
@@ -488,8 +573,14 @@
 }
 
 .mobileLanguageGroup .languageSelectShell {
-  width: 92px;
   height: 54px;
+}
+
+.mobileLanguageGroup .langPanel {
+  top: auto;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: auto;
 }
 
 .mobileBottom {

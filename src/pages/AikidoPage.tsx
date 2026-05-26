@@ -36,6 +36,7 @@ function HistoricalFigure({
           className={`w-full object-cover grayscale ${
             story || featured ? "aspect-[4/3]" : "aspect-[3/4]"
           }`}
+          style={photo.objectPosition ? { objectPosition: photo.objectPosition } : undefined}
           loading={featured ? "eager" : "lazy"}
         />
         <div className="absolute left-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-paper/85 text-vermilion shadow-line">
@@ -74,41 +75,37 @@ export function AikidoPage() {
   return (
     <>
       {/* Aikido hero */}
-      <section id="what-is-aikido" className="relative isolate min-h-[68svh] overflow-hidden scroll-mt-28">
+      <section id="what-is-aikido" className="relative isolate min-h-[100svh] overflow-hidden scroll-mt-28">
         <img
-          src={assetPath("/dojo-photos/aikido-hero.png")}
+          src={assetPath("/dojo-photos/aikido-hero-new.png")}
           alt=""
           aria-hidden="true"
           className="absolute inset-0 h-full w-full object-cover"
           fetchPriority="high"
         />
-        <div className="relative flex min-h-[68svh] items-center justify-center py-20 text-center">
+        <div className="relative flex min-h-[100svh] items-center justify-center py-20 text-center">
           <div className="mx-auto max-w-3xl px-5 sm:px-8">
-            <p className="eyebrow">What Is Aikido?</p>
             <h1 className="mx-auto mt-3 max-w-3xl text-5xl leading-[0.98] text-ink sm:text-6xl lg:text-7xl">
-              A martial art for harmony, balance, and calm self-development.
+              What is Aikido?
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-charcoal/80 sm:text-lg sm:leading-8">
-              Aikido was founded by Morihei Ueshiba. At RenshinKan, it is
-              introduced as non-competitive partner practice where students learn
-              to blend, redirect, break balance, throw, pin, and fall safely —
-              with care for each other.
+              A Japanese martial art of harmony, nonviolence, and lifelong personal growth.
             </p>
           </div>
         </div>
       </section>
 
-      <MotionSection className="container-shell pb-20">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <MotionSection className="container-shell py-20">
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-5">
           {aikidoValues.map((value) => {
             const Icon = value.icon;
             return (
-              <article key={value.title} className="surface card-hover rounded-[1.75rem] p-6">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-bamboo/10 text-bamboo">
-                  <Icon size={22} aria-hidden="true" />
+              <article key={value.title} className="surface card-hover rounded-[1.75rem] p-7">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-bamboo/10 text-bamboo">
+                  <Icon size={20} aria-hidden="true" />
                 </div>
-                <h2 className="mt-5 text-2xl text-ink">{value.title}</h2>
-                <p className="mt-3 text-sm text-charcoal/75">{value.description}</p>
+                <h2 className="mt-6 text-2xl text-ink">{value.title}</h2>
+                <p className="mt-3 text-sm leading-6 text-charcoal/75">{value.description}</p>
               </article>
             );
           })}
@@ -116,59 +113,80 @@ export function AikidoPage() {
       </MotionSection>
 
       <MotionSection className="container-shell pb-20">
-        <div className="mb-9 max-w-3xl">
-          <p className="eyebrow">Aikido In Chiang Mai</p>
-          <h2 className="section-title">Movement, place, and tools of practice.</h2>
-          <p className="section-copy">
-            These images from the Peace Culture Foundation Aikido page help ground
-            the mock site in the real dojo while a final photo set is prepared.
-          </p>
-        </div>
-        <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-          <figure className="surface card-hover overflow-hidden rounded-[2rem]">
+        <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
+          <figure className="surface overflow-hidden rounded-[2rem]">
             <img
               src={pcfAikidoImages.classPractice.src}
               alt={pcfAikidoImages.classPractice.alt}
               className="aspect-[4/3] w-full object-cover"
             />
-            <figcaption className="p-6">
-              <h3 className="text-3xl text-ink">Class Practice</h3>
+          </figure>
+          <div>
+            <p className="eyebrow">About Aikido</p>
+            <h2 className="section-title">Peace through movement, not force.</h2>
+            <p className="mt-5 text-base leading-7 text-charcoal/80 sm:text-lg">
+              Aikido is a Japanese martial art founded in the early 20th century by
+              Morihei Ueshiba. It grew from classical traditions — jujutsu, judo, and
+              the sword arts — but took a different direction: instead of striking or
+              overpowering, aikido teaches you to blend with incoming energy, redirect
+              it, and resolve conflict without causing injury. There is no competition,
+              no aggression. The practice is about self-control, composure, and learning
+              to stay calm under pressure.
+            </p>
+            <div className="mt-8 grid gap-3 sm:grid-cols-3">
+              {[
+                {
+                  title: "Rooted in Japan",
+                  body: "Founded by Morihei Ueshiba from classical jujutsu and aiki sword traditions.",
+                },
+                {
+                  title: "Non-violent",
+                  body: "Redirects and neutralises force rather than meeting it — no striking, no competition.",
+                },
+                {
+                  title: "Inner discipline",
+                  body: "Builds composure, awareness, and respect — qualities that carry beyond the mat.",
+                },
+              ].map((pt) => (
+                <div key={pt.title} className="rounded-2xl bg-bamboo/10 px-5 py-4">
+                  <p className="text-sm font-bold text-ink">{pt.title}</p>
+                  <p className="mt-1 text-xs leading-5 text-charcoal/70">{pt.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="mt-5 grid gap-5 sm:grid-cols-2">
+          <figure className="surface card-hover overflow-hidden rounded-[2rem]">
+            <img
+              src={pcfAikidoImages.joBokken.src}
+              alt={pcfAikidoImages.joBokken.alt}
+              className="aspect-video w-full object-cover"
+              loading="lazy"
+            />
+            <figcaption className="p-5">
+              <h3 className="text-2xl text-ink">Rooted in Tradition</h3>
               <p className="mt-2 text-sm text-charcoal/75">
-                Partner practice teaches students to move with timing, awareness,
-                and care.
+                Bokken and jo practice connects aikido to the classical Japanese weapons
+                arts from which it evolved — a living link to centuries of budo.
               </p>
             </figcaption>
           </figure>
-          <div className="grid gap-5">
-            <figure className="surface card-hover overflow-hidden rounded-[2rem]">
-              <img
-                src={pcfAikidoImages.joBokken.src}
-                alt={pcfAikidoImages.joBokken.alt}
-                className="aspect-[16/10] w-full object-cover"
-                loading="lazy"
-              />
-              <figcaption className="p-5">
-                <h3 className="text-2xl text-ink">Wooden Weapons</h3>
-                <p className="mt-2 text-sm text-charcoal/75">
-                  Weapons training refines line, posture, distance, and respect.
-                </p>
-              </figcaption>
-            </figure>
-            <figure className="surface card-hover overflow-hidden rounded-[2rem]">
-              <img
-                src={pcfAikidoImages.kamiza.src}
-                alt={pcfAikidoImages.kamiza.alt}
-                className="aspect-[16/10] w-full object-cover"
-                loading="lazy"
-              />
-              <figcaption className="p-5">
-                <h3 className="text-2xl text-ink">Dojo Atmosphere</h3>
-                <p className="mt-2 text-sm text-charcoal/75">
-                  A quiet training space helps students arrive with attention.
-                </p>
-              </figcaption>
-            </figure>
-          </div>
+          <figure className="surface card-hover overflow-hidden rounded-[2rem]">
+            <img
+              src={pcfAikidoImages.kamiza.src}
+              alt={pcfAikidoImages.kamiza.alt}
+              className="aspect-video w-full object-cover"
+              loading="lazy"
+            />
+            <figcaption className="p-5">
+              <h3 className="text-2xl text-ink">A Respectful Space</h3>
+              <p className="mt-2 text-sm text-charcoal/75">
+                The kamiza — a focal point of attention in every dojo — reflects
+                aikido's emphasis on sincerity, respect, and a settled, open mind.
+              </p>
+            </figcaption>
+          </figure>
         </div>
       </MotionSection>
 
@@ -178,9 +196,9 @@ export function AikidoPage() {
             <p className="eyebrow">RenshinKan Instructors</p>
             <h2 className="section-title">A line of practice rooted in Chiang Mai.</h2>
             <p className="section-copy">
-              These instructor profiles are sourced from the Peace Culture Foundation
-              page, excluding the requested omitted profile, teaching assistants,
-              and visiting instructors.
+              RenshinKan's instructors trained across Japan, Bangkok, and Chiang Mai,
+              building a teaching line that now welcomes students of all ages
+              and backgrounds.
             </p>
           </div>
           <Link to="/instructors" className="btn-secondary">
@@ -224,8 +242,8 @@ export function AikidoPage() {
             <p className="eyebrow">Aikido History</p>
             <h2 className="section-title">From older budo to a living local practice.</h2>
             <p className="section-copy">
-              This timeline now follows the same story as the written history
-              below. Select any item to jump to the matching section.
+              Each entry connects to the full written history below. Click
+              any item to jump to that period of the story.
             </p>
             <div className="mt-7 rounded-[2rem] border border-ink/10 bg-paper/70 p-5">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-bamboo">
@@ -258,10 +276,12 @@ export function AikidoPage() {
             O Sensei, aikido, and the path from force to harmony.
           </h2>
           <p className="section-copy">
-            Aikido's history is not a straight line from violence to gentleness.
-            It is a layered story of older martial skill, spiritual searching,
-            wartime pressure, postwar reconstruction, and ordinary people learning
-            to practice with respect.
+            Aikido (合気道) means "the way of harmonious spirit," a name that
+            reflects its founding philosophy of blending, not clashing. Its
+            history is not a straight line from violence to gentleness. It is
+            a layered story of older martial skill, spiritual searching, wartime
+            pressure, postwar reconstruction, and ordinary people learning to
+            practice with respect.
           </p>
         </div>
 

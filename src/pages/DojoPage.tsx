@@ -1,4 +1,6 @@
-import { CalendarDays, ExternalLink, MessageCircle } from "lucide-react";
+import { ArrowRight, BookOpen, ChevronLeft, ChevronRight, ExternalLink, GraduationCap, MessageCircle } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { BrushCircleLogo } from "../components/BrushCircleLogo";
 import { DojoJourney } from "../components/DojoJourney";
@@ -6,13 +8,60 @@ import { FacilityGrid } from "../components/FacilityGrid";
 import { InstructorGrid } from "../components/InstructorGrid";
 import { LocationCard } from "../components/LocationCard";
 import { MotionSection } from "../components/MotionSection";
-import { dojoJourney, dojoPhotos, siteInfo } from "../data/siteContent";
+import { dojoJourney, dojoPhotos, recentEvents, siteInfo } from "../data/siteContent";
 import { assetPath } from "../utils/assetPath";
 
 export function DojoPage() {
+  const [activeSpacePhotoIndex, setActiveSpacePhotoIndex] = useState(0);
+  const activeSpacePhoto = dojoPhotos[activeSpacePhotoIndex];
+  const spacePhotoOptions = dojoPhotos.filter((_, index) => index !== activeSpacePhotoIndex);
+  const [activeMatPhotoIndex, setActiveMatPhotoIndex] = useState(0);
+  const activeMatPhoto = dojoJourney[activeMatPhotoIndex];
+  const [matGalleryPage, setMatGalleryPage] = useState(0);
+  const MAT_PER_PAGE = 6;
+  const totalMatPages = Math.ceil(dojoJourney.length / MAT_PER_PAGE);
+  const visibleMatPhotos = dojoJourney.slice(matGalleryPage * MAT_PER_PAGE, (matGalleryPage + 1) * MAT_PER_PAGE);
+  const shouldReduceMotion = useReducedMotion();
+  const [recentEventIndex, setRecentEventIndex] = useState(0);
+
+  useEffect(() => {
+    if (shouldReduceMotion) return;
+    const timer = setInterval(() => {
+      setRecentEventIndex((i) => (i + 1) % recentEvents.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [shouldReduceMotion]);
+
+  const galleryImageMotion = shouldReduceMotion
+    ? {
+        initial: false as const,
+        animate: { opacity: 1 },
+        exit: { opacity: 1 },
+        transition: { duration: 0 },
+      }
+    : {
+        initial: { opacity: 0, scale: 1.015 },
+        animate: { opacity: 1, scale: 1 },
+        exit: { opacity: 0, scale: 0.995 },
+        transition: { duration: 0.48, ease: [0.22, 1, 0.36, 1] },
+      };
+  const galleryCaptionMotion = shouldReduceMotion
+    ? {
+        initial: false as const,
+        animate: { opacity: 1 },
+        exit: { opacity: 1 },
+        transition: { duration: 0 },
+      }
+    : {
+        initial: { opacity: 0, y: 10 },
+        animate: { opacity: 1, y: 0 },
+        exit: { opacity: 0, y: 6 },
+        transition: { duration: 0.36, ease: [0.22, 1, 0.36, 1] },
+      };
+
   return (
     <>
-      <section className="relative isolate min-h-[68svh] overflow-hidden">
+      <section id="home" className="relative isolate min-h-[100svh] scroll-mt-28 overflow-hidden">
         {/* Watercolour koi background */}
         <img
           src={assetPath("/dojo-photos/new-hero-poster.png")}
@@ -22,41 +71,117 @@ export function DojoPage() {
           fetchPriority="high"
         />
 
-        <div className="relative container-shell grid min-h-[68svh] place-items-center py-14 text-center">
+        <div className="relative container-shell grid min-h-[100svh] place-items-center py-16 text-center">
           <div className="relative mx-auto max-w-5xl">
             <div className="absolute left-1/2 top-1/2 -z-10 h-[18rem] w-[18rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-bamboo/15 sm:h-[27rem] sm:w-[27rem]" />
             <BrushCircleLogo paintOn className="mx-auto mb-5 h-28 w-28 sm:h-40 sm:w-40" />
-            <p className="eyebrow">RenshinKan Dojo · {siteInfo.location}</p>
             <h1 className="mx-auto mt-3 max-w-4xl text-5xl leading-[0.98] text-ink sm:text-6xl lg:text-7xl">
-              Aikido in Chiang Mai — calm strength through harmony.
+              RenShinKan Dojo
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-charcoal/80 sm:text-lg sm:leading-8">
-              Tucked away in Hang Dong since 2013, RenshinKan is a small dojo
-              with one focus: learning to move with people, not against them.
-              Kids, beginners, and seasoned aikidoka all train together on the
-              same mat. No competition. No performance. Just practice.
+              Aikido in Chiang Mai
             </p>
             <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Link to="/contact" className="btn-primary">
-                <MessageCircle size={18} aria-hidden="true" />
+              <Link to="/classes" className="btn-primary">
+                <GraduationCap size={18} aria-hidden="true" />
                 Visit a Class
               </Link>
-              <Link to="/workshops" className="btn-secondary">
-                <CalendarDays size={18} aria-hidden="true" />
-                View Workshops
+              <Link to="/aikido#history-philosophy" className="btn-secondary">
+                <BookOpen size={18} aria-hidden="true" />
+                Learn about Aikido
               </Link>
             </div>
           </div>
         </div>
       </section>
 
+      <MotionSection className="container-shell py-16">
+        <div className="rounded-[2rem] bg-paper/75 p-6 shadow-line ring-1 ring-ink/10 sm:p-10 lg:p-12">
+          <div className="grid gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
+            <div>
+              <p className="eyebrow">Recent Events</p>
+              <h2 className="mt-3 text-3xl leading-tight text-ink sm:text-4xl">
+                Recent dojo moments, gathered in one place.
+              </h2>
+              <p className="mt-4 text-charcoal/78">
+                Catch up on promotion days, community practice, visiting workshop
+                notes, and other updates from RenshinKan.
+              </p>
+              <Link to="/newsletter#recent-events" className="btn-secondary mt-6">
+                Read More
+                <ArrowRight size={17} aria-hidden="true" />
+              </Link>
+            </div>
+            <div>
+              <div className="relative overflow-hidden rounded-[1.75rem] border border-ink/10 bg-paper/65 p-7 sm:p-10 min-h-[16rem]">
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.div
+                    key={recentEventIndex}
+                    initial={shouldReduceMotion ? false as const : { opacity: 0, x: 28 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: -20 }}
+                    transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-bamboo">
+                      {recentEvents[recentEventIndex].date}
+                    </p>
+                    <h3 className="mt-4 text-3xl leading-tight text-ink sm:text-4xl">
+                      {recentEvents[recentEventIndex].title}
+                    </h3>
+                    <p className="mt-4 text-sm leading-7 text-charcoal/75">
+                      {recentEvents[recentEventIndex].summary}
+                    </p>
+                    <p className="mt-5 text-sm font-bold text-vermilion">
+                      {recentEvents[recentEventIndex].status}
+                    </p>
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+              <div className="mt-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {recentEvents.map((_, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setRecentEventIndex(i)}
+                      className={`h-2 rounded-full transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo ${
+                        i === recentEventIndex ? "w-6 bg-bamboo" : "w-2 bg-ink/20 hover:bg-ink/40"
+                      }`}
+                      aria-label={`Go to event ${i + 1}`}
+                    />
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRecentEventIndex((i) => (i === 0 ? recentEvents.length - 1 : i - 1))}
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/10 bg-paper/65 transition hover:bg-paper/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo"
+                    aria-label="Previous event"
+                  >
+                    <ChevronLeft size={18} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRecentEventIndex((i) => (i + 1) % recentEvents.length)}
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/10 bg-paper/65 transition hover:bg-paper/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo"
+                    aria-label="Next event"
+                  >
+                    <ChevronRight size={18} aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </MotionSection>
+
       <MotionSection id="facilities" className="container-shell pb-20">
         <div className="mb-8 max-w-3xl">
-          <p className="eyebrow">The Space</p>
-          <h2 className="section-title">A purpose-built practice space in Hang Dong.</h2>
+          <p className="eyebrow">Our Dojo</p>
+          <h2 className="section-title">A welcoming practice space for students of all ages in Hang Dong.</h2>
           <p className="section-copy">
             RenshinKan was built in {siteInfo.builtYear} on a quiet property in
-            Baan Waen. The space is designed for comfortable, focused practice
+            Hang Dong. The space is designed for comfortable, focused practice
             for students of all ages.
           </p>
         </div>
@@ -66,11 +191,11 @@ export function DojoPage() {
       <MotionSection id="instructors" className="container-shell scroll-mt-28 pb-20">
         <div className="mb-9 max-w-3xl">
           <p className="eyebrow">Who Teaches Here</p>
-          <h2 className="section-title">A line of practice rooted in Chiang Mai.</h2>
+          <h2 className="section-title">People who genuinely love what they teach.</h2>
           <p className="section-copy">
-            Our instructors bring decades of dedicated practice to every class —
-            patient, consistent teachers who care more about your progress than
-            their credentials.
+            Our instructors have been practicing for decades and they care about
+            the people they teach. You will find them patient, encouraging, and
+            consistent at every level.
           </p>
         </div>
         <InstructorGrid />
@@ -79,42 +204,136 @@ export function DojoPage() {
       <MotionSection id="dojo-photos" className="container-shell scroll-mt-28 pb-20">
         <div className="mb-9">
           <p className="eyebrow">Dojo Photos</p>
-          <h2 className="section-title">The dojo, the mat, and the people on it.</h2>
+          <h2 className="section-title">A peek inside RenshinKan.</h2>
           <p className="section-copy">
-            A look at the training space and the students who use it.
+            Take a look at the dojo and the people who train here.
           </p>
         </div>
 
         <p className="mb-5 text-xs font-bold uppercase tracking-[0.16em] text-charcoal/55">
           The Space
         </p>
-        <div className="mb-10 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {dojoPhotos.map((photo) => (
-            <div key={photo.src} className="card-hover overflow-hidden rounded-[1.75rem]">
-              <img
-                src={photo.src}
-                alt={photo.alt}
-                className="aspect-[4/3] w-full object-cover"
+        <div className="mb-10 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
+          <figure className="relative aspect-[16/9] overflow-hidden rounded-[1.75rem] bg-paper/70 shadow-line ring-1 ring-ink/10">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.img
+                key={activeSpacePhoto.src}
+                src={activeSpacePhoto.src}
+                alt={activeSpacePhoto.alt}
+                className="absolute inset-0 h-full w-full object-cover"
                 loading="lazy"
+                {...galleryImageMotion}
               />
-            </div>
-          ))}
+            </AnimatePresence>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.figcaption
+                key={`${activeSpacePhoto.src}-caption`}
+                className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/85 via-ink/45 to-transparent p-5 text-paper sm:p-6"
+                {...galleryCaptionMotion}
+              >
+                <h3 className="text-2xl leading-tight">{activeSpacePhoto.title}</h3>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-paper/82">
+                  {activeSpacePhoto.description}
+                </p>
+              </motion.figcaption>
+            </AnimatePresence>
+          </figure>
+
+          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1 lg:grid-rows-3">
+            {spacePhotoOptions.map((photo) => {
+              const photoIndex = dojoPhotos.findIndex((item) => item.src === photo.src);
+
+              return (
+                <button
+                  key={photo.src}
+                  type="button"
+                  onClick={() => setActiveSpacePhotoIndex(photoIndex)}
+                  className="group grid overflow-hidden rounded-[1.35rem] bg-paper/65 text-left shadow-line ring-1 ring-ink/10 transition hover:-translate-y-0.5 hover:bg-paper/90 hover:shadow-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo sm:grid-rows-[auto_1fr] lg:min-h-0 lg:grid-cols-[7.5rem_minmax(0,1fr)] lg:grid-rows-1"
+                  aria-label={`Show ${photo.title}`}
+                >
+                  <img
+                    src={photo.src}
+                    alt=""
+                    className="aspect-[4/3] w-full object-cover lg:h-full lg:min-h-0"
+                    loading="lazy"
+                  />
+                  <span className="block p-4">
+                    <span className="block text-lg leading-tight text-ink">{photo.title}</span>
+                    <span className="mt-1 line-clamp-2 block text-sm leading-5 text-charcoal/68">
+                      {photo.description}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <p className="mb-5 text-xs font-bold uppercase tracking-[0.16em] text-charcoal/55">
           On the Mat
         </p>
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {dojoJourney.map((photo) => (
-            <div key={photo.imageSrc} className="card-hover overflow-hidden rounded-[1.75rem]">
-              <img
-                src={photo.imageSrc}
-                alt={photo.alt}
-                className="aspect-[4/3] w-full object-cover"
+        <div className="grid gap-5">
+          <figure className="relative aspect-[16/9] overflow-hidden rounded-[1.75rem] bg-paper/70 shadow-line ring-1 ring-ink/10">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.img
+                key={activeMatPhoto.imageSrc}
+                src={activeMatPhoto.imageSrc}
+                alt={activeMatPhoto.alt}
+                className="absolute inset-0 h-full w-full object-cover"
                 loading="lazy"
+                {...galleryImageMotion}
               />
+            </AnimatePresence>
+          </figure>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMatGalleryPage((p) => Math.max(0, p - 1))}
+              disabled={matGalleryPage === 0}
+              aria-label="Previous photos"
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-ink/10 bg-paper/65 transition hover:bg-paper/90 disabled:opacity-25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo"
+            >
+              <ChevronLeft size={18} aria-hidden="true" />
+            </button>
+
+            <div className="flex-1 grid grid-cols-3 gap-4 sm:grid-cols-6">
+              {visibleMatPhotos.map((photo) => {
+                const globalIndex = dojoJourney.indexOf(photo);
+                return (
+                  <button
+                    key={photo.imageSrc}
+                    type="button"
+                    onClick={() => setActiveMatPhotoIndex(globalIndex)}
+                    className={`overflow-hidden rounded-[1.1rem] bg-paper/65 text-left shadow-line ring-1 transition hover:-translate-y-0.5 hover:shadow-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo ${
+                      globalIndex === activeMatPhotoIndex
+                        ? "ring-bamboo"
+                        : "ring-ink/10 hover:ring-ink/20"
+                    }`}
+                    aria-label={`Show ${photo.title}`}
+                    aria-current={globalIndex === activeMatPhotoIndex}
+                  >
+                    <img
+                      src={photo.imageSrc}
+                      alt={photo.alt}
+                      className="aspect-[4/3] w-full object-cover"
+                      loading="lazy"
+                    />
+                  </button>
+                );
+              })}
             </div>
-          ))}
+
+            <button
+              type="button"
+              onClick={() => setMatGalleryPage((p) => Math.min(totalMatPages - 1, p + 1))}
+              disabled={matGalleryPage === totalMatPages - 1}
+              aria-label="Next photos"
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-ink/10 bg-paper/65 transition hover:bg-paper/90 disabled:opacity-25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo"
+            >
+              <ChevronRight size={18} aria-hidden="true" />
+            </button>
+          </div>
         </div>
       </MotionSection>
 
@@ -124,9 +343,9 @@ export function DojoPage() {
             <p className="eyebrow">Dojo Journey</p>
             <h2 className="section-title">From open ground to a working mat.</h2>
             <p className="section-copy">
-              Selected crops from the Peace Culture Foundation build gallery show
-              the RenshinKan site, construction, tatami installation, opening
-              practice, and early community moments.
+              Photos from the Peace Culture Foundation build gallery, following
+              RenshinKan from an empty plot of land all the way to opening
+              practice on the mat.
             </p>
           </div>
           <a
@@ -163,15 +382,20 @@ export function DojoPage() {
       </MotionSection>
 
       <MotionSection className="container-shell pb-20">
-        <div className="rounded-[2rem] bg-ink p-8 text-paper sm:p-10">
-          <p className="eyebrow text-mist/70">Visitor Note</p>
-          <h2 className="mt-4 max-w-3xl text-4xl leading-tight sm:text-5xl">
-            A respectful first visit starts before stepping onto the mat.
+        <div className="rounded-[2rem] bg-bamboo/10 p-8 shadow-line ring-1 ring-bamboo/20 sm:p-10">
+          <p className="eyebrow">Visiting RenshinKan</p>
+          <h2 className="mt-4 max-w-3xl text-4xl leading-tight text-ink sm:text-5xl">
+            Drop-ins are always welcome.
           </h2>
-          <p className="mt-5 max-w-2xl text-paper/75">
-            Message ahead, arrive a little early, sit quietly at the edge of the
-            mat or viewing deck, and let a senior member or instructor guide you.
+          <p className="mt-5 max-w-2xl text-charcoal/78">
+            If you're new, feel free to come along. Just turn up at class time.
+            If you're a visiting aikidoka, we'd love a quick message ahead so we
+            can make sure the timing works and someone can greet you properly.
           </p>
+          <Link to="/contact" className="btn-primary mt-7">
+            <MessageCircle size={18} aria-hidden="true" />
+            Get in Touch
+          </Link>
         </div>
       </MotionSection>
     </>

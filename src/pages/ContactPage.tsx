@@ -1,8 +1,8 @@
 import { FormEvent, useState } from "react";
-import { CheckCircle2, Send } from "lucide-react";
+import { Facebook, Send } from "lucide-react";
 import { LocationCard } from "../components/LocationCard";
 import { MotionSection } from "../components/MotionSection";
-import { firstVisitChecklist, siteInfo } from "../data/siteContent";
+import { siteInfo } from "../data/siteContent";
 
 type ContactValues = {
   name: string;
@@ -42,20 +42,24 @@ export function ContactPage() {
           <LocationCard />
           <div className="grid gap-6">
             <article className="surface rounded-[2rem] p-6 sm:p-8">
-              <p className="eyebrow">Plan Your First Visit</p>
-              <h2 className="mt-3 text-4xl text-ink">A steady start helps everyone.</h2>
-              <ul className="mt-6 grid gap-3">
-                {firstVisitChecklist.map((item) => (
-                  <li key={item} className="flex items-center gap-3 text-charcoal/80">
-                    <CheckCircle2 className="h-5 w-5 text-bamboo" aria-hidden="true" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
+              <p className="eyebrow">Get in Touch</p>
+              <h2 className="mt-3 text-4xl text-ink">Prefer to message us through Facebook?</h2>
+              <p className="mt-4 text-charcoal/80 leading-7">
+                You're welcome to reach out to us directly on Facebook. We're happy to answer any questions about classes, schedules, or your first visit.
+              </p>
+              <a
+                href={siteInfo.facebookUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-primary mt-6 inline-flex"
+              >
+                <Facebook size={18} aria-hidden="true" />
+                Message us on Facebook
+              </a>
             </article>
 
             <form className="surface rounded-[2rem] p-6 sm:p-8" onSubmit={handleSubmit}>
-              <p className="eyebrow">Contact CTA</p>
+              <p className="eyebrow">Send a Message</p>
               <h2 className="mt-3 text-4xl text-ink">Ask about visiting class.</h2>
               <div className="mt-6 grid gap-5">
                 <div>
@@ -115,8 +119,8 @@ export function ContactPage() {
                 </button>
                 <p className="text-sm text-charcoal/65" aria-live="polite">
                   {submitted
-                    ? "Thanks. This mock form is ready to connect to email."
-                    : "Mock contact form with accessible labels."}
+                    ? "Thank you. We will be in touch as soon as we can."
+                    : "We will reply as soon as we can."}
                 </p>
               </div>
             </form>

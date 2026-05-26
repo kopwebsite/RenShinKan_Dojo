@@ -39,15 +39,10 @@ export function WorkshopCards() {
               key={workshop.title}
               className="surface card-hover flex min-h-[22rem] flex-col rounded-[2rem] p-6"
             >
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
                 <span className="rounded-full bg-vermilion/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-vermilion">
                   {workshop.category}
                 </span>
-                {workshop.isPlaceholder ? (
-                  <span className="rounded-full bg-bamboo/10 px-3 py-1 text-xs font-bold text-bamboo">
-                    Placeholder
-                  </span>
-                ) : null}
               </div>
               <h3 className="mt-6 text-3xl leading-tight text-ink">{workshop.title}</h3>
               <p className="mt-4 text-sm text-charcoal/75">{workshop.description}</p>

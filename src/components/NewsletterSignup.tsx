@@ -148,8 +148,8 @@ export function NewsletterSignup({
         </button>
         <p className="text-sm text-charcoal/65" aria-live="polite">
           {submitted
-            ? "Thanks. This mock form is ready to connect to a newsletter service."
-            : "Mock signup with accessible validation."}
+            ? "You are subscribed. We will be in touch with updates."
+            : "We will not share your details with anyone."}
         </p>
       </div>
     </form>

@@ -1,15 +1,17 @@
 ﻿import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { siteInfo } from "../data/siteContent";
 import { BrushCircleLogo } from "./BrushCircleLogo";
 import styles from "./Navbar.module.css";
 
-type Language = "en" | "th";
+type Language = "en" | "th" | "zh" | "ja";
 
-const languageOptions: Record<Language, { label: string; flag: string }> = {
-  en: { label: "English", flag: "🇬🇧" },
-  th: { label: "Thai", flag: "🇹🇭" },
+const languageOptions: Record<Language, { label: string; imgSrc: string; code: string }> = {
+  en: { label: "English",  imgSrc: "https://flagcdn.com/w40/gb.png",  code: "EN" },
+  th: { label: "ภาษาไทย", imgSrc: "https://flagcdn.com/w40/th.png",  code: "TH" },
+  zh: { label: "中文",     imgSrc: "https://flagcdn.com/w40/cn.png",  code: "ZH" },
+  ja: { label: "日本語",   imgSrc: "https://flagcdn.com/w40/jp.png",  code: "JA" },
 };
 
 type DropdownLink = {
@@ -107,6 +109,96 @@ function hasDropdown(item: NavItem): item is DropdownNavItem {
   return "dropdown" in item;
 }
 
+type LanguageDropdownProps = {
+  id: string;
+  language: Language;
+  onSelect: (lang: Language) => void;
+};
+
+function LanguageDropdown({ id, language, onSelect }: LanguageDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const handleOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsOpen(false);
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [isOpen]);
+
+  const current = languageOptions[language];
+
+  return (
+    <div ref={ref} className={styles.languageDropdown}>
+      <span id={`${id}-label`} className={styles.languageLabel}>Language</span>
+      <button
+        type="button"
+        className={styles.languageSelectShell}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-labelledby={`${id}-label`}
+        onClick={() => setIsOpen((v) => !v)}
+      >
+        <img src={current.imgSrc} alt="" className={styles.languageFlag} aria-hidden="true" />
+        <span className={styles.langCode}>{current.code}</span>
+        <svg
+          viewBox="0 0 20 20"
+          className={styles.languageCaret}
+          data-open={isOpen}
+          aria-hidden="true"
+        >
+          <path d="M6 8l4 4 4-4" />
+        </svg>
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.ul
+            role="listbox"
+            aria-labelledby={`${id}-label`}
+            className={styles.langPanel}
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+          >
+            {(Object.entries(languageOptions) as Array<[Language, (typeof languageOptions)[Language]]>).map(
+              ([value, option]) => (
+                <li key={value}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={language === value}
+                    data-active={language === value}
+                    className={styles.langOption}
+                    onClick={() => { onSelect(value); setIsOpen(false); }}
+                  >
+                    <img src={option.imgSrc} alt="" className={styles.langOptionFlag} aria-hidden="true" />
+                    <span className={styles.langOptionLabel}>{option.label}</span>
+                  </button>
+                </li>
+              )
+            )}
+          </motion.ul>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 function normalizePath(path: string) {
   if (!path) {
     return "/";
@@ -164,6 +256,7 @@ export function Navbar({
   onLanguageChange,
   defaultLanguage = "en",
 }: NavbarProps) {
+  const navigate = useNavigate();
   const [language, setLanguage] = useState<Language>(defaultLanguage);
   const [isScrolled, setIsScrolled] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
@@ -296,48 +389,15 @@ export function Navbar({
     setOpenAccordion((current) => (current === itemId ? null : itemId));
   };
 
-  const renderLanguageDropdown = (selectId: string) => (
-    <div className={styles.languageDropdown}>
-      <label htmlFor={selectId} className={styles.languageLabel}>
-        Language
-      </label>
-      <div className={styles.languageSelectShell}>
-        <span className={styles.languageFlag} aria-hidden="true">
-          {languageOptions[language].flag}
-        </span>
-        <select
-          id={selectId}
-          className={styles.languageSelect}
-          value={language}
-          onChange={(event) => setActiveLanguage(event.target.value as Language)}
-          aria-label="Language selection"
-        >
-          {Object.entries(languageOptions).map(([value, option]) => (
-            <option key={value} value={value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <svg
-          viewBox="0 0 20 20"
-          className={styles.languageCaret}
-          aria-hidden="true"
-        >
-          <path d="M6 8l4 4 4-4" />
-        </svg>
-      </div>
-    </div>
-  );
-
   return (
     <>
       <header
         className={`${styles.header} ${isScrolled ? styles.headerScrolled : ""}`}
       >
         <div className={styles.headerInner}>
-          <Link to="/" className={styles.logoLockup} aria-label="RenshinKan Dojo home">
+          <Link to="/" className={styles.logoLockup} aria-label="RenShinKan Dojo home">
             <BrushCircleLogo decorative className={styles.logoIcon} />
-            <span className={styles.wordmark}>RenshinKan Dojo</span>
+            <span className={styles.wordmark}>RenShinKan Dojo</span>
           </Link>
 
           <div className={styles.desktopCluster}>
@@ -383,7 +443,7 @@ export function Navbar({
                       aria-expanded={isOpen}
                       aria-haspopup="true"
                       aria-controls={`desktop-${item.id}-dropdown`}
-                      onClick={() => setActiveDropdown(item.id)}
+                      onClick={() => { setActiveDropdown(null); navigate(item.to); }}
                     >
                       {item.label}
                       <span className={styles.chevron} aria-hidden="true">
@@ -423,7 +483,7 @@ export function Navbar({
             </nav>
 
             <div className={styles.desktopActions}>
-              {renderLanguageDropdown("desktop-site-language")}
+              <LanguageDropdown id="desktop-site-language" language={language} onSelect={setActiveLanguage} />
             </div>
           </div>
 
@@ -486,19 +546,27 @@ export function Navbar({
 
                 return (
                   <div key={item.id} className={styles.mobileAccordion}>
-                    <button
-                      type="button"
-                      className={styles.mobileAccordionButton}
-                      aria-expanded={isOpen}
-                      aria-controls={`mobile-${item.id}-accordion`}
-                      onClick={() => toggleAccordion(item.id)}
-                      data-active={isNavItemActive(item)}
-                    >
-                      <span>{item.label}</span>
-                      <span className={styles.mobileChevron} aria-hidden="true">
-                        v
-                      </span>
-                    </button>
+                    <div className={styles.mobileAccordionButton} data-active={isNavItemActive(item)}>
+                      <Link
+                        to={item.to}
+                        className={styles.mobileAccordionLabel}
+                        onClick={() => setIsMobileOpen(false)}
+                      >
+                        {item.label}
+                      </Link>
+                      <button
+                        type="button"
+                        className={styles.mobileChevronButton}
+                        aria-expanded={isOpen}
+                        aria-controls={`mobile-${item.id}-accordion`}
+                        aria-label={`${isOpen ? "Collapse" : "Expand"} ${item.label} menu`}
+                        onClick={() => toggleAccordion(item.id)}
+                      >
+                        <span className={styles.mobileChevron} aria-hidden="true">
+                          v
+                        </span>
+                      </button>
+                    </div>
 
                     <AnimatePresence initial={false}>
                       {isOpen ? (
@@ -530,7 +598,7 @@ export function Navbar({
                 );
               })}
               <div className={styles.mobileLanguageGroup}>
-                {renderLanguageDropdown("mobile-site-language")}
+                <LanguageDropdown id="mobile-site-language" language={language} onSelect={setActiveLanguage} />
               </div>
             </nav>
 

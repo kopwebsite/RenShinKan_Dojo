@@ -1,6 +1,7 @@
 import { CheckCircle, ChevronDown, CreditCard, Heart, QrCode, Repeat2, ShieldCheck } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { MotionSection } from "../components/MotionSection";
+import { assetPath } from "../utils/assetPath";
 
 const dojoExpenses = [
   { label: "Electricity & Water",        note: "Monthly utility bills for the training hall, changing rooms, and grounds." },
@@ -8,28 +9,29 @@ const dojoExpenses = [
   { label: "Building Maintenance",       note: "Ongoing repairs, painting, and general upkeep of the dojo structure and garden." },
   { label: "Training Equipment",         note: "Replacement and maintenance of bokken, jo, tanto, and other practice gear." },
   { label: "Event & Seminar Costs",      note: "Hosting visiting instructors, open days, belt examinations, and community events." },
-  { label: "Insurance & Administration", note: "Basic liability coverage and administrative running costs." },
+  { label: "Garden & Grounds",           note: "Maintaining the outdoor space, plants, pathways, and the area surrounding the dojo." },
+  { label: "Student Welfare",            note: "Drinking water, post-class refreshments, and small comforts that make the dojo a welcoming place." },
 ];
 
 const transferDetails = [
   { label: "Bank",           value: "To be confirmed" },
   { label: "Account Name",   value: "RenshinKan Dojo / Peace Culture Foundation" },
   { label: "Account Number", value: "To be confirmed" },
-  { label: "Reference",      value: "DONATION – your name" },
+  { label: "Reference",      value: "DONATION: your name" },
 ];
 
 const beltRanks = [
   "Beginner / No Belt Yet",
-  "10 Kyu — White",
-  "9 Kyu — White + Stripe",
-  "8 Kyu — Blue",
-  "7 Kyu — Blue + Stripe",
-  "6 Kyu — Green",
-  "5 Kyu — Green + Stripe",
-  "4 Kyu — Brown",
-  "3 Kyu — Brown + Stripe",
-  "2 Kyu — Brown Double Stripe",
-  "SHO Dan-Ho — Black",
+  "10 Kyu: White",
+  "9 Kyu: White + Stripe",
+  "8 Kyu: Blue",
+  "7 Kyu: Blue + Stripe",
+  "6 Kyu: Green",
+  "5 Kyu: Green + Stripe",
+  "4 Kyu: Brown",
+  "3 Kyu: Brown + Stripe",
+  "2 Kyu: Brown Double Stripe",
+  "SHO Dan-Ho: Black",
   "Visiting Practitioner",
 ];
 
@@ -68,6 +70,7 @@ export function SupportPage() {
 
   // Contribution form
   const [step, setStep] = useState<ContribStep>("form");
+  const [activeExpenseIndex, setActiveExpenseIndex] = useState(0);
   const [savedName, setSavedName] = useState("");
   const [savedAmount, setSavedAmount] = useState("");
 
@@ -112,48 +115,76 @@ export function SupportPage() {
   return (
     <>
       <MotionSection className="container-shell py-20">
-        <p className="eyebrow">Support RenshinKan</p>
-        <h1 className="section-title">
-          Keep the dojo open. Keep practice accessible.
-        </h1>
-        <p className="section-copy">
-          Two ways to help — a regular community contribution for those who
-          train here, and a one-off donation for anyone who wants to support
-          aikido in Chiang Mai.
-        </p>
+        <div className="grid items-center gap-10 lg:grid-cols-[1fr_0.85fr]">
+          <div>
+            <p className="eyebrow">Support RenshinKan</p>
+            <h1 className="section-title">
+              Keep the dojo open. Keep practice accessible.
+            </h1>
+            <p className="section-copy">
+              Two ways to help: a regular community contribution for those who
+              train here, and a one-off donation for anyone who wants to support
+              aikido in Chiang Mai.
+            </p>
+          </div>
+          <div className="flex items-center justify-center">
+            <img
+              src={assetPath("/dojo-photos/image-community.png")}
+              alt="RenshinKan dojo community."
+              className="w-full max-w-md rounded-[2rem] object-cover"
+              style={{ maskImage: "radial-gradient(ellipse 88% 88% at 50% 50%, black 55%, transparent 100%)", WebkitMaskImage: "radial-gradient(ellipse 88% 88% at 50% 50%, black 55%, transparent 100%)" }}
+              loading="eager"
+            />
+          </div>
+        </div>
       </MotionSection>
 
       {/* Monthly Contribution */}
       <MotionSection id="monthly-contribution" className="container-shell scroll-mt-28 pb-20">
 
         {/* Top emphasis block */}
-        <div className="mb-10 rounded-[2rem] bg-ink p-8 text-paper sm:p-10">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-vermilion text-paper">
-            <Repeat2 size={26} aria-hidden="true" />
+        <div className="mb-10 surface rounded-[2rem] p-8 sm:p-10">
+          <div className="grid items-center gap-10 lg:grid-cols-[1fr_0.75fr]">
+          <div>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-vermilion/10 text-vermilion">
+              <Repeat2 size={20} aria-hidden="true" />
+            </div>
+            <p className="eyebrow text-vermilion/80 tracking-widest text-xs">Community Upkeep</p>
           </div>
-          <p className="eyebrow mt-7 text-mist/70">Community Upkeep</p>
-          <h2 className="mt-4 max-w-3xl text-4xl leading-tight sm:text-5xl">
-            This isn't a membership fee. It's everyone keeping the dojo alive together.
+          <h2 className="max-w-2xl text-3xl leading-snug text-ink sm:text-4xl">
+            This dojo exists because its students take care of it.
           </h2>
-          <p className="mt-5 max-w-2xl text-paper/80 text-lg leading-8">
-            Regular practitioners are invited — not required — to set up a
-            small monthly contribution by bank transfer. There is no access
-            gate behind it. You don't pay to train; you contribute because
-            the dojo is shared, and shared things cost something to maintain.
+          <p className="mt-5 max-w-2xl text-charcoal/75 text-base leading-7">
+            Every student who trains regularly at RenshinKan is asked to contribute
+            <strong className="text-ink"> 1,500 baht per month</strong>.
+            This is not a membership fee. It is a shared responsibility. The lights,
+            the water, the mats, the repairs, the space itself: all of it is held up
+            by the people who use it.
           </p>
-          <p className="mt-4 max-w-2xl text-paper/70">
-            Think of it less as a subscription and more as a rotating round:
-            everyone chips in a little so the place stays clean, the mats
-            stay in good shape, and practice remains open to whoever walks
-            through the door — including people who can't afford to contribute
-            at all right now.
+          <p className="mt-4 max-w-2xl text-charcoal/75 text-base leading-7">
+            When everyone who trains here contributes, the dojo stays strong. For
+            you, for newer students, and for the wider community we are part of.
+            Keeping this place open is something we do together, and your monthly
+            contribution is how you play your part.
           </p>
-          <div className="mt-7 inline-flex items-center gap-3 rounded-2xl bg-vermilion/20 px-5 py-3 ring-1 ring-vermilion/40">
-            <ShieldCheck size={20} className="text-vermilion shrink-0" aria-hidden="true" />
-            <p className="text-sm font-bold text-paper">
-              Instructors at RenshinKan receive no payment from these contributions.
-              Every baht goes back into the space you train in.
+          <div className="mt-7 inline-flex items-center gap-3 rounded-xl bg-vermilion/5 border border-vermilion/20 px-4 py-3">
+            <ShieldCheck size={18} className="text-vermilion shrink-0" aria-hidden="true" />
+            <p className="text-sm text-charcoal/70">
+              <span className="font-semibold text-ink">Instructors receive no payment from contributions.</span>{" "}
+              Every baht goes directly back into the space you train in.
             </p>
+          </div>
+          </div>
+          <div className="flex items-center justify-center">
+            <img
+              src={assetPath("/dojo-photos/support.png")}
+              alt="Students training at RenshinKan Dojo."
+              className="w-full max-w-sm rounded-[2rem] object-cover"
+              style={{ maskImage: "radial-gradient(ellipse 88% 88% at 50% 50%, black 55%, transparent 100%)", WebkitMaskImage: "radial-gradient(ellipse 88% 88% at 50% 50%, black 55%, transparent 100%)" }}
+              loading="lazy"
+            />
+          </div>
           </div>
         </div>
 
@@ -167,7 +198,7 @@ export function SupportPage() {
               <form onSubmit={handleFormSubmit} className="flex flex-col gap-5">
                 <h3 className="text-3xl text-ink">Register your contribution</h3>
                 <p className="text-sm text-charcoal/75">
-                  Fill in your details and choose how you'd like to contribute each month.
+                  All regular students are strongly encouraged to register their monthly contribution. Fill in your details below. This is how you take responsibility for the dojo you train in.
                 </p>
 
                 <div>
@@ -310,8 +341,8 @@ export function SupportPage() {
                   ))}
                 </div>
                 <p className="text-xs text-charcoal/55">
-                  Bank details will be confirmed before launch. Contact us directly
-                  if you'd like to start now and we'll send you the information.
+                  Bank details will be updated here shortly. Please contact us directly
+                  if you would like to begin now and we will send you the account information.
                 </p>
                 <button onClick={reset} className="btn-secondary">
                   Go back
@@ -328,7 +359,7 @@ export function SupportPage() {
                 <h3 className="text-3xl text-ink">Monthly card enrollment</h3>
                 <p className="text-sm text-charcoal/75">
                   Your card will be charged the agreed amount each month. Cancel
-                  any time — no questions asked.
+                  any time, no questions asked.
                 </p>
 
                 <div>
@@ -440,7 +471,7 @@ export function SupportPage() {
                 <h3 className="text-3xl text-ink">You're enrolled, {savedName}.</h3>
                 <p className="max-w-xs text-charcoal/75">
                   {savedAmount ? `฿${Number(savedAmount).toLocaleString()} will be charged to your card each month. ` : ""}
-                  You'll receive a confirmation shortly. Cancel any time — just let us know.
+                  You'll receive a confirmation shortly. Cancel any time. Just let us know.
                 </p>
                 <button onClick={reset} className="btn-secondary mt-2">
                   Done
@@ -454,7 +485,6 @@ export function SupportPage() {
             <h3 className="text-3xl text-ink">What your contribution covers</h3>
             <p className="mt-4 text-sm text-charcoal/75">
               Below is every category the dojo spends money on. Nothing else.
-              Amounts are placeholders — actual figures will be shown once confirmed.
             </p>
             <div className="mt-6 divide-y divide-ink/10">
               {dojoExpenses.map((expense) => (
@@ -464,14 +494,14 @@ export function SupportPage() {
                 </div>
               ))}
             </div>
-            <div className="mt-6 rounded-[1.5rem] bg-ink p-5 text-paper">
+            <div className="mt-6 rounded-[1.5rem] bg-ink/90 p-5 text-paper backdrop-blur-sm">
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-mist/70">
                 A reminder worth repeating
               </p>
               <p className="mt-2 text-sm font-bold leading-6">
                 Instructors are not compensated from these funds. They teach
                 because they practice, and they practice because they believe
-                in it. The money keeps the lights on — nothing more.
+                in it. The money keeps the lights on, nothing more.
               </p>
             </div>
           </article>
@@ -490,8 +520,9 @@ export function SupportPage() {
           </h2>
           <p className="section-copy">
             You don't have to train here to support the dojo. If you believe
-            in what aikido builds — calm under pressure, respect, cooperative
-            learning — a one-off donation is a direct way to keep it going.
+            in what aikido builds, the calm under pressure, the respect and
+            cooperative learning it creates, a one-off donation is a direct
+            way to keep it going.
             Every baht goes towards workshops, events, equipment, and keeping
             the dojo accessible to students who need flexibility.
           </p>
@@ -507,7 +538,7 @@ export function SupportPage() {
                 PromptPay QR Code
               </p>
               <p className="mt-2 px-6 text-xs text-charcoal/40">
-                QR code to be added before launch
+                Available on request. Message us directly to donate via PromptPay.
               </p>
             </div>
             <p className="max-w-[16rem] text-center text-xs text-charcoal/55">
@@ -571,9 +602,8 @@ export function SupportPage() {
                     ))}
                   </div>
                   <p className="mt-6 text-xs text-charcoal/55">
-                    Transfer details will be confirmed and updated here before launch.
-                    Contact us directly if you'd like to donate now and we'll give
-                    you the account information.
+                    Transfer details will be updated here shortly. Please contact us directly
+                    if you would like to donate now and we will provide the account information.
                   </p>
                 </div>
               )}

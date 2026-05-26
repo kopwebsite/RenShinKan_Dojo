@@ -530,7 +530,7 @@ export const aikidoHistorySections: AikidoHistorySection[] = [
     imageId: "aiki-shrine-1968",
     imagePosition: "right",
     paragraphs: [
-      "In 1942 the name aikido was adopted, Kisshomaru Ueshiba was named director of the headquarters, and Morihei Ueshiba's center of gravity moved strongly toward Iwama. The Aiki Shrine was erected in 1943, and the Ibaraki Dojo was constructed in 1945. These dates sit inside the difficult years of war and defeat, when Japan's public martial culture was being re-examined.",
+      "In 1942 the name aikido was adopted, Kisshomaru Ueshiba was named director of the headquarters, and Morihei Ueshiba's center of gravity moved strongly toward Iwama. The Aiki Shrine was erected in 1943, and the Ibaraki Dojo was constructed in 1945. These dates sit inside the difficult years of war and defeat, when Japan's public martial culture was being reconsidered.",
       "After the war, aikido had to be presented as something more than a fighting system. The Aikikai Foundation was officially recognized in 1948, and a daily schedule of practice resumed at Hombu Dojo in 1949. The art's noncompetitive format, partner care, and language of harmony helped it survive as education, discipline, and cultural practice.",
     ],
   },
@@ -1194,7 +1194,7 @@ export const faqs = [
   {
     question: "Is aikido safe for children?",
     answer:
-      "Yes! Aikido is often described as the art of non-violence. Its techniques are built around blending with force rather than meeting it head on. As long as students take practice seriously and follow the guidance of their instructor, it is a very safe art. Students learn falling, spacing, and partner care gradually, so no one is pushed beyond what they are ready for.",
+      "Yes! Aikido is often described as the art of nonviolence. Its techniques are built around blending with force rather than meeting it head on. As long as students take practice seriously and follow the guidance of their instructor, it is a very safe art. Students learn falling, spacing, and partner care gradually, so no one is pushed beyond what they are ready for.",
   },
   {
     question: "Can parents watch?",
@@ -1395,7 +1395,7 @@ export const cmuAikidoClub = {
   background: [
     "The public AikidoCMU history describes Ajarn Sombat Tapanya continuing aikido after moving to Chiang Mai University in the mid-1980s, first sharing practice space with the judo club.",
     "The club is described as forming around 1986, with Ajarn Teerarat Boripantakul helping sustain the group and senior Thai aikido teachers supporting its development.",
-    "AikidoCMU has welcomed CMU students, international students, and non-students who practice with regular discipline and mutual respect.",
+    "AikidoCMU has welcomed CMU students, international students, and community members who practice with regular discipline and mutual respect.",
   ],
   practice: {
     days: "Monday, Wednesday, Friday",
@@ -1491,7 +1491,7 @@ export const relatedDojos = [
   {
     name: "Thai Aikikai",
     description:
-      "The national governing body for Aikido in Thailand, founded 1975 under Motohiro Fukakusa Shihan (8th Dan Aikikai). Affiliated with the Aikikai Foundation in Tokyo — all belt examinations at RenshinKan are certified through this organisation.",
+      "The national governing body for Aikido in Thailand, founded 1975 under Motohiro Fukakusa Shihan (8th Dan Aikikai). Affiliated with the Aikikai Foundation in Tokyo. All belt examinations at RenshinKan are certified through this organisation.",
     url: "https://thaiaikikairenbuka.wixsite.com/renbukandojo" as string | null,
     facebook: "https://www.facebook.com/AAT.renbukan/" as string | null,
     logo: "https://static.wixstatic.com/media/15845a_3353925468b240e29081a6c2e5a18a76~mv2.png" as string | null,
@@ -1518,7 +1518,7 @@ export const relatedDojos = [
   {
     name: "All Dojo Chiang Mai",
     description:
-      "A dojo in the Saraphi district south of Chiang Mai city. Part of the local aikido network with the same Aikikai affiliation. No active online presence — contact directly to visit or enquire.",
+      "A dojo in the Saraphi district south of Chiang Mai city. Part of the local aikido network with the same Aikikai affiliation. No active online presence. Contact them directly to visit or enquire.",
     url: null as string | null,
     facebook: null as string | null,
     logo: null as string | null,
@@ -1527,7 +1527,7 @@ export const relatedDojos = [
   {
     name: "Aikido Kids Chiangmai",
     description:
-      "A child- and family-focused Aikido programme based at AllGym Chiangmai. Classes for children from age 3, youth, and women — a welcoming entry point for families interested in aikido.",
+      "A child and family focused Aikido programme based at AllGym Chiangmai. Classes for children from age 3, youth, and women. A welcoming entry point for families interested in aikido.",
     url: null as string | null,
     facebook: "https://www.facebook.com/aikidokidsatchiangmai/" as string | null,
     logo: null as string | null,

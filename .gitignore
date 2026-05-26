@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Production build output
+dist/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Local tool output and scratch files
+.claude/
+.tools/
+.logs/
+screenshots/
+Dojo pictures/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# TypeScript incremental output
+*.tsbuildinfo
+
+# OS/editor metadata
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

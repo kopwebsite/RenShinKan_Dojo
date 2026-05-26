@@ -590,7 +590,7 @@ export function CommunityPage() {
             </p>
             <p className="mt-4 text-charcoal/78">
               AikidoCMU has consistently welcomed CMU students, international
-              students, and non-students who train with regular discipline and
+              students, and community members who train with regular discipline and
               mutual respect. Their public sessions remain open to anyone serious
               about practice, so message ahead to confirm current times and location.
             </p>

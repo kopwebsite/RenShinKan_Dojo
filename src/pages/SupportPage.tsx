@@ -519,10 +519,10 @@ export function SupportPage() {
             Like what we do? Want to support aikido in Chiang Mai?
           </h2>
           <p className="section-copy">
-            You don't have to train here to support the dojo. If you believe
-            in what aikido builds, the calm under pressure, the respect and
-            cooperative learning it creates, a one-off donation is a direct
-            way to keep it going.
+            You do not have to train here to support the dojo. If you believe
+            in what aikido builds, a one-off donation is a direct way to keep
+            it going. Aikido creates calm under pressure, mutual respect, and
+            cooperative learning.
             Every baht goes towards workshops, events, equipment, and keeping
             the dojo accessible to students who need flexibility.
           </p>

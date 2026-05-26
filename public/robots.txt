@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+
+Sitemap: https://crappytaco.github.io/RenShinKan_Dojo/sitemap.xml

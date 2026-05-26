@@ -1,17 +1,16 @@
 import {
   ArrowUpRight,
   CalendarDays,
-  ChevronLeft,
-  ChevronRight,
   GraduationCap,
   HeartHandshake,
   MapPin,
   ShieldCheck,
   UsersRound,
 } from "lucide-react";
-import { useState } from "react";
 import { Link } from "react-router-dom";
+import { MediaSlider } from "../components/MediaSlider";
 import { MotionSection } from "../components/MotionSection";
+import { historyMedia } from "../data/editableContent";
 import {
   cmuAikidoClub,
   communityValues,
@@ -24,172 +23,26 @@ import { assetPath } from "../utils/assetPath";
 const upcomingEvents = [
   {
     title: "Community Practice Day",
-    date: "Date to be announced",
+    date: "Posted through dojo updates",
     description:
       "An open training session welcoming students from RenshinKan, AikidoCMU, and other connected dojos.",
   },
   {
     title: "Peace Culture Workshop",
-    date: "Date to be announced",
+    date: "Posted through dojo updates",
     description:
       "A foundation-connected workshop on peace education, safety, and community-building through aikido.",
   },
   {
     title: "Dojo Gathering",
-    date: "Date to be announced",
+    date: "Posted through dojo updates",
     description:
-      "A student gathering with a shared meal, open mat, or volunteer day. Details to be confirmed.",
-  },
-];
-
-const pastEventImages = [
-  {
-    title: "Stage Demonstration",
-    image: assetPath("/past-events/aikido_demonstration_stage_action_01.jpg"),
-    alt: "Aikido practitioners demonstrating a technique on a public stage.",
-    caption: "Public demonstration showing movement, timing, and partner care.",
-  },
-  {
-    title: "Teacher And Children",
-    image: assetPath("/past-events/aikido_demonstration_stage_teacher_children_01.jpg"),
-    alt: "An aikido teacher guiding children during a stage demonstration.",
-    caption: "Young students participate with clear guidance and structure.",
-  },
-  {
-    title: "Large Group Photo",
-    image: assetPath("/past-events/aikido_event_large_group_stage_01.jpg"),
-    alt: "Large aikido group photo taken on a public stage.",
-    caption: "A group photo from a past demonstration and community event.",
-  },
-  {
-    title: "Dojo Cleanup Day",
-    image: assetPath("/past-events/cleanupday.jpg"),
-    alt: "Members gathered for a dojo cleanup day.",
-    caption: "Taking care of our training space together.",
-  },
-  {
-    title: "Training at Old CMU Center",
-    image: assetPath("/past-events/training at old cmu center.jpg"),
-    alt: "Aikido training at the old CMU center.",
-    caption: "Early training days at the original CMU location.",
-  },
-  {
-    title: "Community Gathering",
-    image: assetPath("/past-events/31497048_1964429786962579_8682679123652378624_n.jpg"),
-    alt: "RenShinKan community gathering.",
-    caption: "Members of the dojo gathered together.",
-  },
-  {
-    title: "Dojo Moment",
-    image: assetPath("/past-events/31530725_1964429800295911_5466054313245671424_n.jpg"),
-    alt: "A moment captured at RenShinKan Dojo.",
-    caption: "Shared practice and community at RenShinKan.",
-  },
-  {
-    title: "Dojo History",
-    image: assetPath("/past-events/462808445_27186003534378523_1642452659223418147_n.jpg"),
-    alt: "A historical moment at RenShinKan Dojo.",
-    caption: "Part of our ongoing dojo story.",
-  },
-  {
-    title: "Practice Together",
-    image: assetPath("/past-events/463076295_27210059788639564_4349229188603476959_n.jpg"),
-    alt: "Aikido practitioners training together.",
-    caption: "Training builds connection between students.",
-  },
-  {
-    title: "Dojo Life",
-    image: assetPath("/past-events/463461849_27241625125483030_5569220490731885080_n.jpg"),
-    alt: "Life at RenShinKan Dojo.",
-    caption: "Everyday moments from the dojo.",
-  },
-  {
-    title: "On The Mat",
-    image: assetPath("/past-events/463483607_27256028940709315_3238413136091319781_n.jpg"),
-    alt: "Students on the mat at RenShinKan.",
-    caption: "The mat is where practice becomes understanding.",
-  },
-  {
-    title: "Community Practice",
-    image: assetPath("/past-events/463872355_27264339496544926_6495392107844493594_n.jpg"),
-    alt: "Community aikido practice at RenShinKan.",
-    caption: "Aikido shared with the community.",
-  },
-  {
-    title: "Dojo Gathering",
-    image: assetPath("/past-events/464332466_27334442446201297_3579052760884406485_n.jpg"),
-    alt: "Members gathered at the dojo.",
-    caption: "A gathering of students and friends.",
-  },
-  {
-    title: "Training Session",
-    image: assetPath("/past-events/509413133_30106465548998959_7301153235771637545_n.jpg"),
-    alt: "A training session at RenShinKan Dojo.",
-    caption: "Regular practice keeps the spirit alive.",
-  },
-  {
-    title: "Dojo Moment",
-    image: assetPath("/past-events/511949935_30158867373758776_9171541378070610724_n.jpg"),
-    alt: "A moment from dojo life.",
-    caption: "Every class brings new understanding.",
-  },
-  {
-    title: "Students Training",
-    image: assetPath("/past-events/512441655_30158870777091769_1177013419267375358_n.jpg"),
-    alt: "Students training at RenShinKan.",
-    caption: "Dedication shown through consistent practice.",
-  },
-  {
-    title: "Group Practice",
-    image: assetPath("/past-events/513243684_30192571793721667_1245574704555913467_n.jpg"),
-    alt: "Group practice at the dojo.",
-    caption: "Training together strengthens the community.",
-  },
-  {
-    title: "Dojo Community",
-    image: assetPath("/past-events/514375456_30229010516744461_8578624454192314352_n.jpg"),
-    alt: "The RenShinKan dojo community.",
-    caption: "Our community continues to grow.",
-  },
-  {
-    title: "Shared Practice",
-    image: assetPath("/past-events/589121863_1633183308034846_2031634163046550276_n.jpg"),
-    alt: "Shared aikido practice at RenShinKan.",
-    caption: "Aikido is a practice shared with others.",
-  },
-  {
-    title: "Early Days",
-    image: assetPath("/past-events/87285843_3576758575729684_6403029092752424960_n.jpg"),
-    alt: "An early gathering at RenShinKan.",
-    caption: "Looking back at where we started.",
-  },
-  {
-    title: "Dojo Roots",
-    image: assetPath("/past-events/87486499_3576758775729664_6872977112836341760_n.jpg"),
-    alt: "Early days at RenShinKan Dojo.",
-    caption: "The foundations that shaped our dojo.",
+      "A student gathering with a shared meal, open mat, or volunteer day. Confirmed details are shared in the dojo updates.",
   },
 ];
 
 export function CommunityPage() {
   const [cmuHeroPhoto, ...cmuGalleryPhotos] = cmuAikidoClub.photos;
-  const [pastEventIndex, setPastEventIndex] = useState(0);
-  const [thumbnailPage, setThumbnailPage] = useState(0);
-  const activePastEvent = pastEventImages[pastEventIndex];
-  const THUMBS_PER_PAGE = 6;
-  const totalThumbnailPages = Math.ceil(pastEventImages.length / THUMBS_PER_PAGE);
-  const visibleThumbnails = pastEventImages.slice(
-    thumbnailPage * THUMBS_PER_PAGE,
-    (thumbnailPage + 1) * THUMBS_PER_PAGE,
-  );
-
-  const showPreviousPastEvent = () => {
-    setPastEventIndex((i) => (i === 0 ? pastEventImages.length - 1 : i - 1));
-  };
-
-  const showNextPastEvent = () => {
-    setPastEventIndex((i) => (i === pastEventImages.length - 1 ? 0 : i + 1));
-  };
 
   return (
     <>
@@ -283,93 +136,7 @@ export function CommunityPage() {
           </p>
         </div>
 
-        {/* Featured photo — full width with overlaid controls */}
-        <figure className="relative overflow-hidden rounded-[2rem]">
-          <div className="relative min-h-[22rem] bg-ink sm:aspect-video sm:min-h-0">
-            <img
-              key={activePastEvent.image}
-              src={activePastEvent.image}
-              alt={activePastEvent.alt}
-              className="absolute inset-0 h-full w-full object-cover transition-opacity duration-300"
-              loading="lazy"
-            />
-            {/* Prev / Next overlaid */}
-            <button
-              type="button"
-              onClick={showPreviousPastEvent}
-              aria-label="Previous photo"
-              className="absolute left-4 top-1/2 z-10 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-ink/60 text-paper shadow-lg transition hover:bg-ink"
-            >
-              <ChevronLeft size={22} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={showNextPastEvent}
-              aria-label="Next photo"
-              className="absolute right-4 top-1/2 z-10 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-ink/60 text-paper shadow-lg transition hover:bg-ink"
-            >
-              <ChevronRight size={22} aria-hidden="true" />
-            </button>
-          </div>
-        </figure>
-
-        {/* Thumbnail strip */}
-        <div className="mt-4 flex items-stretch gap-2">
-          <div className="flex items-center">
-            <button
-              type="button"
-              onClick={() => setThumbnailPage((p) => Math.max(0, p - 1))}
-              aria-label="Previous thumbnails"
-              className={`flex h-10 w-10 items-center justify-center rounded-full border border-ink/10 bg-paper/65 transition hover:bg-paper/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo ${
-                thumbnailPage === 0 ? "invisible" : ""
-              }`}
-            >
-              <ChevronLeft size={18} aria-hidden="true" />
-            </button>
-          </div>
-
-          <div className="flex-1 grid grid-cols-6 gap-2">
-            {visibleThumbnails.map((event) => {
-              const globalIndex = pastEventImages.indexOf(event);
-              const isActive = globalIndex === pastEventIndex;
-              return (
-                <button
-                  key={event.image}
-                  type="button"
-                  onClick={() => setPastEventIndex(globalIndex)}
-                  aria-label={`View: ${event.title}`}
-                  aria-current={isActive ? "true" : undefined}
-                  className={`relative overflow-hidden rounded-xl transition duration-200 ${
-                    isActive
-                      ? "ring-2 ring-vermilion ring-offset-2"
-                      : "opacity-55 hover:opacity-100"
-                  }`}
-                >
-                  <img
-                    src={event.image}
-                    alt=""
-                    aria-hidden="true"
-                    className="aspect-square w-full object-cover"
-                    loading="lazy"
-                  />
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center">
-            <button
-              type="button"
-              onClick={() => setThumbnailPage((p) => Math.min(totalThumbnailPages - 1, p + 1))}
-              aria-label="Next thumbnails"
-              className={`flex h-10 w-10 items-center justify-center rounded-full border border-ink/10 bg-paper/65 transition hover:bg-paper/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo ${
-                thumbnailPage === totalThumbnailPages - 1 ? "invisible" : ""
-              }`}
-            >
-              <ChevronRight size={18} aria-hidden="true" />
-            </button>
-          </div>
-        </div>
+        <MediaSlider media={historyMedia} label="A Look at Our History media" />
       </MotionSection>
 
       {/* Peace Culture Foundation */}

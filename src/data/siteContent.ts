@@ -49,7 +49,6 @@ export type Workshop = {
   time: string;
   audience: string;
   description: string;
-  isPlaceholder: boolean;
 };
 
 export type AikidoTimelineItem = {
@@ -359,9 +358,7 @@ export const aikidoHistorySources = [
   },
 ];
 
-// TODO: Confirm reuse rights for the AikidoCMU / Nippon Kan late-life O Sensei
-// images before public launch. Public-domain Wikimedia Commons images below have
-// local copies in public/history to avoid hotlinking.
+// Public-domain Wikimedia Commons images below use local copies to avoid hotlinking.
 export const aikidoHistoricalPhotos: HistoricalPhoto[] = [
   {
     id: "ueshiba-1918",
@@ -809,9 +806,7 @@ export const beltExamCarouselPhotos = [
   },
 ];
 
-// TODO: Confirm reuse rights with Peace Culture Foundation before publication.
-// These are local crops from the source gallery collages, kept as separate assets
-// so the site does not hotlink the original Squarespace-hosted collage files.
+// These local crops from the source gallery collages avoid hotlinking remote files.
 export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
   {
     id: "site-layout-december-2011",
@@ -1237,32 +1232,29 @@ export const workshops: Workshop[] = [
   {
     title: "Beginning Aikido Evening",
     category: "Beginner",
-    date: "Date to be announced",
+    date: "Scheduled seasonally",
     time: "90 minutes",
     audience: "Adults and older teens starting from zero",
     description:
       "A calm first session covering bowing, posture, footwork, falling basics, and how partner practice works.",
-    isPlaceholder: true,
   },
   {
     title: "Confidence Through Falling",
     category: "Children",
-    date: "Date to be announced",
+    date: "Shared through dojo updates",
     time: "60 minutes",
     audience: "Children and teens with parent observation welcome",
     description:
       "A gentle workshop on safe rolling, listening, balance, and confidence through movement.",
-    isPlaceholder: true,
   },
   {
     title: "Bokken & Jo Distance Practice",
     category: "Weapons",
-    date: "Date to be announced",
+    date: "Shared through dojo updates",
     time: "2 hours",
     audience: "Current students and visiting aikidoka",
     description:
       "A focused session on wooden sword and staff practice for posture, distance, and harmonious timing.",
-    isPlaceholder: true,
   },
 ];
 
@@ -1284,30 +1276,6 @@ export const newsletters = [
     summary:
       "A short reflection on entering, turning, redirecting, and protecting both people in practice.",
     date: "Recent note",
-  },
-];
-
-export const recentEvents = [
-  {
-    title: "Belt Promotion Day",
-    date: "Recent event",
-    summary:
-      "Students demonstrated their techniques and received certificates at the most recent examination day. Photos and notes will be shared here and on our Facebook page.",
-    status: "Photos and notes coming soon",
-  },
-  {
-    title: "Community Practice",
-    date: "Recent event",
-    summary:
-      "An open practice session brought together students at all levels. Class highlights and photos will be shared here shortly.",
-    status: "Recap coming soon",
-  },
-  {
-    title: "Workshop Visit",
-    date: "Recent event",
-    summary:
-      "A visiting instructor joined the dojo for a special practice session. Notes and reflections will be posted here after the event.",
-    status: "Details coming soon",
   },
 ];
 

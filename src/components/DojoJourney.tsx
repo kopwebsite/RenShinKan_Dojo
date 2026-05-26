@@ -1,10 +1,14 @@
 import { ExternalLink } from "lucide-react";
-import { renshinkanBuildPhotos } from "../data/siteContent";
+import { renshinkanBuildPhotos, type DojoBuildPhoto } from "../data/siteContent";
 
-export function DojoJourney() {
+type DojoJourneyProps = {
+  photos?: DojoBuildPhoto[];
+};
+
+export function DojoJourney({ photos = renshinkanBuildPhotos }: DojoJourneyProps) {
   return (
     <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-      {renshinkanBuildPhotos.map((photo, index) => (
+      {photos.map((photo, index) => (
         <figure
           key={photo.id}
           className={`surface card-hover overflow-hidden rounded-[2rem] ${

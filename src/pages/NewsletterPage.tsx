@@ -1,12 +1,23 @@
-import { useState } from "react";
-import { FacebookTimelineEmbed } from "../components/FacebookTimelineEmbed";
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
+import { MediaSlider } from "../components/MediaSlider";
 import { NewsletterSignup } from "../components/NewsletterSignup";
 import { MotionSection } from "../components/MotionSection";
-import { newsletters, recentEvents } from "../data/siteContent";
+import { dojoUpdates } from "../data/editableContent";
+import { newsletters } from "../data/siteContent";
 
 export function NewsletterPage() {
+  const location = useLocation();
   const [activeEventIndex, setActiveEventIndex] = useState(0);
-  const activeEvent = recentEvents[activeEventIndex];
+  const activeEvent = dojoUpdates[activeEventIndex];
+
+  useEffect(() => {
+    const slug = location.hash.replace("#", "");
+    const index = dojoUpdates.findIndex((update) => update.slug === slug);
+    if (index >= 0) {
+      setActiveEventIndex(index);
+    }
+  }, [location.hash]);
 
   return (
     <>
@@ -31,26 +42,27 @@ export function NewsletterPage() {
           </p>
         </div>
 
-        {/* Featured event */}
-        <article className="surface rounded-[2rem] p-8 sm:p-10">
-          <div className="flex flex-wrap items-center gap-3">
-            <p className="text-sm font-bold text-bamboo">{activeEvent.date}</p>
-            <span className="rounded-full border border-ink/10 bg-paper/70 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-charcoal/60">
-              {activeEvent.status}
-            </span>
+        <article id={activeEvent.slug} className="surface rounded-[2rem] p-6 sm:p-8">
+          <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
+            <div>
+              <p className="text-sm font-bold text-bamboo">{activeEvent.date}</p>
+              <h3 className="mt-5 text-4xl leading-tight text-ink sm:text-5xl">{activeEvent.subject}</h3>
+              <p className="mt-5 max-w-3xl text-base leading-7 text-charcoal/75">{activeEvent.summary}</p>
+              <p className="mt-5 max-w-3xl whitespace-pre-line text-sm leading-7 text-charcoal/78">
+                {activeEvent.body}
+              </p>
+            </div>
+            <MediaSlider media={activeEvent.media} label={`${activeEvent.subject} media`} />
           </div>
-          <h3 className="mt-5 text-4xl leading-tight text-ink sm:text-5xl">{activeEvent.title}</h3>
-          <p className="mt-5 max-w-3xl text-base leading-7 text-charcoal/75">{activeEvent.summary}</p>
         </article>
 
-        {/* Mini title cards */}
-        {recentEvents.length > 1 && (
+        {dojoUpdates.length > 1 && (
           <div className="mt-4 grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {recentEvents.map((event, index) => {
+            {dojoUpdates.map((event, index) => {
               const isActive = index === activeEventIndex;
               return (
                 <button
-                  key={event.title}
+                  key={event.id}
                   type="button"
                   onClick={() => setActiveEventIndex(index)}
                   className={`rounded-[1.5rem] border p-5 text-left transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo ${
@@ -61,17 +73,13 @@ export function NewsletterPage() {
                 >
                   <p className="text-xs font-bold uppercase tracking-[0.14em] text-bamboo">{event.date}</p>
                   <p className={`mt-2 text-base font-medium leading-snug ${isActive ? "text-bamboo" : "text-ink"}`}>
-                    {event.title}
+                    {event.subject}
                   </p>
                 </button>
               );
             })}
           </div>
         )}
-      </MotionSection>
-
-      <MotionSection className="container-shell pb-20">
-        <FacebookTimelineEmbed />
       </MotionSection>
 
       <MotionSection className="container-shell pb-20">

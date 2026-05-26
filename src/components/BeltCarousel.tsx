@@ -1,32 +1,28 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
-import { assetPath } from "../utils/assetPath";
+import { passedTestStudents, type PassedTestStudent } from "../data/editableContent";
 
-const photos = [
-  assetPath("/renshinkan-gallery/belt-graduation/belt_graduation_large_class_group_01.jpg"),
-  assetPath("/renshinkan-gallery/belt-graduation/belt_graduation_large_class_group_02.jpg"),
-  assetPath("/renshinkan-gallery/belt-graduation/belt_graduation_certificate_mixed_group_01.jpg"),
-  assetPath("/renshinkan-gallery/belt-graduation/belt_graduation_certificate_mixed_group_02.jpg"),
-  assetPath("/renshinkan-gallery/belt-graduation/belt_graduation_certificate_mixed_group_03.jpg"),
-  assetPath("/renshinkan-gallery/belt-graduation/belt_graduation_certificate_three_students_01.jpg"),
-  assetPath("/renshinkan-gallery/belt-graduation/belt_graduation_certificate_two_students_01.jpg"),
-  assetPath("/renshinkan-gallery/belt-graduation/belt_graduation_certificate_two_students_02.jpg"),
-  assetPath("/renshinkan-gallery/belt-graduation/belt_graduation_certificate_two_students_03.jpg"),
-  assetPath("/renshinkan-gallery/belt-graduation/belt_graduation_certificate_two_students_04.jpg"),
-];
+type BeltCarouselProps = {
+  students?: PassedTestStudent[];
+};
 
-export function BeltCarousel() {
+export function BeltCarousel({ students = passedTestStudents }: BeltCarouselProps) {
   const [active, setActive] = useState(0);
-  const n = photos.length;
+  const n = students.length;
   const prevIdx = (active - 1 + n) % n;
   const nextIdx = (active + 1) % n;
+  const activeStudent = students[active];
+
+  if (students.length === 0) {
+    return null;
+  }
 
   return (
     <div className="relative select-none">
       {/* Three-up image row */}
       <div className="flex items-center justify-center gap-3 overflow-hidden py-4 sm:gap-5">
 
-        {/* Left — small + blurry */}
+        {/* Left image */}
         <button
           type="button"
           onClick={() => setActive(prevIdx)}
@@ -35,25 +31,27 @@ export function BeltCarousel() {
           style={{ filter: "blur(3px)" }}
         >
           <img
-            src={photos[prevIdx]}
+            src={students[prevIdx].image}
             alt=""
             aria-hidden="true"
             className="h-full w-full object-cover"
+            style={{ objectPosition: students[prevIdx].objectPosition || "center" }}
             loading="lazy"
           />
         </button>
 
-        {/* Center — clear + large */}
+        {/* Center image */}
         <div className="relative aspect-[4/3] w-full max-w-xl shrink-0 overflow-hidden rounded-[1.75rem] shadow-xl ring-1 ring-bamboo/25">
           <img
             key={active}
-            src={photos[active]}
-            alt={`Belt exam graduation photo ${active + 1} of ${n}`}
+            src={activeStudent.image}
+            alt={activeStudent.caption || activeStudent.name || `Belt exam graduation photo ${active + 1} of ${n}`}
             className="h-full w-full object-cover"
+            style={{ objectPosition: activeStudent.objectPosition || "center" }}
           />
         </div>
 
-        {/* Right — small + blurry */}
+        {/* Right image */}
         <button
           type="button"
           onClick={() => setActive(nextIdx)}
@@ -62,10 +60,11 @@ export function BeltCarousel() {
           style={{ filter: "blur(3px)" }}
         >
           <img
-            src={photos[nextIdx]}
+            src={students[nextIdx].image}
             alt=""
             aria-hidden="true"
             className="h-full w-full object-cover"
+            style={{ objectPosition: students[nextIdx].objectPosition || "center" }}
             loading="lazy"
           />
         </button>
@@ -93,9 +92,9 @@ export function BeltCarousel() {
 
       {/* Dot indicators */}
       <div className="mt-4 flex justify-center gap-1.5">
-        {photos.map((_, i) => (
+        {students.map((student, i) => (
           <button
-            key={i}
+            key={student.id}
             type="button"
             onClick={() => setActive(i)}
             aria-label={`Go to photo ${i + 1}`}
@@ -104,6 +103,11 @@ export function BeltCarousel() {
             }`}
           />
         ))}
+      </div>
+      <div className="mx-auto mt-5 max-w-2xl text-center">
+        {activeStudent.name ? <h4 className="text-2xl text-ink">{activeStudent.name}</h4> : null}
+        {activeStudent.caption ? <p className="mt-2 text-sm text-charcoal/72">{activeStudent.caption}</p> : null}
+        {activeStudent.date ? <p className="mt-2 text-xs font-bold uppercase tracking-[0.14em] text-bamboo">{activeStudent.date}</p> : null}
       </div>
     </div>
   );

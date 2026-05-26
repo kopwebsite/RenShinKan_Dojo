@@ -7,30 +7,27 @@ import { DojoJourney } from "../components/DojoJourney";
 import { FacilityGrid } from "../components/FacilityGrid";
 import { InstructorGrid } from "../components/InstructorGrid";
 import { LocationCard } from "../components/LocationCard";
+import { MediaSlider } from "../components/MediaSlider";
 import { MotionSection } from "../components/MotionSection";
-import { dojoJourney, dojoPhotos, recentEvents, siteInfo } from "../data/siteContent";
+import { getRecentDojoUpdates, onTheMatMedia } from "../data/editableContent";
+import { renshinkanBuildPhotos, dojoPhotos, siteInfo } from "../data/siteContent";
 import { assetPath } from "../utils/assetPath";
 
 export function DojoPage() {
+  const recentUpdates = getRecentDojoUpdates(3);
   const [activeSpacePhotoIndex, setActiveSpacePhotoIndex] = useState(0);
   const activeSpacePhoto = dojoPhotos[activeSpacePhotoIndex];
   const spacePhotoOptions = dojoPhotos.filter((_, index) => index !== activeSpacePhotoIndex);
-  const [activeMatPhotoIndex, setActiveMatPhotoIndex] = useState(0);
-  const activeMatPhoto = dojoJourney[activeMatPhotoIndex];
-  const [matGalleryPage, setMatGalleryPage] = useState(0);
-  const MAT_PER_PAGE = 6;
-  const totalMatPages = Math.ceil(dojoJourney.length / MAT_PER_PAGE);
-  const visibleMatPhotos = dojoJourney.slice(matGalleryPage * MAT_PER_PAGE, (matGalleryPage + 1) * MAT_PER_PAGE);
   const shouldReduceMotion = useReducedMotion();
   const [recentEventIndex, setRecentEventIndex] = useState(0);
 
   useEffect(() => {
     if (shouldReduceMotion) return;
     const timer = setInterval(() => {
-      setRecentEventIndex((i) => (i + 1) % recentEvents.length);
+      setRecentEventIndex((i) => (i + 1) % recentUpdates.length);
     }, 4000);
     return () => clearInterval(timer);
-  }, [shouldReduceMotion]);
+  }, [recentUpdates.length, shouldReduceMotion]);
 
   const galleryImageMotion = shouldReduceMotion
     ? {
@@ -79,7 +76,8 @@ export function DojoPage() {
               RenShinKan Dojo
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-charcoal/80 sm:text-lg sm:leading-8">
-              Aikido in Chiang Mai
+              Traditional aikido and martial arts training in Hang Dong, Chiang Mai.
+              Beginner friendly classes, children welcome, and visiting aikidoka invited.
             </p>
             <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link to="/classes" className="btn-primary">
@@ -97,15 +95,15 @@ export function DojoPage() {
 
       <MotionSection className="container-shell py-16">
         <div className="rounded-[2rem] bg-paper/75 p-6 shadow-line ring-1 ring-ink/10 sm:p-10 lg:p-12">
-          <div className="grid gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
+          <div className="grid gap-10 lg:grid-cols-[0.72fr_1.28fr] lg:items-start">
             <div>
               <p className="eyebrow">Recent Events</p>
               <h2 className="mt-3 text-3xl leading-tight text-ink sm:text-4xl">
-                Recent dojo moments, gathered in one place.
+                Recent dojo updates, gathered in one place.
               </h2>
               <p className="mt-4 text-charcoal/78">
-                Catch up on promotion days, community practice, visiting workshop
-                notes, and other updates from RenshinKan.
+                The three newest updates from training days, examinations,
+                seminars, and community moments at RenshinKan.
               </p>
               <Link to="/newsletter#recent-events" className="btn-secondary mt-6">
                 Read More
@@ -113,7 +111,7 @@ export function DojoPage() {
               </Link>
             </div>
             <div>
-              <div className="relative overflow-hidden rounded-[1.75rem] border border-ink/10 bg-paper/65 p-7 sm:p-10 min-h-[16rem]">
+              <div className="relative overflow-hidden rounded-[1.75rem] border border-ink/10 bg-paper/65">
                 <AnimatePresence mode="wait" initial={false}>
                   <motion.div
                     key={recentEventIndex}
@@ -121,25 +119,38 @@ export function DojoPage() {
                     animate={{ opacity: 1, x: 0 }}
                     exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: -20 }}
                     transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+                    className="grid gap-0 lg:grid-cols-[0.86fr_1fr]"
                   >
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-bamboo">
-                      {recentEvents[recentEventIndex].date}
-                    </p>
-                    <h3 className="mt-4 text-3xl leading-tight text-ink sm:text-4xl">
-                      {recentEvents[recentEventIndex].title}
-                    </h3>
-                    <p className="mt-4 text-sm leading-7 text-charcoal/75">
-                      {recentEvents[recentEventIndex].summary}
-                    </p>
-                    <p className="mt-5 text-sm font-bold text-vermilion">
-                      {recentEvents[recentEventIndex].status}
-                    </p>
+                    <img
+                      src={recentUpdates[recentEventIndex].mainImage}
+                      alt={`${recentUpdates[recentEventIndex].subject} at RenshinKan Dojo.`}
+                      className="aspect-[4/3] h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                    <div className="p-7 sm:p-9">
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-bamboo">
+                        {recentUpdates[recentEventIndex].date}
+                      </p>
+                      <h3 className="mt-4 text-3xl leading-tight text-ink sm:text-4xl">
+                        {recentUpdates[recentEventIndex].subject}
+                      </h3>
+                      <p className="mt-4 text-sm leading-7 text-charcoal/75">
+                        {recentUpdates[recentEventIndex].summary}
+                      </p>
+                      <Link
+                        to={`/newsletter#${recentUpdates[recentEventIndex].slug}`}
+                        className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-vermilion transition hover:text-ink"
+                      >
+                        View update
+                        <ArrowRight size={15} aria-hidden="true" />
+                      </Link>
+                    </div>
                   </motion.div>
                 </AnimatePresence>
               </div>
               <div className="mt-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  {recentEvents.map((_, i) => (
+                  {recentUpdates.map((_, i) => (
                     <button
                       key={i}
                       type="button"
@@ -154,7 +165,7 @@ export function DojoPage() {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => setRecentEventIndex((i) => (i === 0 ? recentEvents.length - 1 : i - 1))}
+                    onClick={() => setRecentEventIndex((i) => (i === 0 ? recentUpdates.length - 1 : i - 1))}
                     className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/10 bg-paper/65 transition hover:bg-paper/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo"
                     aria-label="Previous event"
                   >
@@ -162,7 +173,7 @@ export function DojoPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setRecentEventIndex((i) => (i + 1) % recentEvents.length)}
+                    onClick={() => setRecentEventIndex((i) => (i + 1) % recentUpdates.length)}
                     className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/10 bg-paper/65 transition hover:bg-paper/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo"
                     aria-label="Next event"
                   >
@@ -269,72 +280,15 @@ export function DojoPage() {
           </div>
         </div>
 
-        <p className="mb-5 text-xs font-bold uppercase tracking-[0.16em] text-charcoal/55">
-          On the Mat
-        </p>
-        <div className="grid gap-5">
-          <figure className="relative aspect-[16/9] overflow-hidden rounded-[1.75rem] bg-paper/70 shadow-line ring-1 ring-ink/10">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.img
-                key={activeMatPhoto.imageSrc}
-                src={activeMatPhoto.imageSrc}
-                alt={activeMatPhoto.alt}
-                className="absolute inset-0 h-full w-full object-cover"
-                loading="lazy"
-                {...galleryImageMotion}
-              />
-            </AnimatePresence>
-          </figure>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setMatGalleryPage((p) => Math.max(0, p - 1))}
-              disabled={matGalleryPage === 0}
-              aria-label="Previous photos"
-              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-ink/10 bg-paper/65 transition hover:bg-paper/90 disabled:opacity-25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo"
-            >
-              <ChevronLeft size={18} aria-hidden="true" />
-            </button>
-
-            <div className="flex-1 grid grid-cols-3 gap-4 sm:grid-cols-6">
-              {visibleMatPhotos.map((photo) => {
-                const globalIndex = dojoJourney.indexOf(photo);
-                return (
-                  <button
-                    key={photo.imageSrc}
-                    type="button"
-                    onClick={() => setActiveMatPhotoIndex(globalIndex)}
-                    className={`overflow-hidden rounded-[1.1rem] bg-paper/65 text-left shadow-line ring-1 transition hover:-translate-y-0.5 hover:shadow-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo ${
-                      globalIndex === activeMatPhotoIndex
-                        ? "ring-bamboo"
-                        : "ring-ink/10 hover:ring-ink/20"
-                    }`}
-                    aria-label={`Show ${photo.title}`}
-                    aria-current={globalIndex === activeMatPhotoIndex}
-                  >
-                    <img
-                      src={photo.imageSrc}
-                      alt={photo.alt}
-                      className="aspect-[4/3] w-full object-cover"
-                      loading="lazy"
-                    />
-                  </button>
-                );
-              })}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setMatGalleryPage((p) => Math.min(totalMatPages - 1, p + 1))}
-              disabled={matGalleryPage === totalMatPages - 1}
-              aria-label="Next photos"
-              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-ink/10 bg-paper/65 transition hover:bg-paper/90 disabled:opacity-25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo"
-            >
-              <ChevronRight size={18} aria-hidden="true" />
-            </button>
-          </div>
+        <div className="mb-5">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-charcoal/55">
+            On the Mat
+          </p>
+          <p className="mt-2 max-w-2xl text-sm text-charcoal/70">
+            Current class photos, techniques, seminars, and practice moments.
+          </p>
         </div>
+        <MediaSlider media={onTheMatMedia} label="On the Mat gallery" />
       </MotionSection>
 
       <MotionSection id="dojo-history" className="container-shell scroll-mt-28 pb-20">
@@ -358,7 +312,7 @@ export function DojoPage() {
             <ExternalLink size={17} aria-hidden="true" />
           </a>
         </div>
-        <DojoJourney />
+        <DojoJourney photos={renshinkanBuildPhotos} />
       </MotionSection>
 
       <MotionSection id="location" className="container-shell scroll-mt-28 pb-20">

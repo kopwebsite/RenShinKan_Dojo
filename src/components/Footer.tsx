@@ -9,7 +9,7 @@ export function Footer() {
         <div>
           <p className="eyebrow text-mist/75">RenshinKan Dojo</p>
           <h2 className="mt-3 max-w-md text-4xl leading-tight">
-            Calm strength, respectful practice, community care.
+            Aikido and martial arts training in Hang Dong, Chiang Mai.
           </h2>
           <a
             href={googleMapsUrl}
@@ -48,7 +48,7 @@ export function Footer() {
             Receive class notes, first-visit guidance, and workshop announcements.
           </p>
           <Link to="/newsletter" className="btn-secondary mt-5 border-paper/20 bg-paper/10 text-paper hover:text-paper">
-            Newsletter Signup
+            Dojo Updates
           </Link>
           <div className="mt-7 flex flex-wrap gap-3">
             {socialLinks.map((link) => (

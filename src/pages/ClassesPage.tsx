@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { BeltCarousel } from "../components/BeltCarousel";
 import { FAQAccordion } from "../components/FAQAccordion";
 import { MotionSection } from "../components/MotionSection";
+import { examAnnouncement, passedTestStudents } from "../data/editableContent";
 import { assetPath } from "../utils/assetPath";
 
 function ObiIcon({ size = 32 }: { size?: number }) {
@@ -154,7 +155,7 @@ export function ClassesPage() {
           </div>
           <p className="eyebrow mt-7">Belt Exams</p>
           <h2 className="section-title">
-            Next examination date to be announced.
+            {examAnnouncement.text}
           </h2>
           <p className="section-copy max-w-3xl">
             Belt examinations follow the All Dojo Chiang Mai standard under
@@ -174,7 +175,7 @@ export function ClassesPage() {
         <div className="mt-14">
           <p className="eyebrow mb-2">Graduation Moments</p>
           <h3 className="section-title mb-8">Students who've passed the test.</h3>
-          <BeltCarousel />
+          <BeltCarousel students={passedTestStudents} />
         </div>
       </MotionSection>
 

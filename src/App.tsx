@@ -3,7 +3,9 @@ import { FloatingFirstVisit } from "./components/FloatingFirstVisit";
 import { Footer } from "./components/Footer";
 import { Navbar } from "./components/Navbar";
 import { ScrollToTop } from "./components/ScrollToTop";
+import { Seo } from "./components/Seo";
 import { AikidoPage } from "./pages/AikidoPage";
+import { AdminPage } from "./pages/AdminPage";
 import { ClassesPage } from "./pages/ClassesPage";
 import { CommunityPage } from "./pages/CommunityPage";
 import { ContactPage } from "./pages/ContactPage";
@@ -22,6 +24,7 @@ export default function App() {
         Skip to content
       </a>
       <ScrollToTop />
+      <Seo />
       <Navbar currentPath={`${location.pathname}${location.hash}`} />
       <main id="main-content" tabIndex={-1}>
         <Routes>
@@ -36,6 +39,7 @@ export default function App() {
           <Route path="/support" element={<SupportPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/visit" element={<ContactPage />} />
+          <Route path="/admin" element={<AdminPage />} />
         </Routes>
       </main>
       <FloatingFirstVisit />

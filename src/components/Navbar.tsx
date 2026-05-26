@@ -1,18 +1,9 @@
-﻿import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { siteInfo } from "../data/siteContent";
 import { BrushCircleLogo } from "./BrushCircleLogo";
 import styles from "./Navbar.module.css";
-
-type Language = "en" | "th" | "zh" | "ja";
-
-const languageOptions: Record<Language, { label: string; imgSrc: string; code: string }> = {
-  en: { label: "English",  imgSrc: "https://flagcdn.com/w40/gb.png",  code: "EN" },
-  th: { label: "ภาษาไทย", imgSrc: "https://flagcdn.com/w40/th.png",  code: "TH" },
-  zh: { label: "中文",     imgSrc: "https://flagcdn.com/w40/cn.png",  code: "ZH" },
-  ja: { label: "日本語",   imgSrc: "https://flagcdn.com/w40/jp.png",  code: "JA" },
-};
 
 type DropdownLink = {
   label: string;
@@ -36,8 +27,6 @@ type NavItem = DropdownNavItem | PlainNavItem;
 
 type NavbarProps = {
   currentPath: string;
-  onLanguageChange?: (lang: Language) => void;
-  defaultLanguage?: Language;
 };
 
 const dropdownNavItems: DropdownNavItem[] = [
@@ -109,96 +98,6 @@ function hasDropdown(item: NavItem): item is DropdownNavItem {
   return "dropdown" in item;
 }
 
-type LanguageDropdownProps = {
-  id: string;
-  language: Language;
-  onSelect: (lang: Language) => void;
-};
-
-function LanguageDropdown({ id, language, onSelect }: LanguageDropdownProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isOpen) return undefined;
-    const handleOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleOutside);
-    return () => document.removeEventListener("mousedown", handleOutside);
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) return undefined;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIsOpen(false);
-    };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [isOpen]);
-
-  const current = languageOptions[language];
-
-  return (
-    <div ref={ref} className={styles.languageDropdown}>
-      <span id={`${id}-label`} className={styles.languageLabel}>Language</span>
-      <button
-        type="button"
-        className={styles.languageSelectShell}
-        aria-haspopup="listbox"
-        aria-expanded={isOpen}
-        aria-labelledby={`${id}-label`}
-        onClick={() => setIsOpen((v) => !v)}
-      >
-        <img src={current.imgSrc} alt="" className={styles.languageFlag} aria-hidden="true" />
-        <span className={styles.langCode}>{current.code}</span>
-        <svg
-          viewBox="0 0 20 20"
-          className={styles.languageCaret}
-          data-open={isOpen}
-          aria-hidden="true"
-        >
-          <path d="M6 8l4 4 4-4" />
-        </svg>
-      </button>
-
-      <AnimatePresence>
-        {isOpen && (
-          <motion.ul
-            role="listbox"
-            aria-labelledby={`${id}-label`}
-            className={styles.langPanel}
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.15, ease: "easeOut" }}
-          >
-            {(Object.entries(languageOptions) as Array<[Language, (typeof languageOptions)[Language]]>).map(
-              ([value, option]) => (
-                <li key={value}>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={language === value}
-                    data-active={language === value}
-                    className={styles.langOption}
-                    onClick={() => { onSelect(value); setIsOpen(false); }}
-                  >
-                    <img src={option.imgSrc} alt="" className={styles.langOptionFlag} aria-hidden="true" />
-                    <span className={styles.langOptionLabel}>{option.label}</span>
-                  </button>
-                </li>
-              )
-            )}
-          </motion.ul>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
 function normalizePath(path: string) {
   if (!path) {
     return "/";
@@ -211,10 +110,7 @@ function pathMatches(currentPath: string, target: string) {
   const [currentPathname, currentHash = ""] = normalizePath(currentPath).split("#");
   const [targetPathname, targetHash = ""] = normalizePath(target).split("#");
 
-  return (
-    currentPathname === targetPathname &&
-    (!targetHash || currentHash === targetHash)
-  );
+  return currentPathname === targetPathname && (!targetHash || currentHash === targetHash);
 }
 
 function MenuIcon() {
@@ -233,16 +129,6 @@ function CloseIcon() {
   );
 }
 
-function InstagramIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className={styles.socialSvg}>
-      <rect x="5" y="5" width="14" height="14" rx="4" />
-      <circle cx="12" cy="12" r="3.2" />
-      <path d="M16.4 7.7h.01" />
-    </svg>
-  );
-}
-
 function FacebookIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className={styles.socialSvg}>
@@ -251,13 +137,8 @@ function FacebookIcon() {
   );
 }
 
-export function Navbar({
-  currentPath,
-  onLanguageChange,
-  defaultLanguage = "en",
-}: NavbarProps) {
+export function Navbar({ currentPath }: NavbarProps) {
   const navigate = useNavigate();
-  const [language, setLanguage] = useState<Language>(defaultLanguage);
   const [isScrolled, setIsScrolled] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -266,10 +147,6 @@ export function Navbar({
   const overlayRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previouslyFocusedElementRef = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    setLanguage(defaultLanguage);
-  }, [defaultLanguage]);
 
   useEffect(() => {
     setIsMobileOpen(false);
@@ -351,11 +228,6 @@ export function Navbar({
     };
   }, []);
 
-  const setActiveLanguage = (nextLanguage: Language) => {
-    setLanguage(nextLanguage);
-    onLanguageChange?.(nextLanguage);
-  };
-
   const isNavItemActive = (item: NavItem) => {
     if (pathMatches(currentPath, item.to)) {
       return true;
@@ -391,9 +263,7 @@ export function Navbar({
 
   return (
     <>
-      <header
-        className={`${styles.header} ${isScrolled ? styles.headerScrolled : ""}`}
-      >
+      <header className={`${styles.header} ${isScrolled ? styles.headerScrolled : ""}`}>
         <div className={styles.headerInner}>
           <Link to="/" className={styles.logoLockup} aria-label="RenShinKan Dojo home">
             <BrushCircleLogo decorative className={styles.logoIcon} />
@@ -407,12 +277,7 @@ export function Navbar({
 
                 if (!hasDropdown(item)) {
                   return (
-                    <Link
-                      key={item.id}
-                      to={item.to}
-                      className={styles.navLink}
-                      data-active={isActive}
-                    >
+                    <Link key={item.id} to={item.to} className={styles.navLink} data-active={isActive}>
                       {item.label}
                     </Link>
                   );
@@ -443,7 +308,10 @@ export function Navbar({
                       aria-expanded={isOpen}
                       aria-haspopup="true"
                       aria-controls={`desktop-${item.id}-dropdown`}
-                      onClick={() => { setActiveDropdown(null); navigate(item.to); }}
+                      onClick={() => {
+                        setActiveDropdown(null);
+                        navigate(item.to);
+                      }}
                     >
                       {item.label}
                       <span className={styles.chevron} aria-hidden="true">
@@ -481,10 +349,6 @@ export function Navbar({
                 );
               })}
             </nav>
-
-            <div className={styles.desktopActions}>
-              <LanguageDropdown id="desktop-site-language" language={language} onSelect={setActiveLanguage} />
-            </div>
           </div>
 
           <button
@@ -597,21 +461,10 @@ export function Navbar({
                   </div>
                 );
               })}
-              <div className={styles.mobileLanguageGroup}>
-                <LanguageDropdown id="mobile-site-language" language={language} onSelect={setActiveLanguage} />
-              </div>
             </nav>
 
             <div className={styles.mobileBottom}>
               <div className={styles.socialRow} aria-label="Social links">
-                <a
-                  href="#instagram"
-                  className={styles.socialLink}
-                  aria-label="Instagram"
-                  onClick={(event) => event.preventDefault()}
-                >
-                  <InstagramIcon />
-                </a>
                 <a
                   href={siteInfo.facebookUrl}
                   className={styles.socialLink}

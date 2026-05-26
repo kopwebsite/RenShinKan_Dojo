@@ -2,7 +2,7 @@ import { CalendarDays, Filter } from "lucide-react";
 import { useState } from "react";
 import { workshops } from "../data/siteContent";
 
-const filterOptions = ["All", "Beginner", "Children", "Weapons", "Seminar"] as const;
+const filterOptions = ["All", "Beginner", "Children", "Weapons"] as const;
 type WorkshopFilter = (typeof filterOptions)[number];
 
 export function WorkshopCards() {
@@ -68,7 +68,7 @@ export function WorkshopCards() {
             New workshops are announced throughout the year.
           </p>
           <p className="mt-3 text-sm text-charcoal/75">
-            Subscribe for updates or message the dojo about visiting class.
+            Follow dojo updates or message the dojo about visiting class.
           </p>
         </div>
       )}

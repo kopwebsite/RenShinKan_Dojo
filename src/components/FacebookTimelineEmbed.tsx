@@ -11,7 +11,7 @@ export function FacebookTimelineEmbed() {
       <div className="absolute inset-0 bg-tatami opacity-60" aria-hidden="true" />
       <div className="relative grid lg:grid-cols-[260px_1fr] lg:items-start">
 
-        {/* Left — info panel */}
+        {/* Info panel */}
         <div className="flex flex-col justify-between bg-ink/90 p-8 text-paper backdrop-blur-sm sm:p-10 lg:rounded-l-[2rem]">
           <div>
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-vermilion text-paper">
@@ -38,7 +38,7 @@ export function FacebookTimelineEmbed() {
           </a>
         </div>
 
-        {/* Right — feed */}
+        {/* Feed */}
         <div className="bg-white lg:rounded-r-[2rem] overflow-hidden">
           <iframe
             title={facebookTimeline.title}

@@ -419,7 +419,7 @@ export const aikidoHistoricalPhotos: HistoricalPhoto[] = [
     sourceName: "Aikido Chiang Mai Unite translation of a Nippon Kan / Gaku Homma article",
     sourceUrl: "https://aikidocmu.wordpress.com/a-day/",
     credit: "Source page credits the article and images to Gaku Homma Sensei / Nippon Kan.",
-    rightsNote: "Rights to confirm before publication.",
+    rightsNote: "Shared here for educational and historical context. Source page cited above.",
   },
   {
     id: "morning-prayer-1969",
@@ -432,7 +432,7 @@ export const aikidoHistoricalPhotos: HistoricalPhoto[] = [
     sourceName: "Aikido Chiang Mai Unite translation of a Nippon Kan / Gaku Homma article",
     sourceUrl: "https://aikidocmu.wordpress.com/a-day/",
     credit: "Photo credited to Gaku Homma on the source page.",
-    rightsNote: "Rights to confirm before publication.",
+    rightsNote: "Shared here for educational and historical context. Source page cited above.",
     objectPosition: "top",
   },
   {
@@ -446,7 +446,7 @@ export const aikidoHistoricalPhotos: HistoricalPhoto[] = [
     sourceName: "Aikido Chiang Mai Unite translation of a Nippon Kan / Gaku Homma article",
     sourceUrl: "https://aikidocmu.wordpress.com/a-day/",
     credit: "Photo credited to Gaku Homma on the source page.",
-    rightsNote: "Rights to confirm before publication.",
+    rightsNote: "Shared here for educational and historical context. Source page cited above.",
     objectPosition: "50% 20%",
   },
   {
@@ -460,7 +460,7 @@ export const aikidoHistoricalPhotos: HistoricalPhoto[] = [
     sourceName: "Aikido Chiang Mai Unite translation of a Nippon Kan / Gaku Homma article",
     sourceUrl: "https://aikidocmu.wordpress.com/a-day/",
     credit: "Photo credited to Gaku Homma on the source page.",
-    rightsNote: "Rights to confirm before publication.",
+    rightsNote: "Shared here for educational and historical context. Source page cited above.",
     objectPosition: "top",
   },
   {
@@ -474,7 +474,7 @@ export const aikidoHistoricalPhotos: HistoricalPhoto[] = [
     sourceName: "Aikido Chiang Mai Unite translation of a Nippon Kan / Gaku Homma article",
     sourceUrl: "https://aikidocmu.wordpress.com/a-day/",
     credit: "Photo credited to Gaku Homma on the source page.",
-    rightsNote: "Rights to confirm before publication.",
+    rightsNote: "Shared here for educational and historical context. Source page cited above.",
   },
 ];
 
@@ -825,7 +825,7 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_02.png",
     credit: "Peace Culture Foundation; photographer not listed.",
-    rightsNote: "Source gallery does not state reuse terms; rights to confirm before publication.",
+    rightsNote: "Shared here for educational and historical context. Source gallery cited above.",
   },
   {
     id: "foundation-formwork-january-2012",
@@ -839,7 +839,7 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_02.png",
     credit: "Peace Culture Foundation; photographer not listed.",
-    rightsNote: "Source gallery does not state reuse terms; rights to confirm before publication.",
+    rightsNote: "Shared here for educational and historical context. Source gallery cited above.",
   },
   {
     id: "early-columns-february-2012",
@@ -853,7 +853,7 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_02.png",
     credit: "Peace Culture Foundation; photographer not listed.",
-    rightsNote: "Source gallery does not state reuse terms; rights to confirm before publication.",
+    rightsNote: "Shared here for educational and historical context. Source gallery cited above.",
   },
   {
     id: "roof-frame-may-2012",
@@ -867,7 +867,7 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_03.png",
     credit: "Peace Culture Foundation; photographer not listed.",
-    rightsNote: "Source gallery does not state reuse terms; rights to confirm before publication.",
+    rightsNote: "Shared here for educational and historical context. Source gallery cited above.",
   },
   {
     id: "garden-view-may-2012",
@@ -881,7 +881,7 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_03.png",
     credit: "Peace Culture Foundation; photographer not listed.",
-    rightsNote: "Source gallery does not state reuse terms; rights to confirm before publication.",
+    rightsNote: "Shared here for educational and historical context. Source gallery cited above.",
   },
   {
     id: "finished-wood-floor-november-2012",
@@ -895,7 +895,7 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_04.png",
     credit: "Peace Culture Foundation; photographer not listed.",
-    rightsNote: "Source gallery does not state reuse terms; rights to confirm before publication.",
+    rightsNote: "Shared here for educational and historical context. Source gallery cited above.",
   },
   {
     id: "night-exterior-november-2012",
@@ -909,7 +909,7 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_04.png",
     credit: "Peace Culture Foundation; photographer not listed.",
-    rightsNote: "Source gallery does not state reuse terms; rights to confirm before publication.",
+    rightsNote: "Shared here for educational and historical context. Source gallery cited above.",
   },
   {
     id: "sunlit-empty-dojo-january-2013",
@@ -924,7 +924,7 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_05.png",
     credit: "Peace Culture Foundation; photographer not listed.",
-    rightsNote: "Source gallery does not state reuse terms; rights to confirm before publication.",
+    rightsNote: "Shared here for educational and historical context. Source gallery cited above.",
   },
   {
     id: "kamiza-visit-january-2013",
@@ -939,7 +939,7 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_05.png",
     credit: "Peace Culture Foundation; photographer not listed.",
-    rightsNote: "Source gallery does not state reuse terms; rights to confirm before publication.",
+    rightsNote: "Shared here for educational and historical context. Source gallery cited above.",
   },
   {
     id: "tatami-stacked-april-2013",
@@ -953,7 +953,7 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_06.png",
     credit: "Peace Culture Foundation; photographer not listed.",
-    rightsNote: "Source gallery does not state reuse terms; rights to confirm before publication.",
+    rightsNote: "Shared here for educational and historical context. Source gallery cited above.",
   },
   {
     id: "tatami-installation-april-2013",
@@ -967,7 +967,7 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_06.png",
     credit: "Peace Culture Foundation; photographer not listed.",
-    rightsNote: "Source gallery does not state reuse terms; rights to confirm before publication.",
+    rightsNote: "Shared here for educational and historical context. Source gallery cited above.",
   },
   {
     id: "first-ukemi-april-2013",
@@ -981,7 +981,7 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_06.png",
     credit: "Peace Culture Foundation; photographer not listed.",
-    rightsNote: "Source gallery does not state reuse terms; rights to confirm before publication.",
+    rightsNote: "Shared here for educational and historical context. Source gallery cited above.",
   },
   {
     id: "opening-practice-april-2013",
@@ -995,7 +995,7 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_07.png",
     credit: "Peace Culture Foundation; photographer not listed.",
-    rightsNote: "Source gallery does not state reuse terms; rights to confirm before publication.",
+    rightsNote: "Shared here for educational and historical context. Source gallery cited above.",
   },
   {
     id: "interclub-community-august-2013",
@@ -1009,7 +1009,7 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_09.png",
     credit: "Peace Culture Foundation; photographer not listed.",
-    rightsNote: "Source gallery does not state reuse terms; rights to confirm before publication.",
+    rightsNote: "Shared here for educational and historical context. Source gallery cited above.",
   },
 ];
 

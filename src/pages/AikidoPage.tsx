@@ -126,11 +126,11 @@ export function AikidoPage() {
             <h2 className="section-title">Peace through movement, not force.</h2>
             <p className="mt-5 text-base leading-7 text-charcoal/80 sm:text-lg">
               Aikido is a Japanese martial art founded in the early 20th century by
-              Morihei Ueshiba. It grew from classical traditions — jujutsu, judo, and
-              the sword arts — but took a different direction: instead of striking or
+              Morihei Ueshiba. It grew from classical traditions including jujutsu, judo, and
+              the sword arts, but took a different direction. Instead of striking or
               overpowering, aikido teaches you to blend with incoming energy, redirect
               it, and resolve conflict without causing injury. There is no competition,
-              no aggression. The practice is about self-control, composure, and learning
+              no aggression. The practice is about composure, self-discipline, and learning
               to stay calm under pressure.
             </p>
             <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -140,12 +140,12 @@ export function AikidoPage() {
                   body: "Founded by Morihei Ueshiba from classical jujutsu and aiki sword traditions.",
                 },
                 {
-                  title: "Non-violent",
-                  body: "Redirects and neutralises force rather than meeting it — no striking, no competition.",
+                  title: "Nonviolent",
+                  body: "Redirects and neutralises force rather than meeting it. No striking, no competition.",
                 },
                 {
                   title: "Inner discipline",
-                  body: "Builds composure, awareness, and respect — qualities that carry beyond the mat.",
+                  body: "Builds composure, awareness, and respect. These qualities carry well beyond the mat.",
                 },
               ].map((pt) => (
                 <div key={pt.title} className="rounded-2xl bg-bamboo/10 px-5 py-4">
@@ -168,7 +168,7 @@ export function AikidoPage() {
               <h3 className="text-2xl text-ink">Rooted in Tradition</h3>
               <p className="mt-2 text-sm text-charcoal/75">
                 Bokken and jo practice connects aikido to the classical Japanese weapons
-                arts from which it evolved — a living link to centuries of budo.
+                arts from which it evolved, a living link to centuries of budo.
               </p>
             </figcaption>
           </figure>
@@ -182,7 +182,7 @@ export function AikidoPage() {
             <figcaption className="p-5">
               <h3 className="text-2xl text-ink">A Respectful Space</h3>
               <p className="mt-2 text-sm text-charcoal/75">
-                The kamiza — a focal point of attention in every dojo — reflects
+                The kamiza is a focal point of attention in every dojo. It reflects
                 aikido's emphasis on sincerity, respect, and a settled, open mind.
               </p>
             </figcaption>

@@ -1,0 +1,263 @@
+{
+  "common": {
+    "brand": "RenshinKan Dojo",
+    "readMore": "続きを読む",
+    "viewUpdate": "更新を見る",
+    "visitClass": "クラスを見学する",
+    "learnAboutAikido": "合気道について学ぶ",
+    "planYourVisit": "訪問を計画する",
+    "getInTouch": "お問い合わせ",
+    "observeClass": "クラスを見学する",
+    "askAboutVisiting": "訪問について相談する",
+    "messageDojo": "道場へ連絡",
+    "messageUsFacebook": "Facebookで連絡する",
+    "followFacebook": "Facebookでフォロー",
+    "openMap": "地図を開く",
+    "sourceGallery": "出典ギャラリー",
+    "source": "出典",
+    "video": "動画",
+    "for": "対象",
+    "rank": "段級",
+    "trainingBackground": "稽古歴",
+    "teachingFocus": "指導の重点",
+    "languagesSpoken": "対応言語",
+    "days": "日",
+    "dateAndTime": "日時",
+    "contactUs": "お問い合わせ",
+    "visitWebsite": "ウェブサイトを見る",
+    "facebookPage": "Facebookページ",
+    "emailAikidoCmu": "AikidoCMUへメール"
+  },
+  "a11y": {
+    "skipToContent": "本文へ移動",
+    "mainNavigation": "メインナビゲーション",
+    "footerNavigation": "フッターナビゲーション",
+    "mobileNavigation": "モバイルナビゲーション",
+    "openNavigationMenu": "ナビゲーションを開く",
+    "closeNavigationMenu": "ナビゲーションを閉じる",
+    "socialLinks": "ソーシャルリンク",
+    "languageSelector": "言語選択",
+    "chooseLanguage": "言語を選択",
+    "currentLanguage": "現在の言語: {{language}}。言語を変更",
+    "expandMenu": "{{label}}メニューを開く",
+    "collapseMenu": "{{label}}メニューを閉じる",
+    "previousEvent": "前のイベント",
+    "nextEvent": "次のイベント",
+    "goToEvent": "イベント{{number}}へ移動",
+    "previousMedia": "前の{{label}}",
+    "nextMedia": "次の{{label}}",
+    "previousPhoto": "前の写真",
+    "nextPhoto": "次の写真",
+    "goToPhoto": "写真{{number}}へ移動",
+    "showPhoto": "{{title}}を表示",
+    "mapTitle": "{{name}}のGoogleマップ",
+    "openAddressInMaps": "{{address}}をGoogleマップで開く",
+    "portraitPlaceholder": "{{name}}の肖像プレースホルダー",
+    "beltProgressionChart": "合気道級位進級表",
+    "beltRankLabel": "{{rank}} {{rankSub}} - 稽古日数{{days}}日"
+  },
+  "language": {
+    "en": "英語",
+    "th": "タイ語",
+    "zhCN": "中国語",
+    "ja": "日本語"
+  },
+  "nav": {
+    "ourDojo": "道場について",
+    "home": "ホーム",
+    "instructors": "指導者",
+    "dojoPhotos": "道場写真",
+    "dojoHistory": "道場の歴史",
+    "location": "所在地",
+    "classes": "クラス",
+    "information": "案内",
+    "classSchedule": "稽古予定",
+    "firstVisitGuide": "初回訪問ガイド",
+    "beltExams": "昇級審査",
+    "gallery": "ギャラリー",
+    "faq": "FAQ",
+    "aikido": "合気道",
+    "whatIsAikido": "合気道とは",
+    "historyOfAikido": "合気道の歴史",
+    "oSensei": "開祖",
+    "community": "コミュニティ",
+    "upcomingEvents": "今後のイベント",
+    "pastEvents": "過去のイベント",
+    "peaceCultureFoundation": "Peace Culture Foundation",
+    "chiangMaiCmu": "チェンマイCMU",
+    "otherDojos": "ほかの道場",
+    "support": "支援",
+    "monthlyContribution": "月々の協力金",
+    "donations": "寄付",
+    "newsletter": "ニュース",
+    "contact": "お問い合わせ"
+  },
+  "footer": {
+    "tagline": "チェンマイ・ハンドンでの合気道と武道の稽古。",
+    "explore": "見る",
+    "stayConnected": "最新情報",
+    "stayConnectedCopy": "クラスノート、初回訪問ガイド、ワークショップのお知らせを受け取れます。",
+    "updatesCta": "道場更新"
+  },
+  "home": {
+    "hero": {
+      "subtitle": "チェンマイ・ハンドンで行う伝統的な合気道と武道の稽古。初心者にやさしいクラスで、子どもと訪問稽古の合気道家も歓迎します。"
+    },
+    "recent": {
+      "eyebrow": "最近のイベント",
+      "title": "道場の近況を一か所にまとめました。",
+      "copy": "稽古日、審査、講習会、RenshinKanでのコミュニティの時間から、最新の3件を紹介します。"
+    },
+    "facilities": {
+      "eyebrow": "道場について",
+      "title": "ハンドンにある、あらゆる年齢の生徒を迎える稽古場。",
+      "copy": "RenshinKanは{{year}}年、ハンドンの静かな場所に建てられました。落ち着いて集中できる稽古のための空間です。"
+    },
+    "instructors": {
+      "eyebrow": "指導者",
+      "title": "教えることを心から大切にしている人たち。",
+      "copy": "指導者は長年稽古を続け、生徒一人ひとりを大切にしています。どのレベルでも、忍耐強く、励ましながら、安定した指導を行います。"
+    },
+    "photos": {
+      "eyebrow": "道場写真",
+      "title": "RenshinKanの中を少しご紹介します。",
+      "copy": "道場と、ここで稽古する人たちをご覧ください。",
+      "space": "稽古場",
+      "onMat": "畳の上",
+      "onMatGallery": "畳の上ギャラリー"
+    },
+    "journey": {
+      "eyebrow": "道場の歩み",
+      "title": "更地から稽古できる畳へ。",
+      "copy": "Peace Culture Foundationの建設ギャラリーから、何もない土地から開場稽古までの写真を紹介します。"
+    },
+    "location": {
+      "eyebrow": "アクセス",
+      "title": "初めて来る前に道場の場所を確認してください。",
+      "copy": "RenshinKan DojoはハンドンのBaan Waenにあります。保護者と訪問者は地図で到着を計画し、事前に連絡して最適なクラス時間と見学場所を確認できます。"
+    },
+    "visiting": {
+      "eyebrow": "RenshinKan訪問",
+      "title": "飛び入りも歓迎しています。",
+      "copy": "初めての方は、クラス時間にそのままお越しください。訪問稽古の合気道家は、時間確認と受け入れ準備のため、事前に短くご連絡ください。"
+    }
+  },
+  "classes": {
+    "intro": {
+      "eyebrow": "クラスと保護者向け案内",
+      "title": "始め、成長し、通い続けられる場所。",
+      "copy": "完全な初心者や子どもから、チェンマイを訪れる経験者まで、誰でも歓迎します。各クラスは90分で、二部構成です。前半は始めたばかりの人向け、後半は全レベルでより深い技術稽古を行います。いつでも参加できますし、質問があれば事前にご連絡ください。",
+      "imageAlt": "白い稽古着の生徒たちが畳の上で円になり、中央に緑帯が置かれている。"
+    },
+    "halves": {
+      "firstEyebrow": "前半",
+      "firstTitle": "初心者",
+      "firstCopy": "各クラスの最初は、始めたばかりの人のために組まれています。安全な受身、基本姿勢、足さばき、相手への意識を落ち着いたペースで学びます。",
+      "secondEyebrow": "後半",
+      "secondTitle": "全レベル / 本格稽古",
+      "secondCopy": "後半は、より高度な技術、連続動作、相対稽古に進み、さらに伸びたい大人や生徒に向いています。"
+    },
+    "schedule": {
+      "eyebrow": "週間予定",
+      "title": "毎週4回の稽古があります。",
+      "copy": "火曜と木曜の夕方、土曜と日曜の朝。各クラスは90分で、初心者から始めて全レベルへ進む同じ二部構成です。",
+      "imageAlt": "週間クラス予定: 火曜・木曜 17:30-19:00、土曜・日曜 9:00-10:30"
+    },
+    "firstVisit": {
+      "eyebrow": "初回訪問ガイド",
+      "title": "落ち着いた初回クラスは、いくつかの簡単な準備から始まります。",
+      "copy": "このガイドは初心者、保護者、訪問稽古の方のためのものです。適切なクラス時間や、見学か参加かを確認するため、事前にご連絡ください。",
+      "beforeTitle": "到着前に",
+      "item1": "飛び入り歓迎です。クラス時間にお越しください",
+      "item2": "事前に連絡して、時間と流れを確認してください",
+      "item3": "道場準備のため、少なくとも30分早く到着してください",
+      "item4": "動きやすい長ズボンとTシャツで構いません。稽古着は慣れてからで大丈夫です",
+      "item5": "畳に上がる前に靴を脱ぎ、足を洗ってください",
+      "item6": "先生または先輩に礼の流れを案内してもらってください"
+    },
+    "beltExams": {
+      "eyebrow": "昇級審査",
+      "copy": "昇級審査は、Aikikaiに所属するAll Dojo Chiang Maiの基準に従います。級位を進むには、指定技術と各レベルで必要な最低稽古日数を満たす必要があります。下の表に進級に必要な内容を示します。",
+      "graduationEyebrow": "合格の記録",
+      "graduationTitle": "審査に合格した生徒たち。"
+    },
+    "faq": {
+      "eyebrow": "保護者FAQ",
+      "title": "最初の礼の前に知っておきたいこと。"
+    }
+  },
+  "contact": {
+    "intro": {
+      "eyebrow": "所在地と連絡先",
+      "title": "RenshinKan Dojoへの初回訪問を計画する。",
+      "copy": "道場は{{address}}にあります。保護者、初心者、経験者、訪問者は、クラス参加前に詳細をお問い合わせください。"
+    },
+    "message": {
+      "eyebrow": "お問い合わせ",
+      "title": "Facebookで連絡する方が便利ですか？",
+      "copy": "Facebookから直接ご連絡いただけます。クラス、予定、初回訪問についての質問にお答えします。"
+    },
+    "before": {
+      "eyebrow": "訪問前に",
+      "title": "メッセージに入れてほしい内容。",
+      "copy": "年齢層、合気道や武道の経験があればその内容、訪問したい曜日をお知らせください。初心者も歓迎します。",
+      "item1": "動きやすい服装でお越しください。",
+      "item2": "少し早めに到着すると、誰かが案内できます。",
+      "item3": "保護者は子どもの稽古見学について相談できます。",
+      "item4": "訪問稽古の方は段級と所属道場をお知らせください。",
+      "cta": "クラス訪問について相談する"
+    }
+  },
+  "locationCard": {
+    "eyebrow": "所在地"
+  },
+  "instructorsPage": {
+    "eyebrow": "指導者",
+    "title": "RenshinKan Dojoの合気道指導者を紹介します。",
+    "copy": "クラス稽古を導き、初心者に合気道を紹介し、生徒が畳の上で落ち着いた動き、相手を尊重する稽古、安定した自信を育てられるよう支える先生たちです。"
+  },
+  "newsletter": {
+    "intro": {
+      "eyebrow": "ニュース",
+      "title": "家族と生徒のための穏やかな更新。",
+      "copy": "初心者向け案内、保護者向けメモ、ワークショップのお知らせ、落ち着いた稽古についての短い文章をお届けします。"
+    },
+    "recent": {
+      "eyebrow": "最近のイベント",
+      "title": "コミュニティと共有したい道場の時間。",
+      "copy": "最近のクラス、昇級日、訪問指導者の稽古、畳の上での出来事を振り返ります。"
+    },
+    "notes": {
+      "eyebrow": "最近のノート",
+      "title": "最初の一歩と継続する稽古のための短い文章。"
+    },
+    "signup": {
+      "eyebrow": "道場更新",
+      "title": "RenshinKanの更新をフォロー。",
+      "copy": "安全なメール配信サービスを追加した後、ニュースレター登録を接続します。今はFacebookで道場をフォローまたはメッセージして、クラスノート、イベント、ワークショップ情報をご確認ください。"
+    }
+  },
+  "seo": {
+    "homeTitle": "RenshinKan Dojo | チェンマイ・ハンドンの合気道",
+    "homeDescription": "RenshinKan Dojoはチェンマイ・ハンドンで伝統的な合気道と武道の稽古を行っています。初心者、子ども、訪問稽古の合気道家を歓迎します。",
+    "aikidoTitle": "合気道とは？| RenshinKan Dojo チェンマイ",
+    "aikidoDescription": "合気道の歴史、開祖、相対稽古、受身、武器稽古、RenshinKan Dojoでの合気道指導について紹介します。",
+    "classesTitle": "ハンドンの合気道クラス | RenshinKan Dojo",
+    "classesDescription": "チェンマイ・ハンドンでの合気道クラス情報。稽古時間、初回訪問ガイド、昇級審査、初心者向け詳細を掲載しています。",
+    "workshopsTitle": "チェンマイ合気道ワークショップ | RenshinKan Dojo",
+    "workshopsDescription": "RenshinKan Dojoでは初心者、子ども、在籍生向けの季節ごとの合気道ワークショップをハンドンで開催します。",
+    "newsletterTitle": "道場ニュース | RenshinKan 合気道 チェンマイ",
+    "newsletterDescription": "ハンドンとチェンマイから、RenshinKan Dojoの最新情報、学生ニュース、イベント、写真、合気道コミュニティの記録をお届けします。",
+    "communityTitle": "チェンマイの合気道コミュニティ | RenshinKan Dojo",
+    "communityDescription": "RenshinKan DojoはPeace Culture Foundation、AikidoCMU、地域の武道稽古とつながるチェンマイ合気道コミュニティの一部です。",
+    "supportTitle": "RenshinKan Dojoを支援 | チェンマイ合気道",
+    "supportDescription": "学生の協力金や寄付を通じてRenshinKan Dojoを支援し、ハンドンとチェンマイで合気道の稽古を続けやすくします。",
+    "contactTitle": "RenshinKan Dojo 連絡先 | ハンドンの合気道",
+    "contactDescription": "チェンマイ・ハンドンのRenshinKan Dojoに、合気道クラス、初回訪問、子どもの稽古、訪問稽古についてお問い合わせください。",
+    "visitTitle": "RenshinKan Dojoを訪問 | ハンドンの合気道",
+    "visitDescription": "チェンマイ・ハンドンのRenshinKan Dojoへの初回訪問を計画できます。初心者、保護者、訪問稽古の合気道家を歓迎します。",
+    "adminTitle": "管理 | RenshinKan Dojo",
+    "adminDescription": "RenshinKan Dojoのコンテンツ管理。",
+    "localBusinessDescription": "チェンマイ・ハンドンでの伝統的な合気道と武道の稽古。"
+  }
+}

@@ -9,12 +9,18 @@ import { InstructorGrid } from "../components/InstructorGrid";
 import { LocationCard } from "../components/LocationCard";
 import { MediaSlider } from "../components/MediaSlider";
 import { MotionSection } from "../components/MotionSection";
-import { getRecentDojoUpdates, onTheMatMedia } from "../data/editableContent";
+import { ResponsiveImage } from "../components/ResponsiveImage";
+import { onTheMatMedia } from "../data/editableContent";
 import { renshinkanBuildPhotos, dojoPhotos, siteInfo } from "../data/siteContent";
+import { useTranslation } from "../i18n";
+import { getPublishedRecentEvents, useEditableContent } from "../lib/content";
 import { assetPath } from "../utils/assetPath";
 
 export function DojoPage() {
-  const recentUpdates = getRecentDojoUpdates(3);
+  const { t } = useTranslation();
+  const { content } = useEditableContent();
+  const recentUpdates = getPublishedRecentEvents(content, 3);
+  const matMedia = content.onTheMatMedia.length ? content.onTheMatMedia : onTheMatMedia;
   const [activeSpacePhotoIndex, setActiveSpacePhotoIndex] = useState(0);
   const activeSpacePhoto = dojoPhotos[activeSpacePhotoIndex];
   const spacePhotoOptions = dojoPhotos.filter((_, index) => index !== activeSpacePhotoIndex);
@@ -22,12 +28,18 @@ export function DojoPage() {
   const [recentEventIndex, setRecentEventIndex] = useState(0);
 
   useEffect(() => {
-    if (shouldReduceMotion) return;
+    if (shouldReduceMotion || recentUpdates.length === 0) return;
     const timer = setInterval(() => {
       setRecentEventIndex((i) => (i + 1) % recentUpdates.length);
     }, 4000);
     return () => clearInterval(timer);
   }, [recentUpdates.length, shouldReduceMotion]);
+
+  useEffect(() => {
+    if (recentEventIndex >= recentUpdates.length) {
+      setRecentEventIndex(0);
+    }
+  }, [recentEventIndex, recentUpdates.length]);
 
   const galleryImageMotion = shouldReduceMotion
     ? {
@@ -60,11 +72,14 @@ export function DojoPage() {
     <>
       <section id="home" className="relative isolate min-h-[100svh] scroll-mt-28 overflow-hidden">
         {/* Watercolour koi background */}
-        <img
+        <ResponsiveImage
           src={assetPath("/dojo-photos/new-hero-poster.png")}
           alt=""
           aria-hidden="true"
-          className="absolute inset-0 h-full w-full object-cover"
+          imgClassName="absolute inset-0 h-full w-full object-cover"
+          loading="eager"
+          width={1672}
+          height={941}
           fetchPriority="high"
         />
 
@@ -76,17 +91,16 @@ export function DojoPage() {
               RenShinKan Dojo
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-charcoal/80 sm:text-lg sm:leading-8">
-              Traditional aikido and martial arts training in Hang Dong, Chiang Mai.
-              Beginner friendly classes, children welcome, and visiting aikidoka invited.
+              {t("home.hero.subtitle")}
             </p>
             <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link to="/classes" className="btn-primary">
                 <GraduationCap size={18} aria-hidden="true" />
-                Visit a Class
+                {t("common.visitClass")}
               </Link>
               <Link to="/aikido#history-philosophy" className="btn-secondary">
                 <BookOpen size={18} aria-hidden="true" />
-                Learn about Aikido
+                {t("common.learnAboutAikido")}
               </Link>
             </div>
           </div>
@@ -97,90 +111,101 @@ export function DojoPage() {
         <div className="rounded-[2rem] bg-paper/75 p-6 shadow-line ring-1 ring-ink/10 sm:p-10 lg:p-12">
           <div className="grid gap-10 lg:grid-cols-[0.72fr_1.28fr] lg:items-start">
             <div>
-              <p className="eyebrow">Recent Events</p>
+              <p className="eyebrow">{t("home.recent.eyebrow")}</p>
               <h2 className="mt-3 text-3xl leading-tight text-ink sm:text-4xl">
-                Recent dojo updates, gathered in one place.
+                {t("home.recent.title")}
               </h2>
               <p className="mt-4 text-charcoal/78">
-                The three newest updates from training days, examinations,
-                seminars, and community moments at RenshinKan.
+                {t("home.recent.copy")}
               </p>
               <Link to="/newsletter#recent-events" className="btn-secondary mt-6">
-                Read More
+                {t("common.readMore")}
                 <ArrowRight size={17} aria-hidden="true" />
               </Link>
             </div>
             <div>
-              <div className="relative overflow-hidden rounded-[1.75rem] border border-ink/10 bg-paper/65">
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.div
-                    key={recentEventIndex}
-                    initial={shouldReduceMotion ? false as const : { opacity: 0, x: 28 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: -20 }}
-                    transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
-                    className="grid gap-0 lg:grid-cols-[0.86fr_1fr]"
-                  >
-                    <img
-                      src={recentUpdates[recentEventIndex].mainImage}
-                      alt={`${recentUpdates[recentEventIndex].subject} at RenshinKan Dojo.`}
-                      className="aspect-[4/3] h-full w-full object-cover"
-                      loading="lazy"
-                    />
-                    <div className="p-7 sm:p-9">
-                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-bamboo">
-                        {recentUpdates[recentEventIndex].date}
-                      </p>
-                      <h3 className="mt-4 text-3xl leading-tight text-ink sm:text-4xl">
-                        {recentUpdates[recentEventIndex].subject}
-                      </h3>
-                      <p className="mt-4 text-sm leading-7 text-charcoal/75">
-                        {recentUpdates[recentEventIndex].summary}
-                      </p>
-                      <Link
-                        to={`/newsletter#${recentUpdates[recentEventIndex].slug}`}
-                        className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-vermilion transition hover:text-ink"
+              {recentUpdates.length > 0 ? (
+                <>
+                  <div className="relative overflow-hidden rounded-[1.75rem] border border-ink/10 bg-paper/65">
+                    <AnimatePresence mode="wait" initial={false}>
+                      <motion.div
+                        key={recentEventIndex}
+                        initial={shouldReduceMotion ? false as const : { opacity: 0, x: 28 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: -20 }}
+                        transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+                        className="grid gap-0 lg:grid-cols-[0.86fr_1fr]"
                       >
-                        View update
-                        <ArrowRight size={15} aria-hidden="true" />
-                      </Link>
+                        <ResponsiveImage
+                          src={
+                            recentUpdates[recentEventIndex].image?.src ||
+                            recentUpdates[recentEventIndex].media?.find((item) => item.type === "image")?.src ||
+                            assetPath("/dojo-photos/aikido-hero-new.png")
+                          }
+                          alt={`${recentUpdates[recentEventIndex].title} at RenshinKan Dojo.`}
+                          imgClassName="aspect-[4/3] h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                        <div className="p-7 sm:p-9">
+                          <p className="text-xs font-bold uppercase tracking-[0.16em] text-bamboo">
+                            {recentUpdates[recentEventIndex].date}
+                          </p>
+                          <h3 className="mt-4 text-3xl leading-tight text-ink sm:text-4xl">
+                            {recentUpdates[recentEventIndex].title}
+                          </h3>
+                          <p className="mt-4 text-sm leading-7 text-charcoal/75">
+                            {recentUpdates[recentEventIndex].summary}
+                          </p>
+                          <Link
+                            to={`/newsletter#${recentUpdates[recentEventIndex].slug}`}
+                            className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-vermilion transition hover:text-ink"
+                          >
+                            {t("common.viewUpdate")}
+                            <ArrowRight size={15} aria-hidden="true" />
+                          </Link>
+                        </div>
+                      </motion.div>
+                    </AnimatePresence>
+                  </div>
+                  <div className="mt-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {recentUpdates.map((_, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setRecentEventIndex(i)}
+                          className={`h-2 rounded-full transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo ${
+                            i === recentEventIndex ? "w-6 bg-bamboo" : "w-2 bg-ink/20 hover:bg-ink/40"
+                          }`}
+                          aria-label={t("a11y.goToEvent", { number: i + 1 })}
+                        />
+                      ))}
                     </div>
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-              <div className="mt-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {recentUpdates.map((_, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setRecentEventIndex(i)}
-                      className={`h-2 rounded-full transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo ${
-                        i === recentEventIndex ? "w-6 bg-bamboo" : "w-2 bg-ink/20 hover:bg-ink/40"
-                      }`}
-                      aria-label={`Go to event ${i + 1}`}
-                    />
-                  ))}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setRecentEventIndex((i) => (i === 0 ? recentUpdates.length - 1 : i - 1))}
+                        className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/10 bg-paper/65 transition hover:bg-paper/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo"
+                        aria-label={t("a11y.previousEvent")}
+                      >
+                        <ChevronLeft size={18} aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRecentEventIndex((i) => (i + 1) % recentUpdates.length)}
+                        className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/10 bg-paper/65 transition hover:bg-paper/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo"
+                        aria-label={t("a11y.nextEvent")}
+                      >
+                        <ChevronRight size={18} aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="rounded-[1.75rem] border border-ink/10 bg-paper/65 p-7 text-sm leading-6 text-charcoal/72">
+                  Recent dojo updates will appear here after they are published.
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setRecentEventIndex((i) => (i === 0 ? recentUpdates.length - 1 : i - 1))}
-                    className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/10 bg-paper/65 transition hover:bg-paper/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo"
-                    aria-label="Previous event"
-                  >
-                    <ChevronLeft size={18} aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRecentEventIndex((i) => (i + 1) % recentUpdates.length)}
-                    className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/10 bg-paper/65 transition hover:bg-paper/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo"
-                    aria-label="Next event"
-                  >
-                    <ChevronRight size={18} aria-hidden="true" />
-                  </button>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -188,12 +213,10 @@ export function DojoPage() {
 
       <MotionSection id="facilities" className="container-shell pb-20">
         <div className="mb-8 max-w-3xl">
-          <p className="eyebrow">Our Dojo</p>
-          <h2 className="section-title">A welcoming practice space for students of all ages in Hang Dong.</h2>
+          <p className="eyebrow">{t("home.facilities.eyebrow")}</p>
+          <h2 className="section-title">{t("home.facilities.title")}</h2>
           <p className="section-copy">
-            RenshinKan was built in {siteInfo.builtYear} on a quiet property in
-            Hang Dong. The space is designed for comfortable, focused practice
-            for students of all ages.
+            {t("home.facilities.copy", { year: siteInfo.builtYear })}
           </p>
         </div>
         <FacilityGrid />
@@ -201,12 +224,10 @@ export function DojoPage() {
 
       <MotionSection id="instructors" className="container-shell scroll-mt-28 pb-20">
         <div className="mb-9 max-w-3xl">
-          <p className="eyebrow">Who Teaches Here</p>
-          <h2 className="section-title">People who genuinely love what they teach.</h2>
+          <p className="eyebrow">{t("home.instructors.eyebrow")}</p>
+          <h2 className="section-title">{t("home.instructors.title")}</h2>
           <p className="section-copy">
-            Our instructors have been practicing for decades and they care about
-            the people they teach. You will find them patient, encouraging, and
-            consistent at every level.
+            {t("home.instructors.copy")}
           </p>
         </div>
         <InstructorGrid />
@@ -214,27 +235,31 @@ export function DojoPage() {
 
       <MotionSection id="dojo-photos" className="container-shell scroll-mt-28 pb-20">
         <div className="mb-9">
-          <p className="eyebrow">Dojo Photos</p>
-          <h2 className="section-title">A peek inside RenshinKan.</h2>
+          <p className="eyebrow">{t("home.photos.eyebrow")}</p>
+          <h2 className="section-title">{t("home.photos.title")}</h2>
           <p className="section-copy">
-            Take a look at the dojo and the people who train here.
+            {t("home.photos.copy")}
           </p>
         </div>
 
         <p className="mb-5 text-xs font-bold uppercase tracking-[0.16em] text-charcoal/55">
-          The Space
+          {t("home.photos.space")}
         </p>
         <div className="mb-10 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
           <figure className="relative aspect-[16/9] overflow-hidden rounded-[1.75rem] bg-paper/70 shadow-line ring-1 ring-ink/10">
             <AnimatePresence mode="wait" initial={false}>
-              <motion.img
+              <motion.div
                 key={activeSpacePhoto.src}
-                src={activeSpacePhoto.src}
-                alt={activeSpacePhoto.alt}
                 className="absolute inset-0 h-full w-full object-cover"
-                loading="lazy"
                 {...galleryImageMotion}
-              />
+              >
+                <ResponsiveImage
+                  src={activeSpacePhoto.src}
+                  alt={activeSpacePhoto.alt}
+                  imgClassName="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              </motion.div>
             </AnimatePresence>
             <AnimatePresence mode="wait" initial={false}>
               <motion.figcaption
@@ -260,12 +285,12 @@ export function DojoPage() {
                   type="button"
                   onClick={() => setActiveSpacePhotoIndex(photoIndex)}
                   className="group grid overflow-hidden rounded-[1.35rem] bg-paper/65 text-left shadow-line ring-1 ring-ink/10 transition hover:-translate-y-0.5 hover:bg-paper/90 hover:shadow-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo sm:grid-rows-[auto_1fr] lg:min-h-0 lg:grid-cols-[7.5rem_minmax(0,1fr)] lg:grid-rows-1"
-                  aria-label={`Show ${photo.title}`}
+                  aria-label={t("a11y.showPhoto", { title: photo.title })}
                 >
-                  <img
+                  <ResponsiveImage
                     src={photo.src}
                     alt=""
-                    className="aspect-[4/3] w-full object-cover lg:h-full lg:min-h-0"
+                    imgClassName="aspect-[4/3] w-full object-cover lg:h-full lg:min-h-0"
                     loading="lazy"
                   />
                   <span className="block p-4">
@@ -282,24 +307,19 @@ export function DojoPage() {
 
         <div className="mb-5">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-charcoal/55">
-            On the Mat
-          </p>
-          <p className="mt-2 max-w-2xl text-sm text-charcoal/70">
-            Current class photos, techniques, seminars, and practice moments.
+            {t("home.photos.onMat")}
           </p>
         </div>
-        <MediaSlider media={onTheMatMedia} label="On the Mat gallery" />
+        <MediaSlider media={matMedia} label={t("home.photos.onMatGallery")} />
       </MotionSection>
 
       <MotionSection id="dojo-history" className="container-shell scroll-mt-28 pb-20">
         <div className="mb-9 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
-            <p className="eyebrow">Dojo Journey</p>
-            <h2 className="section-title">From open ground to a working mat.</h2>
+            <p className="eyebrow">{t("home.journey.eyebrow")}</p>
+            <h2 className="section-title">{t("home.journey.title")}</h2>
             <p className="section-copy">
-              Photos from the Peace Culture Foundation build gallery, following
-              RenshinKan from an empty plot of land all the way to opening
-              practice on the mat.
+              {t("home.journey.copy")}
             </p>
           </div>
           <a
@@ -308,7 +328,7 @@ export function DojoPage() {
             rel="noopener noreferrer"
             className="btn-secondary"
           >
-            Source Gallery
+            {t("common.sourceGallery")}
             <ExternalLink size={17} aria-hidden="true" />
           </a>
         </div>
@@ -318,17 +338,15 @@ export function DojoPage() {
       <MotionSection id="location" className="container-shell scroll-mt-28 pb-20">
         <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-stretch">
           <article className="rounded-[2rem] bg-paper/75 p-8 shadow-line ring-1 ring-ink/10 sm:p-10">
-            <p className="eyebrow">Getting Here</p>
+            <p className="eyebrow">{t("home.location.eyebrow")}</p>
             <h2 className="mt-4 text-4xl leading-tight text-ink sm:text-5xl">
-              Find the dojo before your first visit.
+              {t("home.location.title")}
             </h2>
             <p className="mt-5 text-charcoal/78">
-              RenshinKan Dojo is in Baan Waen, Hang Dong. Parents and visitors
-              can use the map to plan arrival, then message ahead so the dojo can
-              confirm the best class time and where to observe.
+              {t("home.location.copy")}
             </p>
             <Link to="/contact" className="btn-primary mt-7">
-              Plan Your Visit
+              {t("common.planYourVisit")}
             </Link>
           </article>
           <LocationCard />
@@ -337,18 +355,16 @@ export function DojoPage() {
 
       <MotionSection className="container-shell pb-20">
         <div className="rounded-[2rem] bg-bamboo/10 p-8 shadow-line ring-1 ring-bamboo/20 sm:p-10">
-          <p className="eyebrow">Visiting RenshinKan</p>
+          <p className="eyebrow">{t("home.visiting.eyebrow")}</p>
           <h2 className="mt-4 max-w-3xl text-4xl leading-tight text-ink sm:text-5xl">
-            Drop-ins are always welcome.
+            {t("home.visiting.title")}
           </h2>
           <p className="mt-5 max-w-2xl text-charcoal/78">
-            If you're new, feel free to come along. Just turn up at class time.
-            If you're a visiting aikidoka, we'd love a quick message ahead so we
-            can make sure the timing works and someone can greet you properly.
+            {t("home.visiting.copy")}
           </p>
           <Link to="/contact" className="btn-primary mt-7">
             <MessageCircle size={18} aria-hidden="true" />
-            Get in Touch
+            {t("common.getInTouch")}
           </Link>
         </div>
       </MotionSection>

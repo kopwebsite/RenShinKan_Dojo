@@ -3,6 +3,10 @@ node_modules/
 
 # Production build output
 dist/
+.vite/
+coverage/
+public/optimized/
+public/uploads/generated/
 
 # Local environment files
 .env
@@ -14,8 +18,12 @@ dist/
 .codex-logs/
 .tools/
 .logs/
+logs/
 screenshots/
 Dojo pictures/
+New Photos/
+vite-preview.log
+vite-preview.err.log
 
 # Logs
 *.log

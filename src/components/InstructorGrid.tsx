@@ -1,7 +1,11 @@
 import { Medal, UserRoundCheck } from "lucide-react";
 import { instructors } from "../data/siteContent";
+import { useTranslation } from "../i18n";
+import { ResponsiveImage } from "./ResponsiveImage";
 
 export function InstructorGrid() {
+  const { t } = useTranslation();
+
   return (
     <div className="grid gap-5 lg:grid-cols-3">
       {instructors.map((instructor) => (
@@ -11,14 +15,18 @@ export function InstructorGrid() {
         >
           <div className="relative aspect-[4/3] overflow-hidden bg-ink/5">
             {instructor.imageSrc ? (
-              <img
+              <ResponsiveImage
                 src={instructor.imageSrc}
                 alt={instructor.imageAlt ?? `${instructor.name} instructor portrait`}
-                className="h-full w-full object-cover object-[50%_22%]"
+                imgClassName="h-full w-full object-cover object-[50%_22%]"
                 loading="lazy"
               />
             ) : (
-              <div className="ink-wash h-full w-full" role="img" aria-label={`${instructor.name} portrait placeholder`} />
+              <div
+                className="ink-wash h-full w-full"
+                role="img"
+                aria-label={t("a11y.portraitPlaceholder", { name: instructor.name })}
+              />
             )}
           </div>
           <div className="p-6">
@@ -28,14 +36,14 @@ export function InstructorGrid() {
               <div>
                 <dt className="flex items-center gap-2 font-bold text-ink">
                   <Medal size={16} aria-hidden="true" />
-                  Rank
+                  {t("common.rank")}
                 </dt>
                 <dd className="mt-1 text-charcoal/75">{instructor.rank}</dd>
               </div>
               <div>
                 <dt className="flex items-center gap-2 font-bold text-ink">
                   <UserRoundCheck size={16} aria-hidden="true" />
-                  Training Background
+                  {t("common.trainingBackground")}
                 </dt>
                 <dd className="mt-1 text-charcoal/75">
                   {instructor.trainingBackground}
@@ -43,13 +51,13 @@ export function InstructorGrid() {
               </div>
               {instructor.teachingFocus ? (
                 <div>
-                  <dt className="font-bold text-ink">Teaching Focus</dt>
+                  <dt className="font-bold text-ink">{t("common.teachingFocus")}</dt>
                   <dd className="mt-1 text-charcoal/75">{instructor.teachingFocus}</dd>
                 </div>
               ) : null}
               {instructor.languages ? (
                 <div>
-                  <dt className="font-bold text-ink">Languages Spoken</dt>
+                  <dt className="font-bold text-ink">{t("common.languagesSpoken")}</dt>
                   <dd className="mt-1 text-charcoal/75">{instructor.languages}</dd>
                 </div>
               ) : null}

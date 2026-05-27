@@ -1,6 +1,7 @@
 import { ArrowUpRight, Camera } from "lucide-react";
 import { Link } from "react-router-dom";
 import { MotionSection } from "../components/MotionSection";
+import { ResponsiveImage } from "../components/ResponsiveImage";
 import { Timeline } from "../components/Timeline";
 import type { HistoricalPhoto } from "../data/siteContent";
 import {
@@ -12,6 +13,7 @@ import {
   instructors,
   pcfAikidoImages,
 } from "../data/siteContent";
+import { useTranslation } from "../i18n";
 import { assetPath } from "../utils/assetPath";
 
 function HistoricalFigure({
@@ -30,13 +32,13 @@ function HistoricalFigure({
       }`}
     >
       <div className="relative bg-ink/5">
-        <img
+        <ResponsiveImage
           src={photo.src}
           alt={photo.alt}
-          className={`w-full object-cover grayscale ${
+          imgClassName={`w-full object-cover grayscale ${
             story || featured ? "aspect-[4/3]" : "aspect-[3/4]"
           }`}
-          style={photo.objectPosition ? { objectPosition: photo.objectPosition } : undefined}
+          objectPosition={photo.objectPosition}
           loading={featured ? "eager" : "lazy"}
         />
         <div className="absolute left-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-paper/85 text-vermilion shadow-line">
@@ -68,6 +70,7 @@ function HistoricalFigure({
 }
 
 export function AikidoPage() {
+  const { t } = useTranslation();
   const historicalPhotoById = new Map(
     aikidoHistoricalPhotos.map((photo) => [photo.id, photo]),
   );
@@ -76,20 +79,23 @@ export function AikidoPage() {
     <>
       {/* Aikido hero */}
       <section id="what-is-aikido" className="relative isolate min-h-[100svh] overflow-hidden scroll-mt-28">
-        <img
+        <ResponsiveImage
           src={assetPath("/dojo-photos/aikido-hero-new.png")}
           alt=""
           aria-hidden="true"
-          className="absolute inset-0 h-full w-full object-cover"
+          imgClassName="absolute inset-0 h-full w-full object-cover"
+          loading="eager"
+          width={1881}
+          height={836}
           fetchPriority="high"
         />
         <div className="relative flex min-h-[100svh] items-center justify-center py-20 text-center">
           <div className="mx-auto max-w-3xl px-5 sm:px-8">
             <h1 className="mx-auto mt-3 max-w-3xl text-5xl leading-[0.98] text-ink sm:text-6xl lg:text-7xl">
-              What is Aikido?
+              {t("aikido.hero.title")}
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-charcoal/80 sm:text-lg sm:leading-8">
-              A Japanese martial art of harmony, nonviolence, and lifelong personal growth.
+              {t("aikido.hero.subtitle")}
             </p>
           </div>
         </div>
@@ -115,37 +121,31 @@ export function AikidoPage() {
       <MotionSection className="container-shell pb-20">
         <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
           <figure className="surface overflow-hidden rounded-[2rem]">
-            <img
+            <ResponsiveImage
               src={pcfAikidoImages.classPractice.src}
               alt={pcfAikidoImages.classPractice.alt}
-              className="aspect-[4/3] w-full object-cover"
+              imgClassName="aspect-[4/3] w-full object-cover"
             />
           </figure>
           <div>
-            <p className="eyebrow">About Aikido</p>
-            <h2 className="section-title">Peace through movement, not force.</h2>
+            <p className="eyebrow">{t("aikido.about.eyebrow")}</p>
+            <h2 className="section-title">{t("aikido.about.title")}</h2>
             <p className="mt-5 text-base leading-7 text-charcoal/80 sm:text-lg">
-              Aikido is a Japanese martial art founded in the early 20th century by
-              Morihei Ueshiba. It grew from classical traditions including jujutsu, judo, and
-              the sword arts, but took a different direction. Instead of striking or
-              overpowering, aikido teaches you to blend with incoming energy, redirect
-              it, and resolve conflict without causing injury. There is no competition,
-              no aggression. The practice is about composure, self-discipline, and learning
-              to stay calm under pressure.
+              {t("aikido.about.copy")}
             </p>
             <div className="mt-8 grid gap-3 sm:grid-cols-3">
               {[
                 {
-                  title: "Rooted in Japan",
-                  body: "Founded by Morihei Ueshiba from classical jujutsu and aiki sword traditions.",
+                  title: t("aikido.about.point1Title"),
+                  body: t("aikido.about.point1Body"),
                 },
                 {
-                  title: "Nonviolent",
-                  body: "Redirects and neutralises force rather than meeting it. No striking, no competition.",
+                  title: t("aikido.about.point2Title"),
+                  body: t("aikido.about.point2Body"),
                 },
                 {
-                  title: "Inner discipline",
-                  body: "Builds composure, awareness, and respect. These qualities carry well beyond the mat.",
+                  title: t("aikido.about.point3Title"),
+                  body: t("aikido.about.point3Body"),
                 },
               ].map((pt) => (
                 <div key={pt.title} className="rounded-2xl bg-bamboo/10 px-5 py-4">
@@ -158,32 +158,30 @@ export function AikidoPage() {
         </div>
         <div className="mt-5 grid gap-5 sm:grid-cols-2">
           <figure className="surface card-hover overflow-hidden rounded-[2rem]">
-            <img
+            <ResponsiveImage
               src={pcfAikidoImages.joBokken.src}
               alt={pcfAikidoImages.joBokken.alt}
-              className="aspect-video w-full object-cover"
+              imgClassName="aspect-video w-full object-cover"
               loading="lazy"
             />
             <figcaption className="p-5">
-              <h3 className="text-2xl text-ink">Rooted in Tradition</h3>
+              <h3 className="text-2xl text-ink">{t("aikido.about.traditionTitle")}</h3>
               <p className="mt-2 text-sm text-charcoal/75">
-                Bokken and jo practice connects aikido to the classical Japanese weapons
-                arts from which it evolved, a living link to centuries of budo.
+                {t("aikido.about.traditionCopy")}
               </p>
             </figcaption>
           </figure>
           <figure className="surface card-hover overflow-hidden rounded-[2rem]">
-            <img
+            <ResponsiveImage
               src={pcfAikidoImages.kamiza.src}
               alt={pcfAikidoImages.kamiza.alt}
-              className="aspect-video w-full object-cover"
+              imgClassName="aspect-video w-full object-cover"
               loading="lazy"
             />
             <figcaption className="p-5">
-              <h3 className="text-2xl text-ink">A Respectful Space</h3>
+              <h3 className="text-2xl text-ink">{t("aikido.about.spaceTitle")}</h3>
               <p className="mt-2 text-sm text-charcoal/75">
-                The kamiza is a focal point of attention in every dojo. It reflects
-                aikido's emphasis on sincerity, respect, and a settled, open mind.
+                {t("aikido.about.spaceCopy")}
               </p>
             </figcaption>
           </figure>
@@ -193,16 +191,14 @@ export function AikidoPage() {
       <MotionSection className="container-shell pb-20">
         <div className="mb-9 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
-            <p className="eyebrow">RenshinKan Instructors</p>
-            <h2 className="section-title">A line of practice rooted in Chiang Mai.</h2>
+            <p className="eyebrow">{t("aikido.instructors.eyebrow")}</p>
+            <h2 className="section-title">{t("aikido.instructors.title")}</h2>
             <p className="section-copy">
-              RenshinKan's instructors trained across Japan, Bangkok, and Chiang Mai,
-              building a teaching line that now welcomes students of all ages
-              and backgrounds.
+              {t("aikido.instructors.copy")}
             </p>
           </div>
           <Link to="/instructors" className="btn-secondary">
-            Full Instructor Profiles
+            {t("aikido.instructors.cta")}
           </Link>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -212,10 +208,10 @@ export function AikidoPage() {
               className="surface card-hover flex items-center gap-4 rounded-[1.75rem] p-4"
             >
               {instructor.imageSrc ? (
-                <img
+                <ResponsiveImage
                   src={instructor.imageSrc}
                   alt={instructor.imageAlt ?? `${instructor.name} instructor portrait`}
-                  className="h-20 w-20 shrink-0 rounded-full object-cover object-[50%_22%]"
+                  imgClassName="h-20 w-20 shrink-0 rounded-full object-cover object-[50%_22%]"
                   loading="lazy"
                 />
               ) : null}
@@ -232,22 +228,21 @@ export function AikidoPage() {
           ))}
         </div>
         <p className="mt-5 text-xs font-semibold uppercase tracking-[0.16em] text-charcoal/55">
-          Source: {instructorSource.label}
+          {t("common.source")}: {instructorSource.label}
         </p>
       </MotionSection>
 
       <MotionSection className="container-shell pb-20">
         <div className="grid gap-10 lg:grid-cols-[0.78fr_1.22fr] lg:items-start">
           <div className="lg:sticky lg:top-28">
-            <p className="eyebrow">Aikido History</p>
-            <h2 className="section-title">From older budo to a living local practice.</h2>
+            <p className="eyebrow">{t("aikido.history.eyebrow")}</p>
+            <h2 className="section-title">{t("aikido.history.title")}</h2>
             <p className="section-copy">
-              Each entry connects to the full written history below. Click
-              any item to jump to that period of the story.
+              {t("aikido.history.copy")}
             </p>
             <div className="mt-7 rounded-[2rem] border border-ink/10 bg-paper/70 p-5">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-bamboo">
-                Primary Sources
+                {t("aikido.history.primarySources")}
               </p>
               <div className="mt-3 grid gap-2">
                 {aikidoHistorySources.map((source) => (
@@ -271,17 +266,12 @@ export function AikidoPage() {
 
       <MotionSection id="history-philosophy" className="container-shell scroll-mt-28 pb-20">
         <div className="mb-10 max-w-3xl">
-          <p className="eyebrow">Historical Story</p>
+          <p className="eyebrow">{t("aikido.history.storyEyebrow")}</p>
           <h2 id="o-sensei" className="section-title scroll-mt-28">
-            O Sensei, aikido, and the path from force to harmony.
+            {t("aikido.history.storyTitle")}
           </h2>
           <p className="section-copy">
-            Aikido (合気道) means "the way of harmonious spirit," a name that
-            reflects its founding philosophy of blending, not clashing. Its
-            history is not a straight line from violence to gentleness. It is
-            a layered story of older martial skill, spiritual searching, wartime
-            pressure, postwar reconstruction, and ordinary people learning to
-            practice with respect.
+            {t("aikido.history.storyCopy")}
           </p>
         </div>
 

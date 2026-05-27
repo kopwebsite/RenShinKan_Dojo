@@ -1,25 +1,27 @@
 import { AnimatePresence, motion } from "framer-motion";
+import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { siteInfo } from "../data/siteContent";
+import { languageOptions, useTranslation, type Language, type TranslationKey } from "../i18n";
 import { BrushCircleLogo } from "./BrushCircleLogo";
 import styles from "./Navbar.module.css";
 
 type DropdownLink = {
-  label: string;
+  labelKey: TranslationKey;
   to: string;
 };
 
 type DropdownNavItem = {
   id: string;
-  label: string;
+  labelKey: TranslationKey;
   to: string;
   dropdown: DropdownLink[];
 };
 
 type PlainNavItem = {
   id: string;
-  label: string;
+  labelKey: TranslationKey;
   to: string;
 };
 
@@ -32,67 +34,81 @@ type NavbarProps = {
 const dropdownNavItems: DropdownNavItem[] = [
   {
     id: "our-dojo",
-    label: "Our Dojo",
+    labelKey: "nav.ourDojo",
     to: "/",
     dropdown: [
-      { label: "Home", to: "/" },
-      { label: "Instructors", to: "/#instructors" },
-      { label: "Dojo Photos", to: "/#dojo-photos" },
-      { label: "Dojo History", to: "/#dojo-history" },
-      { label: "Location", to: "/#location" },
+      { labelKey: "nav.home", to: "/" },
+      { labelKey: "nav.instructors", to: "/#instructors" },
+      { labelKey: "nav.dojoPhotos", to: "/#dojo-photos" },
+      { labelKey: "nav.dojoHistory", to: "/#dojo-history" },
+      { labelKey: "nav.location", to: "/#location" },
     ],
   },
   {
     id: "classes",
-    label: "Classes",
+    labelKey: "nav.classes",
     to: "/classes",
     dropdown: [
-      { label: "Information", to: "/classes#information" },
-      { label: "Class Schedule", to: "/classes#schedule" },
-      { label: "First Visit Guide", to: "/classes#first-visit" },
-      { label: "Belt Exams", to: "/classes#belt-exams" },
-      { label: "Gallery", to: "/classes#gallery" },
-      { label: "FAQ", to: "/classes#faq" },
+      { labelKey: "nav.information", to: "/classes#information" },
+      { labelKey: "nav.classSchedule", to: "/classes#schedule" },
+      { labelKey: "nav.firstVisitGuide", to: "/classes#first-visit" },
+      { labelKey: "nav.beltExams", to: "/classes#belt-exams" },
+      { labelKey: "nav.gallery", to: "/classes#gallery" },
+      { labelKey: "nav.faq", to: "/classes#faq" },
     ],
   },
   {
     id: "aikido",
-    label: "Aikido",
+    labelKey: "nav.aikido",
     to: "/aikido",
     dropdown: [
-      { label: "What Is Aikido", to: "/aikido#what-is-aikido" },
-      { label: "History of Aikido", to: "/aikido#history-philosophy" },
-      { label: "O Sensei", to: "/aikido#o-sensei" },
+      { labelKey: "nav.whatIsAikido", to: "/aikido#what-is-aikido" },
+      { labelKey: "nav.historyOfAikido", to: "/aikido#history-philosophy" },
+      { labelKey: "nav.oSensei", to: "/aikido#o-sensei" },
     ],
   },
   {
     id: "community",
-    label: "Community",
+    labelKey: "nav.community",
     to: "/community",
     dropdown: [
-      { label: "Upcoming Events", to: "/community#upcoming-events" },
-      { label: "Past Events", to: "/community#past-events" },
-      { label: "Peace Culture Foundation", to: "/community#peace-culture" },
-      { label: "Chiang Mai CMU", to: "/community#cmu-aikido" },
-      { label: "Other Dojos", to: "/community#other-dojos" },
+      { labelKey: "nav.upcomingEvents", to: "/community#upcoming-events" },
+      { labelKey: "nav.pastEvents", to: "/community#past-events" },
+      { labelKey: "nav.peaceCultureFoundation", to: "/community#peace-culture" },
+      { labelKey: "nav.chiangMaiCmu", to: "/community#cmu-aikido" },
+      { labelKey: "nav.otherDojos", to: "/community#other-dojos" },
     ],
   },
   {
     id: "support",
-    label: "Support",
+    labelKey: "nav.support",
     to: "/support",
     dropdown: [
-      { label: "Monthly Contribution", to: "/support#monthly-contribution" },
-      { label: "Donations", to: "/support#donations" },
+      { labelKey: "nav.monthlyContribution", to: "/support#monthly-contribution" },
+      { labelKey: "nav.donations", to: "/support#donations" },
     ],
   },
 ];
 
 const navItems: NavItem[] = [
   ...dropdownNavItems,
-  { id: "newsletter", label: "Newsletter", to: "/newsletter" },
-  { id: "contact", label: "Contact Us", to: "/contact" },
+  { id: "newsletter", labelKey: "nav.newsletter", to: "/newsletter" },
+  { id: "contact", labelKey: "nav.contact", to: "/contact" },
 ];
+
+const languageFlagClassByCode: Record<Language, string> = {
+  en: styles.languageFlagEN,
+  th: styles.languageFlagTH,
+  "zh-CN": styles.languageFlagZH,
+  ja: styles.languageFlagJA,
+};
+
+const languageLabelKeyByCode: Record<Language, TranslationKey> = {
+  en: "language.en",
+  th: "language.th",
+  "zh-CN": "language.zhCN",
+  ja: "language.ja",
+};
 
 function hasDropdown(item: NavItem): item is DropdownNavItem {
   return "dropdown" in item;
@@ -137,7 +153,118 @@ function FacebookIcon() {
   );
 }
 
+function LanguageSelector({ mobile = false }: { mobile?: boolean }) {
+  const { language, setLanguage, t } = useTranslation();
+  const [isOpen, setIsOpen] = useState(false);
+  const selectorRef = useRef<HTMLDivElement>(null);
+  const selectedOption =
+    languageOptions.find((option) => option.code === language) ?? languageOptions[0];
+  const menuId = mobile ? "mobile-language-menu" : "desktop-language-menu";
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      if (
+        selectorRef.current &&
+        event.target instanceof Node &&
+        !selectorRef.current.contains(event.target)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
+
+  const handleSelectLanguage = (nextLanguage: typeof language) => {
+    setLanguage(nextLanguage);
+    setIsOpen(false);
+  };
+
+  return (
+    <div
+      ref={selectorRef}
+      className={mobile ? styles.mobileLanguageSwitcher : styles.languageSwitcher}
+      data-open={isOpen}
+      aria-label={t("a11y.languageSelector")}
+    >
+      <button
+        type="button"
+        className={styles.languageTrigger}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        aria-controls={menuId}
+        aria-label={t("a11y.currentLanguage", {
+          language: t(languageLabelKeyByCode[selectedOption.code]),
+        })}
+        onClick={() => setIsOpen((open) => !open)}
+      >
+        <span
+          className={`${styles.languageFlag} ${languageFlagClassByCode[selectedOption.code]}`}
+          aria-hidden="true"
+        />
+        <span className={styles.languageCurrent}>
+          {mobile ? selectedOption.nativeLabel : selectedOption.shortLabel}
+        </span>
+        <ChevronDown className={styles.languageChevron} aria-hidden="true" />
+      </button>
+      <AnimatePresence>
+        {isOpen ? (
+          <motion.div
+            id={menuId}
+            className={styles.languageMenu}
+            role="menu"
+            aria-label={t("a11y.chooseLanguage")}
+            initial={{ opacity: 0, y: mobile ? 8 : -6, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: mobile ? 8 : -6, scale: 0.98 }}
+            transition={{ duration: 0.16, ease: "easeOut" }}
+          >
+            <div className={styles.languageMenuPanel}>
+              {languageOptions.map((option) => (
+                <button
+                  key={option.code}
+                  type="button"
+                  className={styles.languageOption}
+                  data-active={language === option.code}
+                  role="menuitemradio"
+                  aria-checked={language === option.code}
+                  onClick={() => handleSelectLanguage(option.code)}
+                >
+                  <span className={styles.languageOptionText}>{option.nativeLabel}</span>
+                  <span
+                    className={`${styles.languageOptionFlag} ${languageFlagClassByCode[option.code]}`}
+                    aria-hidden="true"
+                  />
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export function Navbar({ currentPath }: NavbarProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
@@ -265,20 +392,25 @@ export function Navbar({ currentPath }: NavbarProps) {
     <>
       <header className={`${styles.header} ${isScrolled ? styles.headerScrolled : ""}`}>
         <div className={styles.headerInner}>
-          <Link to="/" className={styles.logoLockup} aria-label="RenShinKan Dojo home">
+          <Link
+            to="/"
+            className={styles.logoLockup}
+            aria-label={`${t("common.brand")} ${t("nav.home")}`}
+          >
             <BrushCircleLogo decorative className={styles.logoIcon} />
             <span className={styles.wordmark}>RenShinKan Dojo</span>
           </Link>
 
           <div className={styles.desktopCluster}>
-            <nav className={styles.desktopNav} aria-label="Main navigation">
+            <nav className={styles.desktopNav} aria-label={t("a11y.mainNavigation")}>
               {navItems.map((item) => {
                 const isActive = isNavItemActive(item);
+                const itemLabel = t(item.labelKey);
 
                 if (!hasDropdown(item)) {
                   return (
                     <Link key={item.id} to={item.to} className={styles.navLink} data-active={isActive}>
-                      {item.label}
+                      {itemLabel}
                     </Link>
                   );
                 }
@@ -313,7 +445,7 @@ export function Navbar({ currentPath }: NavbarProps) {
                         navigate(item.to);
                       }}
                     >
-                      {item.label}
+                      {itemLabel}
                       <span className={styles.chevron} aria-hidden="true">
                         v
                       </span>
@@ -338,7 +470,7 @@ export function Navbar({ currentPath }: NavbarProps) {
                                 data-active={pathMatches(currentPath, dropdownItem.to)}
                                 onClick={() => setActiveDropdown(null)}
                               >
-                                {dropdownItem.label}
+                                {t(dropdownItem.labelKey)}
                               </Link>
                             ))}
                           </div>
@@ -349,12 +481,13 @@ export function Navbar({ currentPath }: NavbarProps) {
                 );
               })}
             </nav>
+            <LanguageSelector />
           </div>
 
           <button
             type="button"
             className={styles.mobileMenuButton}
-            aria-label={isMobileOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-label={isMobileOpen ? t("a11y.closeNavigationMenu") : t("a11y.openNavigationMenu")}
             aria-expanded={isMobileOpen}
             aria-controls="mobile-navigation-overlay"
             onClick={() => setIsMobileOpen((open) => !open)}
@@ -376,22 +509,24 @@ export function Navbar({ currentPath }: NavbarProps) {
             transition={{ duration: 0.25, ease: "easeOut" }}
             role="dialog"
             aria-modal="true"
-            aria-label="Mobile navigation"
+            aria-label={t("a11y.mobileNavigation")}
           >
             <div className={styles.mobileOverlayTop}>
               <button
                 ref={closeButtonRef}
                 type="button"
                 className={styles.mobileCloseButton}
-                aria-label="Close navigation menu"
+                aria-label={t("a11y.closeNavigationMenu")}
                 onClick={() => setIsMobileOpen(false)}
               >
                 <CloseIcon />
               </button>
             </div>
 
-            <nav className={styles.mobileNav} aria-label="Main navigation">
+            <nav className={styles.mobileNav} aria-label={t("a11y.mainNavigation")}>
               {navItems.map((item) => {
+                const itemLabel = t(item.labelKey);
+
                 if (!hasDropdown(item)) {
                   return (
                     <Link
@@ -401,7 +536,7 @@ export function Navbar({ currentPath }: NavbarProps) {
                       data-active={isNavItemActive(item)}
                       onClick={() => setIsMobileOpen(false)}
                     >
-                      {item.label}
+                      {itemLabel}
                     </Link>
                   );
                 }
@@ -416,14 +551,16 @@ export function Navbar({ currentPath }: NavbarProps) {
                         className={styles.mobileAccordionLabel}
                         onClick={() => setIsMobileOpen(false)}
                       >
-                        {item.label}
+                        {itemLabel}
                       </Link>
                       <button
                         type="button"
                         className={styles.mobileChevronButton}
                         aria-expanded={isOpen}
                         aria-controls={`mobile-${item.id}-accordion`}
-                        aria-label={`${isOpen ? "Collapse" : "Expand"} ${item.label} menu`}
+                        aria-label={t(isOpen ? "a11y.collapseMenu" : "a11y.expandMenu", {
+                          label: itemLabel,
+                        })}
                         onClick={() => toggleAccordion(item.id)}
                       >
                         <span className={styles.mobileChevron} aria-hidden="true">
@@ -451,7 +588,7 @@ export function Navbar({ currentPath }: NavbarProps) {
                                 data-active={pathMatches(currentPath, dropdownItem.to)}
                                 onClick={() => setIsMobileOpen(false)}
                               >
-                                {dropdownItem.label}
+                                {t(dropdownItem.labelKey)}
                               </Link>
                             ))}
                           </div>
@@ -464,7 +601,8 @@ export function Navbar({ currentPath }: NavbarProps) {
             </nav>
 
             <div className={styles.mobileBottom}>
-              <div className={styles.socialRow} aria-label="Social links">
+              <LanguageSelector mobile />
+              <div className={styles.socialRow} aria-label={t("a11y.socialLinks")}>
                 <a
                   href={siteInfo.facebookUrl}
                   className={styles.socialLink}

@@ -1,18 +1,20 @@
 import { Link } from "react-router-dom";
 import { MotionSection } from "../components/MotionSection";
 import { WorkshopCards } from "../components/WorkshopCards";
+import { useTranslation } from "../i18n";
 
 export function WorkshopsPage() {
+  const { t } = useTranslation();
+
   return (
     <>
       <MotionSection className="container-shell py-20">
-        <p className="eyebrow">Workshops & Events</p>
+        <p className="eyebrow">{t("workshops.intro.eyebrow")}</p>
         <h1 className="section-title">
-          Focused practice for beginners, children, weapons study, and visitors.
+          {t("workshops.intro.title")}
         </h1>
         <p className="section-copy">
-          Dates are announced as sessions are confirmed. Check back regularly or
-          follow dojo updates to hear about new workshops as they are scheduled.
+          {t("workshops.intro.copy")}
         </p>
       </MotionSection>
 
@@ -22,12 +24,12 @@ export function WorkshopsPage() {
 
       <MotionSection className="container-shell pb-20">
         <div className="rounded-[2rem] bg-bamboo/90 p-8 text-paper backdrop-blur-sm sm:p-10">
-          <p className="eyebrow text-paper/70">Updates</p>
+          <p className="eyebrow text-paper/70">{t("workshops.updates.eyebrow")}</p>
           <h2 className="mt-4 max-w-2xl text-4xl leading-tight sm:text-5xl">
-            Follow class notes and new workshop announcements.
+            {t("workshops.updates.title")}
           </h2>
           <Link to="/newsletter" className="btn-secondary mt-7 border-paper/20 bg-paper/10 text-paper hover:text-paper">
-            View Dojo Updates
+            {t("workshops.updates.cta")}
           </Link>
         </div>
       </MotionSection>

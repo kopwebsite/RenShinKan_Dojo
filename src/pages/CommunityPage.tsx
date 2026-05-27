@@ -10,6 +10,7 @@ import {
 import { Link } from "react-router-dom";
 import { MediaSlider } from "../components/MediaSlider";
 import { MotionSection } from "../components/MotionSection";
+import { ResponsiveImage } from "../components/ResponsiveImage";
 import { historyMedia } from "../data/editableContent";
 import {
   cmuAikidoClub,
@@ -18,6 +19,8 @@ import {
   peaceCultureFoundation,
   relatedDojos,
 } from "../data/siteContent";
+import { useTranslation } from "../i18n";
+import { useEditableContent } from "../lib/content";
 import { assetPath } from "../utils/assetPath";
 
 const upcomingEvents = [
@@ -42,6 +45,9 @@ const upcomingEvents = [
 ];
 
 export function CommunityPage() {
+  const { t } = useTranslation();
+  const { content } = useEditableContent();
+  const activeHistoryMedia = content.historyMedia.length ? content.historyMedia : historyMedia;
   const [cmuHeroPhoto, ...cmuGalleryPhotos] = cmuAikidoClub.photos;
 
   return (
@@ -50,25 +56,23 @@ export function CommunityPage() {
       <MotionSection className="container-shell py-20">
         <div className="grid items-center gap-10 lg:grid-cols-[1fr_0.85fr]">
           <div>
-            <p className="eyebrow">Peace Culture & Community</p>
+            <p className="eyebrow">{t("community.intro.eyebrow")}</p>
             <h1 className="section-title">
-              Aikido as a daily practice of respect, safety, and personal growth.
+              {t("community.intro.title")}
             </h1>
             <p className="section-copy">
-              RenshinKan sits at the centre of a wider network that includes the
-              Peace Culture Foundation, the AikidoCMU university club, and a
-              community of dojos across Chiang Mai. Aikido here isn't just a
-              training system. It's a shared way of learning to move through
-              conflict with calm and care.
+              {t("community.intro.copy")}
             </p>
           </div>
           <div className="flex items-center justify-center">
-            <img
+            <ResponsiveImage
               src={assetPath("/dojo-photos/pcf.png")}
-              alt="Peace Culture Foundation and RenshinKan community."
-              className="w-full max-w-md rounded-[2rem] object-cover"
+              alt={t("community.intro.imageAlt")}
+              imgClassName="w-full max-w-md rounded-[2rem] object-cover"
               style={{ maskImage: "radial-gradient(ellipse 88% 88% at 50% 50%, black 55%, transparent 100%)", WebkitMaskImage: "radial-gradient(ellipse 88% 88% at 50% 50%, black 55%, transparent 100%)" }}
               loading="eager"
+              width={1459}
+              height={1078}
             />
           </div>
         </div>
@@ -95,11 +99,10 @@ export function CommunityPage() {
       {/* Upcoming Events */}
       <MotionSection id="upcoming-events" className="container-shell scroll-mt-28 pb-20">
         <div className="mb-8 max-w-3xl">
-          <p className="eyebrow">Upcoming Events</p>
-          <h2 className="section-title">Community calendar.</h2>
+          <p className="eyebrow">{t("community.events.eyebrow")}</p>
+          <h2 className="section-title">{t("community.events.title")}</h2>
           <p className="section-copy">
-            Confirmed dates for seminars, open mat days, volunteer activities,
-            and dojo gatherings will be posted here as they're set.
+            {t("community.events.copy")}
           </p>
         </div>
         <div className="surface rounded-[2.5rem] overflow-hidden">
@@ -128,15 +131,14 @@ export function CommunityPage() {
       {/* Past Events */}
       <MotionSection id="past-events" className="container-shell scroll-mt-28 pb-20">
         <div className="mb-8 max-w-3xl">
-          <p className="eyebrow">Past Events</p>
-          <h2 className="section-title">A Look at Our History</h2>
+          <p className="eyebrow">{t("community.past.eyebrow")}</p>
+          <h2 className="section-title">{t("community.past.title")}</h2>
           <p className="section-copy">
-            Photos from public demonstrations, school visits, and shared
-            training events that have brought the dojo into the wider community.
+            {t("community.past.copy")}
           </p>
         </div>
 
-        <MediaSlider media={historyMedia} label="A Look at Our History media" />
+        <MediaSlider media={activeHistoryMedia} label={t("community.past.sliderLabel")} />
       </MotionSection>
 
       {/* Peace Culture Foundation */}
@@ -156,14 +158,12 @@ export function CommunityPage() {
                 <HeartHandshake size={26} aria-hidden="true" />
               </div>
             </div>
-            <p className="eyebrow mt-7 text-mist/70">Peace Culture Foundation</p>
+            <p className="eyebrow mt-7 text-mist/70">{t("community.foundation.eyebrow")}</p>
             <h2 className="mt-4 max-w-3xl text-4xl leading-tight sm:text-5xl">
-              The organisation behind RenshinKan's dojo and community mission.
+              {t("community.foundation.title")}
             </h2>
             <p className="mt-5 max-w-2xl text-paper/75">
-              The Peace Culture Foundation built RenshinKan in 2013 and continues
-              to connect the dojo's training culture to broader work in child safety,
-              grooming prevention, and peaceful conflict resolution across Chiang Mai.
+              {t("community.foundation.copy")}
             </p>
             <p className="mt-4 max-w-2xl text-paper/75">
               {peaceCultureFoundation.aikidoConnection}
@@ -175,7 +175,7 @@ export function CommunityPage() {
                 rel="noreferrer"
                 className="btn-secondary border-paper/20 bg-paper/10 text-paper hover:text-paper"
               >
-                Visit Foundation
+                {t("community.foundation.visit")}
                 <ArrowUpRight size={16} aria-hidden="true" />
               </a>
               <a
@@ -184,7 +184,7 @@ export function CommunityPage() {
                 rel="noreferrer"
                 className="btn-secondary border-paper/20 bg-paper/10 text-paper hover:text-paper"
               >
-                Advocacy Work
+                {t("community.foundation.advocacy")}
                 <ArrowUpRight size={16} aria-hidden="true" />
               </a>
             </div>
@@ -194,9 +194,9 @@ export function CommunityPage() {
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-bamboo/10 text-bamboo">
               <ShieldCheck size={26} aria-hidden="true" />
             </div>
-            <p className="eyebrow mt-7">Grooming Prevention</p>
+            <p className="eyebrow mt-7">{t("community.foundation.groomingEyebrow")}</p>
             <h2 className="mt-4 text-4xl leading-tight text-ink sm:text-5xl">
-              Prevention starts with language, boundaries, and trusted adults.
+              {t("community.foundation.groomingTitle")}
             </h2>
             <p className="mt-5 text-charcoal/78">
               {peaceCultureFoundation.groomingPrevention}
@@ -215,7 +215,7 @@ export function CommunityPage() {
               rel="noreferrer"
               className="btn-primary mt-7"
             >
-              Grooming Prevention Page
+              {t("community.foundation.groomingCta")}
               <ArrowUpRight size={16} aria-hidden="true" />
             </a>
           </article>
@@ -224,7 +224,7 @@ export function CommunityPage() {
         {/* PCF Photo Gallery */}
         <div className="mt-8">
           <p className="mb-5 text-xs font-bold uppercase tracking-[0.16em] text-charcoal/55">
-            From the Peace Culture Foundation
+            {t("community.foundation.photoEyebrow")}
           </p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {pcfDojoPhotos.map((photo) => {
@@ -242,7 +242,7 @@ export function CommunityPage() {
                         loading="lazy"
                       />
                       <figcaption className="border-t border-ink/10 p-6 sm:border-l sm:border-t-0 sm:p-8">
-                        <p className="eyebrow">Founder</p>
+                        <p className="eyebrow">{t("community.foundation.founder")}</p>
                         <h3 className="mt-3 text-3xl leading-tight text-ink sm:text-4xl">
                           {photo.title}
                         </h3>
@@ -283,10 +283,10 @@ export function CommunityPage() {
         <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
           <article className="surface overflow-hidden rounded-[2rem]">
             <div className="relative min-h-[25rem] overflow-hidden bg-ink">
-              <img
+              <ResponsiveImage
                 src={cmuHeroPhoto.src}
                 alt={cmuHeroPhoto.alt}
-                className="absolute inset-0 h-full w-full object-cover opacity-90"
+                imgClassName="absolute inset-0 h-full w-full object-cover opacity-90"
                 loading="lazy"
               />
               <div
@@ -302,9 +302,9 @@ export function CommunityPage() {
                 />
               </div>
               <div className="absolute bottom-0 left-0 right-0 p-6 text-paper sm:p-8">
-                <p className="eyebrow text-paper/70">Chiang Mai University</p>
+                <p className="eyebrow text-paper/70">{t("community.cmu.heroEyebrow")}</p>
                 <h2 className="mt-3 max-w-2xl text-4xl leading-tight sm:text-5xl">
-                  AikidoCMU: aikido at CMU since around 1986.
+                  {t("community.cmu.heroTitle")}
                 </h2>
                 <p className="mt-4 max-w-xl text-sm text-paper/75">
                   {cmuHeroPhoto.caption}
@@ -315,7 +315,7 @@ export function CommunityPage() {
               <div className="p-5">
                 <CalendarDays className="text-vermilion" size={22} aria-hidden="true" />
                 <p className="mt-3 text-xs font-bold uppercase tracking-[0.18em] text-charcoal/55">
-                  Public Days
+                  {t("community.cmu.publicDays")}
                 </p>
                 <p className="mt-2 text-lg font-bold text-ink">
                   {cmuAikidoClub.practice.days}
@@ -324,42 +324,34 @@ export function CommunityPage() {
               <div className="p-5">
                 <UsersRound className="text-bamboo" size={22} aria-hidden="true" />
                 <p className="mt-3 text-xs font-bold uppercase tracking-[0.18em] text-charcoal/55">
-                  Community
+                  {t("community.cmu.community")}
                 </p>
                 <p className="mt-2 text-lg font-bold text-ink">
-                  Students and guests
+                  {t("community.cmu.studentsGuests")}
                 </p>
               </div>
               <div className="p-5">
                 <GraduationCap className="text-wood" size={22} aria-hidden="true" />
                 <p className="mt-3 text-xs font-bold uppercase tracking-[0.18em] text-charcoal/55">
-                  Roots
+                  {t("community.cmu.roots")}
                 </p>
                 <p className="mt-2 text-lg font-bold text-ink">
-                  Since around 1986
+                  {t("community.cmu.since")}
                 </p>
               </div>
             </div>
           </article>
 
           <div>
-            <p className="eyebrow">Aikido Chiang Mai University Club</p>
+            <p className="eyebrow">{t("community.cmu.eyebrow")}</p>
             <h2 id="cmu-aikido-heading" className="section-title">
-              Where RenshinKan's lineage began.
+              {t("community.cmu.title")}
             </h2>
             <p className="section-copy">
-              The founders of RenshinKan, Ajarn Sombat Tapanya and Ajarn
-              Teerarat Boripantakul, both trained at AikidoCMU before
-              establishing RenshinKan Dojo in 2013. The university club has been
-              part of Chiang Mai's aikido community since the mid-1980s, first
-              sharing space with the CMU judo club before growing into its own
-              practice group.
+              {t("community.cmu.copy1")}
             </p>
             <p className="mt-4 text-charcoal/78">
-              AikidoCMU has consistently welcomed CMU students, international
-              students, and community members who train with regular discipline and
-              mutual respect. Their public sessions remain open to anyone serious
-              about practice, so message ahead to confirm current times and location.
+              {t("community.cmu.copy2")}
             </p>
 
             <div className="mt-7 rounded-[2rem] bg-paper/70 p-6 shadow-line ring-1 ring-ink/10">
@@ -368,7 +360,7 @@ export function CommunityPage() {
                   <CalendarDays size={22} aria-hidden="true" />
                 </div>
                 <div>
-                  <h3 className="text-2xl text-ink">Public practice</h3>
+                  <h3 className="text-2xl text-ink">{t("community.cmu.publicPractice")}</h3>
                   <p className="mt-2 text-sm font-bold text-charcoal">
                     {cmuAikidoClub.practice.days} · {cmuAikidoClub.practice.time}
                   </p>
@@ -401,7 +393,7 @@ export function CommunityPage() {
                 </a>
               ))}
               <a href={`mailto:${cmuAikidoClub.email}`} className="btn-primary">
-                Email AikidoCMU
+                {t("common.emailAikidoCmu")}
               </a>
             </div>
           </div>
@@ -414,10 +406,10 @@ export function CommunityPage() {
               key={photo.src}
               className="surface card-hover overflow-hidden rounded-[1.5rem]"
             >
-              <img
+              <ResponsiveImage
                 src={photo.src}
                 alt={photo.alt}
-                className="aspect-[4/3] w-full object-cover"
+                imgClassName="aspect-[4/3] w-full object-cover"
                 loading="lazy"
               />
               <figcaption className="p-5">
@@ -432,12 +424,10 @@ export function CommunityPage() {
       {/* Other Dojos */}
       <MotionSection id="other-dojos" className="container-shell scroll-mt-28 pb-20">
         <div className="mb-8 max-w-3xl">
-          <p className="eyebrow">Other Dojos</p>
-          <h2 className="section-title">Part of a wider Chiang Mai aikido network.</h2>
+          <p className="eyebrow">{t("community.otherDojos.eyebrow")}</p>
+          <h2 className="section-title">{t("community.otherDojos.title")}</h2>
           <p className="section-copy">
-            RenshinKan is one part of a broader aikido community in Chiang Mai
-            and Thailand. Below are the key organisations and bodies that
-            connect the dojo to the wider practice world.
+            {t("community.otherDojos.copy")}
           </p>
         </div>
         <div className="grid gap-5 md:grid-cols-3">
@@ -471,7 +461,7 @@ export function CommunityPage() {
                   rel="noreferrer"
                   className="mt-5 inline-flex items-center gap-1.5 text-sm font-bold text-vermilion transition hover:text-ink"
                 >
-                  Visit website
+                  {t("common.visitWebsite")}
                   <ArrowUpRight size={15} aria-hidden="true" />
                 </a>
               ) : dojo.facebook ? (
@@ -481,7 +471,7 @@ export function CommunityPage() {
                   rel="noreferrer"
                   className="mt-5 inline-flex items-center gap-1.5 text-sm font-bold text-vermilion transition hover:text-ink"
                 >
-                  Facebook page
+                  {t("common.facebookPage")}
                   <ArrowUpRight size={15} aria-hidden="true" />
                 </a>
               ) : null}
@@ -490,10 +480,10 @@ export function CommunityPage() {
         </div>
         <div className="mt-8 rounded-[1.75rem] bg-bamboo/10 p-6 ring-1 ring-bamboo/20">
           <p className="text-sm text-charcoal/78">
-            <span className="font-bold text-ink">Know of another connected dojo or organisation?</span>{" "}
-            Get in touch and we'll add it here.{" "}
+            <span className="font-bold text-ink">{t("community.otherDojos.know")}</span>{" "}
+            {t("community.otherDojos.knowCopy")}{" "}
             <Link to="/contact" className="font-bold text-vermilion hover:text-ink transition">
-              Contact us
+              {t("common.contactUs")}
             </Link>
           </p>
         </div>

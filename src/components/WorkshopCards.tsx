@@ -1,11 +1,20 @@
 import { CalendarDays, Filter } from "lucide-react";
 import { useState } from "react";
 import { workshops } from "../data/siteContent";
+import { useTranslation, type TranslationKey } from "../i18n";
 
 const filterOptions = ["All", "Beginner", "Children", "Weapons"] as const;
 type WorkshopFilter = (typeof filterOptions)[number];
 
+const filterLabelKeys: Record<WorkshopFilter, TranslationKey> = {
+  All: "workshops.filters.all",
+  Beginner: "workshops.filters.beginner",
+  Children: "workshops.filters.children",
+  Weapons: "workshops.filters.weapons",
+};
+
 export function WorkshopCards() {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<WorkshopFilter>("All");
   const visibleWorkshops = workshops.filter(
     (workshop) => filter === "All" || workshop.category === filter,
@@ -13,7 +22,7 @@ export function WorkshopCards() {
 
   return (
     <div>
-      <div className="mb-8 flex flex-wrap gap-2" aria-label="Workshop filters">
+      <div className="mb-8 flex flex-wrap gap-2" aria-label={t("workshops.filters.label")}>
         {filterOptions.map((option) => (
           <button
             key={option}
@@ -27,7 +36,7 @@ export function WorkshopCards() {
             onClick={() => setFilter(option)}
           >
             <Filter size={15} aria-hidden="true" />
-            {option}
+            {t(filterLabelKeys[option])}
           </button>
         ))}
       </div>
@@ -50,12 +59,12 @@ export function WorkshopCards() {
                 <div className="flex gap-2 text-charcoal/80">
                   <CalendarDays className="mt-0.5 h-4 w-4 text-bamboo" aria-hidden="true" />
                   <div>
-                    <dt className="sr-only">Date and time</dt>
+                    <dt className="sr-only">{t("common.dateAndTime")}</dt>
                     <dd>{workshop.date} · {workshop.time}</dd>
                   </div>
                 </div>
                 <div>
-                  <dt className="font-bold text-ink">For</dt>
+                  <dt className="font-bold text-ink">{t("common.for")}</dt>
                   <dd className="mt-1 text-charcoal/75">{workshop.audience}</dd>
                 </div>
               </dl>
@@ -65,10 +74,10 @@ export function WorkshopCards() {
       ) : (
         <div className="surface rounded-[2rem] p-8 text-center">
           <p className="font-serif text-3xl text-ink">
-            New workshops are announced throughout the year.
+            {t("workshops.empty.title")}
           </p>
           <p className="mt-3 text-sm text-charcoal/75">
-            Follow dojo updates or message the dojo about visiting class.
+            {t("workshops.empty.copy")}
           </p>
         </div>
       )}

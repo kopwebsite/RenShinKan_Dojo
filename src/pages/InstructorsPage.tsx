@@ -1,17 +1,18 @@
 import { InstructorGrid } from "../components/InstructorGrid";
 import { MotionSection } from "../components/MotionSection";
 import { instructorSource } from "../data/siteContent";
+import { useTranslation } from "../i18n";
 
 export function InstructorsPage() {
+  const { t } = useTranslation();
+
   return (
     <>
       <MotionSection className="container-shell py-20">
-        <p className="eyebrow">Instructors</p>
-        <h1 className="section-title">Meet the aikido instructors at RenshinKan Dojo.</h1>
+        <p className="eyebrow">{t("instructorsPage.eyebrow")}</p>
+        <h1 className="section-title">{t("instructorsPage.title")}</h1>
         <p className="section-copy">
-          Get to know the teachers who guide class practice, introduce beginners
-          to aikido, and help students build calm movement, respectful partner
-          training, and steady confidence on the mat.
+          {t("instructorsPage.copy")}
         </p>
       </MotionSection>
 

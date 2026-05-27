@@ -1,0 +1,409 @@
+{
+  "common": {
+    "brand": "RenshinKan Dojo",
+    "readMore": "Read More",
+    "viewUpdate": "View update",
+    "visitClass": "Visit a Class",
+    "learnAboutAikido": "Learn about Aikido",
+    "planYourVisit": "Plan Your Visit",
+    "getInTouch": "Get in Touch",
+    "observeClass": "Observe a Class",
+    "askAboutVisiting": "Ask About Visiting",
+    "messageDojo": "Message the Dojo",
+    "messageUsFacebook": "Message us on Facebook",
+    "followFacebook": "Follow on Facebook",
+    "openMap": "Open Map",
+    "sourceGallery": "Source Gallery",
+    "source": "Source",
+    "video": "Video",
+    "for": "For",
+    "rank": "Rank",
+    "trainingBackground": "Training Background",
+    "teachingFocus": "Teaching Focus",
+    "languagesSpoken": "Languages Spoken",
+    "days": "days",
+    "dateAndTime": "Date and time",
+    "contactUs": "Contact us",
+    "visitWebsite": "Visit website",
+    "facebookPage": "Facebook page",
+    "emailAikidoCmu": "Email AikidoCMU"
+  },
+  "a11y": {
+    "skipToContent": "Skip to content",
+    "mainNavigation": "Main navigation",
+    "footerNavigation": "Footer navigation",
+    "mobileNavigation": "Mobile navigation",
+    "openNavigationMenu": "Open navigation menu",
+    "closeNavigationMenu": "Close navigation menu",
+    "socialLinks": "Social links",
+    "languageSelector": "Language selector",
+    "chooseLanguage": "Choose language",
+    "currentLanguage": "Current language: {{language}}. Change language",
+    "expandMenu": "Expand {{label}} menu",
+    "collapseMenu": "Collapse {{label}} menu",
+    "previousEvent": "Previous event",
+    "nextEvent": "Next event",
+    "goToEvent": "Go to event {{number}}",
+    "previousMedia": "Previous {{label}}",
+    "nextMedia": "Next {{label}}",
+    "previousPhoto": "Previous photo",
+    "nextPhoto": "Next photo",
+    "goToPhoto": "Go to photo {{number}}",
+    "showPhoto": "Show {{title}}",
+    "mapTitle": "{{name}} Google map",
+    "openAddressInMaps": "Open {{address}} in Google Maps",
+    "portraitPlaceholder": "{{name}} portrait placeholder",
+    "beltProgressionChart": "Aikido kyu progression chart",
+    "beltRankLabel": "{{rank}} {{rankSub}} - {{days}} training days"
+  },
+  "language": {
+    "en": "English",
+    "th": "Thai",
+    "zhCN": "Chinese",
+    "ja": "Japanese"
+  },
+  "nav": {
+    "ourDojo": "Our Dojo",
+    "home": "Home",
+    "instructors": "Instructors",
+    "dojoPhotos": "Dojo Photos",
+    "dojoHistory": "Dojo History",
+    "location": "Location",
+    "classes": "Classes",
+    "information": "Information",
+    "classSchedule": "Class Schedule",
+    "firstVisitGuide": "First Visit Guide",
+    "beltExams": "Belt Exams",
+    "gallery": "Gallery",
+    "faq": "FAQ",
+    "aikido": "Aikido",
+    "whatIsAikido": "What Is Aikido",
+    "historyOfAikido": "History of Aikido",
+    "oSensei": "O Sensei",
+    "community": "Community",
+    "upcomingEvents": "Upcoming Events",
+    "pastEvents": "Past Events",
+    "peaceCultureFoundation": "Peace Culture Foundation",
+    "chiangMaiCmu": "Chiang Mai CMU",
+    "otherDojos": "Other Dojos",
+    "support": "Support",
+    "monthlyContribution": "Monthly Contribution",
+    "donations": "Donations",
+    "newsletter": "Newsletter",
+    "contact": "Contact Us"
+  },
+  "footer": {
+    "tagline": "Aikido and martial arts training in Hang Dong, Chiang Mai.",
+    "explore": "Explore",
+    "stayConnected": "Stay Connected",
+    "stayConnectedCopy": "Receive class notes, first-visit guidance, and workshop announcements.",
+    "updatesCta": "Dojo Updates"
+  },
+  "home": {
+    "hero": {
+      "subtitle": "Traditional aikido and martial arts training in Hang Dong, Chiang Mai. Beginner friendly classes, children welcome, and visiting aikidoka invited."
+    },
+    "recent": {
+      "eyebrow": "Recent Events",
+      "title": "Recent dojo updates, gathered in one place.",
+      "copy": "The three newest updates from training days, examinations, seminars, and community moments at RenshinKan."
+    },
+    "facilities": {
+      "eyebrow": "Our Dojo",
+      "title": "A welcoming practice space for students of all ages in Hang Dong.",
+      "copy": "RenshinKan was built in {{year}} on a quiet property in Hang Dong. The space is designed for comfortable, focused practice for students of all ages."
+    },
+    "instructors": {
+      "eyebrow": "Who Teaches Here",
+      "title": "People who genuinely love what they teach.",
+      "copy": "Our instructors have been practicing for decades and they care about the people they teach. You will find them patient, encouraging, and consistent at every level."
+    },
+    "photos": {
+      "eyebrow": "Dojo Photos",
+      "title": "A peek inside RenshinKan.",
+      "copy": "Take a look at the dojo and the people who train here.",
+      "space": "The Space",
+      "onMat": "On the Mat",
+      "onMatGallery": "On the Mat gallery"
+    },
+    "journey": {
+      "eyebrow": "Dojo Journey",
+      "title": "From open ground to a working mat.",
+      "copy": "Photos from the Peace Culture Foundation build gallery, following RenshinKan from an empty plot of land all the way to opening practice on the mat."
+    },
+    "location": {
+      "eyebrow": "Getting Here",
+      "title": "Find the dojo before your first visit.",
+      "copy": "RenshinKan Dojo is in Baan Waen, Hang Dong. Parents and visitors can use the map to plan arrival, then message ahead so the dojo can confirm the best class time and where to observe."
+    },
+    "visiting": {
+      "eyebrow": "Visiting RenshinKan",
+      "title": "Drop-ins are always welcome.",
+      "copy": "If you're new, feel free to come along. Just turn up at class time. If you're a visiting aikidoka, we'd love a quick message ahead so we can make sure the timing works and someone can greet you properly."
+    }
+  },
+  "classes": {
+    "intro": {
+      "eyebrow": "Classes & Parent Guide",
+      "title": "A welcoming place to start, grow, and keep showing up.",
+      "copy": "Everyone is welcome here, from complete beginners and children to experienced aikidoka passing through Chiang Mai. Each session is 90 minutes and has two parts. The first half is designed for people who are just starting out, and the second half opens up to all levels for more focused technique work. Drop in anytime or reach out first if you have questions.",
+      "imageAlt": "Students in white uniforms lying in a circle on the mat with green belts in the centre."
+    },
+    "halves": {
+      "firstEyebrow": "First Half",
+      "firstTitle": "Beginners",
+      "firstCopy": "The opening portion of every class is designed for people just starting out. Safe falling, basic posture, footwork, and partner awareness at a measured pace.",
+      "secondEyebrow": "Second Half",
+      "secondTitle": "All Levels / Serious Practice",
+      "secondCopy": "The second portion moves into more demanding technique work, combinations, and partner drills suited to adults and students who are ready to push further."
+    },
+    "schedule": {
+      "eyebrow": "Weekly Schedule",
+      "title": "Four sessions a week, every week.",
+      "copy": "Tuesday and Thursday evenings, Saturday and Sunday mornings. Each class runs for 90 minutes and follows the same two-part structure: beginners first, then all levels.",
+      "imageAlt": "Weekly class schedule: Tuesday and Thursday 17:30-19:00, Saturday and Sunday 9:00-10:30"
+    },
+    "firstVisit": {
+      "eyebrow": "First Visit Guide",
+      "title": "A calm first class starts with a few simple steps.",
+      "copy": "This guide is for beginners, parents, and visiting aikidoka. Message ahead so we can confirm the right class time and whether to observe or join in.",
+      "beforeTitle": "Before you arrive",
+      "item1": "Drop-ins are welcome, just come along at class time",
+      "item2": "Message ahead to confirm class time and what to expect",
+      "item3": "Arrive at least 30 minutes early to help with preparing the dojo",
+      "item4": "Wear loose trousers and a t-shirt. A keikogi is only needed once you feel ready",
+      "item5": "Remove shoes before stepping onto the mat, and wash your feet",
+      "item6": "Let the instructor or a senior student guide you through the bow-in"
+    },
+    "beltExams": {
+      "eyebrow": "Belt Exams",
+      "copy": "Belt examinations follow the All Dojo Chiang Mai standard under Aikikai affiliation. Progress through the kyu system requires completing the listed techniques and a minimum number of training days at each level. The table below shows what is needed to advance.",
+      "graduationEyebrow": "Graduation Moments",
+      "graduationTitle": "Students who've passed the test."
+    },
+    "faq": {
+      "eyebrow": "Parent FAQ",
+      "title": "Answers before the first bow."
+    }
+  },
+  "contact": {
+    "intro": {
+      "eyebrow": "Location & Contact",
+      "title": "Plan a first visit to RenshinKan Dojo.",
+      "copy": "The dojo is located at {{address}}. Parents, beginners, experienced aikidoka, and visitors should get in touch for more information before attending class."
+    },
+    "message": {
+      "eyebrow": "Get in Touch",
+      "title": "Prefer to message us through Facebook?",
+      "copy": "You're welcome to reach out to us directly on Facebook. We're happy to answer any questions about classes, schedules, or your first visit."
+    },
+    "before": {
+      "eyebrow": "Before You Visit",
+      "title": "What to include in your message.",
+      "copy": "Tell us your age group, aikido or martial arts experience if any, and the class day you would like to visit. Beginners are welcome.",
+      "item1": "Wear comfortable clothes that allow movement.",
+      "item2": "Arrive a little early so someone can welcome you.",
+      "item3": "Parents may ask about observing children's practice.",
+      "item4": "Visiting aikidoka should mention rank and home dojo.",
+      "cta": "Ask about visiting class"
+    }
+  },
+  "aikido": {
+    "hero": {
+      "title": "What is Aikido?",
+      "subtitle": "A Japanese martial art of harmony, nonviolence, and lifelong personal growth."
+    },
+    "about": {
+      "eyebrow": "About Aikido",
+      "title": "Peace through movement, not force.",
+      "copy": "Aikido is a Japanese martial art founded in the early 20th century by Morihei Ueshiba. It grew from classical traditions including jujutsu, judo, and the sword arts, but took a different direction. Instead of striking or overpowering, aikido teaches you to blend with incoming energy, redirect it, and resolve conflict without causing injury. There is no competition, no aggression. The practice is about composure, self-discipline, and learning to stay calm under pressure.",
+      "point1Title": "Rooted in Japan",
+      "point1Body": "Founded by Morihei Ueshiba from classical jujutsu and aiki sword traditions.",
+      "point2Title": "Nonviolent",
+      "point2Body": "Redirects and neutralises force rather than meeting it. No striking, no competition.",
+      "point3Title": "Inner discipline",
+      "point3Body": "Builds composure, awareness, and respect. These qualities carry well beyond the mat.",
+      "traditionTitle": "Rooted in Tradition",
+      "traditionCopy": "Bokken and jo practice connects aikido to the classical Japanese weapons arts from which it evolved, a living link to centuries of budo.",
+      "spaceTitle": "A Respectful Space",
+      "spaceCopy": "The kamiza is a focal point of attention in every dojo. It reflects aikido's emphasis on sincerity, respect, and a settled, open mind."
+    },
+    "instructors": {
+      "eyebrow": "RenshinKan Instructors",
+      "title": "A line of practice rooted in Chiang Mai.",
+      "copy": "RenshinKan's instructors trained across Japan, Bangkok, and Chiang Mai, building a teaching line that now welcomes students of all ages and backgrounds.",
+      "cta": "Full Instructor Profiles"
+    },
+    "history": {
+      "eyebrow": "Aikido History",
+      "title": "From older budo to a living local practice.",
+      "copy": "Each entry connects to the full written history below. Click any item to jump to that period of the story.",
+      "primarySources": "Primary Sources",
+      "storyEyebrow": "Historical Story",
+      "storyTitle": "O Sensei, aikido, and the path from force to harmony.",
+      "storyCopy": "Aikido means \"the way of harmonious spirit,\" a name that reflects its founding philosophy of blending, not clashing. Its history is not a straight line from violence to gentleness. It is a layered story of older martial skill, spiritual searching, wartime pressure, postwar reconstruction, and ordinary people learning to practice with respect."
+    }
+  },
+  "community": {
+    "intro": {
+      "eyebrow": "Peace Culture & Community",
+      "title": "Aikido as a daily practice of respect, safety, and personal growth.",
+      "copy": "RenshinKan sits at the centre of a wider network that includes the Peace Culture Foundation, the AikidoCMU university club, and a community of dojos across Chiang Mai. Aikido here isn't just a training system. It's a shared way of learning to move through conflict with calm and care.",
+      "imageAlt": "Peace Culture Foundation and RenshinKan community."
+    },
+    "events": {
+      "eyebrow": "Upcoming Events",
+      "title": "Community calendar.",
+      "copy": "Confirmed dates for seminars, open mat days, volunteer activities, and dojo gatherings will be posted here as they're set."
+    },
+    "past": {
+      "eyebrow": "Past Events",
+      "title": "A Look at Our History",
+      "copy": "Photos from public demonstrations, school visits, and shared training events that have brought the dojo into the wider community.",
+      "sliderLabel": "A Look at Our History media"
+    },
+    "foundation": {
+      "eyebrow": "Peace Culture Foundation",
+      "title": "The organisation behind RenshinKan's dojo and community mission.",
+      "copy": "The Peace Culture Foundation built RenshinKan in 2013 and continues to connect the dojo's training culture to broader work in child safety, grooming prevention, and peaceful conflict resolution across Chiang Mai.",
+      "visit": "Visit Foundation",
+      "advocacy": "Advocacy Work",
+      "groomingEyebrow": "Grooming Prevention",
+      "groomingTitle": "Prevention starts with language, boundaries, and trusted adults.",
+      "groomingCta": "Grooming Prevention Page",
+      "photoEyebrow": "From the Peace Culture Foundation",
+      "founder": "Founder"
+    },
+    "cmu": {
+      "eyebrow": "Aikido Chiang Mai University Club",
+      "heroEyebrow": "Chiang Mai University",
+      "heroTitle": "AikidoCMU: aikido at CMU since around 1986.",
+      "publicDays": "Public Days",
+      "community": "Community",
+      "studentsGuests": "Students and guests",
+      "roots": "Roots",
+      "since": "Since around 1986",
+      "title": "Where RenshinKan's lineage began.",
+      "copy1": "The founders of RenshinKan, Ajarn Sombat Tapanya and Ajarn Teerarat Boripantakul, both trained at AikidoCMU before establishing RenshinKan Dojo in 2013. The university club has been part of Chiang Mai's aikido community since the mid-1980s, first sharing space with the CMU judo club before growing into its own practice group.",
+      "copy2": "AikidoCMU has consistently welcomed CMU students, international students, and community members who train with regular discipline and mutual respect. Their public sessions remain open to anyone serious about practice, so message ahead to confirm current times and location.",
+      "publicPractice": "Public practice"
+    },
+    "otherDojos": {
+      "eyebrow": "Other Dojos",
+      "title": "Part of a wider Chiang Mai aikido network.",
+      "copy": "RenshinKan is one part of a broader aikido community in Chiang Mai and Thailand. Below are the key organisations and bodies that connect the dojo to the wider practice world.",
+      "know": "Know of another connected dojo or organisation?",
+      "knowCopy": "Get in touch and we'll add it here."
+    }
+  },
+  "support": {
+    "intro": {
+      "eyebrow": "Support RenshinKan",
+      "title": "Keep the dojo open. Keep practice accessible.",
+      "copy": "Two ways to help: a regular community contribution for those who train here, and a one-off donation for anyone who wants to support aikido and martial arts training in Chiang Mai.",
+      "imageAlt": "RenshinKan Dojo community in Chiang Mai."
+    },
+    "monthly": {
+      "eyebrow": "Community Upkeep",
+      "title": "This dojo exists because its students take care of it.",
+      "copy1": "Every student who trains regularly at RenshinKan is asked to contribute {{amount}}. This is not a membership fee. It is a shared responsibility. The lights, the water, the mats, the repairs, the space itself: all of it is held up by the people who use it.",
+      "amount": "1,500 baht per month",
+      "copy2": "When everyone who trains here contributes, the dojo stays strong for current students, new beginners, and the wider Chiang Mai community.",
+      "noteStrong": "Instructors receive no payment from contributions.",
+      "note": "Every baht goes directly back into the space you train in.",
+      "supportImageAlt": "Students training aikido at RenshinKan Dojo in Hang Dong.",
+      "arrangeTitle": "How to arrange a contribution",
+      "arrangeCopy": "This static website does not process payments or collect payment details. Please arrange contributions directly with the dojo.",
+      "coversTitle": "What your contribution covers",
+      "coversCopy": "Below is every category the dojo spends money on. Nothing else.",
+      "reminderEyebrow": "A reminder worth repeating",
+      "reminderCopy": "Instructors are not compensated from these funds. They teach because they practice, and they practice because they believe in it. The money keeps the lights on."
+    },
+    "donations": {
+      "eyebrow": "Donations",
+      "title": "Want to support aikido in Chiang Mai?",
+      "copy": "You do not have to train here to support the dojo. If you believe in what aikido builds, a one-off donation is a direct way to keep practice accessible in Hang Dong and Chiang Mai.",
+      "qrTitle": "PromptPay QR Code",
+      "qrCopy": "Message us directly to donate via PromptPay.",
+      "qrNote": "Request the current QR code before sending funds.",
+      "whereTitle": "Where it goes",
+      "noSalary": "No part of your donation pays anyone's salary or personal income. This is a community dojo, run by people who love the practice.",
+      "transfer": "Prefer to transfer directly?"
+    }
+  },
+  "newsletter": {
+    "intro": {
+      "eyebrow": "Newsletter",
+      "title": "Gentle updates for families and students.",
+      "copy": "Sign up for beginner guidance, parent notes, workshop announcements, and reflections on calm practice."
+    },
+    "recent": {
+      "eyebrow": "Recent Events",
+      "title": "Dojo moments to share with the community.",
+      "copy": "Catch up on recent classes, belt promotion days, visiting instructor sessions, and other moments from the mat."
+    },
+    "notes": {
+      "eyebrow": "Recent Notes",
+      "title": "Short writing for first steps and steady practice."
+    },
+    "signup": {
+      "eyebrow": "Dojo Updates",
+      "title": "Follow RenshinKan updates.",
+      "copy": "Newsletter signup will be connected after a secure email provider is added. For now, follow or message the dojo on Facebook for class notes, event updates, and workshop announcements."
+    }
+  },
+  "workshops": {
+    "intro": {
+      "eyebrow": "Workshops & Events",
+      "title": "Focused practice for beginners, children, weapons study, and visitors.",
+      "copy": "Dates are announced as sessions are confirmed. Check back regularly or follow dojo updates to hear about new workshops as they are scheduled."
+    },
+    "updates": {
+      "eyebrow": "Updates",
+      "title": "Follow class notes and new workshop announcements.",
+      "cta": "View Dojo Updates"
+    },
+    "filters": {
+      "all": "All",
+      "beginner": "Beginner",
+      "children": "Children",
+      "weapons": "Weapons",
+      "label": "Workshop filters"
+    },
+    "empty": {
+      "title": "New workshops are announced throughout the year.",
+      "copy": "Follow dojo updates or message the dojo about visiting class."
+    }
+  },
+  "instructorsPage": {
+    "eyebrow": "Instructors",
+    "title": "Meet the aikido instructors at RenshinKan Dojo.",
+    "copy": "Get to know the teachers who guide class practice, introduce beginners to aikido, and help students build calm movement, respectful partner training, and steady confidence on the mat."
+  },
+  "locationCard": {
+    "eyebrow": "Location"
+  },
+  "seo": {
+    "homeTitle": "RenshinKan Dojo | Aikido in Hang Dong, Chiang Mai",
+    "homeDescription": "RenshinKan Dojo offers traditional aikido and martial arts training in Hang Dong, Chiang Mai, with beginner friendly classes, children welcome, and visiting aikidoka invited to message ahead.",
+    "aikidoTitle": "What Is Aikido? | RenshinKan Dojo Chiang Mai",
+    "aikidoDescription": "Learn about aikido history, O Sensei, partner practice, ukemi, weapons work, and how RenshinKan Dojo teaches aikido in Chiang Mai.",
+    "classesTitle": "Aikido Classes in Hang Dong | RenshinKan Dojo",
+    "classesDescription": "Class information for aikido training in Hang Dong, Chiang Mai. See practice times, first visit guidance, belt exams, and beginner friendly class details.",
+    "workshopsTitle": "Aikido Workshops in Chiang Mai | RenshinKan Dojo",
+    "workshopsDescription": "Seasonal aikido workshops for beginners, children, and current students at RenshinKan Dojo in Hang Dong, Chiang Mai.",
+    "newsletterTitle": "Dojo Updates | RenshinKan Aikido Chiang Mai",
+    "newsletterDescription": "Recent RenshinKan Dojo updates, student news, events, photos, and aikido community notes from Hang Dong and Chiang Mai.",
+    "communityTitle": "Aikido Community in Chiang Mai | RenshinKan Dojo",
+    "communityDescription": "RenshinKan Dojo is part of the Chiang Mai aikido community, connected with Peace Culture Foundation, AikidoCMU, and local martial arts practice.",
+    "supportTitle": "Support RenshinKan Dojo | Aikido Chiang Mai",
+    "supportDescription": "Support RenshinKan Dojo and help keep aikido training accessible in Hang Dong and Chiang Mai through student contributions and donations.",
+    "contactTitle": "Contact RenshinKan Dojo | Aikido in Hang Dong",
+    "contactDescription": "Contact RenshinKan Dojo in Hang Dong, Chiang Mai to ask about aikido classes, beginner visits, children training, and visiting aikidoka practice.",
+    "visitTitle": "Visit RenshinKan Dojo | Aikido in Hang Dong",
+    "visitDescription": "Plan a first visit to RenshinKan Dojo in Hang Dong, Chiang Mai. Beginners, parents, and visiting aikidoka are welcome to contact the dojo.",
+    "adminTitle": "Admin | RenshinKan Dojo",
+    "adminDescription": "RenshinKan Dojo content administration.",
+    "localBusinessDescription": "Traditional aikido and martial arts training in Hang Dong, Chiang Mai."
+  }
+}

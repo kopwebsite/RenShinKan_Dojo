@@ -1,11 +1,15 @@
 import { ExternalLink } from "lucide-react";
 import { renshinkanBuildPhotos, type DojoBuildPhoto } from "../data/siteContent";
+import { useTranslation } from "../i18n";
+import { ResponsiveImage } from "./ResponsiveImage";
 
 type DojoJourneyProps = {
   photos?: DojoBuildPhoto[];
 };
 
 export function DojoJourney({ photos = renshinkanBuildPhotos }: DojoJourneyProps) {
+  const { t } = useTranslation();
+
   return (
     <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
       {photos.map((photo, index) => (
@@ -16,10 +20,10 @@ export function DojoJourney({ photos = renshinkanBuildPhotos }: DojoJourneyProps
           }`}
         >
           <div className="relative aspect-[4/3] overflow-hidden bg-mist">
-            <img
+            <ResponsiveImage
               src={photo.src}
               alt={photo.alt}
-              className="h-full w-full object-cover"
+              imgClassName="h-full w-full object-cover"
               loading={index < 2 ? "eager" : "lazy"}
             />
             <div
@@ -43,7 +47,7 @@ export function DojoJourney({ photos = renshinkanBuildPhotos }: DojoJourneyProps
 
             <div className="border-t border-ink/10 pt-3 text-xs leading-5 text-charcoal/64">
               <p>
-                <span className="font-semibold text-ink/80">Source: </span>
+                <span className="font-semibold text-ink/80">{t("common.source")}: </span>
                 {photo.sourceName}; {photo.sourceFile}.
               </p>
               <p>{photo.credit}</p>
@@ -54,7 +58,7 @@ export function DojoJourney({ photos = renshinkanBuildPhotos }: DojoJourneyProps
                 rel="noopener noreferrer"
                 className="mt-2 inline-flex items-center gap-1 font-semibold text-vermilion transition hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-vermilion"
               >
-                Source gallery
+                {t("common.sourceGallery")}
                 <ExternalLink size={13} aria-hidden="true" />
               </a>
             </div>

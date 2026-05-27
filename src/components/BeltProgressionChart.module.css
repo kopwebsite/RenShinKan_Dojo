@@ -1,0 +1,223 @@
+/* ── Belt Progression Chart ─────────────────────────────────── */
+
+.chart {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ── Each rank row ──────────────────────────────────────────── */
+
+.row {
+  display: grid;
+  grid-template-columns: 82px 1px 1fr 66px 30px;
+  align-items: stretch;
+  border-radius: 14px;
+  overflow: hidden;
+  min-height: 80px;
+  box-shadow:
+    0 3px 10px rgba(0, 0, 0, 0.22),
+    0 1px 3px  rgba(0, 0, 0, 0.14);
+}
+
+/* ── Rank label (left column) ───────────────────────────────── */
+
+.rankLabel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 8px;
+  text-align: center;
+  flex-shrink: 0;
+  gap: 3px;
+}
+
+.rankNum {
+  font-size: 2.1rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.rankSub {
+  font-size: 0.58rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  opacity: 0.9;
+  white-space: nowrap;
+}
+
+/* ── Vertical divider ────────────────────────────────────────── */
+
+.divider {
+  width: 1px;
+  margin: 10px 0;
+  flex-shrink: 0;
+}
+
+/* ── Techniques column (center) ─────────────────────────────── */
+
+.techniques {
+  padding: 11px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
+.techLine {
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.55;
+  letter-spacing: 0.005em;
+}
+
+/* ── Days column (right of center) ──────────────────────────── */
+
+.daysCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 6px;
+  text-align: center;
+  border-left: 1px solid var(--sep, rgba(0, 0, 0, 0.14));
+  flex-shrink: 0;
+}
+
+.daysNum {
+  font-size: 1.45rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.daysLbl {
+  font-size: 0.56rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-top: 2px;
+  opacity: 0.78;
+}
+
+/* ── Belt icon (far right) ───────────────────────────────────── */
+
+.beltIconCol {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 7px;
+  flex-shrink: 0;
+}
+
+.beltIcon {
+  position: relative;
+  width: 12px;
+  height: 44px;
+  border-radius: 2px 4px 4px 2px;
+  background: var(--icon-fill, rgba(0, 0, 0, 0.10));
+  border: 2px solid var(--icon-edge, rgba(0, 0, 0, 0.18));
+}
+
+/* Horizontal fold line through the belt icon */
+.beltIcon::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -3px;
+  right: -3px;
+  height: 3px;
+  transform: translateY(-50%);
+  border-radius: 1px;
+  background: var(--icon-edge, rgba(0, 0, 0, 0.18));
+}
+
+/* ── Responsive: small tablets / large phones ───────────────── */
+
+@media (max-width: 600px) {
+  .row {
+    grid-template-columns: 64px 1px 1fr 54px 24px;
+    border-radius: 10px;
+    min-height: 68px;
+  }
+
+  .rankLabel {
+    padding: 8px 6px;
+    gap: 2px;
+  }
+
+  .rankNum {
+    font-size: 1.55rem;
+  }
+
+  .rankSub {
+    font-size: 0.50rem;
+    letter-spacing: 0.10em;
+  }
+
+  .techniques {
+    padding: 9px 10px;
+    gap: 1px;
+  }
+
+  .techLine {
+    font-size: 0.60rem;
+  }
+
+  .daysCol {
+    padding: 8px 4px;
+  }
+
+  .daysNum {
+    font-size: 1.2rem;
+  }
+
+  .daysLbl {
+    font-size: 0.48rem;
+  }
+
+  .beltIconCol {
+    padding: 0 5px;
+  }
+
+  .beltIcon {
+    width: 10px;
+    height: 36px;
+  }
+}
+
+/* ── Responsive: very small phones ──────────────────────────── */
+
+@media (max-width: 400px) {
+  .row {
+    grid-template-columns: 54px 0px 1fr 48px 0px;
+  }
+
+  .divider {
+    display: none;
+  }
+
+  .beltIconCol {
+    display: none;
+  }
+
+  .rankNum {
+    font-size: 1.35rem;
+  }
+
+  .rankSub {
+    font-size: 0.44rem;
+  }
+
+  .techLine {
+    font-size: 0.55rem;
+  }
+
+  .daysNum {
+    font-size: 1.1rem;
+  }
+}

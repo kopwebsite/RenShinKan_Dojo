@@ -1,15 +1,24 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { MediaSlider } from "../components/MediaSlider";
 import { NewsletterSignup } from "../components/NewsletterSignup";
 import { MotionSection } from "../components/MotionSection";
-import { dojoUpdates } from "../data/editableContent";
 import { newsletters } from "../data/siteContent";
+import { useTranslation } from "../i18n";
+import { getPublishedRecentEvents, useEditableContent } from "../lib/content";
 
 export function NewsletterPage() {
+  const { t } = useTranslation();
   const location = useLocation();
+  const { content } = useEditableContent();
+  const dojoUpdates = useMemo(() => getPublishedRecentEvents(content), [content]);
   const [activeEventIndex, setActiveEventIndex] = useState(0);
   const activeEvent = dojoUpdates[activeEventIndex];
+  const activeMedia = activeEvent?.media?.length
+    ? activeEvent.media
+    : activeEvent?.image
+      ? [activeEvent.image]
+      : [];
 
   useEffect(() => {
     const slug = location.hash.replace("#", "");
@@ -17,44 +26,56 @@ export function NewsletterPage() {
     if (index >= 0) {
       setActiveEventIndex(index);
     }
-  }, [location.hash]);
+  }, [dojoUpdates, location.hash]);
+
+  useEffect(() => {
+    if (activeEventIndex >= dojoUpdates.length) {
+      setActiveEventIndex(0);
+    }
+  }, [activeEventIndex, dojoUpdates.length]);
 
   return (
     <>
       <MotionSection className="container-shell py-20">
-        <p className="eyebrow">Newsletter</p>
-        <h1 className="section-title">Gentle updates for families and students.</h1>
+        <p className="eyebrow">{t("newsletter.intro.eyebrow")}</p>
+        <h1 className="section-title">{t("newsletter.intro.title")}</h1>
         <p className="section-copy">
-          Sign up for beginner guidance, parent notes, workshop announcements, and
-          reflections on calm practice.
+          {t("newsletter.intro.copy")}
         </p>
       </MotionSection>
 
       <MotionSection id="recent-events" className="container-shell scroll-mt-28 pb-20">
         <div className="mb-8 grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
           <div>
-            <p className="eyebrow">Recent Events</p>
-            <h2 className="section-title">Dojo moments to share with the community.</h2>
+            <p className="eyebrow">{t("newsletter.recent.eyebrow")}</p>
+            <h2 className="section-title">{t("newsletter.recent.title")}</h2>
           </div>
           <p className="section-copy mt-0">
-            Catch up on recent classes, belt promotion days, visiting instructor
-            sessions, and other moments from the mat.
+            {t("newsletter.recent.copy")}
           </p>
         </div>
 
-        <article id={activeEvent.slug} className="surface rounded-[2rem] p-6 sm:p-8">
-          <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
-            <div>
-              <p className="text-sm font-bold text-bamboo">{activeEvent.date}</p>
-              <h3 className="mt-5 text-4xl leading-tight text-ink sm:text-5xl">{activeEvent.subject}</h3>
-              <p className="mt-5 max-w-3xl text-base leading-7 text-charcoal/75">{activeEvent.summary}</p>
-              <p className="mt-5 max-w-3xl whitespace-pre-line text-sm leading-7 text-charcoal/78">
-                {activeEvent.body}
-              </p>
+        {activeEvent ? (
+          <article id={activeEvent.slug} className="surface rounded-[2rem] p-6 sm:p-8">
+            <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
+              <div>
+                <p className="text-sm font-bold text-bamboo">{activeEvent.date}</p>
+                <h3 className="mt-5 text-4xl leading-tight text-ink sm:text-5xl">{activeEvent.title}</h3>
+                <p className="mt-5 max-w-3xl text-base leading-7 text-charcoal/75">{activeEvent.summary}</p>
+                <p className="mt-5 max-w-3xl whitespace-pre-line text-sm leading-7 text-charcoal/78">
+                  {activeEvent.body}
+                </p>
+              </div>
+              <MediaSlider media={activeMedia} label={`${activeEvent.title} media`} />
             </div>
-            <MediaSlider media={activeEvent.media} label={`${activeEvent.subject} media`} />
-          </div>
-        </article>
+          </article>
+        ) : (
+          <article className="surface rounded-[2rem] p-6 sm:p-8">
+            <p className="text-sm leading-6 text-charcoal/72">
+              Recent dojo updates will appear here after they are published.
+            </p>
+          </article>
+        )}
 
         {dojoUpdates.length > 1 && (
           <div className="mt-4 grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
@@ -73,7 +94,7 @@ export function NewsletterPage() {
                 >
                   <p className="text-xs font-bold uppercase tracking-[0.14em] text-bamboo">{event.date}</p>
                   <p className={`mt-2 text-base font-medium leading-snug ${isActive ? "text-bamboo" : "text-ink"}`}>
-                    {event.subject}
+                    {event.title}
                   </p>
                 </button>
               );
@@ -88,8 +109,8 @@ export function NewsletterPage() {
 
       <MotionSection className="container-shell pb-20">
         <div className="mb-8 max-w-3xl">
-          <p className="eyebrow">Recent Notes</p>
-          <h2 className="section-title">Short writing for first steps and steady practice.</h2>
+          <p className="eyebrow">{t("newsletter.notes.eyebrow")}</p>
+          <h2 className="section-title">{t("newsletter.notes.title")}</h2>
         </div>
         <div className="grid gap-5 md:grid-cols-3">
           {newsletters.map((item) => (

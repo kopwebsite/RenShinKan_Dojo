@@ -3,55 +3,34 @@ import {
   CheckCircle,
   ImagePlus,
   Lock,
+  LogOut,
   Plus,
   RefreshCw,
   Save,
   Trash2,
-  Video,
+  UploadCloud,
+  X,
 } from "lucide-react";
-import { type ChangeEvent, type FormEvent, useMemo, useState } from "react";
+import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from "react";
 import { MediaSlider } from "../components/MediaSlider";
-import {
-  dojoUpdates,
-  examAnnouncement,
-  historyMedia,
-  onTheMatMedia,
-  passedTestStudents,
-  sendNewsletterUpdatePlaceholder,
-  type DojoUpdate,
-  type EditableMedia,
-  type PassedTestStudent,
-} from "../data/editableContent";
-import { isValidEmbedUrl, normalizeEmbedUrl } from "../utils/mediaEmbeds";
+import { emptyEditableContent, loadEditableContent } from "../lib/content";
+import type { EditableContent, MediaItem, RecentEvent } from "../types/editableContent";
 
-const ADMIN_PASSWORD_HASH =
-  "ccef3a07dc13054d4d8d6b3ef8aeeaa4651ddcb69fa8d172e06bf6d3212975ac";
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_FILES = 10;
+const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
-const SUBJECT_LIMIT = 90;
-const BODY_LIMIT = 1800;
-const SUMMARY_LIMIT = 180;
-const MAX_UPDATE_PHOTOS = 6;
-
-type AdminDraft = {
-  updates: DojoUpdate[];
-  historyMedia: EditableMedia[];
-  onTheMatMedia: EditableMedia[];
-  examAnnouncement: typeof examAnnouncement;
-  passedTestStudents: PassedTestStudent[];
+type PendingUpload = {
+  id: string;
+  file: File;
+  previewUrl: string;
 };
 
-type UpdateForm = {
-  subject: string;
-  body: string;
-  summary: string;
-  videoUrl: string;
-};
-
-const emptyUpdateForm: UpdateForm = {
-  subject: "",
-  body: "",
-  summary: "",
-  videoUrl: "",
+type PublishResult = {
+  ok?: boolean;
+  content?: EditableContent;
+  warnings?: string[];
+  error?: string;
 };
 
 function slugify(value: string) {
@@ -62,25 +41,75 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-async function sha256(value: string) {
-  const bytes = new TextEncoder().encode(value);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", bytes);
-  return [...new Uint8Array(hashBuffer)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-function makeLocalImageMedia(file: File, prefix: string): EditableMedia {
-  const src = URL.createObjectURL(file);
+function makeEvent(): RecentEvent {
+  const now = new Date().toISOString();
+  const id = `event-${crypto.randomUUID()}`;
 
   return {
-    id: `${prefix}-${crypto.randomUUID()}`,
-    type: "image",
-    src,
-    alt: file.name.replace(/\.[^.]+$/, ""),
-    title: file.name.replace(/\.[^.]+$/, ""),
-    caption: "",
-    dateAdded: new Date().toISOString(),
-    objectPosition: "center",
+    id,
+    title: "",
+    date: now.slice(0, 10),
+    summary: "",
+    body: "",
+    slug: "",
+    published: false,
+    image: undefined,
+    media: [],
+    notifySubscribers: false,
+    newsletter: {
+      status: "not_sent",
+      sentAt: null,
+      brevoCampaignId: null,
+      error: null,
+    },
+    createdAt: now,
+    updatedAt: now,
   };
+}
+
+function eventSnapshot(event?: RecentEvent) {
+  if (!event) {
+    return "";
+  }
+
+  return JSON.stringify({
+    title: event.title,
+    date: event.date,
+    summary: event.summary,
+    body: event.body,
+    slug: event.slug,
+    published: event.published,
+    image: event.image,
+    media: event.media,
+    notifySubscribers: event.notifySubscribers,
+    newsletter: event.newsletter,
+  });
+}
+
+function statusLabel(event: RecentEvent) {
+  const status = event.newsletter?.status ?? "not_sent";
+
+  if (status === "sent") {
+    return event.newsletter?.sentAt ? `sent ${new Date(event.newsletter.sentAt).toLocaleString()}` : "sent";
+  }
+
+  if (status === "failed") {
+    return event.newsletter?.error ? `failed: ${event.newsletter.error}` : "failed";
+  }
+
+  return status.replace("_", " ");
+}
+
+function hasSentNewsletter(event?: RecentEvent) {
+  return event?.newsletter?.status === "sent";
+}
+
+function getEventMedia(event: RecentEvent) {
+  if (event.media?.length) {
+    return event.media;
+  }
+
+  return event.image ? [event.image] : [];
 }
 
 function sectionTitle(title: string, copy: string) {
@@ -92,241 +121,243 @@ function sectionTitle(title: string, copy: string) {
   );
 }
 
-function Counter({ value, limit }: { value: string; limit: number }) {
-  return (
-    <span className={value.length > limit ? "font-bold text-vermilion" : "text-charcoal/55"}>
-      {value.length}/{limit}
-    </span>
-  );
-}
-
 export function AdminPage() {
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const [isAuthed, setIsAuthed] = useState(() => sessionStorage.getItem("renshinkan-admin-hint") === "true");
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState("");
-  const [isAuthed, setIsAuthed] = useState(() => sessionStorage.getItem("renshinkan-admin") === "true");
-  const [draft, setDraft] = useState<AdminDraft>({
-    updates: dojoUpdates,
-    historyMedia,
-    onTheMatMedia,
-    examAnnouncement,
-    passedTestStudents,
-  });
-  const [updateForm, setUpdateForm] = useState<UpdateForm>(emptyUpdateForm);
-  const [updatePhotos, setUpdatePhotos] = useState<EditableMedia[]>([]);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [historyVideo, setHistoryVideo] = useState("");
-  const [matVideo, setMatVideo] = useState("");
-  const [studentForm, setStudentForm] = useState({ name: "", caption: "", date: "" });
+  const [draft, setDraft] = useState<EditableContent>(emptyEditableContent);
+  const [baseline, setBaseline] = useState<EditableContent>(emptyEditableContent);
+  const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [publishStatus, setPublishStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [publishMessage, setPublishMessage] = useState("");
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const previewUpdate = useMemo<DojoUpdate | null>(() => {
-    if (!updateForm.subject.trim()) {
-      return null;
+  useEffect(() => {
+    fetch("/api/admin/session", { credentials: "include" })
+      .then((response) => response.json() as Promise<{ authenticated?: boolean }>)
+      .then((result) => {
+        const authenticated = result.authenticated === true;
+        setIsAuthed(authenticated);
+        sessionStorage.setItem("renshinkan-admin-hint", authenticated ? "true" : "false");
+      })
+      .catch(() => {
+        setIsAuthed(false);
+        sessionStorage.removeItem("renshinkan-admin-hint");
+      })
+      .finally(() => setSessionChecked(true));
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthed) {
+      return;
     }
 
-    const date = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-    const media = updatePhotos;
-    const slug = slugify(updateForm.subject);
+    loadEditableContent().then((content) => {
+      setDraft(content);
+      setBaseline(content);
+    });
+  }, [isAuthed]);
 
-    return {
-      id: editingId || `${slug}-${Date.now()}`,
-      date,
-      subject: updateForm.subject.trim(),
-      summary: updateForm.summary.trim(),
-      body: updateForm.body.trim(),
-      media,
-      mainImage: media.find((item) => item.type === "image")?.src || "",
-      slug,
-    };
-  }, [editingId, updateForm.body, updateForm.subject, updateForm.summary, updatePhotos]);
+  const pendingById = useMemo(() => {
+    return new Map(pendingUploads.map((upload) => [upload.id, upload]));
+  }, [pendingUploads]);
+
+  const baselineEvents = useMemo(() => {
+    return new Map(baseline.recentEvents.map((event) => [event.id, event]));
+  }, [baseline.recentEvents]);
+
+  const changedEvents = useMemo(() => {
+    return draft.recentEvents.filter((event) => eventSnapshot(event) !== eventSnapshot(baselineEvents.get(event.id)));
+  }, [baselineEvents, draft.recentEvents]);
+
+  const emailEvents = useMemo(() => {
+    return draft.recentEvents.filter((event) => {
+      const previous = baselineEvents.get(event.id);
+      return event.published && event.notifySubscribers === true && !hasSentNewsletter(event) && !hasSentNewsletter(previous);
+    });
+  }, [baselineEvents, draft.recentEvents]);
+
+  const previewMedia = (event: RecentEvent) => {
+    return getEventMedia(event).map((item) => {
+      if (!item.src.startsWith("pending:")) {
+        return item;
+      }
+
+      const upload = pendingById.get(item.src.replace("pending:", ""));
+      return upload ? { ...item, src: upload.previewUrl } : item;
+    });
+  };
 
   const login = async (event: FormEvent) => {
     event.preventDefault();
-    const hash = await sha256(password);
+    setAuthError("");
 
-    if (hash === ADMIN_PASSWORD_HASH) {
-      sessionStorage.setItem("renshinkan-admin", "true");
+    const response = await fetch("/api/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ password }),
+    });
+
+    if (response.ok) {
+      sessionStorage.setItem("renshinkan-admin-hint", "true");
       setIsAuthed(true);
       setPassword("");
-      setAuthError("");
       return;
     }
 
-    setAuthError("That password did not match.");
+    setAuthError("Invalid password");
   };
 
-  const addUpdatePhotos = (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    const available = MAX_UPDATE_PHOTOS - updatePhotos.filter((item) => item.type === "image").length;
-    const nextPhotos = files.slice(0, available).map((file) => makeLocalImageMedia(file, "update-photo"));
-    setUpdatePhotos((current) => [...current, ...nextPhotos]);
-    event.target.value = "";
+  const logout = async () => {
+    await fetch("/api/admin/logout", { method: "POST", credentials: "include" });
+    sessionStorage.removeItem("renshinkan-admin-hint");
+    setIsAuthed(false);
+    setDraft(emptyEditableContent);
+    setBaseline(emptyEditableContent);
   };
 
-  const addUpdateVideo = () => {
-    if (!isValidEmbedUrl(updateForm.videoUrl)) {
-      setPublishStatus("error");
-      setPublishMessage("Video links must be YouTube, Vimeo, or another HTTPS embed/player URL.");
-      return;
-    }
-
-    setUpdatePhotos((current) => [
-      ...current,
-      {
-        id: `update-video-${crypto.randomUUID()}`,
-        type: "video",
-        src: normalizeEmbedUrl(updateForm.videoUrl),
-        title: "Embedded video",
-        caption: "",
-        dateAdded: new Date().toISOString(),
-      },
-    ]);
-    setUpdateForm((current) => ({ ...current, videoUrl: "" }));
-    setPublishStatus("idle");
-    setPublishMessage("");
-  };
-
-  const saveUpdateToDraft = () => {
-    if (!previewUpdate || !previewUpdate.summary || !previewUpdate.body) {
-      setPublishStatus("error");
-      setPublishMessage("Add a subject, summary, and article body before saving an update.");
-      return;
-    }
-
-    if (previewUpdate.subject.length > SUBJECT_LIMIT || previewUpdate.summary.length > SUMMARY_LIMIT || previewUpdate.body.length > BODY_LIMIT) {
-      setPublishStatus("error");
-      setPublishMessage("One of the text fields is over its character limit.");
-      return;
-    }
-
+  const updateEvent = (id: string, updater: (event: RecentEvent) => RecentEvent) => {
     setDraft((current) => ({
       ...current,
-      updates: editingId
-        ? current.updates.map((update) => (update.id === editingId ? previewUpdate : update))
-        : [previewUpdate, ...current.updates],
+      recentEvents: current.recentEvents.map((event) => {
+        if (event.id !== id) {
+          return event;
+        }
+
+        return {
+          ...updater(event),
+          updatedAt: new Date().toISOString(),
+        };
+      }),
     }));
-    setUpdateForm(emptyUpdateForm);
-    setUpdatePhotos([]);
-    setEditingId(null);
-    setPublishStatus("success");
-    setPublishMessage("Update saved to this admin draft. Click Save / Publish Changes to send it to the backend.");
   };
 
-  const editUpdate = (update: DojoUpdate) => {
-    setEditingId(update.id);
-    setUpdateForm({
-      subject: update.subject,
-      body: update.body,
-      summary: update.summary,
-      videoUrl: "",
-    });
-    setUpdatePhotos(update.media);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const confirmDeleteUpdate = () => {
-    if (!deleteId) {
-      return;
-    }
-
+  const addEvent = () => {
     setDraft((current) => ({
       ...current,
-      updates: current.updates.filter((update) => update.id !== deleteId),
+      recentEvents: [makeEvent(), ...current.recentEvents],
     }));
-    setDeleteId(null);
-    setPublishStatus("success");
-    setPublishMessage("Update removed from this admin draft.");
   };
 
-  const addMediaFiles = (
-    event: ChangeEvent<HTMLInputElement>,
-    key: "historyMedia" | "onTheMatMedia",
-    prefix: string,
-  ) => {
-    const files = Array.from(event.target.files || []);
-    const media = files.map((file) => makeLocalImageMedia(file, prefix));
-    setDraft((current) => ({ ...current, [key]: [...current[key], ...media] }));
-    event.target.value = "";
-  };
-
-  const addVideoToSection = (key: "historyMedia" | "onTheMatMedia", url: string, reset: () => void) => {
-    if (!isValidEmbedUrl(url)) {
-      setPublishStatus("error");
-      setPublishMessage("Video links must be HTTPS embed/player URLs.");
-      return;
-    }
-
+  const deleteEvent = (id: string) => {
     setDraft((current) => ({
       ...current,
-      [key]: [
-        ...current[key],
-        {
-          id: `${key}-video-${crypto.randomUUID()}`,
-          type: "video",
-          src: normalizeEmbedUrl(url),
-          title: "Embedded video",
-          caption: "",
-          dateAdded: new Date().toISOString(),
-        },
-      ],
+      recentEvents: current.recentEvents.filter((event) => event.id !== id),
     }));
-    reset();
   };
 
-  const addStudentPhoto = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const changeImage = (eventId: string, fileEvent: ChangeEvent<HTMLInputElement>) => {
+    const file = fileEvent.target.files?.[0];
+    fileEvent.target.value = "";
+
     if (!file) {
       return;
     }
 
-    setDraft((current) => ({
+    if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+      setPublishStatus("error");
+      setPublishMessage("Images must be JPEG, PNG, or WebP.");
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      setPublishStatus("error");
+      setPublishMessage("Images must be 5 MB or smaller.");
+      return;
+    }
+
+    if (pendingUploads.length >= MAX_FILES) {
+      setPublishStatus("error");
+      setPublishMessage("You can upload at most 10 files in one publish.");
+      return;
+    }
+
+    const uploadId = `upload-${crypto.randomUUID()}`;
+    const mediaItem: MediaItem = {
+      id: `media-${crypto.randomUUID()}`,
+      src: `pending:${uploadId}`,
+      alt: file.name.replace(/\.[^.]+$/, ""),
+      type: "image",
+    };
+
+    setPendingUploads((current) => [
       ...current,
-      passedTestStudents: [
-        {
-          id: `student-${crypto.randomUUID()}`,
-          image: URL.createObjectURL(file),
-          name: studentForm.name,
-          caption: studentForm.caption,
-          date: studentForm.date,
-          dateAdded: new Date().toISOString(),
-          objectPosition: "center",
-        },
-        ...current.passedTestStudents,
-      ],
+      {
+        id: uploadId,
+        file,
+        previewUrl: URL.createObjectURL(file),
+      },
+    ]);
+    updateEvent(eventId, (current) => ({
+      ...current,
+      image: mediaItem,
+      media: [mediaItem],
     }));
-    setStudentForm({ name: "", caption: "", date: "" });
-    event.target.value = "";
+    setPublishStatus("idle");
+    setPublishMessage("");
   };
 
   const publish = async () => {
     setPublishStatus("saving");
-    setPublishMessage("Sending draft to the publish endpoint...");
+    setPublishMessage("Publishing content to GitHub...");
+    setWarnings([]);
 
-    const newUpdates = draft.updates.filter((update) => !dojoUpdates.some((existing) => existing.id === update.id));
-    const newsletterPayloads = newUpdates.map(sendNewsletterUpdatePlaceholder);
+    const contentToPublish = {
+      ...draft,
+      version: 1,
+      lastPublishedAt: new Date().toISOString(),
+      recentEvents: draft.recentEvents.map((event) => ({
+        ...event,
+        slug: event.slug || slugify(event.title),
+        notifySubscribers: event.notifySubscribers === true,
+        newsletter: event.newsletter ?? {
+          status: "not_sent" as const,
+          sentAt: null,
+          brevoCampaignId: null,
+          error: null,
+        },
+      })),
+    };
+
+    const formData = new FormData();
+    formData.append("content", JSON.stringify(contentToPublish));
+    for (const upload of pendingUploads) {
+      formData.append("files", upload.file, `${upload.id}-${upload.file.name}`);
+    }
 
     try {
       const response = await fetch("/api/admin/publish", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: draft, newsletterPayloads }),
+        body: formData,
+        credentials: "include",
       });
+      const result = (await response.json()) as PublishResult;
 
-      if (!response.ok) {
-        throw new Error("Publish endpoint is not configured yet.");
+      if (!response.ok || result.ok === false) {
+        throw new Error(result.error || "Publish failed.");
       }
 
-      setPublishStatus("success");
-      setPublishMessage("Publish request accepted. GitHub should rebuild after the backend creates the commit.");
+      const nextContent = result.content ?? contentToPublish;
+      pendingUploads.forEach((upload) => URL.revokeObjectURL(upload.previewUrl));
+      setPendingUploads([]);
+      setDraft(nextContent);
+      setBaseline(nextContent);
+      setConfirmOpen(false);
+      setWarnings(result.warnings ?? []);
+      setPublishStatus(result.warnings?.length ? "error" : "success");
+      setPublishMessage(result.warnings?.length ? "Published with warnings." : "Publish complete.");
     } catch (error) {
       setPublishStatus("error");
-      setPublishMessage(
-        "This static site cannot publish directly from the browser. Configure the backend/serverless placeholder with GitHub environment variables, then this button can create the commit.",
-      );
+      setPublishMessage(error instanceof Error ? error.message : "Publish failed.");
     }
   };
+
+  if (!sessionChecked) {
+    return <section className="container-shell py-20" aria-live="polite" />;
+  }
 
   if (!isAuthed) {
     return (
@@ -336,9 +367,9 @@ export function AdminPage() {
             <Lock size={24} aria-hidden="true" />
           </div>
           <p className="eyebrow mt-7">Admin</p>
-          <h1 className="mt-3 text-4xl leading-tight text-ink">RenshinKan editing mode</h1>
+          <h1 className="mt-3 text-4xl leading-tight text-ink">RenshinKan publishing</h1>
           <p className="mt-4 text-sm leading-6 text-charcoal/72">
-            Temporary static password check. Because this site currently ships as static files, true password protection requires a backend or hosting-level authentication. The password is not stored as plain text in this client, but a client-side hash is not production security.
+            Sign in to edit site content and publish it through the server-side GitHub workflow.
           </p>
           <form onSubmit={login} className="mt-7">
             <label className="text-sm font-bold text-ink" htmlFor="admin-password">
@@ -354,7 +385,7 @@ export function AdminPage() {
             />
             {authError ? <p className="mt-3 text-sm font-bold text-vermilion">{authError}</p> : null}
             <button type="submit" className="btn-primary mt-5 w-full">
-              Enter editing mode
+              Enter publishing mode
             </button>
           </form>
         </div>
@@ -369,20 +400,27 @@ export function AdminPage() {
           <p className="eyebrow">Admin</p>
           <h1 className="section-title">Dojo content editor</h1>
           <p className="section-copy">
-            Manage newsletter updates, galleries, exam announcements, and grading photos from one place.
+            Edit recent events, upload event images, and publish the JSON content file to GitHub.
           </p>
         </div>
-        <button type="button" onClick={publish} className="btn-primary">
-          <Save size={18} aria-hidden="true" />
-          Save / Publish Changes
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button type="button" onClick={logout} className="btn-secondary">
+            <LogOut size={17} aria-hidden="true" />
+            Log out
+          </button>
+          <button type="button" onClick={() => setConfirmOpen(true)} className="btn-primary">
+            <Save size={18} aria-hidden="true" />
+            Review Publish
+          </button>
+        </div>
       </div>
 
-      <div className="mb-8 rounded-[1.5rem] bg-vermilion/10 p-5 ring-1 ring-vermilion/20">
+      <div className="mb-8 rounded-[1.5rem] bg-bamboo/10 p-5 ring-1 ring-bamboo/20">
         <div className="flex gap-3">
-          <AlertCircle className="mt-1 shrink-0 text-vermilion" size={20} aria-hidden="true" />
+          <UploadCloud className="mt-1 shrink-0 text-bamboo" size={20} aria-hidden="true" />
           <p className="text-sm leading-6 text-charcoal/78">
-            This editor can prepare and preview changes in the browser. Publishing to GitHub requires the backend placeholder documented in the repo because GitHub tokens must never be exposed in frontend code.
+            Publishing uses an HttpOnly admin session and a server-side Cloudflare Pages Function. GitHub and Brevo
+            credentials are never sent to the browser.
           </p>
         </div>
       </div>
@@ -396,213 +434,243 @@ export function AdminPage() {
           }`}
         >
           <div className="flex items-center gap-3 text-sm font-bold">
-            {publishStatus === "saving" ? <RefreshCw size={18} aria-hidden="true" /> : <CheckCircle size={18} aria-hidden="true" />}
+            {publishStatus === "saving" ? (
+              <RefreshCw className="animate-spin" size={18} aria-hidden="true" />
+            ) : publishStatus === "error" ? (
+              <AlertCircle size={18} aria-hidden="true" />
+            ) : (
+              <CheckCircle size={18} aria-hidden="true" />
+            )}
             {publishMessage}
           </div>
+          {warnings.length ? (
+            <ul className="mt-3 grid gap-1 text-sm">
+              {warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       ) : null}
 
       <div className="grid gap-8">
         <section className="surface rounded-[2rem] p-6 sm:p-8">
-          {sectionTitle("1. Newsletter / Dojo Updates", "Create a new dojo update for students and subscribers. The first photo becomes the main slider image and front-page image.")}
-          <div className="grid gap-5 lg:grid-cols-2">
-            <label className="block text-sm font-bold text-ink">
-              Subject <Counter value={updateForm.subject} limit={SUBJECT_LIMIT} />
-              <input
-                className="input-field"
-                maxLength={SUBJECT_LIMIT + 20}
-                value={updateForm.subject}
-                onChange={(event) => setUpdateForm((current) => ({ ...current, subject: event.target.value }))}
-              />
-            </label>
-            <label className="block text-sm font-bold text-ink">
-              Brief Summary <Counter value={updateForm.summary} limit={SUMMARY_LIMIT} />
-              <textarea
-                className="input-field min-h-28"
-                maxLength={SUMMARY_LIMIT + 40}
-                value={updateForm.summary}
-                onChange={(event) => setUpdateForm((current) => ({ ...current, summary: event.target.value }))}
-              />
-            </label>
-          </div>
-          <label className="mt-5 block text-sm font-bold text-ink">
-            Text / Article Body <Counter value={updateForm.body} limit={BODY_LIMIT} />
-            <textarea
-              className="input-field min-h-52"
-              maxLength={BODY_LIMIT + 200}
-              value={updateForm.body}
-              onChange={(event) => setUpdateForm((current) => ({ ...current, body: event.target.value }))}
-            />
-          </label>
+          {sectionTitle(
+            "Recent Events",
+            "Create and edit public dojo updates. Published events appear on the Recent Events page.",
+          )}
+          <button type="button" className="btn-secondary mb-6" onClick={addEvent}>
+            <Plus size={17} aria-hidden="true" />
+            Add Recent Event
+          </button>
 
-          <div className="mt-6 grid gap-5 lg:grid-cols-2">
-            <div className="rounded-[1.5rem] bg-paper/60 p-5 ring-1 ring-ink/10">
-              <p className="font-bold text-ink">Any photos?</p>
-              <p className="mt-2 text-sm leading-6 text-charcoal/70">
-                Add up to 6 photos. The first photo you add will appear at the top of the slider and will be used as the main image for this update. Wide 16:9 or 4:3 images work best.
+          <div className="grid gap-6">
+            {draft.recentEvents.length === 0 ? (
+              <p className="rounded-[1.5rem] bg-paper/60 p-5 text-sm leading-6 text-charcoal/72 ring-1 ring-ink/10">
+                No recent events yet.
               </p>
-              <label className="btn-secondary mt-4 cursor-pointer">
-                <ImagePlus size={17} aria-hidden="true" />
-                Add photos
-                <input className="hidden" type="file" accept="image/*" multiple onChange={addUpdatePhotos} />
-              </label>
-            </div>
-            <div className="rounded-[1.5rem] bg-paper/60 p-5 ring-1 ring-ink/10">
-              <p className="font-bold text-ink">Any videos?</p>
-              <p className="mt-2 text-sm leading-6 text-charcoal/70">
-                Videos must be embed links from YouTube or another external video source. Direct video file uploads will not work.
-              </p>
-              <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-                <input
-                  className="input-field mt-0"
-                  value={updateForm.videoUrl}
-                  placeholder="https://www.youtube.com/embed/..."
-                  onChange={(event) => setUpdateForm((current) => ({ ...current, videoUrl: event.target.value }))}
-                />
-                <button type="button" className="btn-secondary shrink-0" onClick={addUpdateVideo}>
-                  <Video size={17} aria-hidden="true" />
-                  Add
-                </button>
-              </div>
-            </div>
-          </div>
+            ) : null}
 
-          {updatePhotos.length > 0 ? <MediaSlider media={updatePhotos} label="Update media preview" className="mt-6" /> : null}
-
-          <div className="mt-6 flex flex-wrap gap-3">
-            <button type="button" className="btn-primary" onClick={saveUpdateToDraft}>
-              <Plus size={17} aria-hidden="true" />
-              {editingId ? "Update Draft" : "Add Update"}
-            </button>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => {
-                setUpdateForm(emptyUpdateForm);
-                setUpdatePhotos([]);
-                setEditingId(null);
-              }}
-            >
-              Cancel / Reset
-            </button>
-          </div>
-        </section>
-
-        <section className="surface rounded-[2rem] p-6 sm:p-8">
-          {sectionTitle("2. A Look at Our History", "Use this section for historical dojo photos, founder/instructor history, old events, demonstrations, seminars, and archival media. Videos must be embed links from YouTube or another external source.")}
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <label className="btn-secondary cursor-pointer">
-              <ImagePlus size={17} aria-hidden="true" />
-              Add historical photos
-              <input className="hidden" type="file" accept="image/*" multiple onChange={(event) => addMediaFiles(event, "historyMedia", "history")} />
-            </label>
-            <input className="input-field mt-0" value={historyVideo} placeholder="Video embed URL" onChange={(event) => setHistoryVideo(event.target.value)} />
-            <button type="button" className="btn-secondary" onClick={() => addVideoToSection("historyMedia", historyVideo, () => setHistoryVideo(""))}>
-              <Video size={17} aria-hidden="true" />
-              Add video
-            </button>
-          </div>
-          <MediaSlider media={draft.historyMedia} label="History media draft" className="mt-6" />
-        </section>
-
-        <section className="surface rounded-[2rem] p-6 sm:p-8">
-          {sectionTitle("3. On the Mat Gallery", "Use this section for current training photos, class moments, techniques, seminars, and mat practice. Videos must be embed links from YouTube or another external source.")}
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <label className="btn-secondary cursor-pointer">
-              <ImagePlus size={17} aria-hidden="true" />
-              Add mat photos
-              <input className="hidden" type="file" accept="image/*" multiple onChange={(event) => addMediaFiles(event, "onTheMatMedia", "mat")} />
-            </label>
-            <input className="input-field mt-0" value={matVideo} placeholder="Video embed URL" onChange={(event) => setMatVideo(event.target.value)} />
-            <button type="button" className="btn-secondary" onClick={() => addVideoToSection("onTheMatMedia", matVideo, () => setMatVideo(""))}>
-              <Video size={17} aria-hidden="true" />
-              Add video
-            </button>
-          </div>
-          <MediaSlider media={draft.onTheMatMedia} label="On the Mat media draft" className="mt-6" />
-        </section>
-
-        <section className="surface rounded-[2rem] p-6 sm:p-8">
-          {sectionTitle("4. Examination Date", "Update the public exam announcement text.")}
-          <input
-            className="input-field"
-            value={draft.examAnnouncement.text}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                examAnnouncement: { text: event.target.value, updatedAt: new Date().toISOString() },
-              }))
-            }
-          />
-        </section>
-
-        <section className="surface rounded-[2rem] p-6 sm:p-8">
-          {sectionTitle("5. Students Who Passed the Test", "Use this section for students who passed grading/examination tests. Add photos with optional name, caption, and date fields.")}
-          <div className="grid gap-4 md:grid-cols-3">
-            <input className="input-field mt-0" value={studentForm.name} placeholder="Name or group title" onChange={(event) => setStudentForm((current) => ({ ...current, name: event.target.value }))} />
-            <input className="input-field mt-0" value={studentForm.caption} placeholder="Caption" onChange={(event) => setStudentForm((current) => ({ ...current, caption: event.target.value }))} />
-            <input className="input-field mt-0" value={studentForm.date} placeholder="Date" onChange={(event) => setStudentForm((current) => ({ ...current, date: event.target.value }))} />
-          </div>
-          <label className="btn-secondary mt-4 cursor-pointer">
-            <ImagePlus size={17} aria-hidden="true" />
-            Add student photo
-            <input className="hidden" type="file" accept="image/*" onChange={addStudentPhoto} />
-          </label>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {draft.passedTestStudents.map((student) => (
-              <figure key={student.id} className="overflow-hidden rounded-[1.5rem] bg-paper/60 ring-1 ring-ink/10">
-                <img src={student.image} alt={student.caption || student.name || ""} className="aspect-[4/3] w-full object-cover" style={{ objectPosition: student.objectPosition || "center" }} />
-                <figcaption className="p-4">
-                  {student.name ? <p className="font-bold text-ink">{student.name}</p> : null}
-                  {student.caption ? <p className="mt-1 text-sm text-charcoal/70">{student.caption}</p> : null}
-                  {student.date ? <p className="mt-2 text-xs font-bold uppercase tracking-[0.14em] text-bamboo">{student.date}</p> : null}
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-        </section>
-
-        <section className="surface rounded-[2rem] p-6 sm:p-8">
-          {sectionTitle("6. Existing Updates: Edit / Delete", "Edit previous dojo updates, delete old updates, and replace or remove photos and video embeds from the update form.")}
-          <div className="grid gap-4 md:grid-cols-2">
-            {draft.updates.map((update) => (
-              <article key={update.id} className="rounded-[1.5rem] bg-paper/60 p-5 ring-1 ring-ink/10">
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-bamboo">{update.date}</p>
-                <h3 className="mt-2 text-2xl text-ink">{update.subject}</h3>
-                <p className="mt-2 text-sm text-charcoal/70">{update.summary}</p>
-                <div className="mt-4 flex gap-2">
-                  <button type="button" className="btn-secondary" onClick={() => editUpdate(update)}>
-                    Edit
-                  </button>
-                  <button type="button" className="btn-secondary text-vermilion" onClick={() => setDeleteId(update.id)}>
+            {draft.recentEvents.map((event) => (
+              <article key={event.id} className="rounded-[1.5rem] bg-paper/60 p-5 ring-1 ring-ink/10">
+                <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-bamboo">Recent Event</p>
+                    <p className="mt-2 text-sm text-charcoal/65">Newsletter status: {statusLabel(event)}</p>
+                  </div>
+                  <button type="button" className="btn-secondary text-vermilion" onClick={() => deleteEvent(event.id)}>
                     <Trash2 size={16} aria-hidden="true" />
                     Delete
                   </button>
                 </div>
+
+                <div className="grid gap-5 lg:grid-cols-2">
+                  <label className="block text-sm font-bold text-ink">
+                    Title
+                    <input
+                      className="input-field"
+                      value={event.title}
+                      onChange={(inputEvent) =>
+                        updateEvent(event.id, (current) => ({
+                          ...current,
+                          title: inputEvent.target.value,
+                          slug: current.slug || slugify(inputEvent.target.value),
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="block text-sm font-bold text-ink">
+                    Date
+                    <input
+                      className="input-field"
+                      type="date"
+                      value={event.date}
+                      onChange={(inputEvent) =>
+                        updateEvent(event.id, (current) => ({ ...current, date: inputEvent.target.value }))
+                      }
+                    />
+                  </label>
+                  <label className="block text-sm font-bold text-ink">
+                    Slug
+                    <input
+                      className="input-field"
+                      value={event.slug}
+                      onChange={(inputEvent) =>
+                        updateEvent(event.id, (current) => ({ ...current, slug: slugify(inputEvent.target.value) }))
+                      }
+                    />
+                  </label>
+                  <label className="block text-sm font-bold text-ink">
+                    Image alt text
+                    <input
+                      className="input-field"
+                      value={event.image?.alt ?? ""}
+                      onChange={(inputEvent) => {
+                        const alt = inputEvent.target.value;
+                        updateEvent(event.id, (current) => ({
+                          ...current,
+                          image: current.image ? { ...current.image, alt } : current.image,
+                          media: current.media?.map((item) => (item.id === current.image?.id ? { ...item, alt } : item)),
+                        }));
+                      }}
+                    />
+                  </label>
+                </div>
+
+                <label className="mt-5 block text-sm font-bold text-ink">
+                  Summary
+                  <textarea
+                    className="input-field min-h-28"
+                    value={event.summary}
+                    onChange={(inputEvent) =>
+                      updateEvent(event.id, (current) => ({ ...current, summary: inputEvent.target.value }))
+                    }
+                  />
+                </label>
+
+                <label className="mt-5 block text-sm font-bold text-ink">
+                  Body
+                  <textarea
+                    className="input-field min-h-52"
+                    value={event.body}
+                    onChange={(inputEvent) =>
+                      updateEvent(event.id, (current) => ({ ...current, body: inputEvent.target.value }))
+                    }
+                  />
+                </label>
+
+                <div className="mt-5 flex flex-wrap gap-4">
+                  <label className="btn-secondary cursor-pointer">
+                    <ImagePlus size={17} aria-hidden="true" />
+                    Upload image
+                    <input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={(inputEvent) => changeImage(event.id, inputEvent)} />
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-sm font-bold text-ink">
+                    <input
+                      type="checkbox"
+                      checked={event.published}
+                      onChange={(inputEvent) =>
+                        updateEvent(event.id, (current) => ({ ...current, published: inputEvent.target.checked }))
+                      }
+                    />
+                    Published
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-sm font-bold text-ink">
+                    <input
+                      type="checkbox"
+                      checked={event.notifySubscribers === true}
+                      onChange={(inputEvent) =>
+                        updateEvent(event.id, (current) => ({ ...current, notifySubscribers: inputEvent.target.checked }))
+                      }
+                    />
+                    Notify subscribers
+                  </label>
+                </div>
+
+                {previewMedia(event).length ? (
+                  <MediaSlider media={previewMedia(event)} label={`${event.title || "Recent event"} media preview`} className="mt-6" />
+                ) : null}
               </article>
             ))}
           </div>
         </section>
 
         <section className="surface rounded-[2rem] p-6 sm:p-8">
-          {sectionTitle("7. Save / Publish Changes", "Send the prepared content to the serverless publish endpoint so it can commit to GitHub and trigger deployment.")}
-          <button type="button" onClick={publish} className="btn-primary">
+          {sectionTitle("Exam Announcement", "Optional text shown in the classes and belt exams section after publishing.")}
+          <input
+            className="input-field"
+            value={draft.examAnnouncement?.text ?? ""}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                examAnnouncement: {
+                  text: event.target.value,
+                  updatedAt: new Date().toISOString(),
+                },
+              }))
+            }
+          />
+        </section>
+
+        <section className="surface rounded-[2rem] p-6 sm:p-8">
+          {sectionTitle("Save / Publish Changes", "Review the publish summary before the server commits content to GitHub.")}
+          <button type="button" onClick={() => setConfirmOpen(true)} className="btn-primary">
             <Save size={18} aria-hidden="true" />
-            Save / Publish Changes
+            Review Publish
           </button>
         </section>
       </div>
 
-      {deleteId ? (
+      {confirmOpen ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-ink/45 p-5">
-          <div className="max-w-md rounded-[2rem] bg-paper p-7 shadow-soft">
-            <h2 className="text-3xl text-ink">Delete this update?</h2>
-            <p className="mt-3 text-sm text-charcoal/72">This removes the update from the current admin draft. It will not affect GitHub until Save / Publish succeeds.</p>
-            <div className="mt-6 flex gap-3">
-              <button type="button" className="btn-primary" onClick={confirmDeleteUpdate}>
-                Delete
+          <div className="w-full max-w-xl rounded-[2rem] bg-paper p-7 shadow-soft">
+            <div className="flex items-start justify-between gap-5">
+              <div>
+                <p className="eyebrow">Confirm Publish</p>
+                <h2 className="mt-3 text-3xl text-ink">Publish these changes?</h2>
+              </div>
+              <button
+                type="button"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/10"
+                onClick={() => setConfirmOpen(false)}
+                aria-label="Close"
+              >
+                <X size={18} aria-hidden="true" />
               </button>
-              <button type="button" className="btn-secondary" onClick={() => setDeleteId(null)}>
+            </div>
+
+            <dl className="mt-6 grid gap-3 text-sm text-charcoal/75">
+              <div className="flex justify-between gap-4">
+                <dt>Recent Events changed</dt>
+                <dd className="font-bold text-ink">{changedEvents.length}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt>Files uploaded</dt>
+                <dd className="font-bold text-ink">{pendingUploads.length}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt>Subscribers emailed</dt>
+                <dd className="font-bold text-ink">{emailEvents.length > 0 ? "Yes" : "No"}</dd>
+              </div>
+            </dl>
+
+            {emailEvents.length > 0 ? (
+              <div className="mt-5 rounded-[1.25rem] bg-vermilion/10 p-4 ring-1 ring-vermilion/20">
+                <p className="text-sm font-bold text-vermilion">These events will trigger Brevo campaigns:</p>
+                <ul className="mt-2 grid gap-1 text-sm text-charcoal/75">
+                  {emailEvents.map((event) => (
+                    <li key={event.id}>{event.title || event.slug || event.id}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <button type="button" className="btn-primary" onClick={publish} disabled={publishStatus === "saving"}>
+                <Save size={18} aria-hidden="true" />
+                Publish Now
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => setConfirmOpen(false)}>
                 Cancel
               </button>
             </div>

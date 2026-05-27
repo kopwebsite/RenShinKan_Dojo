@@ -1,0 +1,263 @@
+{
+  "common": {
+    "brand": "RenshinKan Dojo",
+    "readMore": "阅读更多",
+    "viewUpdate": "查看更新",
+    "visitClass": "参观课程",
+    "learnAboutAikido": "了解合气道",
+    "planYourVisit": "计划到访",
+    "getInTouch": "联系我们",
+    "observeClass": "旁听课程",
+    "askAboutVisiting": "咨询到访",
+    "messageDojo": "联系道场",
+    "messageUsFacebook": "通过 Facebook 联系我们",
+    "followFacebook": "在 Facebook 关注",
+    "openMap": "打开地图",
+    "sourceGallery": "来源图库",
+    "source": "来源",
+    "video": "视频",
+    "for": "适合",
+    "rank": "段级",
+    "trainingBackground": "训练经历",
+    "teachingFocus": "教学重点",
+    "languagesSpoken": "使用语言",
+    "days": "天",
+    "dateAndTime": "日期和时间",
+    "contactUs": "联系我们",
+    "visitWebsite": "访问网站",
+    "facebookPage": "Facebook 页面",
+    "emailAikidoCmu": "发送邮件给 AikidoCMU"
+  },
+  "a11y": {
+    "skipToContent": "跳到内容",
+    "mainNavigation": "主导航",
+    "footerNavigation": "页脚导航",
+    "mobileNavigation": "移动端导航",
+    "openNavigationMenu": "打开导航菜单",
+    "closeNavigationMenu": "关闭导航菜单",
+    "socialLinks": "社交链接",
+    "languageSelector": "语言选择器",
+    "chooseLanguage": "选择语言",
+    "currentLanguage": "当前语言：{{language}}。切换语言",
+    "expandMenu": "展开 {{label}} 菜单",
+    "collapseMenu": "收起 {{label}} 菜单",
+    "previousEvent": "上一个活动",
+    "nextEvent": "下一个活动",
+    "goToEvent": "转到活动 {{number}}",
+    "previousMedia": "上一个 {{label}}",
+    "nextMedia": "下一个 {{label}}",
+    "previousPhoto": "上一张照片",
+    "nextPhoto": "下一张照片",
+    "goToPhoto": "转到照片 {{number}}",
+    "showPhoto": "显示 {{title}}",
+    "mapTitle": "{{name}} Google 地图",
+    "openAddressInMaps": "在 Google 地图中打开 {{address}}",
+    "portraitPlaceholder": "{{name}} 肖像占位图",
+    "beltProgressionChart": "合气道级位进阶图",
+    "beltRankLabel": "{{rank}} {{rankSub}} - {{days}} 个训练日"
+  },
+  "language": {
+    "en": "英语",
+    "th": "泰语",
+    "zhCN": "中文",
+    "ja": "日语"
+  },
+  "nav": {
+    "ourDojo": "我们的道场",
+    "home": "首页",
+    "instructors": "教师",
+    "dojoPhotos": "道场照片",
+    "dojoHistory": "道场历史",
+    "location": "位置",
+    "classes": "课程",
+    "information": "信息",
+    "classSchedule": "课程时间",
+    "firstVisitGuide": "首次到访指南",
+    "beltExams": "级位考试",
+    "gallery": "图库",
+    "faq": "常见问题",
+    "aikido": "合气道",
+    "whatIsAikido": "什么是合气道",
+    "historyOfAikido": "合气道历史",
+    "oSensei": "植芝盛平",
+    "community": "社区",
+    "upcomingEvents": "即将举行",
+    "pastEvents": "过往活动",
+    "peaceCultureFoundation": "和平文化基金会",
+    "chiangMaiCmu": "清迈 CMU",
+    "otherDojos": "其他道场",
+    "support": "支持",
+    "monthlyContribution": "月度支持",
+    "donations": "捐赠",
+    "newsletter": "消息",
+    "contact": "联系我们"
+  },
+  "footer": {
+    "tagline": "在清迈杭东进行合气道和武道训练。",
+    "explore": "浏览",
+    "stayConnected": "保持联系",
+    "stayConnectedCopy": "接收课程笔记、首次到访指南和工作坊公告。",
+    "updatesCta": "道场更新"
+  },
+  "home": {
+    "hero": {
+      "subtitle": "位于清迈杭东的传统合气道和武道训练。课程适合初学者，欢迎儿童和来访的合气道练习者。"
+    },
+    "recent": {
+      "eyebrow": "近期活动",
+      "title": "道场近况，集中查看。",
+      "copy": "来自训练日、考试、研习会和 RenshinKan 社区时刻的三条最新更新。"
+    },
+    "facilities": {
+      "eyebrow": "我们的道场",
+      "title": "位于杭东、欢迎各年龄学生的练习空间。",
+      "copy": "RenshinKan 于 {{year}} 年建成，位于杭东一处安静的场地。这里为各年龄学生提供舒适、专注的练习空间。"
+    },
+    "instructors": {
+      "eyebrow": "这里的教师",
+      "title": "真正热爱教学的人。",
+      "copy": "我们的教师已经练习多年，也关心每一位学生。你会在每个阶段感受到耐心、鼓励和稳定的指导。"
+    },
+    "photos": {
+      "eyebrow": "道场照片",
+      "title": "看看 RenshinKan 内部。",
+      "copy": "看看道场，以及在这里练习的人们。",
+      "space": "练习空间",
+      "onMat": "垫上",
+      "onMatGallery": "垫上图库"
+    },
+    "journey": {
+      "eyebrow": "道场历程",
+      "title": "从空地到真正使用的练习垫。",
+      "copy": "来自和平文化基金会建设图库的照片，记录 RenshinKan 从空地到开垫练习的过程。"
+    },
+    "location": {
+      "eyebrow": "如何到达",
+      "title": "首次到访前先找到道场。",
+      "copy": "RenshinKan Dojo 位于杭东 Baan Waen。家长和访客可使用地图规划路线，并提前留言确认最合适的课程时间和旁听位置。"
+    },
+    "visiting": {
+      "eyebrow": "到访 RenshinKan",
+      "title": "随时欢迎临时到访。",
+      "copy": "如果你是新手，可以直接在上课时间前来。如果你是来访的合气道练习者，请提前简短留言，方便我们确认时间并安排接待。"
+    }
+  },
+  "classes": {
+    "intro": {
+      "eyebrow": "课程与家长指南",
+      "title": "一个适合开始、成长并持续练习的地方。",
+      "copy": "这里欢迎所有人，从完全初学者和儿童，到经过清迈的有经验合气道练习者。每节课 90 分钟，分为两部分。前半段适合刚开始的人，后半段开放给所有级别，进行更深入的技术练习。可直接到访，也可先联系我们咨询。",
+      "imageAlt": "穿白色练功服的学生在垫上围成一圈，中间放着绿色腰带。"
+    },
+    "halves": {
+      "firstEyebrow": "前半段",
+      "firstTitle": "初学者",
+      "firstCopy": "每节课开头都为刚开始练习的人设计，以稳定节奏学习安全受身、基本姿势、步法和伙伴意识。",
+      "secondEyebrow": "后半段",
+      "secondTitle": "所有级别 / 深入练习",
+      "secondCopy": "第二部分进入更高要求的技术、组合和伙伴练习，适合成人和准备继续提升的学生。"
+    },
+    "schedule": {
+      "eyebrow": "每周时间表",
+      "title": "每周四节课，稳定进行。",
+      "copy": "周二、周四晚上，周六、周日上午。每节课 90 分钟，采用同样的两段结构：初学者先练，然后所有级别一起练习。",
+      "imageAlt": "每周课程表：周二和周四 17:30-19:00，周六和周日 9:00-10:30"
+    },
+    "firstVisit": {
+      "eyebrow": "首次到访指南",
+      "title": "平静的第一节课，从几个简单步骤开始。",
+      "copy": "本指南面向初学者、家长和来访练习者。请提前留言，以便确认合适的课程时间，以及适合旁听还是参加练习。",
+      "beforeTitle": "到达前",
+      "item1": "欢迎临时到访，请在上课时间前来",
+      "item2": "提前留言确认上课时间和注意事项",
+      "item3": "至少提前 30 分钟到达，协助准备道场",
+      "item4": "穿宽松长裤和 T 恤。练功服可等稳定练习后再准备",
+      "item5": "上垫前请脱鞋并清洗双脚",
+      "item6": "请让教师或资深学生带你完成开课礼仪"
+    },
+    "beltExams": {
+      "eyebrow": "级位考试",
+      "copy": "级位考试依照 All Dojo Chiang Mai 在 Aikikai 体系下的标准进行。通过级位系统需要完成指定技术，并达到每一级的最低训练日数。下表列出晋级所需内容。",
+      "graduationEyebrow": "毕业时刻",
+      "graduationTitle": "通过考试的学生。"
+    },
+    "faq": {
+      "eyebrow": "家长常见问题",
+      "title": "第一次鞠躬前的答案。"
+    }
+  },
+  "contact": {
+    "intro": {
+      "eyebrow": "位置与联系",
+      "title": "计划首次到访 RenshinKan Dojo。",
+      "copy": "道场位于 {{address}}。家长、初学者、有经验练习者和访客在上课前可先联系我们了解更多信息。"
+    },
+    "message": {
+      "eyebrow": "联系我们",
+      "title": "更方便通过 Facebook 留言吗？",
+      "copy": "欢迎直接通过 Facebook 联系我们。关于课程、时间表或首次到访的问题，我们都乐意回答。"
+    },
+    "before": {
+      "eyebrow": "到访前",
+      "title": "留言中请包含什么。",
+      "copy": "请告诉我们年龄段、是否有合气道或武道经验，以及想来的课程日期。欢迎初学者。",
+      "item1": "穿方便活动的舒适衣服。",
+      "item2": "稍早到达，方便有人接待你。",
+      "item3": "家长可以询问旁听儿童练习。",
+      "item4": "来访练习者请说明级别和原道场。",
+      "cta": "咨询到访课程"
+    }
+  },
+  "locationCard": {
+    "eyebrow": "位置"
+  },
+  "instructorsPage": {
+    "eyebrow": "教师",
+    "title": "认识 RenshinKan Dojo 的合气道教师。",
+    "copy": "了解带领课堂练习、引导初学者进入合气道，并帮助学生在垫上建立平静动作、尊重伙伴训练和稳定信心的教师们。"
+  },
+  "newsletter": {
+    "intro": {
+      "eyebrow": "消息",
+      "title": "给家庭和学生的温和更新。",
+      "copy": "订阅初学者指南、家长笔记、工作坊公告，以及关于平静练习的短文。"
+    },
+    "recent": {
+      "eyebrow": "近期活动",
+      "title": "与社区分享的道场时刻。",
+      "copy": "了解近期课程、级位提升日、来访教师课程和垫上的其他时刻。"
+    },
+    "notes": {
+      "eyebrow": "近期笔记",
+      "title": "关于第一步和稳定练习的短文。"
+    },
+    "signup": {
+      "eyebrow": "道场更新",
+      "title": "关注 RenshinKan 更新。",
+      "copy": "安全邮件服务接入后将开放订阅。现在可先在 Facebook 关注或联系道场，获取课程笔记、活动和工作坊公告。"
+    }
+  },
+  "seo": {
+    "homeTitle": "RenshinKan Dojo | 清迈杭东合气道",
+    "homeDescription": "RenshinKan Dojo 在清迈杭东提供传统合气道和武道训练，课程适合初学者，欢迎儿童和来访练习者提前联系。",
+    "aikidoTitle": "什么是合气道？| RenshinKan Dojo 清迈",
+    "aikidoDescription": "了解合气道历史、植芝盛平、伙伴练习、受身、武器训练，以及 RenshinKan Dojo 在清迈的教学方式。",
+    "classesTitle": "杭东合气道课程 | RenshinKan Dojo",
+    "classesDescription": "清迈杭东合气道课程信息，包括练习时间、首次到访指南、级位考试和适合初学者的课程说明。",
+    "workshopsTitle": "清迈合气道工作坊 | RenshinKan Dojo",
+    "workshopsDescription": "RenshinKan Dojo 在清迈杭东为初学者、儿童和现有学生举办季节性合气道工作坊。",
+    "newsletterTitle": "道场更新 | RenshinKan 清迈合气道",
+    "newsletterDescription": "来自杭东和清迈的 RenshinKan Dojo 最新动态、学生消息、活动、照片和合气道社区记录。",
+    "communityTitle": "清迈合气道社区 | RenshinKan Dojo",
+    "communityDescription": "RenshinKan Dojo 是清迈合气道社区的一部分，与 Peace Culture Foundation、AikidoCMU 和本地武道练习相连。",
+    "supportTitle": "支持 RenshinKan Dojo | 清迈合气道",
+    "supportDescription": "通过学生贡献和捐赠支持 RenshinKan Dojo，让杭东和清迈的合气道训练保持开放可及。",
+    "contactTitle": "联系 RenshinKan Dojo | 杭东合气道",
+    "contactDescription": "联系清迈杭东 RenshinKan Dojo，咨询合气道课程、首次到访、儿童训练和来访练习安排。",
+    "visitTitle": "到访 RenshinKan Dojo | 杭东合气道",
+    "visitDescription": "计划首次到访清迈杭东 RenshinKan Dojo。欢迎初学者、家长和来访合气道练习者联系道场。",
+    "adminTitle": "管理 | RenshinKan Dojo",
+    "adminDescription": "RenshinKan Dojo 内容管理。",
+    "localBusinessDescription": "位于清迈杭东的传统合气道和武道训练。"
+  }
+}

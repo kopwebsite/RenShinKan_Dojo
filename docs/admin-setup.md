@@ -4,7 +4,7 @@ This site is prepared for Cloudflare Pages, Cloudflare Pages Functions, GitHub c
 
 ## Values To Provide
 
-- Cloudflare Pages project name.
+- Cloudflare Pages project name: `renshinkan-dojo` if you keep the checked-in `wrangler.toml` as-is.
 - GitHub owner, repository, and branch.
 - GitHub fine-grained personal access token with contents write access for this repository.
 - Admin password hash.
@@ -45,12 +45,28 @@ npx wrangler pages secret put BREVO_SENDER_NAME --project-name PLACEHOLDER_PROJE
 
 Set `VITE_BREVO_SIGNUP_FORM_URL` as a Cloudflare Pages build environment variable, not a secret, because it is meant to be public.
 
-## Build And Deploy
+## Cloudflare Git Deployment
+
+Create the Cloudflare Pages project from GitHub so Cloudflare pulls and deploys the repo automatically after each push:
+
+1. Go to Cloudflare **Workers & Pages**.
+2. Select **Create application** > **Pages** > **Connect to Git**.
+3. Authorize GitHub and select `CrappyTaco/RenShinKan_Dojo`.
+4. Set production branch to `main`.
+5. Use the **React (Vite)** preset, or enter:
+   - Build command: `npm run build`
+   - Build output directory: `dist`
+   - Root directory: repository root / blank
+6. Add the required secrets and build environment variables.
+7. Select **Save and Deploy**.
+
+After setup, every push to `main` triggers a new production build and deploy on Cloudflare Pages. Pull requests and other branches can produce preview deployments depending on the branch settings in Cloudflare.
+
+## Local Build Check
 
 ```bash
 npm install
 npm run check
-npx wrangler pages deploy dist --project-name PLACEHOLDER_CLOUDFLARE_PROJECT_NAME
 ```
 
 ## Post-Deploy Tests

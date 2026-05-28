@@ -8,7 +8,6 @@
     "optimize:images": "node scripts/optimize-images.mjs",
     "build": "npm run optimize:images && vite build",
     "check": "tsc --noEmit && npm run build",
-    "postbuild": "node scripts/create-spa-fallback.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

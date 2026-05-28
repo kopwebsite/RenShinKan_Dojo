@@ -18,29 +18,34 @@ npm run build
 npm run preview
 ```
 
-The production build is written to `dist/`. The build also copies `dist/index.html` to `dist/404.html` so GitHub Pages can serve React Router pages on refresh.
+The production build is written to `dist/`. Cloudflare Pages handles React Router refreshes with its default single-page application behavior when no top-level `404.html` is generated.
 
-## GitHub Pages
+## Cloudflare Pages
 
-This repo includes `.github/workflows/pages.yml`. After pushing to GitHub:
+Use Cloudflare Pages with Git integration so Cloudflare pulls the GitHub repository and deploys automatically after each push.
 
-1. Open the repository settings.
-2. Go to **Pages**.
-3. Set **Build and deployment** to **GitHub Actions**.
-4. Push to the `main` branch, or run the workflow manually.
+In Cloudflare:
 
-The workflow runs `actions/configure-pages` before uploading and deploying the build. If the deploy job still fails with `Failed to create deployment (status: 404)` and says to ensure GitHub Pages has been enabled, GitHub Pages is not enabled for the repo yet or its source is not set to **GitHub Actions**. On GitHub Free, GitHub Pages only works for public repositories; private repositories require a paid GitHub plan or another host such as Cloudflare Pages.
+1. Go to **Workers & Pages**.
+2. Select **Create application** > **Pages** > **Connect to Git**.
+3. Connect the GitHub repository `CrappyTaco/RenShinKan_Dojo`.
+4. Use `main` as the production branch.
+5. Use the **React (Vite)** framework preset, or enter these settings manually:
+   - Build command: `npm run build`
+   - Build output directory: `dist`
+   - Root directory: leave blank / repository root
+6. Save and deploy.
 
-The workflow builds with `BASE_PATH` set to the repository name, so project pages such as `https://OWNER.github.io/REPO/` work without editing asset paths. For an `OWNER.github.io` repository, the workflow uses `/`. For a custom domain on a project repository, change `BASE_PATH` in the workflow to `/`.
+The repo includes `wrangler.toml` with the Cloudflare Pages project name, build output directory, and Functions compatibility date. The `/functions` directory is deployed by Cloudflare Pages Functions for the admin API. GitHub Actions are not used for hosting.
 
 ## Repository Hygiene
 
-The repository should include source files, package manifests, public site assets, and GitHub workflow files. It should not include generated or local-only folders such as `node_modules/`, `dist/`, `.logs/`, `.tools/`, `.claude/`, `screenshots/`, or the raw working image folder `Dojo pictures/`.
+The repository should include source files, package manifests, public site assets, Cloudflare Pages config, and Cloudflare Pages Functions. It should not include generated or local-only folders such as `node_modules/`, `dist/`, `.logs/`, `.tools/`, `.claude/`, `screenshots/`, or the raw working image folder `Dojo pictures/`.
 
 ## Content And Launch Checks
 
 - Edit site copy, navigation, instructors, workshops, schedule, FAQs, newsletters, and facilities in `src/data/siteContent.ts`.
-- Admin-managed public content lives in `src/data/editableContent.ts`. The `/admin` page is a static editor for preparing updates until a real backend publish function is deployed.
+- Admin-managed public content lives in `public/content/editableContent.json`. The `/admin` page publishes updates through Cloudflare Pages Functions after the required environment variables are configured.
 - Confirm instructor names, photos, ranks, and biographies before public launch.
 - Confirm the class schedule, CMU practice details, workshop dates, and contact information before public launch.
 - Keep source records for historical O Sensei images, Peace Culture Foundation images/logo, CMU images/logo, and other third-party visual sources referenced in the site.
@@ -66,7 +71,7 @@ The public front page shows the 3 most recent dojo updates from `src/data/editab
 
 ### GitHub Publish Flow
 
-The browser must not contain a GitHub token. The Save / Publish button posts to `/api/admin/publish`, which should be backed by a serverless function based on `serverless/admin-publish-placeholder.mjs`.
+The browser must not contain a GitHub token. The Save / Publish button posts to `/api/admin/publish`, which is handled by Cloudflare Pages Functions in `functions/api/admin/publish.ts`.
 
 Required backend environment variables:
 
@@ -83,7 +88,7 @@ Intended flow:
 2. Admin clicks Save / Publish Changes.
 3. The serverless function receives the draft and media payload.
 4. The function commits changed content/media to GitHub using `GITHUB_TOKEN`.
-5. GitHub Pages rebuilds from the commit.
+5. Cloudflare Pages sees the GitHub commit and rebuilds automatically.
 6. New updates pass their prepared newsletter payload to the future email provider hook.
 
 `sendNewsletterUpdatePlaceholder(update)` lives in `src/data/editableContent.ts`. Connect MailerLite, Brevo, Mailchimp, Resend, SendGrid, or another provider from the backend later; do not call those APIs from frontend code.

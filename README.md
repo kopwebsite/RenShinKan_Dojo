@@ -33,9 +33,11 @@ In Cloudflare:
 5. Use the **React (Vite)** framework preset, or enter these settings manually:
    - Build command: `npm run build`
    - Build output directory: `dist`
-   - Deploy command: leave blank. If Cloudflare requires one, use `npm run deploy`.
+   - Deploy command: `npm run deploy`
    - Root directory: leave blank / repository root
 6. Save and deploy.
+
+Do not use `npx wrangler deploy` as the deploy command. That command is for Cloudflare Workers and fails for this Pages project with "Missing entry-point to Worker script or to assets directory". This site deploys to Cloudflare Pages with `wrangler pages deploy dist`.
 
 The repo includes `wrangler.toml` with the Cloudflare Pages project name, build output directory, and Functions compatibility date. It also includes `.nvmrc` so Cloudflare builds with Node 22. The `/functions` directory is deployed by Cloudflare Pages Functions for the admin API. GitHub Actions are not used for hosting.
 

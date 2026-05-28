@@ -56,12 +56,12 @@ Create the Cloudflare Pages project from GitHub so Cloudflare pulls and deploys 
 5. Use the **React (Vite)** preset, or enter:
    - Build command: `npm run build`
    - Build output directory: `dist`
-   - Deploy command: `npm run deploy`
+   - Deploy command: leave blank for a Git-connected Pages project
    - Root directory: repository root / blank
 6. Add the required secrets and build environment variables.
 7. Select **Save and Deploy**.
 
-Do not set the deploy command to `npx wrangler deploy`. That is a Workers deploy command, not a Pages deploy command. This repo's `npm run deploy` script runs `wrangler pages deploy dist --project-name renshinkan-dojo`.
+Do not set the deploy command to `npx wrangler deploy`. That is a Workers deploy command, not a Pages deploy command. If a deploy command is required, you are likely configuring a Worker build instead of a Pages Git integration. This repo's `npm run deploy` script is only for manual/direct-upload deployments and runs `wrangler pages deploy dist --project-name renshinkan-dojo`.
 
 After setup, every push to `main` triggers a new production build and deploy on Cloudflare Pages. Pull requests and other branches can produce preview deployments depending on the branch settings in Cloudflare.
 

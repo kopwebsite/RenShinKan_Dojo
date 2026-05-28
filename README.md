@@ -28,7 +28,7 @@ In Cloudflare:
 
 1. Go to **Workers & Pages**.
 2. Select **Create application** > **Pages** > **Connect to Git**.
-3. Connect the GitHub repository `CrappyTaco/RenShinKan_Dojo`.
+3. Connect the GitHub repository `kopwebsite/RenShinKan_Dojo`.
 4. Use `main` as the production branch.
 5. Use the **React (Vite)** framework preset, or enter these settings manually:
    - Build command: `npm run build`
@@ -37,7 +37,7 @@ In Cloudflare:
    - Root directory: leave blank / repository root
 6. Save and deploy.
 
-Do not use `npx wrangler deploy` as the deploy command. That command is for Cloudflare Workers and fails for this Pages project with "Missing entry-point to Worker script or to assets directory". If Cloudflare shows a required deploy-command field, you are likely configuring a Worker build rather than a Pages Git integration. For manual/direct-upload deployments only, use `npm run deploy`, which runs `wrangler pages deploy dist`.
+Do not create this as a Worker project and do not use `npx wrangler deploy` as the deploy command. That command is for Cloudflare Workers and fails for this Pages project with "Missing entry-point to Worker script or to assets directory". This repo uses Cloudflare Pages plus the `/functions` directory for the admin API. If Cloudflare shows a required deploy-command field, you are likely configuring a Worker build rather than a Pages Git integration. For manual/direct-upload deployments only, use `npm run deploy`, which runs `wrangler pages deploy dist`.
 
 The repo includes `wrangler.toml` with the Cloudflare Pages project name, build output directory, and Functions compatibility date. It also includes `.nvmrc` so Cloudflare builds with Node 22. The `/functions` directory is deployed by Cloudflare Pages Functions for the admin API. GitHub Actions are not used for hosting.
 

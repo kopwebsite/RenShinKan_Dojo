@@ -51,7 +51,7 @@ Create the Cloudflare Pages project from GitHub so Cloudflare pulls and deploys 
 
 1. Go to Cloudflare **Workers & Pages**.
 2. Select **Create application** > **Pages** > **Connect to Git**.
-3. Authorize GitHub and select `CrappyTaco/RenShinKan_Dojo`.
+3. Authorize GitHub and select `kopwebsite/RenShinKan_Dojo`.
 4. Set production branch to `main`.
 5. Use the **React (Vite)** preset, or enter:
    - Build command: `npm run build`
@@ -61,7 +61,7 @@ Create the Cloudflare Pages project from GitHub so Cloudflare pulls and deploys 
 6. Add the required secrets and build environment variables.
 7. Select **Save and Deploy**.
 
-Do not set the deploy command to `npx wrangler deploy`. That is a Workers deploy command, not a Pages deploy command. If a deploy command is required, you are likely configuring a Worker build instead of a Pages Git integration. This repo's `npm run deploy` script is only for manual/direct-upload deployments and runs `wrangler pages deploy dist --project-name renshinkan-dojo`.
+Do not create this as a Worker project or set the deploy command to `npx wrangler deploy`. That is a Workers deploy command, not a Pages deploy command, and it will not deploy the `/functions` admin API. If a deploy command is required, you are likely configuring a Worker build instead of a Pages Git integration. This repo's `npm run deploy` script is only for manual/direct-upload deployments and runs `wrangler pages deploy dist --project-name renshinkan-dojo`.
 
 After setup, every push to `main` triggers a new production build and deploy on Cloudflare Pages. Pull requests and other branches can produce preview deployments depending on the branch settings in Cloudflare.
 

@@ -33,10 +33,11 @@ In Cloudflare:
 5. Use the **React (Vite)** framework preset, or enter these settings manually:
    - Build command: `npm run build`
    - Build output directory: `dist`
+   - Deploy command: leave blank. If Cloudflare requires one, use `npm run deploy`.
    - Root directory: leave blank / repository root
 6. Save and deploy.
 
-The repo includes `wrangler.toml` with the Cloudflare Pages project name, build output directory, and Functions compatibility date. The `/functions` directory is deployed by Cloudflare Pages Functions for the admin API. GitHub Actions are not used for hosting.
+The repo includes `wrangler.toml` with the Cloudflare Pages project name, build output directory, and Functions compatibility date. It also includes `.nvmrc` so Cloudflare builds with Node 22. The `/functions` directory is deployed by Cloudflare Pages Functions for the admin API. GitHub Actions are not used for hosting.
 
 ## Repository Hygiene
 

@@ -56,6 +56,7 @@ Create the Cloudflare Pages project from GitHub so Cloudflare pulls and deploys 
 5. Use the **React (Vite)** preset, or enter:
    - Build command: `npm run build`
    - Build output directory: `dist`
+   - Deploy command: leave blank. If Cloudflare requires one, use `npm run deploy`.
    - Root directory: repository root / blank
 6. Add the required secrets and build environment variables.
 7. Select **Save and Deploy**.

@@ -29,6 +29,8 @@ This repo includes `.github/workflows/pages.yml`. After pushing to GitHub:
 3. Set **Build and deployment** to **GitHub Actions**.
 4. Push to the `main` branch, or run the workflow manually.
 
+The workflow runs `actions/configure-pages` before uploading and deploying the build. If the deploy job still fails with `Failed to create deployment (status: 404)` and says to ensure GitHub Pages has been enabled, GitHub Pages is not enabled for the repo yet or its source is not set to **GitHub Actions**. On GitHub Free, GitHub Pages only works for public repositories; private repositories require a paid GitHub plan or another host such as Cloudflare Pages.
+
 The workflow builds with `BASE_PATH` set to the repository name, so project pages such as `https://OWNER.github.io/REPO/` work without editing asset paths. For an `OWNER.github.io` repository, the workflow uses `/`. For a custom domain on a project repository, change `BASE_PATH` in the workflow to `/`.
 
 ## Repository Hygiene

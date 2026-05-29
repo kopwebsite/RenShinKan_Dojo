@@ -60,7 +60,7 @@ const ranks: RankEntry[] = [
       "Katate-Tori : Shiho-Nage (Omote)",
     ],
     days: 40,
-    bg: grad(C.orange, C.blue, 40),
+    bg: grad(C.orange, C.blue, 67),
     color: DARK_TEXT,
     lightText: false,
   },

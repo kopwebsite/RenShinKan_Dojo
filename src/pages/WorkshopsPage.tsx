@@ -25,7 +25,7 @@ export function WorkshopsPage() {
       <MotionSection className="container-shell pb-20">
         <div className="rounded-[2rem] bg-bamboo/90 p-8 text-paper backdrop-blur-sm sm:p-10">
           <p className="eyebrow text-paper/70">{t("workshops.updates.eyebrow")}</p>
-          <h2 className="mt-4 max-w-2xl text-4xl leading-tight sm:text-5xl">
+          <h2 className="mt-4 max-w-2xl text-3xl leading-tight sm:text-5xl">
             {t("workshops.updates.title")}
           </h2>
           <Link to="/newsletter" className="btn-secondary mt-7 border-paper/20 bg-paper/10 text-paper hover:text-paper">

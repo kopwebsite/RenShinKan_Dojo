@@ -95,7 +95,7 @@ export function BeltCarousel({ students = passedTestStudents }: BeltCarouselProp
         type="button"
         onClick={() => setActive(prevIdx)}
         aria-label={t("a11y.previousPhoto")}
-        className="absolute left-0 top-1/2 z-10 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-ink/75 text-paper transition hover:bg-ink sm:-left-4"
+        className="absolute left-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-ink/75 text-paper transition hover:bg-ink sm:-left-4"
       >
         <ChevronLeft size={18} aria-hidden="true" />
       </button>
@@ -105,13 +105,13 @@ export function BeltCarousel({ students = passedTestStudents }: BeltCarouselProp
         type="button"
         onClick={() => setActive(nextIdx)}
         aria-label={t("a11y.nextPhoto")}
-        className="absolute right-0 top-1/2 z-10 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-ink/75 text-paper transition hover:bg-ink sm:-right-4"
+        className="absolute right-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-ink/75 text-paper transition hover:bg-ink sm:-right-4"
       >
         <ChevronRight size={18} aria-hidden="true" />
       </button>
 
       {/* Dot indicators */}
-      <div className="mt-4 flex justify-center gap-1.5">
+      <div className="mt-4 flex flex-wrap justify-center gap-1">
         {visibleDots.map((student, visibleIndex) => {
           const i = dotStart + visibleIndex;
 
@@ -121,10 +121,15 @@ export function BeltCarousel({ students = passedTestStudents }: BeltCarouselProp
               type="button"
               onClick={() => setActive(i)}
               aria-label={t("a11y.goToPhoto", { number: i + 1 })}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                i === active ? "w-6 bg-bamboo" : "w-1.5 bg-ink/20"
-              }`}
-            />
+              className="flex h-7 min-w-7 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo"
+            >
+              <span
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  i === active ? "w-6 bg-bamboo" : "w-1.5 bg-ink/20"
+                }`}
+                aria-hidden="true"
+              />
+            </button>
           );
         })}
       </div>

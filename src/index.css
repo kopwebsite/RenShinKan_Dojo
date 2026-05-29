@@ -22,6 +22,7 @@
   --color-bamboo: 118 16% 38%;
   --color-wood: 30 38% 43%;
   --header-height: 60px;
+  --site-zoom: 0.82;
 }
 
 @media (min-width: 768px) {
@@ -30,8 +31,15 @@
   }
 }
 
+@media (max-width: 1179px) {
+  :root {
+    --site-zoom: 1;
+  }
+}
+
 html {
   scroll-behavior: smooth;
+  overflow-x: clip;
 }
 
 body {
@@ -55,6 +63,7 @@ body {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
 }
 
 body::before {
@@ -89,6 +98,20 @@ body::after {
   opacity: 0.4;
 }
 
+#root {
+  min-height: 100vh;
+  zoom: var(--site-zoom);
+}
+
+@supports not (zoom: 1) {
+  #root {
+    width: calc(100% / var(--site-zoom));
+    min-height: calc(100vh / var(--site-zoom));
+    transform: scale(var(--site-zoom));
+    transform-origin: top center;
+  }
+}
+
 ::selection {
   color: hsl(var(--color-paper));
   background: hsl(var(--color-vermilion));
@@ -100,15 +123,30 @@ body::after {
 }
 
 @layer base {
+  img,
+  picture,
+  video,
+  iframe,
+  svg {
+    max-width: 100%;
+  }
+
   h1,
   h2,
   h3,
   h4 {
     @apply font-serif text-balance tracking-normal;
+    overflow-wrap: anywhere;
   }
 
   p {
     @apply leading-7;
+    overflow-wrap: anywhere;
+  }
+
+  a,
+  button {
+    overflow-wrap: anywhere;
   }
 }
 
@@ -118,15 +156,15 @@ body::after {
   }
 
   .container-shell {
-    @apply mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-10;
+    @apply mx-auto w-full max-w-6xl px-5 sm:px-8 lg:px-10;
   }
 
   .eyebrow {
-    @apply text-xs font-bold uppercase tracking-[0.22em] text-bamboo;
+    @apply text-xs font-bold uppercase tracking-[0.18em] text-bamboo sm:tracking-[0.22em];
   }
 
   .section-title {
-    @apply mt-3 max-w-3xl text-4xl leading-tight text-ink sm:text-5xl;
+    @apply mt-3 max-w-3xl text-3xl leading-tight text-ink sm:text-4xl lg:text-5xl;
   }
 
   .section-copy {
@@ -136,7 +174,8 @@ body::after {
   .btn-primary,
   .btn-secondary,
   .btn-quiet {
-    @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold transition duration-300 focus-visible:outline-vermilion;
+    @apply inline-flex min-h-12 max-w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-center text-sm font-bold leading-tight transition duration-300 focus-visible:outline-vermilion;
+    white-space: normal;
   }
 
   .btn-primary {
@@ -153,6 +192,7 @@ body::after {
 
   .surface {
     @apply border border-ink/10 bg-paper/60 shadow-line backdrop-blur-md;
+    min-width: 0;
   }
 
   .card-hover {
@@ -236,6 +276,32 @@ body::after {
     animation: renshinkan-logo-stroke 0.35s ease-out 2.99s forwards;
   }
 
+}
+
+@media (max-width: 767px) {
+  body {
+    background-attachment: scroll;
+  }
+
+  .container-shell {
+    @apply px-5;
+  }
+
+  .section-copy {
+    @apply text-[0.98rem] leading-7;
+  }
+}
+
+@media (max-width: 360px) {
+  .container-shell {
+    @apply px-4;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-quiet {
+    @apply px-5;
+  }
 }
 
 .bg-paper {

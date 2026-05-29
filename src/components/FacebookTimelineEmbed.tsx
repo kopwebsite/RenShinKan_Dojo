@@ -1,11 +1,14 @@
 import { ArrowUpRight, Facebook } from "lucide-react";
 import { facebookTimeline } from "../data/siteContent";
+import { useTranslation } from "../i18n";
 
 const facebookPluginSrc = `https://www.facebook.com/plugins/page.php?href=${encodeURIComponent(
   facebookTimeline.pageUrl,
 )}&tabs=timeline&width=500&height=600&small_header=true&adapt_container_width=true&hide_cover=false&show_facepile=false&lazy=true`;
 
 export function FacebookTimelineEmbed() {
+  const { t } = useTranslation();
+
   return (
     <section className="relative -mx-5 overflow-hidden border-y border-ink/10 bg-paper/75 shadow-soft sm:mx-0 sm:rounded-[2rem] sm:border">
       <div className="absolute inset-0 bg-tatami opacity-60" aria-hidden="true" />
@@ -23,7 +26,7 @@ export function FacebookTimelineEmbed() {
             </h2>
             <p className="mt-5 text-base leading-7 text-paper/70">
               Follow recent dojo news, workshop announcements, class photos, and
-              community moments from RenshinKan Dojo.
+              community moments from {t("common.brand")}.
             </p>
           </div>
 

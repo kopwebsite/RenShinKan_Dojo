@@ -1,6 +1,6 @@
 {
   "common": {
-    "brand": "RenshinKan Dojo",
+    "brand": "RenShinKan Dojo",
     "readMore": "Read More",
     "viewUpdate": "View update",
     "visitClass": "Visit a Class",
@@ -101,7 +101,7 @@
   },
   "home": {
     "hero": {
-      "subtitle": "Traditional aikido and martial arts training in Hang Dong, Chiang Mai. Beginner friendly classes, children welcome, and visiting aikidoka invited."
+      "subtitle": "Aikido classes and traditional martial arts training in Hang Dong, Chiang Mai, Thailand. Beginner friendly practice, children welcome, and visiting aikidoka invited."
     },
     "recent": {
       "eyebrow": "Recent Events",
@@ -384,12 +384,14 @@
     "eyebrow": "Location"
   },
   "seo": {
-    "homeTitle": "RenshinKan Dojo | Aikido in Hang Dong, Chiang Mai",
-    "homeDescription": "RenshinKan Dojo offers traditional aikido and martial arts training in Hang Dong, Chiang Mai, with beginner friendly classes, children welcome, and visiting aikidoka invited to message ahead.",
+    "homeTitle": "RenshinKan Dojo | Aikido in Hang Dong, Chiang Mai, Thailand",
+    "homeDescription": "RenshinKan Dojo offers aikido classes and martial arts training in Hang Dong, Chiang Mai, Thailand. Beginners, children, and visiting aikidoka welcome.",
     "aikidoTitle": "What Is Aikido? | RenshinKan Dojo Chiang Mai",
-    "aikidoDescription": "Learn about aikido history, O Sensei, partner practice, ukemi, weapons work, and how RenshinKan Dojo teaches aikido in Chiang Mai.",
-    "classesTitle": "Aikido Classes in Hang Dong | RenshinKan Dojo",
-    "classesDescription": "Class information for aikido training in Hang Dong, Chiang Mai. See practice times, first visit guidance, belt exams, and beginner friendly class details.",
+    "aikidoDescription": "Learn aikido history, O Sensei, ukemi, weapons work, and how RenshinKan Dojo teaches aikido in Hang Dong, Chiang Mai.",
+    "instructorsTitle": "Aikido Instructors in Chiang Mai | RenshinKan Dojo",
+    "instructorsDescription": "Meet the RenshinKan Dojo aikido instructors teaching beginner friendly classes, children, adults, and visiting aikidoka in Hang Dong, Chiang Mai.",
+    "classesTitle": "Aikido Classes in Hang Dong, Chiang Mai | RenshinKan Dojo",
+    "classesDescription": "Aikido class information for Hang Dong, Chiang Mai. See practice times, first visit guidance, belt exams, and beginner friendly class details.",
     "workshopsTitle": "Aikido Workshops in Chiang Mai | RenshinKan Dojo",
     "workshopsDescription": "Seasonal aikido workshops for beginners, children, and current students at RenshinKan Dojo in Hang Dong, Chiang Mai.",
     "newsletterTitle": "Dojo Updates | RenshinKan Aikido Chiang Mai",
@@ -398,12 +400,12 @@
     "communityDescription": "RenshinKan Dojo is part of the Chiang Mai aikido community, connected with Peace Culture Foundation, AikidoCMU, and local martial arts practice.",
     "supportTitle": "Support RenshinKan Dojo | Aikido Chiang Mai",
     "supportDescription": "Support RenshinKan Dojo and help keep aikido training accessible in Hang Dong and Chiang Mai through student contributions and donations.",
-    "contactTitle": "Contact RenshinKan Dojo | Aikido in Hang Dong",
-    "contactDescription": "Contact RenshinKan Dojo in Hang Dong, Chiang Mai to ask about aikido classes, beginner visits, children training, and visiting aikidoka practice.",
-    "visitTitle": "Visit RenshinKan Dojo | Aikido in Hang Dong",
-    "visitDescription": "Plan a first visit to RenshinKan Dojo in Hang Dong, Chiang Mai. Beginners, parents, and visiting aikidoka are welcome to contact the dojo.",
+    "contactTitle": "Contact RenshinKan Dojo | Aikido in Hang Dong, Chiang Mai",
+    "contactDescription": "Contact RenshinKan Dojo in Hang Dong, Chiang Mai, Thailand to ask about aikido classes, beginner visits, children training, and visiting aikidoka practice.",
+    "visitTitle": "Visit RenshinKan Dojo | Aikido in Hang Dong, Chiang Mai",
+    "visitDescription": "Plan a first visit to RenshinKan Dojo in Hang Dong, Chiang Mai, Thailand. Beginners, parents, and visiting aikidoka are welcome.",
     "adminTitle": "Admin | RenshinKan Dojo",
     "adminDescription": "RenshinKan Dojo content administration.",
-    "localBusinessDescription": "Traditional aikido and martial arts training in Hang Dong, Chiang Mai."
+    "localBusinessDescription": "Aikido classes and traditional martial arts training at RenshinKan Dojo in Hang Dong, Chiang Mai, Thailand."
   }
 }

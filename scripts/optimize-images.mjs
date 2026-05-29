@@ -5,6 +5,11 @@ import sharp from "sharp";
 const rootDir = process.cwd();
 const publicDir = path.join(rootDir, "public");
 const sourceExtensions = new Set([".png", ".jpg", ".jpeg", ".webp"]);
+const preferredSourceExtensions = [".png", ".jpg", ".jpeg", ".webp"];
+const optimizerVersion = 2;
+const avifOptions = { quality: 64, effort: 3 };
+const webpOptions = { quality: 86, effort: 4, smartSubsample: true };
+const optimizeConcurrency = Math.max(1, Number(process.env.IMAGE_OPTIMIZE_CONCURRENCY) || 2);
 
 const scanRoots = [
   {
@@ -21,6 +26,11 @@ const scanRoots = [
     source: path.join(publicDir, "past-events"),
     output: path.join(publicDir, "optimized", "past-events"),
     label: "past-events",
+  },
+  {
+    source: path.join(publicDir, "renshinkan-gallery"),
+    output: path.join(publicDir, "optimized", "renshinkan-gallery"),
+    label: "renshinkan-gallery",
   },
 ];
 
@@ -68,6 +78,24 @@ async function walkFiles(dir) {
   return files;
 }
 
+function selectSourceFiles(files) {
+  const selectedByBase = new Map();
+
+  for (const file of files) {
+    const parsed = path.parse(file);
+    const extension = parsed.ext.toLowerCase();
+    const preference = preferredSourceExtensions.indexOf(extension);
+    const key = path.join(parsed.dir, parsed.name).toLowerCase();
+    const current = selectedByBase.get(key);
+
+    if (!current || preference < current.preference) {
+      selectedByBase.set(key, { file, preference });
+    }
+  }
+
+  return [...selectedByBase.values()].map((entry) => entry.file);
+}
+
 function outputBaseFor(sourcePath, root) {
   const relativePath = path.relative(root.source, sourcePath);
   const parsed = path.parse(relativePath);
@@ -78,25 +106,45 @@ function outputBaseFor(sourcePath, root) {
 function maxWidthFor(sourcePath) {
   const lower = sourcePath.toLowerCase();
 
+  if (lower.includes("renshinkan-gallery")) {
+    return 1920;
+  }
+
   if (
     lower.includes("hero") ||
     lower.includes("poster") ||
     lower.includes("large") ||
     lower.includes("wide")
   ) {
-    return 1920;
+    return 2048;
   }
 
   return 1600;
 }
 
-async function isFresh(outputPath, sourceStat) {
-  if (!await pathExists(outputPath)) {
+async function isFresh(outputPaths, metadataPath, sourceStat, settings) {
+  const outputsExist = await Promise.all(outputPaths.map((outputPath) => pathExists(outputPath)));
+
+  if (outputsExist.some((exists) => !exists) || !(await pathExists(metadataPath))) {
     return false;
   }
 
-  const outputStat = await fs.stat(outputPath);
-  return outputStat.mtimeMs >= sourceStat.mtimeMs;
+  const outputStats = await Promise.all(outputPaths.map((outputPath) => fs.stat(outputPath)));
+
+  if (outputStats.some((outputStat) => outputStat.mtimeMs < sourceStat.mtimeMs)) {
+    return false;
+  }
+
+  try {
+    const metadata = JSON.parse(await fs.readFile(metadataPath, "utf8"));
+    return (
+      metadata.sourceBytes === sourceStat.size &&
+      metadata.sourceMtimeMs === sourceStat.mtimeMs &&
+      JSON.stringify(metadata.settings) === JSON.stringify(settings)
+    );
+  } catch {
+    return false;
+  }
 }
 
 async function optimizeOne(sourcePath, root) {
@@ -104,14 +152,17 @@ async function optimizeOne(sourcePath, root) {
   const outputBase = outputBaseFor(sourcePath, root);
   const avifPath = `${outputBase}.avif`;
   const webpPath = `${outputBase}.webp`;
+  const metadataPath = `${outputBase}.meta.json`;
   const outputDir = path.dirname(outputBase);
   const maxWidth = maxWidthFor(sourcePath);
-  const [avifFresh, webpFresh] = await Promise.all([
-    isFresh(avifPath, sourceStat),
-    isFresh(webpPath, sourceStat),
-  ]);
+  const settings = {
+    optimizerVersion,
+    maxWidth,
+    avif: avifOptions,
+    webp: webpOptions,
+  };
 
-  if (avifFresh && webpFresh) {
+  if (await isFresh([avifPath, webpPath], metadataPath, sourceStat, settings)) {
     const [avifStat, webpStat] = await Promise.all([fs.stat(avifPath), fs.stat(webpPath)]);
     return {
       sourcePath,
@@ -133,13 +184,25 @@ async function optimizeOne(sourcePath, root) {
       withoutEnlargement: true,
     });
   const [avifBuffer, webpBuffer] = await Promise.all([
-    pipeline.clone().avif({ quality: 50, effort: 5 }).toBuffer(),
-    pipeline.clone().webp({ quality: 78, effort: 4 }).toBuffer(),
+    pipeline.clone().avif(avifOptions).toBuffer(),
+    pipeline.clone().webp(webpOptions).toBuffer(),
   ]);
 
   await Promise.all([
     fs.writeFile(avifPath, avifBuffer),
     fs.writeFile(webpPath, webpBuffer),
+    fs.writeFile(
+      metadataPath,
+      `${JSON.stringify(
+        {
+          sourceBytes: sourceStat.size,
+          sourceMtimeMs: sourceStat.mtimeMs,
+          settings,
+        },
+        null,
+        2,
+      )}\n`,
+    ),
   ]);
 
   return {
@@ -157,15 +220,36 @@ function publicPath(filePath) {
   return `/${path.relative(publicDir, filePath).split(path.sep).join("/")}`;
 }
 
+async function mapWithConcurrency(items, concurrency, mapper) {
+  const results = [];
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(items[index]);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, () => worker()),
+  );
+
+  return results;
+}
+
 async function main() {
   const results = [];
 
   for (const root of scanRoots) {
-    const files = await walkFiles(root.source);
-
-    for (const file of files) {
-      results.push(await optimizeOne(file, root));
-    }
+    const files = selectSourceFiles(await walkFiles(root.source));
+    const optimizedFiles = await mapWithConcurrency(
+      files,
+      optimizeConcurrency,
+      (file) => optimizeOne(file, root),
+    );
+    results.push(...optimizedFiles);
   }
 
   const generated = results.filter((result) => result.status === "generated");

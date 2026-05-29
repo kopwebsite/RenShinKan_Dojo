@@ -398,7 +398,7 @@ export function Navbar({ currentPath }: NavbarProps) {
             aria-label={`${t("common.brand")} ${t("nav.home")}`}
           >
             <BrushCircleLogo decorative className={styles.logoIcon} />
-            <span className={styles.wordmark}>RenShinKan Dojo</span>
+            <span className={styles.wordmark}>{t("common.brand")}</span>
           </Link>
 
           <div className={styles.desktopCluster}>
@@ -598,10 +598,12 @@ export function Navbar({ currentPath }: NavbarProps) {
                   </div>
                 );
               })}
+              <div className={styles.mobileLanguageBlock}>
+                <LanguageSelector mobile />
+              </div>
             </nav>
 
             <div className={styles.mobileBottom}>
-              <LanguageSelector mobile />
               <div className={styles.socialRow} aria-label={t("a11y.socialLinks")}>
                 <a
                   href={siteInfo.facebookUrl}

@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /admin
 
-Sitemap: https://crappytaco.github.io/RenShinKan_Dojo/sitemap.xml
+Sitemap: https://renshinkan-dojo.pages.dev/sitemap.xml

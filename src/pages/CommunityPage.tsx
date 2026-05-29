@@ -23,32 +23,30 @@ import { useTranslation } from "../i18n";
 import { useEditableContent } from "../lib/content";
 import { assetPath } from "../utils/assetPath";
 
-const upcomingEvents = [
-  {
-    title: "Community Practice Day",
-    date: "Posted through dojo updates",
-    description:
-      "An open training session welcoming students from RenshinKan, AikidoCMU, and other connected dojos.",
-  },
-  {
-    title: "Peace Culture Workshop",
-    date: "Posted through dojo updates",
-    description:
-      "A foundation-connected workshop on peace education, safety, and community-building through aikido.",
-  },
-  {
-    title: "Dojo Gathering",
-    date: "Posted through dojo updates",
-    description:
-      "A student gathering with a shared meal, open mat, or volunteer day. Confirmed details are shared in the dojo updates.",
-  },
-];
-
 export function CommunityPage() {
   const { t } = useTranslation();
   const { content } = useEditableContent();
   const activeHistoryMedia = content.historyMedia.length ? content.historyMedia : historyMedia;
   const [cmuHeroPhoto, ...cmuGalleryPhotos] = cmuAikidoClub.photos;
+  const upcomingEvents = [
+    {
+      title: "Community Practice Day",
+      date: "Posted through dojo updates",
+      description: `An open training session welcoming students from ${t("common.brand")}, AikidoCMU, and other connected dojos.`,
+    },
+    {
+      title: "Peace Culture Workshop",
+      date: "Posted through dojo updates",
+      description:
+        "A foundation-connected workshop on peace education, safety, and community-building through aikido.",
+    },
+    {
+      title: "Dojo Gathering",
+      date: "Posted through dojo updates",
+      description:
+        "A student gathering with a shared meal, open mat, or volunteer day. Confirmed details are shared in the dojo updates.",
+    },
+  ];
 
   return (
     <>
@@ -80,16 +78,20 @@ export function CommunityPage() {
 
       {/* Values */}
       <MotionSection className="container-shell pb-20">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 min-[420px]:gap-4 md:grid-cols-2 xl:grid-cols-4">
           {communityValues.map((value) => {
             const Icon = value.icon;
             return (
-              <article key={value.title} className="surface card-hover rounded-[1.75rem] p-6">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-bamboo/10 text-bamboo">
-                  <Icon size={22} aria-hidden="true" />
+              <article key={value.title} className="surface card-hover rounded-[1.35rem] p-4 min-[420px]:p-5 sm:rounded-[1.75rem] lg:p-6">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-bamboo/10 text-bamboo sm:h-12 sm:w-12">
+                  <Icon size={20} aria-hidden="true" />
                 </div>
-                <h2 className="mt-5 text-2xl text-ink">{value.title}</h2>
-                <p className="mt-3 text-sm text-charcoal/75">{value.description}</p>
+                <h2 className="mt-4 text-[1.24rem] leading-tight text-ink min-[420px]:text-[1.36rem] sm:mt-5 sm:text-2xl">
+                  {value.title}
+                </h2>
+                <p className="mt-2 text-xs leading-5 text-charcoal/75 sm:mt-3 sm:text-sm">
+                  {value.description}
+                </p>
               </article>
             );
           })}
@@ -109,11 +111,11 @@ export function CommunityPage() {
           {upcomingEvents.map((event, i) => (
             <div
               key={event.title}
-              className={`flex items-start gap-6 px-10 py-9 sm:gap-10 sm:px-14 sm:py-11${
+              className={`flex flex-col items-start gap-4 px-6 py-7 sm:flex-row sm:gap-8 sm:px-10 sm:py-9 lg:gap-10 lg:px-12${
                 i < upcomingEvents.length - 1 ? " border-b border-ink/[0.07]" : ""
               }`}
             >
-              <div className="flex-none flex h-14 w-14 items-center justify-center rounded-full bg-vermilion/10 text-vermilion mt-0.5">
+              <div className="mt-0.5 flex h-12 w-12 flex-none items-center justify-center rounded-full bg-vermilion/10 text-vermilion sm:h-14 sm:w-14">
                 <CalendarDays size={24} aria-hidden="true" />
               </div>
               <div className="min-w-0">
@@ -138,7 +140,7 @@ export function CommunityPage() {
           </p>
         </div>
 
-        <MediaSlider media={activeHistoryMedia} label={t("community.past.sliderLabel")} />
+        <MediaSlider media={activeHistoryMedia} label={t("community.past.sliderLabel")} showIndexNavigation />
       </MotionSection>
 
       {/* Peace Culture Foundation */}
@@ -159,7 +161,7 @@ export function CommunityPage() {
               </div>
             </div>
             <p className="eyebrow mt-7 text-mist/70">{t("community.foundation.eyebrow")}</p>
-            <h2 className="mt-4 max-w-3xl text-4xl leading-tight sm:text-5xl">
+            <h2 className="mt-4 max-w-3xl text-3xl leading-tight sm:text-5xl">
               {t("community.foundation.title")}
             </h2>
             <p className="mt-5 max-w-2xl text-paper/75">
@@ -168,7 +170,7 @@ export function CommunityPage() {
             <p className="mt-4 max-w-2xl text-paper/75">
               {peaceCultureFoundation.aikidoConnection}
             </p>
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <a
                 href={peaceCultureFoundation.homepageUrl}
                 target="_blank"
@@ -195,7 +197,7 @@ export function CommunityPage() {
               <ShieldCheck size={26} aria-hidden="true" />
             </div>
             <p className="eyebrow mt-7">{t("community.foundation.groomingEyebrow")}</p>
-            <h2 className="mt-4 text-4xl leading-tight text-ink sm:text-5xl">
+            <h2 className="mt-4 text-3xl leading-tight text-ink sm:text-5xl">
               {t("community.foundation.groomingTitle")}
             </h2>
             <p className="mt-5 text-charcoal/78">
@@ -203,8 +205,8 @@ export function CommunityPage() {
             </p>
             <ul className="mt-6 grid gap-3">
               {peaceCultureFoundation.pillars.map((pillar) => (
-                <li key={pillar} className="flex items-center gap-3 text-sm font-bold text-charcoal/80">
-                  <span className="h-2.5 w-2.5 rounded-full bg-vermilion" aria-hidden="true" />
+                <li key={pillar} className="flex items-start gap-3 text-sm font-bold text-charcoal/80">
+                  <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-vermilion" aria-hidden="true" />
                   {pillar}
                 </li>
               ))}
@@ -234,11 +236,11 @@ export function CommunityPage() {
                     key={photo.src}
                     className="surface overflow-hidden rounded-[1.75rem] sm:col-span-2 lg:col-span-3"
                   >
-                    <div className="grid sm:grid-cols-[auto_1fr] sm:items-center">
+                    <div className="grid sm:grid-cols-[minmax(0,18rem)_1fr] sm:items-center lg:grid-cols-[auto_1fr]">
                       <img
                         src={photo.src}
                         alt={photo.alt}
-                        className="w-full object-contain sm:w-auto sm:max-h-56 sm:max-w-sm"
+                        className="w-full object-contain sm:max-h-56"
                         loading="lazy"
                       />
                       <figcaption className="border-t border-ink/10 p-6 sm:border-l sm:border-t-0 sm:p-8">
@@ -282,7 +284,7 @@ export function CommunityPage() {
       >
         <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
           <article className="surface overflow-hidden rounded-[2rem]">
-            <div className="relative min-h-[25rem] overflow-hidden bg-ink">
+            <div className="relative min-h-[32rem] overflow-hidden bg-ink sm:min-h-[25rem]">
               <ResponsiveImage
                 src={cmuHeroPhoto.src}
                 alt={cmuHeroPhoto.alt}
@@ -303,7 +305,7 @@ export function CommunityPage() {
               </div>
               <div className="absolute bottom-0 left-0 right-0 p-6 text-paper sm:p-8">
                 <p className="eyebrow text-paper/70">{t("community.cmu.heroEyebrow")}</p>
-                <h2 className="mt-3 max-w-2xl text-4xl leading-tight sm:text-5xl">
+                <h2 className="mt-3 max-w-2xl text-3xl leading-tight sm:text-5xl">
                   {t("community.cmu.heroTitle")}
                 </h2>
                 <p className="mt-4 max-w-xl text-sm text-paper/75">

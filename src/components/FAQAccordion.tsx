@@ -18,7 +18,7 @@ export function FAQAccordion() {
               <button
                 id={buttonId}
                 type="button"
-                className="flex w-full items-center justify-between gap-4 rounded-[1.5rem] px-5 py-4 text-left font-bold text-ink"
+                className="flex min-h-14 w-full items-center justify-between gap-4 rounded-[1.5rem] px-4 py-4 text-left font-bold text-ink sm:px-5"
                 aria-expanded={isOpen}
                 aria-controls={panelId}
                 onClick={() => setOpenIndex(isOpen ? -1 : index)}

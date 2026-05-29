@@ -21,7 +21,7 @@
 .headerInner {
   display: flex;
   width: 100%;
-  max-width: 1440px;
+  max-width: 1480px;
   height: 100%;
   align-items: center;
   justify-content: space-between;
@@ -67,13 +67,13 @@
   justify-content: flex-end;
   min-width: 0;
   flex: 1 1 auto;
-  gap: 20px;
+  gap: 28px;
 }
 
 .desktopNav {
   align-items: center;
   justify-content: flex-end;
-  gap: 22px;
+  gap: 30px;
 }
 
 .languageSwitcher,
@@ -235,16 +235,11 @@
 }
 
 .languageFlagEN {
-  background:
-    linear-gradient(0deg, transparent 41%, #fff 41% 59%, transparent 59%),
-    linear-gradient(90deg, transparent 41%, #fff 41% 59%, transparent 59%),
-    linear-gradient(34deg, transparent 43%, #fff 43% 57%, transparent 57%),
-    linear-gradient(-34deg, transparent 43%, #fff 43% 57%, transparent 57%),
-    linear-gradient(0deg, transparent 46%, #c8102e 46% 54%, transparent 54%),
-    linear-gradient(90deg, transparent 46%, #c8102e 46% 54%, transparent 54%),
-    linear-gradient(34deg, transparent 48%, #c8102e 48% 52%, transparent 52%),
-    linear-gradient(-34deg, transparent 48%, #c8102e 48% 52%, transparent 52%),
-    #012169;
+  background-color: #012169;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 640 480'%3E%3Cpath fill='%23012169' d='M0 0h640v480H0z'/%3E%3Cpath fill='%23fff' d='m75 0 244 181L562 0h78v62L400 241l240 178v61h-80L320 301 81 480H0v-60l239-178L0 64V0h75z'/%3E%3Cpath fill='%23C8102E' d='m424 281 216 159v40L369 281h55zm-184 20 6 35L54 480H0l240-179zM640 0v3L391 191l2-44L590 0h50zM0 0l239 176h-60L0 42V0z'/%3E%3Cpath fill='%23fff' d='M241 0v480h160V0H241zM0 160v160h640V160H0z'/%3E%3Cpath fill='%23C8102E' d='M0 193v96h640v-96H0zM273 0v480h96V0h-96z'/%3E%3C/svg%3E");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 .languageFlagTH {
@@ -314,6 +309,7 @@
   line-height: 1.2;
   text-decoration: none;
   transition: color 150ms ease;
+  white-space: nowrap;
 }
 
 .navLink::after {
@@ -441,13 +437,17 @@
   position: fixed;
   inset: 0;
   z-index: 200;
-  width: 100vw;
-  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100dvh;
   min-height: 100dvh;
   overflow-y: auto;
+  overflow-x: hidden;
   background: var(--color-bg);
   backdrop-filter: blur(12px);
   color: var(--color-text-primary);
+  overscroll-behavior: contain;
 }
 
 .mobileOverlayTop {
@@ -465,8 +465,8 @@
 
 .mobileNav {
   display: grid;
-  gap: 24px;
-  padding: 80px 32px 180px;
+  gap: clamp(12px, 3.8vw, 20px);
+  padding: 80px clamp(20px, 6vw, 32px) 22px;
 }
 
 .mobileAccordion,
@@ -478,6 +478,7 @@
 .mobileNavLink {
   display: flex;
   width: 100%;
+  min-height: 52px;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
@@ -487,11 +488,12 @@
   color: var(--color-text-primary);
   cursor: pointer;
   font-family: "Cormorant Garamond", "Playfair Display", Georgia, serif;
-  font-size: 28px;
+  font-size: clamp(24px, 7.2vw, 28px);
   font-weight: 450;
   line-height: 1.1;
   text-align: left;
   text-decoration: none;
+  overflow-wrap: anywhere;
 }
 
 .mobileAccordionButton[data-active="true"],
@@ -501,16 +503,20 @@
 
 .mobileAccordionLabel {
   flex: 1 1 auto;
+  min-width: 0;
   color: inherit;
   font-family: "Cormorant Garamond", "Playfair Display", Georgia, serif;
-  font-size: 28px;
+  font-size: clamp(24px, 7.2vw, 28px);
   font-weight: 450;
   line-height: 1.1;
   text-decoration: none;
+  overflow-wrap: anywhere;
 }
 
 .mobileChevronButton {
   flex: 0 0 auto;
+  width: 48px;
+  min-height: 48px;
   border: 0;
   padding: 4px 0 4px 8px;
   background: transparent;
@@ -545,11 +551,12 @@
 .mobileSubnavLink {
   color: #3a332b;
   font-family: "Cormorant Garamond", "Playfair Display", Georgia, serif;
-  font-size: 20px;
+  font-size: clamp(18px, 5.6vw, 20px);
   font-weight: 400;
   line-height: 1.2;
   text-decoration: none;
   transition: color 150ms ease;
+  overflow-wrap: anywhere;
 }
 
 .mobileSubnavLink:hover,
@@ -558,22 +565,23 @@
   color: var(--color-brand-red);
 }
 
+.mobileLanguageBlock {
+  padding-top: 4px;
+}
+
 .mobileBottom {
-  position: fixed;
-  right: 20px;
-  bottom: calc(24px + env(safe-area-inset-bottom));
-  left: 20px;
   display: grid;
-  gap: 18px;
+  gap: 16px;
+  margin-top: auto;
+  padding: 0 clamp(20px, 6vw, 32px) calc(28px + env(safe-area-inset-bottom));
 }
 
 .mobileLanguageSwitcher {
-  justify-content: center;
   width: 100%;
 }
 
 .mobileLanguageSwitcher .languageTrigger {
-  width: min(100%, 18rem);
+  width: 100%;
   min-height: 48px;
   justify-content: space-between;
   margin: 0 auto;
@@ -587,13 +595,12 @@
 }
 
 .mobileLanguageSwitcher .languageMenu {
-  top: auto;
+  top: calc(100% + 10px);
   right: auto;
-  bottom: calc(100% + 10px);
-  left: 50%;
-  width: min(100%, 18rem);
-  translate: -50% 0;
-  transform-origin: bottom center;
+  left: 0;
+  width: 100%;
+  translate: none;
+  transform-origin: top center;
 }
 
 .socialRow {
@@ -639,7 +646,7 @@
   }
 
   .headerInner {
-    padding: 0 48px;
+    padding: 0 56px;
   }
 
   .logoLockup {
@@ -668,14 +675,24 @@
   }
 }
 
+@media (min-width: 1440px) {
+  .desktopCluster {
+    gap: 34px;
+  }
+
+  .desktopNav {
+    gap: 36px;
+  }
+}
+
 @media (max-width: 390px) {
   .wordmark {
     max-width: 190px;
   }
 
-  .mobileNav {
-    padding-right: 24px;
-    padding-left: 24px;
+  .headerInner {
+    gap: 14px;
+    padding: 0 16px;
   }
 }
 

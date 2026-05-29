@@ -18,7 +18,6 @@ const dojoExpenses = [
 
 const transferDetails = [
   { label: "Current Details", value: "Request the current account or PromptPay details from the dojo before sending funds." },
-  { label: "Account Name", value: "RenshinKan Dojo / Peace Culture Foundation" },
   { label: "Reference", value: "Use your name so the contribution can be matched correctly." },
 ];
 
@@ -32,6 +31,11 @@ const contributionSteps = [
 export function SupportPage() {
   const { t } = useTranslation();
   const [transferOpen, setTransferOpen] = useState(false);
+  const localizedTransferDetails = [
+    transferDetails[0],
+    { label: "Account Name", value: `${t("common.brand")} / Peace Culture Foundation` },
+    transferDetails[1],
+  ];
 
   return (
     <>
@@ -77,7 +81,7 @@ export function SupportPage() {
               <p className="mt-4 max-w-2xl text-base leading-7 text-charcoal/75">
                 {t("support.monthly.copy2")}
               </p>
-              <div className="mt-7 inline-flex items-center gap-3 rounded-xl border border-vermilion/20 bg-vermilion/5 px-4 py-3">
+              <div className="mt-7 flex max-w-full items-start gap-3 rounded-xl border border-vermilion/20 bg-vermilion/5 px-4 py-3 sm:inline-flex sm:items-center">
                 <ShieldCheck size={18} className="shrink-0 text-vermilion" aria-hidden="true" />
                 <p className="text-sm text-charcoal/70">
                   <span className="font-semibold text-ink">{t("support.monthly.noteStrong")}</span>{" "}
@@ -164,7 +168,7 @@ export function SupportPage() {
 
         <div className="grid gap-8 lg:grid-cols-[auto_1fr]">
           <div className="flex flex-col items-center gap-4">
-            <div className="flex h-64 w-64 flex-col items-center justify-center rounded-[2rem] border-2 border-dashed border-bamboo/40 bg-paper/60 text-center">
+            <div className="flex aspect-square w-64 max-w-full flex-col items-center justify-center rounded-[2rem] border-2 border-dashed border-bamboo/40 bg-paper/60 text-center">
               <QrCode size={48} className="text-bamboo/50" aria-hidden="true" />
               <p className="mt-4 text-xs font-bold uppercase tracking-[0.14em] text-charcoal/50">{t("support.donations.qrTitle")}</p>
               <p className="mt-2 px-6 text-xs text-charcoal/40">
@@ -203,7 +207,7 @@ export function SupportPage() {
             <div className="surface overflow-hidden rounded-[2rem]">
               <button
                 type="button"
-                className="flex w-full items-center justify-between px-8 py-5 text-left"
+                className="flex min-h-14 w-full items-center justify-between gap-4 px-5 py-5 text-left sm:px-8"
                 aria-expanded={transferOpen}
                 onClick={() => setTransferOpen((open) => !open)}
               >
@@ -215,9 +219,9 @@ export function SupportPage() {
                 />
               </button>
               {transferOpen && (
-                <div className="border-t border-ink/10 px-8 pb-7 pt-5">
+                <div className="border-t border-ink/10 px-5 pb-7 pt-5 sm:px-8">
                   <div className="grid gap-4 sm:grid-cols-2">
-                    {transferDetails.map((detail) => (
+                    {localizedTransferDetails.map((detail) => (
                       <div key={detail.label}>
                         <p className="text-xs font-bold uppercase tracking-[0.14em] text-charcoal/50">
                           {detail.label}

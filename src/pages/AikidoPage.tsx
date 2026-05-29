@@ -78,7 +78,7 @@ export function AikidoPage() {
   return (
     <>
       {/* Aikido hero */}
-      <section id="what-is-aikido" className="relative isolate min-h-[100svh] overflow-hidden scroll-mt-28">
+      <section id="what-is-aikido" className="relative isolate min-h-[calc(100svh-var(--header-height)-1rem)] overflow-hidden scroll-mt-28">
         <ResponsiveImage
           src={assetPath("/dojo-photos/aikido-hero-new.png")}
           alt=""
@@ -89,9 +89,9 @@ export function AikidoPage() {
           height={836}
           fetchPriority="high"
         />
-        <div className="relative flex min-h-[100svh] items-center justify-center py-20 text-center">
+        <div className="relative flex min-h-[calc(100svh-var(--header-height)-1rem)] items-center justify-center py-16 text-center sm:py-20">
           <div className="mx-auto max-w-3xl px-5 sm:px-8">
-            <h1 className="mx-auto mt-3 max-w-3xl text-5xl leading-[0.98] text-ink sm:text-6xl lg:text-7xl">
+            <h1 className="mx-auto mt-3 max-w-3xl text-4xl leading-[0.98] text-ink sm:text-6xl lg:text-7xl">
               {t("aikido.hero.title")}
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-charcoal/80 sm:text-lg sm:leading-8">
@@ -102,16 +102,20 @@ export function AikidoPage() {
       </section>
 
       <MotionSection className="container-shell py-20">
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 min-[420px]:gap-4 md:grid-cols-2 xl:grid-cols-5">
           {aikidoValues.map((value) => {
             const Icon = value.icon;
             return (
-              <article key={value.title} className="surface card-hover rounded-[1.75rem] p-7">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-bamboo/10 text-bamboo">
+              <article key={value.title} className="surface card-hover rounded-[1.35rem] p-4 min-[420px]:p-5 sm:rounded-[1.75rem] lg:p-7">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-bamboo/10 text-bamboo sm:h-11 sm:w-11">
                   <Icon size={20} aria-hidden="true" />
                 </div>
-                <h2 className="mt-6 text-2xl text-ink">{value.title}</h2>
-                <p className="mt-3 text-sm leading-6 text-charcoal/75">{value.description}</p>
+                <h2 className="mt-4 text-[1.24rem] leading-tight text-ink min-[420px]:text-[1.36rem] sm:mt-6 sm:text-2xl">
+                  {value.title}
+                </h2>
+                <p className="mt-2 text-xs leading-5 text-charcoal/75 sm:mt-3 sm:text-sm sm:leading-6">
+                  {value.description}
+                </p>
               </article>
             );
           })}
@@ -201,28 +205,28 @@ export function AikidoPage() {
             {t("aikido.instructors.cta")}
           </Link>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 min-[420px]:gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {instructors.map((instructor) => (
             <article
               key={instructor.name}
-              className="surface card-hover flex items-center gap-4 rounded-[1.75rem] p-4"
+              className="surface card-hover flex flex-col items-start gap-3 rounded-[1.35rem] p-3.5 min-[420px]:p-4 sm:flex-row sm:items-center sm:gap-4 sm:rounded-[1.75rem]"
             >
               {instructor.imageSrc ? (
                 <ResponsiveImage
                   src={instructor.imageSrc}
                   alt={instructor.imageAlt ?? `${instructor.name} instructor portrait`}
-                  imgClassName="h-20 w-20 shrink-0 rounded-full object-cover object-[50%_22%]"
+                  imgClassName="h-16 w-16 shrink-0 rounded-full object-cover object-[50%_22%] sm:h-20 sm:w-20"
                   loading="lazy"
                 />
               ) : null}
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-bamboo">
+              <div className="min-w-0">
+                <p className="text-[0.66rem] font-bold uppercase leading-tight tracking-[0.12em] text-bamboo sm:text-xs sm:tracking-[0.16em]">
                   {instructor.rank}
                 </p>
-                <h3 className="mt-1 text-2xl leading-tight text-ink">
+                <h3 className="mt-1 text-[1.16rem] leading-tight text-ink min-[420px]:text-[1.3rem] sm:text-2xl">
                   {instructor.name}
                 </h3>
-                <p className="mt-1 text-sm text-charcoal/70">{instructor.role}</p>
+                <p className="mt-1 text-xs leading-5 text-charcoal/70 sm:text-sm">{instructor.role}</p>
               </div>
             </article>
           ))}
@@ -285,7 +289,7 @@ export function AikidoPage() {
             const copy = (
               <div className="max-w-3xl">
                 <p className="eyebrow">{section.eyebrow}</p>
-                <h3 className="mt-3 text-4xl leading-tight text-ink">
+                <h3 className="mt-3 text-3xl leading-tight text-ink sm:text-4xl">
                   {section.title}
                 </h3>
                 <div className="mt-5 grid gap-4 text-base text-charcoal/80 sm:text-lg">

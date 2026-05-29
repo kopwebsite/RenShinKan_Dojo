@@ -1,4 +1,5 @@
 import { Mail } from "lucide-react";
+import { useTranslation } from "../i18n";
 
 type NewsletterSignupProps = {
   compact?: boolean;
@@ -21,6 +22,7 @@ function getSignupUrl() {
 }
 
 export function NewsletterSignup({ compact = false, idPrefix = "newsletter" }: NewsletterSignupProps) {
+  const { t } = useTranslation();
   const signupUrl = getSignupUrl();
   const canEmbed = signupUrl.includes("sibforms.com");
 
@@ -29,8 +31,8 @@ export function NewsletterSignup({ compact = false, idPrefix = "newsletter" }: N
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-bamboo/10 text-bamboo">
         <Mail size={21} aria-hidden="true" />
       </div>
-      <h2 className={`${compact ? "mt-3 text-2xl" : "mt-4 text-4xl"} text-ink`}>
-        Get RenshinKan Dojo updates by email.
+      <h2 className={`${compact ? "mt-3 text-2xl" : "mt-4 text-3xl sm:text-4xl"} text-ink`}>
+        Get {t("common.brand")} updates by email.
       </h2>
       <p className="mt-4 leading-7 text-charcoal/78">
         Brevo signup form embed goes here.
@@ -39,7 +41,7 @@ export function NewsletterSignup({ compact = false, idPrefix = "newsletter" }: N
         canEmbed ? (
           <iframe
             id={`${idPrefix}-brevo-form`}
-            title="RenshinKan Dojo newsletter signup"
+            title={`${t("common.brand")} newsletter signup`}
             src={signupUrl}
             className="mt-5 h-80 w-full rounded-[1.25rem] border border-ink/10 bg-paper"
             loading="lazy"

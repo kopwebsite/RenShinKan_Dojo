@@ -29,7 +29,7 @@ export function ContactPage() {
           <div className="grid gap-6">
             <article className="surface rounded-[2rem] p-6 sm:p-8">
               <p className="eyebrow">{t("contact.message.eyebrow")}</p>
-              <h2 className="mt-3 text-4xl text-ink">{t("contact.message.title")}</h2>
+              <h2 className="mt-3 text-3xl text-ink sm:text-4xl">{t("contact.message.title")}</h2>
               <p className="mt-4 text-charcoal/80 leading-7">
                 {t("contact.message.copy")}
               </p>
@@ -46,7 +46,7 @@ export function ContactPage() {
 
             <article className="surface rounded-[2rem] p-6 sm:p-8">
               <p className="eyebrow">{t("contact.before.eyebrow")}</p>
-              <h2 className="mt-3 text-4xl text-ink">{t("contact.before.title")}</h2>
+              <h2 className="mt-3 text-3xl text-ink sm:text-4xl">{t("contact.before.title")}</h2>
               <p className="mt-4 leading-7 text-charcoal/80">
                 {t("contact.before.copy")}
               </p>

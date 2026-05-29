@@ -1,35 +1,57 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://crappytaco.github.io/RenShinKan_Dojo/</loc>
+    <loc>https://renshinkan-dojo.pages.dev/</loc>
+    <lastmod>2026-05-29</lastmod>
+    <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://crappytaco.github.io/RenShinKan_Dojo/aikido</loc>
+    <loc>https://renshinkan-dojo.pages.dev/aikido</loc>
+    <lastmod>2026-05-29</lastmod>
+    <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://crappytaco.github.io/RenShinKan_Dojo/classes</loc>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://crappytaco.github.io/RenShinKan_Dojo/workshops</loc>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://crappytaco.github.io/RenShinKan_Dojo/newsletter</loc>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://crappytaco.github.io/RenShinKan_Dojo/community</loc>
+    <loc>https://renshinkan-dojo.pages.dev/instructors</loc>
+    <lastmod>2026-05-29</lastmod>
+    <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://crappytaco.github.io/RenShinKan_Dojo/support</loc>
+    <loc>https://renshinkan-dojo.pages.dev/classes</loc>
+    <lastmod>2026-05-29</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://renshinkan-dojo.pages.dev/workshops</loc>
+    <lastmod>2026-05-29</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://renshinkan-dojo.pages.dev/newsletter</loc>
+    <lastmod>2026-05-29</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://renshinkan-dojo.pages.dev/community</loc>
+    <lastmod>2026-05-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://renshinkan-dojo.pages.dev/support</loc>
+    <lastmod>2026-05-29</lastmod>
+    <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://crappytaco.github.io/RenShinKan_Dojo/contact</loc>
+    <loc>https://renshinkan-dojo.pages.dev/contact</loc>
+    <lastmod>2026-05-29</lastmod>
+    <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
 </urlset>

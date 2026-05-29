@@ -13,7 +13,7 @@ type BrushCircleLogoProps = {
 export function BrushCircleLogo({
   className = "",
   imageClassName = "",
-  label = "RenshinKan Dojo red brush circle logo",
+  label = "Dojo red brush circle logo",
   decorative = false,
   paintOn = false,
 }: BrushCircleLogoProps) {

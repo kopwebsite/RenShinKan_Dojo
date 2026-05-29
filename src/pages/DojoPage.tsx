@@ -70,7 +70,7 @@ export function DojoPage() {
 
   return (
     <>
-      <section id="home" className="relative isolate min-h-[100svh] scroll-mt-28 overflow-hidden">
+      <section id="home" className="relative isolate min-h-[calc(100svh-var(--header-height)-1rem)] scroll-mt-28 overflow-hidden">
         {/* Watercolour koi background */}
         <ResponsiveImage
           src={assetPath("/dojo-photos/new-hero-poster.png")}
@@ -83,22 +83,22 @@ export function DojoPage() {
           fetchPriority="high"
         />
 
-        <div className="relative container-shell grid min-h-[100svh] place-items-center py-16 text-center">
+        <div className="relative container-shell grid min-h-[calc(100svh-var(--header-height)-1rem)] place-items-center py-14 text-center sm:py-16">
           <div className="relative mx-auto max-w-5xl">
             <div className="absolute left-1/2 top-1/2 -z-10 h-[18rem] w-[18rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-bamboo/15 sm:h-[27rem] sm:w-[27rem]" />
-            <BrushCircleLogo paintOn className="mx-auto mb-5 h-28 w-28 sm:h-40 sm:w-40" />
-            <h1 className="mx-auto mt-3 max-w-4xl text-5xl leading-[0.98] text-ink sm:text-6xl lg:text-7xl">
-              RenShinKan Dojo
+            <BrushCircleLogo paintOn className="mx-auto mb-5 h-24 w-24 sm:h-36 sm:w-36 lg:h-40 lg:w-40" />
+            <h1 className="mx-auto mt-3 max-w-4xl text-4xl leading-[0.98] text-ink sm:text-6xl lg:text-7xl">
+              {t("common.brand")}
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-charcoal/80 sm:text-lg sm:leading-8">
               {t("home.hero.subtitle")}
             </p>
-            <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Link to="/classes" className="btn-primary">
+            <div className="mt-7 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
+              <Link to="/classes" className="btn-primary sm:w-auto">
                 <GraduationCap size={18} aria-hidden="true" />
                 {t("common.visitClass")}
               </Link>
-              <Link to="/aikido#history-philosophy" className="btn-secondary">
+              <Link to="/aikido#history-philosophy" className="btn-secondary sm:w-auto">
                 <BookOpen size={18} aria-hidden="true" />
                 {t("common.learnAboutAikido")}
               </Link>
@@ -108,7 +108,7 @@ export function DojoPage() {
       </section>
 
       <MotionSection className="container-shell py-16">
-        <div className="rounded-[2rem] bg-paper/75 p-6 shadow-line ring-1 ring-ink/10 sm:p-10 lg:p-12">
+        <div className="rounded-[2rem] bg-paper/75 p-5 shadow-line ring-1 ring-ink/10 sm:p-8 lg:p-10">
           <div className="grid gap-10 lg:grid-cols-[0.72fr_1.28fr] lg:items-start">
             <div>
               <p className="eyebrow">{t("home.recent.eyebrow")}</p>
@@ -142,15 +142,15 @@ export function DojoPage() {
                             recentUpdates[recentEventIndex].media?.find((item) => item.type === "image")?.src ||
                             assetPath("/dojo-photos/aikido-hero-new.png")
                           }
-                          alt={`${recentUpdates[recentEventIndex].title} at RenshinKan Dojo.`}
+                          alt={`${recentUpdates[recentEventIndex].title} at ${t("common.brand")}.`}
                           imgClassName="aspect-[4/3] h-full w-full object-cover"
                           loading="lazy"
                         />
-                        <div className="p-7 sm:p-9">
+                        <div className="p-6 sm:p-8">
                           <p className="text-xs font-bold uppercase tracking-[0.16em] text-bamboo">
                             {recentUpdates[recentEventIndex].date}
                           </p>
-                          <h3 className="mt-4 text-3xl leading-tight text-ink sm:text-4xl">
+                          <h3 className="mt-4 text-2xl leading-tight text-ink sm:text-4xl">
                             {recentUpdates[recentEventIndex].title}
                           </h3>
                           <p className="mt-4 text-sm leading-7 text-charcoal/75">
@@ -245,8 +245,8 @@ export function DojoPage() {
         <p className="mb-5 text-xs font-bold uppercase tracking-[0.16em] text-charcoal/55">
           {t("home.photos.space")}
         </p>
-        <div className="mb-10 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
-          <figure className="relative aspect-[16/9] overflow-hidden rounded-[1.75rem] bg-paper/70 shadow-line ring-1 ring-ink/10">
+        <div className="mb-10 grid gap-3 sm:gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
+          <figure className="relative aspect-[16/10] overflow-hidden rounded-[1.4rem] bg-paper/70 shadow-line ring-1 ring-ink/10 sm:aspect-[16/9] sm:rounded-[1.75rem]">
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={activeSpacePhoto.src}
@@ -264,18 +264,18 @@ export function DojoPage() {
             <AnimatePresence mode="wait" initial={false}>
               <motion.figcaption
                 key={`${activeSpacePhoto.src}-caption`}
-                className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/85 via-ink/45 to-transparent p-5 text-paper sm:p-6"
+                className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/85 via-ink/45 to-transparent p-3 text-paper sm:p-6"
                 {...galleryCaptionMotion}
               >
-                <h3 className="text-2xl leading-tight">{activeSpacePhoto.title}</h3>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-paper/82">
+                <h3 className="text-xl leading-tight sm:text-2xl">{activeSpacePhoto.title}</h3>
+                <p className="mt-1 max-w-2xl text-sm leading-5 text-paper/82 sm:mt-2 sm:leading-6">
                   {activeSpacePhoto.description}
                 </p>
               </motion.figcaption>
             </AnimatePresence>
           </figure>
 
-          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1 lg:grid-rows-3">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 lg:grid-cols-1 lg:grid-rows-3">
             {spacePhotoOptions.map((photo) => {
               const photoIndex = dojoPhotos.findIndex((item) => item.src === photo.src);
 
@@ -284,18 +284,18 @@ export function DojoPage() {
                   key={photo.src}
                   type="button"
                   onClick={() => setActiveSpacePhotoIndex(photoIndex)}
-                  className="group grid overflow-hidden rounded-[1.35rem] bg-paper/65 text-left shadow-line ring-1 ring-ink/10 transition hover:-translate-y-0.5 hover:bg-paper/90 hover:shadow-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo sm:grid-rows-[auto_1fr] lg:min-h-0 lg:grid-cols-[7.5rem_minmax(0,1fr)] lg:grid-rows-1"
+                  className="group relative aspect-square overflow-hidden rounded-[1rem] bg-paper/65 text-left shadow-line ring-1 ring-ink/10 transition hover:-translate-y-0.5 hover:bg-paper/90 hover:shadow-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo sm:grid sm:aspect-auto sm:rounded-[1.35rem] sm:grid-rows-[auto_1fr] lg:min-h-0 lg:grid-cols-[7.5rem_minmax(0,1fr)] lg:grid-rows-1"
                   aria-label={t("a11y.showPhoto", { title: photo.title })}
                 >
                   <ResponsiveImage
                     src={photo.src}
                     alt=""
-                    imgClassName="aspect-[4/3] w-full object-cover lg:h-full lg:min-h-0"
+                    imgClassName="h-full w-full object-cover sm:aspect-[4/3] lg:h-full lg:min-h-0"
                     loading="lazy"
                   />
-                  <span className="block p-4">
-                    <span className="block text-lg leading-tight text-ink">{photo.title}</span>
-                    <span className="mt-1 line-clamp-2 block text-sm leading-5 text-charcoal/68">
+                  <span className="absolute inset-x-0 bottom-0 block bg-gradient-to-t from-ink/80 to-transparent p-2 text-paper sm:static sm:bg-none sm:p-4 sm:text-ink">
+                    <span className="block text-xs font-bold leading-tight sm:text-lg sm:font-normal">{photo.title}</span>
+                    <span className="mt-1 hidden text-sm leading-5 text-charcoal/68 sm:line-clamp-2 sm:block">
                       {photo.description}
                     </span>
                   </span>
@@ -310,7 +310,7 @@ export function DojoPage() {
             {t("home.photos.onMat")}
           </p>
         </div>
-        <MediaSlider media={matMedia} label={t("home.photos.onMatGallery")} />
+        <MediaSlider media={matMedia} label={t("home.photos.onMatGallery")} showIndexNavigation />
       </MotionSection>
 
       <MotionSection id="dojo-history" className="container-shell scroll-mt-28 pb-20">
@@ -337,9 +337,9 @@ export function DojoPage() {
 
       <MotionSection id="location" className="container-shell scroll-mt-28 pb-20">
         <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-stretch">
-          <article className="rounded-[2rem] bg-paper/75 p-8 shadow-line ring-1 ring-ink/10 sm:p-10">
+          <article className="rounded-[2rem] bg-paper/75 p-6 shadow-line ring-1 ring-ink/10 sm:p-10">
             <p className="eyebrow">{t("home.location.eyebrow")}</p>
-            <h2 className="mt-4 text-4xl leading-tight text-ink sm:text-5xl">
+            <h2 className="mt-4 text-3xl leading-tight text-ink sm:text-5xl">
               {t("home.location.title")}
             </h2>
             <p className="mt-5 text-charcoal/78">
@@ -354,9 +354,9 @@ export function DojoPage() {
       </MotionSection>
 
       <MotionSection className="container-shell pb-20">
-        <div className="rounded-[2rem] bg-bamboo/10 p-8 shadow-line ring-1 ring-bamboo/20 sm:p-10">
+        <div className="rounded-[2rem] bg-bamboo/10 p-6 shadow-line ring-1 ring-bamboo/20 sm:p-10">
           <p className="eyebrow">{t("home.visiting.eyebrow")}</p>
-          <h2 className="mt-4 max-w-3xl text-4xl leading-tight text-ink sm:text-5xl">
+          <h2 className="mt-4 max-w-3xl text-3xl leading-tight text-ink sm:text-5xl">
             {t("home.visiting.title")}
           </h2>
           <p className="mt-5 max-w-2xl text-charcoal/78">

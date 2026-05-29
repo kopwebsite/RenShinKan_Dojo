@@ -23,9 +23,9 @@ export function LocationCard() {
       </div>
       <div className="p-6">
         <p className="eyebrow">{t("locationCard.eyebrow")}</p>
-        <h3 className="mt-2 flex items-center gap-3 text-3xl text-ink">
+        <h3 className="mt-2 flex items-start gap-3 text-2xl text-ink sm:text-3xl">
           <MapPin className="h-7 w-7 shrink-0 text-vermilion" aria-hidden="true" />
-          {siteInfo.location}
+          <span className="min-w-0">{siteInfo.location}</span>
         </h3>
         <p className="mt-4 text-charcoal/78">{siteInfo.address}</p>
         <a

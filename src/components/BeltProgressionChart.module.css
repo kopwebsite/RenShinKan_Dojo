@@ -15,6 +15,7 @@
   align-items: stretch;
   border-radius: 14px;
   overflow: hidden;
+  min-width: 0;
   min-height: 80px;
   box-shadow:
     0 3px 10px rgba(0, 0, 0, 0.22),
@@ -63,6 +64,7 @@
 .techniques {
   padding: 11px 14px;
   display: flex;
+  min-width: 0;
   flex-direction: column;
   justify-content: center;
   gap: 2px;
@@ -73,6 +75,7 @@
   font-weight: 500;
   line-height: 1.55;
   letter-spacing: 0.005em;
+  overflow-wrap: anywhere;
 }
 
 /* ── Days column (right of center) ──────────────────────────── */
@@ -192,9 +195,13 @@
 
 /* ── Responsive: very small phones ──────────────────────────── */
 
-@media (max-width: 400px) {
+@media (max-width: 480px) {
   .row {
-    grid-template-columns: 54px 0px 1fr 48px 0px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "rank days"
+      "tech tech";
+    min-height: 0;
   }
 
   .divider {
@@ -203,6 +210,14 @@
 
   .beltIconCol {
     display: none;
+  }
+
+  .rankLabel {
+    grid-area: rank;
+    flex-direction: row;
+    justify-content: flex-start;
+    padding: 11px 12px 9px;
+    text-align: left;
   }
 
   .rankNum {
@@ -214,10 +229,22 @@
   }
 
   .techLine {
-    font-size: 0.55rem;
+    font-size: 0.64rem;
+  }
+
+  .techniques {
+    grid-area: tech;
+    padding: 10px 12px 12px;
+    border-top: 1px solid var(--sep, rgba(0, 0, 0, 0.14));
   }
 
   .daysNum {
     font-size: 1.1rem;
+  }
+
+  .daysCol {
+    grid-area: days;
+    min-width: 4.75rem;
+    border-left: 1px solid var(--sep, rgba(0, 0, 0, 0.14));
   }
 }

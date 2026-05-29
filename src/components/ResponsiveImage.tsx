@@ -19,7 +19,11 @@ type ResponsiveImageProps = Omit<
 };
 
 function isLocalOptimizableImage(src: string) {
-  return !/^(https?:|data:|blob:|pending:)/i.test(src) && /\.(png|jpe?g|webp)(\?.*)?$/i.test(src);
+  return (
+    !/^(https?:|data:|blob:|pending:)/i.test(src) &&
+    !src.includes("/uploads/admin/") &&
+    /\.(png|jpe?g|webp)(\?.*)?$/i.test(src)
+  );
 }
 
 function replaceExtension(src: string, extension: "avif" | "webp") {
@@ -39,6 +43,10 @@ function derivedOptimizedSrc(src: string, extension: "avif" | "webp") {
 
   if (src.includes("/past-events/")) {
     return withNewExtension.replace("/past-events/", "/optimized/past-events/");
+  }
+
+  if (src.includes("/renshinkan-gallery/")) {
+    return withNewExtension.replace("/renshinkan-gallery/", "/optimized/renshinkan-gallery/");
   }
 
   return withNewExtension;
@@ -61,18 +69,21 @@ export function ResponsiveImage({
 }: ResponsiveImageProps) {
   const imageClassName = imgClassName ?? className;
   const imageStyle = objectPosition ? { ...style, objectPosition } : style;
+  const fetchPriorityProps = fetchPriority
+    ? ({ fetchpriority: fetchPriority } as Record<string, string>)
+    : {};
 
   if (!isLocalOptimizableImage(src) && !avif && !webp) {
     return (
       <img
         {...imgProps}
+        {...fetchPriorityProps}
         src={src}
         alt={alt}
         className={imageClassName}
         style={imageStyle}
         loading={loading}
         decoding={decoding}
-        fetchPriority={fetchPriority}
       />
     );
   }
@@ -86,13 +97,13 @@ export function ResponsiveImage({
       <source srcSet={webpSrc} type="image/webp" />
       <img
         {...imgProps}
+        {...fetchPriorityProps}
         src={src}
         alt={alt}
         className={imageClassName}
         style={imageStyle}
         loading={loading}
         decoding={decoding}
-        fetchPriority={fetchPriority}
       />
     </picture>
   );

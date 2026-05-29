@@ -60,7 +60,7 @@ export function NewsletterPage() {
             <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
               <div>
                 <p className="text-sm font-bold text-bamboo">{activeEvent.date}</p>
-                <h3 className="mt-5 text-4xl leading-tight text-ink sm:text-5xl">{activeEvent.title}</h3>
+                <h3 className="mt-5 text-3xl leading-tight text-ink sm:text-5xl">{activeEvent.title}</h3>
                 <p className="mt-5 max-w-3xl text-base leading-7 text-charcoal/75">{activeEvent.summary}</p>
                 <p className="mt-5 max-w-3xl whitespace-pre-line text-sm leading-7 text-charcoal/78">
                   {activeEvent.body}

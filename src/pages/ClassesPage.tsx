@@ -73,20 +73,20 @@ export function ClassesPage() {
         </div>
 
         <div className="mt-10 grid gap-4 md:grid-cols-2">
-          <article className="surface rounded-[1.75rem] p-6">
+          <article className="surface rounded-[1.75rem] p-5 sm:p-6">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-bamboo">
               {t("classes.halves.firstEyebrow")}
             </p>
-            <h2 className="mt-3 text-3xl text-ink">{t("classes.halves.firstTitle")}</h2>
+            <h2 className="mt-3 text-2xl text-ink sm:text-3xl">{t("classes.halves.firstTitle")}</h2>
             <p className="mt-3 text-sm text-charcoal/75">
               {t("classes.halves.firstCopy")}
             </p>
           </article>
-          <article className="surface rounded-[1.75rem] p-6">
+          <article className="surface rounded-[1.75rem] p-5 sm:p-6">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-vermilion">
               {t("classes.halves.secondEyebrow")}
             </p>
-            <h2 className="mt-3 text-3xl text-ink">{t("classes.halves.secondTitle")}</h2>
+            <h2 className="mt-3 text-2xl text-ink sm:text-3xl">{t("classes.halves.secondTitle")}</h2>
             <p className="mt-3 text-sm text-charcoal/75">
               {t("classes.halves.secondCopy")}
             </p>
@@ -138,8 +138,8 @@ export function ClassesPage() {
             <h3 className="mt-5 text-3xl text-ink">{t("classes.firstVisit.beforeTitle")}</h3>
             <ul className="mt-6 grid gap-3">
               {firstVisitItems.map((itemKey) => (
-                <li key={itemKey} className="flex items-center gap-3 text-charcoal/80">
-                  <span className="h-2.5 w-2.5 rounded-full bg-vermilion" aria-hidden="true" />
+                <li key={itemKey} className="flex items-start gap-3 text-charcoal/80">
+                  <span className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-vermilion" aria-hidden="true" />
                   {t(itemKey)}
                 </li>
               ))}

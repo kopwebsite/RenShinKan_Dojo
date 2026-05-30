@@ -1,10 +1,15 @@
 import { Mail } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "../i18n";
 
 type NewsletterSignupProps = {
   compact?: boolean;
   idPrefix?: string;
 };
+
+// Fallback height used until (or unless) the Brevo form reports its own height.
+// Kept generous so the form is never clipped on mobile where fields stack taller.
+const DEFAULT_FRAME_HEIGHT = 620;
 
 function getSignupUrl() {
   const value = import.meta.env.VITE_BREVO_SIGNUP_FORM_URL;
@@ -21,10 +26,56 @@ function getSignupUrl() {
   }
 }
 
+function extractHeight(data: unknown): number | undefined {
+  if (typeof data === "number") {
+    return data;
+  }
+
+  if (typeof data === "string") {
+    try {
+      return extractHeight(JSON.parse(data));
+    } catch {
+      return undefined;
+    }
+  }
+
+  if (data && typeof data === "object") {
+    const record = data as Record<string, unknown>;
+    const candidate = record.frameHeight ?? record.height ?? record.scrollHeight;
+    return typeof candidate === "number" ? candidate : undefined;
+  }
+
+  return undefined;
+}
+
 export function NewsletterSignup({ compact = false, idPrefix = "newsletter" }: NewsletterSignupProps) {
   const { t } = useTranslation();
   const signupUrl = getSignupUrl();
   const canEmbed = signupUrl.includes("sibforms.com");
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  const [frameHeight, setFrameHeight] = useState(DEFAULT_FRAME_HEIGHT);
+
+  useEffect(() => {
+    if (!canEmbed) {
+      return;
+    }
+
+    function onMessage(event: MessageEvent) {
+      if (!event.origin.includes("sibforms.com")) {
+        return;
+      }
+
+      const height = extractHeight(event.data);
+
+      // Ignore implausible values; only grow/shrink to a real reported height.
+      if (typeof height === "number" && height > 200 && height < 2000) {
+        setFrameHeight(Math.ceil(height));
+      }
+    }
+
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [canEmbed]);
 
   return (
     <article className={`surface rounded-[2rem] ${compact ? "p-5" : "p-6 sm:p-8"}`}>
@@ -35,15 +86,18 @@ export function NewsletterSignup({ compact = false, idPrefix = "newsletter" }: N
         Get {t("common.brand")} updates by email.
       </h2>
       <p className="mt-4 leading-7 text-charcoal/78">
-        Brevo signup form embed goes here.
+        Dojo news, gradings, workshops, and community events — straight to your inbox.
       </p>
       {signupUrl ? (
         canEmbed ? (
           <iframe
+            ref={frameRef}
             id={`${idPrefix}-brevo-form`}
             title={`${t("common.brand")} newsletter signup`}
             src={signupUrl}
-            className="mt-5 h-80 w-full rounded-[1.25rem] border border-ink/10 bg-paper"
+            scrolling="no"
+            style={{ height: frameHeight }}
+            className="mt-5 w-full rounded-[1.25rem] border border-ink/10 bg-paper transition-[height] duration-300"
             loading="lazy"
           />
         ) : (

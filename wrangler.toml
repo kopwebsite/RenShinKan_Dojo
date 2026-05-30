@@ -2,3 +2,13 @@
 name = "renshinkan-dojo"
 pages_build_output_dir = "./dist"
 compatibility_date = "2026-05-28"
+
+[[kv_namespaces]]
+binding = "CONTENT_KV"
+# Add `id` and `preview_id` here if deploying with Wrangler instead of
+# configuring the binding in the Cloudflare Pages dashboard.
+
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "renshinkan-dojo-media"
+preview_bucket_name = "renshinkan-dojo-media-preview"

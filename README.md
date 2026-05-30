@@ -18,11 +18,11 @@ npm run build
 npm run preview
 ```
 
-The production build is written to `dist/`. Cloudflare Pages handles React Router refreshes with its default single-page application behavior when no top-level `404.html` is generated.
+The production build is written to `dist/`. `public/_redirects` rewrites direct navigation for the React routes, including `/admin`, back to `index.html` on Cloudflare Pages.
 
 ## Cloudflare Pages
 
-Use Cloudflare Pages with Git integration so Cloudflare pulls the GitHub repository and deploys automatically after each push.
+Use Cloudflare Pages for the static build and Pages Functions for the admin API. GitHub can still be the source-code deployment integration, but admin content edits are stored in Cloudflare KV and uploaded admin media is stored in Cloudflare R2.
 
 In Cloudflare:
 
@@ -35,20 +35,21 @@ In Cloudflare:
    - Build output directory: `dist`
    - Deploy command: leave blank for a Git-connected Pages project
    - Root directory: leave blank / repository root
-6. Save and deploy.
+6. Add the admin secrets, KV namespace binding, R2 bucket binding, and public build variables described in `docs/admin-setup.md`.
+7. Save and deploy.
 
 Do not create this as a Worker project and do not use `npx wrangler deploy` as the deploy command. That command is for Cloudflare Workers and fails for this Pages project with "Missing entry-point to Worker script or to assets directory". This repo uses Cloudflare Pages plus the `/functions` directory for the admin API. If Cloudflare shows a required deploy-command field, you are likely configuring a Worker build rather than a Pages Git integration. For manual/direct-upload deployments only, use `npm run deploy`, which runs `wrangler pages deploy dist`.
 
-The repo includes `wrangler.toml` with the Cloudflare Pages project name, build output directory, and Functions compatibility date. It also includes `.nvmrc` so Cloudflare builds with Node 22. The `/functions` directory is deployed by Cloudflare Pages Functions for the admin API. GitHub Actions are not used for hosting.
+The repo includes `wrangler.toml` with the Cloudflare Pages project name, build output directory, Functions compatibility date, and binding names. It also includes `.nvmrc` so Cloudflare builds with Node 22. The `/functions` directory is deployed by Cloudflare Pages Functions for the admin API. GitHub Actions are not used for hosting.
 
 ## Repository Hygiene
 
-The repository should include source files, package manifests, public site assets, Cloudflare Pages config, and Cloudflare Pages Functions. It should not include generated or local-only folders such as `node_modules/`, `dist/`, `.logs/`, `.tools/`, `.claude/`, `screenshots/`, or the raw working image folder `Dojo pictures/`.
+The repository should include source files, package manifests, public site assets, Cloudflare Pages config, and Cloudflare Pages Functions. It should not include generated or local-only folders such as `node_modules/`, `dist/`, `.wrangler/`, `.logs/`, `.tools/`, `.claude/`, `screenshots/`, or the raw working image folder `Dojo pictures/`.
 
 ## Content And Launch Checks
 
 - Edit site copy, navigation, instructors, workshops, schedule, FAQs, newsletters, and facilities in `src/data/siteContent.ts`.
-- Admin-managed public content lives in `public/content/editableContent.json`. The `/admin` page publishes updates through Cloudflare Pages Functions after the required environment variables are configured.
+- Admin-managed public content is loaded from `/api/content` after it has been saved to Cloudflare KV. The checked-in `public/content/editableContent.json` remains a static fallback for local Vite development and first deploys before KV is populated.
 - Confirm instructor names, photos, ranks, and biographies before public launch.
 - Confirm the class schedule, CMU practice details, workshop dates, and contact information before public launch.
 - Keep source records for historical O Sensei images, Peace Culture Foundation images/logo, CMU images/logo, and other third-party visual sources referenced in the site.
@@ -57,44 +58,41 @@ The repository should include source files, package manifests, public site asset
 
 ## Admin Page
 
-Open `/admin` to enter the temporary admin editor. The current temporary password is checked in the browser with a SHA-256 hash, not stored as plain text, but this is not production authentication because a fully static site cannot keep secrets. Add hosting-level auth or a backend login before treating `/admin` as secure.
+Open `/admin` to enter the admin editor. Login is handled by Cloudflare Pages Functions with an HttpOnly signed session cookie. The admin API routes also verify the session server-side; the frontend page alone is not treated as a security boundary.
 
-Admins can prepare:
+The current admin UI exposes:
 
-- newsletter / dojo updates with subject, article body, summary, up to 6 photos, and external video embeds
-- historical media for "A Look at Our History"
-- current training media for "On the Mat"
+- newsletter / dojo updates with title, article body, summary, and event images
 - the examination announcement text
-- photos and optional captions for students who passed grading tests
 - edits/deletes for existing dojo updates
 
-Photos selected in `/admin` preview locally. The first update photo becomes the slider's first item and the front-page image. Videos must be YouTube, Vimeo, or another external HTTPS embed/player URL because direct video uploads are too large for this static-site workflow and need backend storage.
+Photos selected in `/admin` preview locally, then upload to R2 when the admin saves. The first update photo becomes the slider's first item and the front-page image. The server validates MIME type, file extension, image signature, file count, and file size.
 
-The public front page shows the 3 most recent dojo updates from `src/data/editableContent.ts`. The newsletter page shows the full update with subject, body, date, and an image/video slider.
+The public front page shows the 3 most recent published dojo updates from Cloudflare KV. The newsletter page shows the full update with title, body, date, and an image slider.
 
-### GitHub Publish Flow
+### Cloudflare Admin Publish Flow
 
-The browser must not contain a GitHub token. The Save / Publish button posts to `/api/admin/publish`, which is handled by Cloudflare Pages Functions in `functions/api/admin/publish.ts`.
+The browser must not contain storage tokens or email provider keys. The Save / Publish button posts to `/api/admin/publish`, which is handled by Cloudflare Pages Functions in `functions/api/admin/publish.ts`.
 
-Required backend environment variables:
+Required Cloudflare configuration:
 
-```bash
-GITHUB_TOKEN=
-GITHUB_OWNER=
-GITHUB_REPO=
-GITHUB_BRANCH=
-```
+- `CONTENT_KV` Workers KV namespace binding
+- `MEDIA_BUCKET` R2 bucket binding
+- `ADMIN_PASSWORD_HASH` secret
+- `SESSION_SECRET` secret
+- `SITE_URL` Pages Function variable or secret
+- optional Brevo secrets if newsletter sending is enabled
+- `VITE_SITE_URL` and `VITE_BREVO_SIGNUP_FORM_URL` Pages build variables
 
 Intended flow:
 
 1. Admin fills out `/admin`.
 2. Admin clicks Save / Publish Changes.
 3. The serverless function receives the draft and media payload.
-4. The function commits changed content/media to GitHub using `GITHUB_TOKEN`.
-5. Cloudflare Pages sees the GitHub commit and rebuilds automatically.
-6. New updates pass their prepared newsletter payload to the future email provider hook.
-
-`sendNewsletterUpdatePlaceholder(update)` lives in `src/data/editableContent.ts`. Connect MailerLite, Brevo, Mailchimp, Resend, SendGrid, or another provider from the backend later; do not call those APIs from frontend code.
+4. Image files are validated and stored in R2.
+5. Editable content JSON is stored in KV.
+6. Public pages load the updated content from `/api/content` without a source-code commit or Pages rebuild.
+7. New published updates with `notifySubscribers` enabled can trigger Brevo from the backend if Brevo is configured.
 
 ## Notes
 

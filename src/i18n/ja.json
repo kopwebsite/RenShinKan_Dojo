@@ -1,6 +1,6 @@
 {
   "common": {
-    "brand": "RenshinKan Dojo",
+    "brand": "錬心館道場",
     "readMore": "続きを読む",
     "viewUpdate": "更新を見る",
     "visitClass": "クラスを見学する",
@@ -106,12 +106,12 @@
     "recent": {
       "eyebrow": "最近のイベント",
       "title": "道場の近況を一か所にまとめました。",
-      "copy": "稽古日、審査、講習会、RenshinKanでのコミュニティの時間から、最新の3件を紹介します。"
+      "copy": "稽古日、審査、講習会、錬心館でのコミュニティの時間から、最新の3件を紹介します。"
     },
     "facilities": {
       "eyebrow": "道場について",
       "title": "ハンドンにある、あらゆる年齢の生徒を迎える稽古場。",
-      "copy": "RenshinKanは{{year}}年、ハンドンの静かな場所に建てられました。落ち着いて集中できる稽古のための空間です。"
+      "copy": "錬心館は{{year}}年、ハンドンの静かな場所に建てられました。落ち着いて集中できる稽古のための空間です。"
     },
     "instructors": {
       "eyebrow": "指導者",
@@ -120,7 +120,7 @@
     },
     "photos": {
       "eyebrow": "道場写真",
-      "title": "RenshinKanの中を少しご紹介します。",
+      "title": "錬心館の中を少しご紹介します。",
       "copy": "道場と、ここで稽古する人たちをご覧ください。",
       "space": "稽古場",
       "onMat": "畳の上",
@@ -134,10 +134,10 @@
     "location": {
       "eyebrow": "アクセス",
       "title": "初めて来る前に道場の場所を確認してください。",
-      "copy": "RenshinKan DojoはハンドンのBaan Waenにあります。保護者と訪問者は地図で到着を計画し、事前に連絡して最適なクラス時間と見学場所を確認できます。"
+      "copy": "錬心館道場はハンドンのBaan Waenにあります。保護者と訪問者は地図で到着を計画し、事前に連絡して最適なクラス時間と見学場所を確認できます。"
     },
     "visiting": {
-      "eyebrow": "RenshinKan訪問",
+      "eyebrow": "錬心館訪問",
       "title": "飛び入りも歓迎しています。",
       "copy": "初めての方は、クラス時間にそのままお越しください。訪問稽古の合気道家は、時間確認と受け入れ準備のため、事前に短くご連絡ください。"
     }
@@ -189,7 +189,7 @@
   "contact": {
     "intro": {
       "eyebrow": "所在地と連絡先",
-      "title": "RenshinKan Dojoへの初回訪問を計画する。",
+      "title": "錬心館道場への初回訪問を計画する。",
       "copy": "道場は{{address}}にあります。保護者、初心者、経験者、訪問者は、クラス参加前に詳細をお問い合わせください。"
     },
     "message": {
@@ -213,7 +213,7 @@
   },
   "instructorsPage": {
     "eyebrow": "指導者",
-    "title": "RenshinKan Dojoの合気道指導者を紹介します。",
+    "title": "錬心館道場の合気道指導者を紹介します。",
     "copy": "クラス稽古を導き、初心者に合気道を紹介し、生徒が畳の上で落ち着いた動き、相手を尊重する稽古、安定した自信を育てられるよう支える先生たちです。"
   },
   "newsletter": {
@@ -233,31 +233,31 @@
     },
     "signup": {
       "eyebrow": "道場更新",
-      "title": "RenshinKanの更新をフォロー。",
+      "title": "錬心館の更新をフォロー。",
       "copy": "安全なメール配信サービスを追加した後、ニュースレター登録を接続します。今はFacebookで道場をフォローまたはメッセージして、クラスノート、イベント、ワークショップ情報をご確認ください。"
     }
   },
   "seo": {
-    "homeTitle": "RenshinKan Dojo | チェンマイ・ハンドンの合気道",
-    "homeDescription": "RenshinKan Dojoはチェンマイ・ハンドンで伝統的な合気道と武道の稽古を行っています。初心者、子ども、訪問稽古の合気道家を歓迎します。",
-    "aikidoTitle": "合気道とは？| RenshinKan Dojo チェンマイ",
-    "aikidoDescription": "合気道の歴史、開祖、相対稽古、受身、武器稽古、RenshinKan Dojoでの合気道指導について紹介します。",
-    "classesTitle": "ハンドンの合気道クラス | RenshinKan Dojo",
+    "homeTitle": "錬心館道場 | チェンマイ・ハンドンの合気道",
+    "homeDescription": "錬心館道場はチェンマイ・ハンドンで伝統的な合気道と武道の稽古を行っています。初心者、子ども、訪問稽古の合気道家を歓迎します。",
+    "aikidoTitle": "合気道とは？| 錬心館道場 チェンマイ",
+    "aikidoDescription": "合気道の歴史、開祖、相対稽古、受身、武器稽古、錬心館道場での合気道指導について紹介します。",
+    "classesTitle": "ハンドンの合気道クラス | 錬心館道場",
     "classesDescription": "チェンマイ・ハンドンでの合気道クラス情報。稽古時間、初回訪問ガイド、昇級審査、初心者向け詳細を掲載しています。",
-    "workshopsTitle": "チェンマイ合気道ワークショップ | RenshinKan Dojo",
-    "workshopsDescription": "RenshinKan Dojoでは初心者、子ども、在籍生向けの季節ごとの合気道ワークショップをハンドンで開催します。",
-    "newsletterTitle": "道場ニュース | RenshinKan 合気道 チェンマイ",
-    "newsletterDescription": "ハンドンとチェンマイから、RenshinKan Dojoの最新情報、学生ニュース、イベント、写真、合気道コミュニティの記録をお届けします。",
-    "communityTitle": "チェンマイの合気道コミュニティ | RenshinKan Dojo",
-    "communityDescription": "RenshinKan DojoはPeace Culture Foundation、AikidoCMU、地域の武道稽古とつながるチェンマイ合気道コミュニティの一部です。",
-    "supportTitle": "RenshinKan Dojoを支援 | チェンマイ合気道",
-    "supportDescription": "学生の協力金や寄付を通じてRenshinKan Dojoを支援し、ハンドンとチェンマイで合気道の稽古を続けやすくします。",
-    "contactTitle": "RenshinKan Dojo 連絡先 | ハンドンの合気道",
-    "contactDescription": "チェンマイ・ハンドンのRenshinKan Dojoに、合気道クラス、初回訪問、子どもの稽古、訪問稽古についてお問い合わせください。",
-    "visitTitle": "RenshinKan Dojoを訪問 | ハンドンの合気道",
-    "visitDescription": "チェンマイ・ハンドンのRenshinKan Dojoへの初回訪問を計画できます。初心者、保護者、訪問稽古の合気道家を歓迎します。",
-    "adminTitle": "管理 | RenshinKan Dojo",
-    "adminDescription": "RenshinKan Dojoのコンテンツ管理。",
+    "workshopsTitle": "チェンマイ合気道ワークショップ | 錬心館道場",
+    "workshopsDescription": "錬心館道場では初心者、子ども、在籍生向けの季節ごとの合気道ワークショップをハンドンで開催します。",
+    "newsletterTitle": "道場ニュース | 錬心館 合気道 チェンマイ",
+    "newsletterDescription": "ハンドンとチェンマイから、錬心館道場の最新情報、学生ニュース、イベント、写真、合気道コミュニティの記録をお届けします。",
+    "communityTitle": "チェンマイの合気道コミュニティ | 錬心館道場",
+    "communityDescription": "錬心館道場はPeace Culture Foundation、AikidoCMU、地域の武道稽古とつながるチェンマイ合気道コミュニティの一部です。",
+    "supportTitle": "錬心館道場を支援 | チェンマイ合気道",
+    "supportDescription": "学生の協力金や寄付を通じて錬心館道場を支援し、ハンドンとチェンマイで合気道の稽古を続けやすくします。",
+    "contactTitle": "錬心館道場 連絡先 | ハンドンの合気道",
+    "contactDescription": "チェンマイ・ハンドンの錬心館道場に、合気道クラス、初回訪問、子どもの稽古、訪問稽古についてお問い合わせください。",
+    "visitTitle": "錬心館道場を訪問 | ハンドンの合気道",
+    "visitDescription": "チェンマイ・ハンドンの錬心館道場への初回訪問を計画できます。初心者、保護者、訪問稽古の合気道家を歓迎します。",
+    "adminTitle": "管理 | 錬心館道場",
+    "adminDescription": "錬心館道場のコンテンツ管理。",
     "localBusinessDescription": "チェンマイ・ハンドンでの伝統的な合気道と武道の稽古。"
   }
 }

@@ -1,4 +1,4 @@
-import { createSessionCookie, jsonResponse, verifyAdminPassword } from "../../_lib/auth";
+import { createSessionCookie, isSameOriginRequest, jsonResponse, verifyAdminPassword } from "../../_lib/auth";
 
 type Env = {
   ADMIN_PASSWORD_HASH?: string;
@@ -6,6 +6,10 @@ type Env = {
 };
 
 export async function onRequestPost({ request, env }: { request: Request; env: Env }) {
+  if (!isSameOriginRequest(request)) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403);
+  }
+
   let body: { password?: unknown };
 
   try {

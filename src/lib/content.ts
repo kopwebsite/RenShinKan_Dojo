@@ -187,21 +187,35 @@ export function normalizeEditableContent(value: unknown): EditableContent {
   };
 }
 
-export async function loadEditableContent() {
-  try {
-    const response = await fetch(assetPath("/content/editableContent.json"), {
-      headers: { Accept: "application/json" },
-      cache: "no-store",
-    });
+async function fetchEditableContent(url: string) {
+  const response = await fetch(url, {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
 
-    if (!response.ok) {
-      return emptyEditableContent;
-    }
-
-    return normalizeEditableContent(await response.json());
-  } catch {
-    return emptyEditableContent;
+  if (!response.ok) {
+    return null;
   }
+
+  return normalizeEditableContent(await response.json());
+}
+
+export async function loadEditableContent() {
+  const urls = ["/api/content", assetPath("/content/editableContent.json")];
+
+  for (const url of urls) {
+    try {
+      const content = await fetchEditableContent(url);
+
+      if (content) {
+        return content;
+      }
+    } catch {
+      // Try the next source. Vite dev does not run Cloudflare Pages Functions.
+    }
+  }
+
+  return emptyEditableContent;
 }
 
 export function useEditableContent() {

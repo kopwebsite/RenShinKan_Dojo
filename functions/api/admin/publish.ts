@@ -1,4 +1,4 @@
-import { hasValidAdminSession, jsonResponse } from "../../_lib/auth";
+import { hasValidAdminSession, isSameOriginRequest, jsonResponse } from "../../_lib/auth";
 import { createAndSendRecentEventCampaign, missingBrevoEnv } from "../../_lib/brevo";
 import {
   type EditableContent,
@@ -6,13 +6,17 @@ import {
   replacePendingMediaUrls,
   validateEditableContent,
 } from "../../_lib/content";
+import {
+  type StorageEnv,
+  emptyContent,
+  getUploadFiles,
+  readEditableContentFromStorage,
+  uploadFilesToR2,
+  writeEditableContentToStorage,
+} from "../../_lib/storage";
 
-type Env = {
+type Env = StorageEnv & {
   SESSION_SECRET?: string;
-  GITHUB_TOKEN?: string;
-  GITHUB_OWNER?: string;
-  GITHUB_REPO?: string;
-  GITHUB_BRANCH?: string;
   SITE_URL?: string;
   BREVO_API_KEY?: string;
   BREVO_LIST_ID?: string;
@@ -20,242 +24,11 @@ type Env = {
   BREVO_SENDER_NAME?: string;
 };
 
-type GithubFile = {
-  sha: string;
-  content: string;
-};
-
-const CONTENT_PATH = "public/content/editableContent.json";
 const MAX_FILES = 10;
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-const allowedMimeTypes = new Map([
-  ["image/jpeg", [".jpg", ".jpeg"]],
-  ["image/png", [".png"]],
-  ["image/webp", [".webp"]],
-]);
-
-function isConfigured(value: string | undefined) {
-  return Boolean(value && !value.startsWith("PLACEHOLDER"));
-}
-
-function missingGithubEnv(env: Env) {
-  return ["GITHUB_TOKEN", "GITHUB_OWNER", "GITHUB_REPO"].filter((key) => !isConfigured(env[key as keyof Env]));
-}
-
-function branch(env: Env) {
-  return env.GITHUB_BRANCH || "main";
-}
-
-function utf8ToBase64(value: string) {
-  return bytesToBase64(new TextEncoder().encode(value));
-}
-
-function base64ToUtf8(value: string) {
-  const binary = atob(value.replace(/\s/g, ""));
-  const bytes = new Uint8Array(binary.length);
-
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-
-  return new TextDecoder().decode(bytes);
-}
-
-function bytesToBase64(bytes: Uint8Array) {
-  let binary = "";
-  const chunkSize = 0x8000;
-
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    binary += String.fromCharCode(...bytes.slice(index, index + chunkSize));
-  }
-
-  return btoa(binary);
-}
-
-function githubContentUrl(env: Env, path: string) {
-  const encodedPath = path.split("/").map(encodeURIComponent).join("/");
-  return `https://api.github.com/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/contents/${encodedPath}`;
-}
-
-async function githubRequest(env: Env, path: string, init: RequestInit = {}) {
-  const response = await fetch(githubContentUrl(env, path), {
-    ...init,
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${env.GITHUB_TOKEN}`,
-      "Content-Type": "application/json",
-      "User-Agent": "renshinkan-admin-publisher",
-      "X-GitHub-Api-Version": "2022-11-28",
-      ...(init.headers ?? {}),
-    },
-  });
-
-  return response;
-}
-
-async function readGithubError(response: Response) {
-  const text = await response.text();
-
+async function readPreviousContent(env: Env) {
   try {
-    const data = JSON.parse(text) as { message?: string };
-    return data.message || text;
-  } catch {
-    return text || response.statusText;
-  }
-}
-
-async function getGithubFile(env: Env, path: string): Promise<GithubFile | null> {
-  const response = await fetch(`${githubContentUrl(env, path)}?ref=${encodeURIComponent(branch(env))}`, {
-    method: "GET",
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${env.GITHUB_TOKEN}`,
-      "User-Agent": "renshinkan-admin-publisher",
-      "X-GitHub-Api-Version": "2022-11-28",
-    },
-  });
-
-  if (response.status === 404) {
-    return null;
-  }
-
-  if (!response.ok) {
-    throw new Error(`GitHub GET ${path} failed: ${await readGithubError(response)}`);
-  }
-
-  const data = await response.json() as Partial<GithubFile>;
-
-  if (typeof data.sha !== "string" || typeof data.content !== "string") {
-    throw new Error(`GitHub GET ${path} returned an unexpected payload`);
-  }
-
-  return {
-    sha: data.sha,
-    content: data.content,
-  };
-}
-
-async function putGithubFile(env: Env, path: string, contentBase64: string, message: string, sha?: string) {
-  const response = await githubRequest(env, path, {
-    method: "PUT",
-    body: JSON.stringify({
-      message,
-      content: contentBase64,
-      branch: branch(env),
-      sha,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`GitHub PUT ${path} failed: ${await readGithubError(response)}`);
-  }
-
-  const data = await response.json() as { content?: { sha?: string } };
-  return data.content?.sha;
-}
-
-function isFile(value: FormDataEntryValue): value is File {
-  return typeof value === "object" && value !== null && "arrayBuffer" in value && "name" in value && "type" in value && "size" in value;
-}
-
-function extractUploadId(name: string) {
-  return name.match(/^(upload-[a-f0-9-]+)-/i)?.[1] ?? null;
-}
-
-function extensionFor(name: string) {
-  const cleanName = name.split(/[\\/]/).pop() || name;
-  const match = cleanName.match(/\.[a-z0-9]+$/i);
-  return match ? match[0].toLowerCase() : "";
-}
-
-function sanitizeFileName(name: string, mimeType: string) {
-  const allowedExtensions = allowedMimeTypes.get(mimeType);
-
-  if (!allowedExtensions) {
-    throw new Error(`Unsupported file type: ${mimeType || "unknown"}`);
-  }
-
-  const ext = extensionFor(name);
-
-  if (!allowedExtensions.includes(ext)) {
-    throw new Error(`Unsupported file extension: ${ext || "none"}`);
-  }
-
-  const withoutUploadId = name.replace(/^(upload-[a-f0-9-]+)-/i, "");
-  const withoutExtension = withoutUploadId.replace(/\.[a-z0-9]+$/i, "");
-  const safeBase = withoutExtension
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9_-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .toLowerCase()
-    .slice(0, 80) || "image";
-
-  return `${Date.now()}-${crypto.randomUUID()}-${safeBase}${allowedExtensions[0]}`;
-}
-
-async function uploadFiles(env: Env, files: File[]) {
-  const now = new Date();
-  const year = String(now.getUTCFullYear());
-  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
-  const uploadUrlByPendingId = new Map<string, string>();
-  const fallbackUrls: string[] = [];
-  const uploaded: Array<{ path: string; url: string }> = [];
-
-  for (const file of files) {
-    if (!allowedMimeTypes.has(file.type)) {
-      throw new Error(`Unsupported file type: ${file.type || "unknown"}`);
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
-      throw new Error(`${file.name} is larger than 5 MB`);
-    }
-
-    const uploadId = extractUploadId(file.name);
-    const safeName = sanitizeFileName(file.name, file.type);
-    const repoPath = `public/uploads/originals/${year}/${month}/${safeName}`;
-    const publicUrl = `/${repoPath.replace(/^public\//, "")}`;
-    const existing = await getGithubFile(env, repoPath);
-    const bytes = new Uint8Array(await file.arrayBuffer());
-
-    await putGithubFile(
-      env,
-      repoPath,
-      bytesToBase64(bytes),
-      "Add admin-uploaded media from recent event",
-      existing?.sha,
-    );
-
-    if (uploadId) {
-      uploadUrlByPendingId.set(uploadId, publicUrl);
-    }
-    fallbackUrls.push(publicUrl);
-    uploaded.push({ path: repoPath, url: publicUrl });
-  }
-
-  return { uploadUrlByPendingId, fallbackUrls, uploaded };
-}
-
-function emptyContent(): EditableContent {
-  return {
-    version: 1,
-    lastPublishedAt: null,
-    recentEvents: [],
-    examAnnouncement: null,
-    historyMedia: [],
-    onTheMatMedia: [],
-    passedTestStudents: [],
-  };
-}
-
-function previousContentFromFile(file: GithubFile | null) {
-  if (!file) {
-    return emptyContent();
-  }
-
-  try {
-    return validateEditableContent(JSON.parse(base64ToUtf8(file.content)));
+    return await readEditableContentFromStorage(env);
   } catch {
     return emptyContent();
   }
@@ -302,21 +75,78 @@ function updateEventNewsletter(content: EditableContent, id: string, newsletter:
   };
 }
 
-async function commitContent(env: Env, content: EditableContent, sha: string | undefined, message: string) {
-  const nextSha = await putGithubFile(
-    env,
-    CONTENT_PATH,
-    utf8ToBase64(`${JSON.stringify(content, null, 2)}\n`),
-    message,
-    sha,
-  );
+async function publishNewsletterCandidates(env: Env, content: EditableContent, candidates: RecentEvent[]) {
+  let nextContent = content;
+  const warnings: string[] = [];
+  const missingBrevo = missingBrevoEnv(env);
 
-  return nextSha ?? sha;
+  if (candidates.length === 0) {
+    return { content: nextContent, warnings };
+  }
+
+  if (missingBrevo.length > 0) {
+    for (const candidate of candidates) {
+      const message = `Brevo is not configured: ${missingBrevo.join(", ")}`;
+      warnings.push(`${candidate.title}: ${message}`);
+      nextContent = updateEventNewsletter(nextContent, candidate.id, {
+        status: "failed",
+        sentAt: null,
+        brevoCampaignId: null,
+        error: message,
+      });
+    }
+
+    return { content: nextContent, warnings };
+  }
+
+  for (const candidate of candidates) {
+    nextContent = updateEventNewsletter(nextContent, candidate.id, {
+      status: "pending",
+      sentAt: null,
+      brevoCampaignId: null,
+      error: null,
+    });
+  }
+
+  await writeEditableContentToStorage(env, nextContent);
+
+  for (const candidate of candidates) {
+    const event = nextContent.recentEvents.find((item) => item.id === candidate.id)!;
+
+    try {
+      const result = await createAndSendRecentEventCampaign(env, event);
+      nextContent = updateEventNewsletter(nextContent, event.id, {
+        status: "sent",
+        sentAt: new Date().toISOString(),
+        brevoCampaignId: result.campaignId,
+        error: null,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message.slice(0, 240) : "Brevo send failed";
+      warnings.push(`${event.title}: ${message}`);
+      nextContent = updateEventNewsletter(nextContent, event.id, {
+        status: "failed",
+        sentAt: null,
+        brevoCampaignId: null,
+        error: message,
+      });
+    }
+  }
+
+  return { content: nextContent, warnings };
 }
 
 export async function onRequestPost({ request, env }: { request: Request; env: Env }) {
+  if (!isSameOriginRequest(request)) {
+    return jsonResponse({ ok: false, error: "Forbidden" }, 403);
+  }
+
   if (!await hasValidAdminSession(request, env)) {
     return jsonResponse({ ok: false, error: "Unauthorized" }, 401);
+  }
+
+  if (!env.CONTENT_KV) {
+    return jsonResponse({ ok: false, error: "Cloudflare CONTENT_KV binding is not configured" }, 500);
   }
 
   let formData: FormData;
@@ -333,16 +163,10 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
     return jsonResponse({ ok: false, error: "Missing content field" }, 400);
   }
 
-  const files = formData.getAll("files").filter(isFile);
+  const files = getUploadFiles(formData);
 
   if (files.length > MAX_FILES) {
     return jsonResponse({ ok: false, error: "At most 10 files can be uploaded per publish" }, 400);
-  }
-
-  const missingGithub = missingGithubEnv(env);
-
-  if (missingGithub.length) {
-    return jsonResponse({ ok: false, error: `Missing GitHub environment variables: ${missingGithub.join(", ")}` }, 500);
   }
 
   let parsedContent: EditableContent;
@@ -357,12 +181,10 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
   }
 
   try {
-    const existingContentFile = await getGithubFile(env, CONTENT_PATH);
-    const previousContent = previousContentFromFile(existingContentFile);
+    const previousContent = await readPreviousContent(env);
     const previousById = new Map(previousContent.recentEvents.map((event) => [event.id, event]));
-    const { uploadUrlByPendingId, fallbackUrls, uploaded } = await uploadFiles(env, files);
+    const { uploadUrlByPendingId, fallbackUrls, uploaded } = await uploadFilesToR2(env, files);
     let content = replacePendingMediaUrls(parsedContent, uploadUrlByPendingId, fallbackUrls);
-    const warnings: string[] = [];
 
     content = preservePreviouslySentNewsletters(
       {
@@ -373,74 +195,16 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
     );
 
     const candidates = newsletterCandidates(content, previousById);
-    let contentSha = existingContentFile?.sha;
+    const newsletterResult = await publishNewsletterCandidates(env, content, candidates);
+    content = newsletterResult.content;
 
-    if (candidates.length > 0 && missingBrevoEnv(env).length === 0) {
-      for (const candidate of candidates) {
-        content = updateEventNewsletter(content, candidate.id, {
-          status: "pending",
-          sentAt: null,
-          brevoCampaignId: null,
-          error: null,
-        });
-      }
-
-      contentSha = await commitContent(env, content, contentSha, "Update editable site content from admin");
-
-      for (const candidate of candidates) {
-        const event = content.recentEvents.find((item) => item.id === candidate.id)!;
-
-        try {
-          const result = await createAndSendRecentEventCampaign(env, event);
-          content = updateEventNewsletter(content, event.id, {
-            status: "sent",
-            sentAt: new Date().toISOString(),
-            brevoCampaignId: result.campaignId,
-            error: null,
-          });
-        } catch (error) {
-          const message = error instanceof Error ? error.message.slice(0, 240) : "Brevo send failed";
-          warnings.push(`${event.title}: ${message}`);
-          content = updateEventNewsletter(content, event.id, {
-            status: "failed",
-            sentAt: null,
-            brevoCampaignId: null,
-            error: message,
-          });
-        }
-      }
-
-      try {
-        contentSha = await commitContent(env, content, contentSha, "Update newsletter delivery status from admin publish");
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Newsletter status commit failed";
-        warnings.push(message);
-      }
-    } else {
-      const missingBrevo = missingBrevoEnv(env);
-
-      if (candidates.length > 0 && missingBrevo.length > 0) {
-        for (const candidate of candidates) {
-          const message = `Brevo is not configured: ${missingBrevo.join(", ")}`;
-          warnings.push(`${candidate.title}: ${message}`);
-          content = updateEventNewsletter(content, candidate.id, {
-            status: "failed",
-            sentAt: null,
-            brevoCampaignId: null,
-            error: message,
-          });
-        }
-      }
-
-      contentSha = await commitContent(env, content, contentSha, "Update editable site content from admin");
-    }
+    await writeEditableContentToStorage(env, content);
 
     return jsonResponse({
       ok: true,
       content,
       uploaded,
-      contentSha,
-      warnings,
+      warnings: newsletterResult.warnings,
     });
   } catch (error) {
     return jsonResponse(

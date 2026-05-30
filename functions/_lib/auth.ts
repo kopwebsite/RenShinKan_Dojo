@@ -22,6 +22,20 @@ export function jsonResponse(data: unknown, status = 200, headers: HeadersInit =
   });
 }
 
+export function isSameOriginRequest(request: Request) {
+  const origin = request.headers.get("Origin");
+
+  if (!origin) {
+    return true;
+  }
+
+  try {
+    return new URL(origin).origin === new URL(request.url).origin;
+  } catch {
+    return false;
+  }
+}
+
 function isConfigured(value: string | undefined) {
   return Boolean(value && !value.startsWith("PLACEHOLDER"));
 }

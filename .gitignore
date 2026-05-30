@@ -20,6 +20,7 @@ public/uploads/generated/
 .logs/
 logs/
 screenshots/
+.wrangler/
 Dojo pictures/
 New Photos/
 vite-preview.log

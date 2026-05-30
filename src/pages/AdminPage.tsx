@@ -194,12 +194,19 @@ export function AdminPage() {
     event.preventDefault();
     setAuthError("");
 
-    const response = await fetch("/api/admin/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ password }),
-    });
+    let response: Response;
+
+    try {
+      response = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ password }),
+      });
+    } catch {
+      setAuthError("Admin API is unavailable.");
+      return;
+    }
 
     if (response.ok) {
       sessionStorage.setItem("renshinkan-admin-hint", "true");
@@ -208,7 +215,7 @@ export function AdminPage() {
       return;
     }
 
-    setAuthError("Invalid password");
+    setAuthError(response.status === 403 ? "Login request was blocked." : "Invalid password");
   };
 
   const logout = async () => {
@@ -302,7 +309,7 @@ export function AdminPage() {
 
   const publish = async () => {
     setPublishStatus("saving");
-    setPublishMessage("Publishing content to GitHub...");
+    setPublishMessage("Saving content to Cloudflare...");
     setWarnings([]);
 
     const contentToPublish = {
@@ -348,7 +355,7 @@ export function AdminPage() {
       setConfirmOpen(false);
       setWarnings(result.warnings ?? []);
       setPublishStatus(result.warnings?.length ? "error" : "success");
-      setPublishMessage(result.warnings?.length ? "Published with warnings." : "Publish complete.");
+      setPublishMessage(result.warnings?.length ? "Saved with warnings." : "Content saved.");
     } catch (error) {
       setPublishStatus("error");
       setPublishMessage(error instanceof Error ? error.message : "Publish failed.");
@@ -367,9 +374,9 @@ export function AdminPage() {
             <Lock size={24} aria-hidden="true" />
           </div>
           <p className="eyebrow mt-7">Admin</p>
-          <h1 className="mt-3 text-4xl leading-tight text-ink">RenshinKan publishing</h1>
+          <h1 className="mt-3 text-3xl leading-tight text-ink sm:text-4xl">RenshinKan publishing</h1>
           <p className="mt-4 text-sm leading-6 text-charcoal/72">
-            Sign in to edit site content and publish it through the server-side GitHub workflow.
+            Sign in to edit site content and save it through the Cloudflare admin API.
           </p>
           <form onSubmit={login} className="mt-7">
             <label className="text-sm font-bold text-ink" htmlFor="admin-password">
@@ -400,7 +407,7 @@ export function AdminPage() {
           <p className="eyebrow">Admin</p>
           <h1 className="section-title">Dojo content editor</h1>
           <p className="section-copy">
-            Edit recent events, upload event images, and publish the JSON content file to GitHub.
+            Edit recent events, upload event images, and save the public content stored on Cloudflare.
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -419,7 +426,7 @@ export function AdminPage() {
         <div className="flex gap-3">
           <UploadCloud className="mt-1 shrink-0 text-bamboo" size={20} aria-hidden="true" />
           <p className="text-sm leading-6 text-charcoal/78">
-            Publishing uses an HttpOnly admin session and a server-side Cloudflare Pages Function. GitHub and Brevo
+            Publishing uses an HttpOnly admin session and server-side Cloudflare Pages Functions. Storage and Brevo
             credentials are never sent to the browser.
           </p>
         </div>
@@ -613,7 +620,7 @@ export function AdminPage() {
         </section>
 
         <section className="surface rounded-[2rem] p-6 sm:p-8">
-          {sectionTitle("Save / Publish Changes", "Review the publish summary before the server commits content to GitHub.")}
+          {sectionTitle("Save / Publish Changes", "Review the publish summary before the server updates Cloudflare storage.")}
           <button type="button" onClick={() => setConfirmOpen(true)} className="btn-primary">
             <Save size={18} aria-hidden="true" />
             Review Publish
@@ -623,7 +630,7 @@ export function AdminPage() {
 
       {confirmOpen ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-ink/45 p-5">
-          <div className="w-full max-w-xl rounded-[2rem] bg-paper p-7 shadow-soft">
+          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-xl overflow-y-auto rounded-[2rem] bg-paper p-6 shadow-soft sm:p-7">
             <div className="flex items-start justify-between gap-5">
               <div>
                 <p className="eyebrow">Confirm Publish</p>
@@ -665,7 +672,7 @@ export function AdminPage() {
               </div>
             ) : null}
 
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <button type="button" className="btn-primary" onClick={publish} disabled={publishStatus === "saving"}>
                 <Save size={18} aria-hidden="true" />
                 Publish Now

@@ -1,6 +1,6 @@
 {
   "common": {
-    "brand": "RenshinKan Dojo",
+    "brand": "练心馆道场",
     "readMore": "阅读更多",
     "viewUpdate": "查看更新",
     "visitClass": "参观课程",
@@ -106,12 +106,12 @@
     "recent": {
       "eyebrow": "近期活动",
       "title": "道场近况，集中查看。",
-      "copy": "来自训练日、考试、研习会和 RenshinKan 社区时刻的三条最新更新。"
+      "copy": "来自训练日、考试、研习会和 练心馆 社区时刻的三条最新更新。"
     },
     "facilities": {
       "eyebrow": "我们的道场",
       "title": "位于杭东、欢迎各年龄学生的练习空间。",
-      "copy": "RenshinKan 于 {{year}} 年建成，位于杭东一处安静的场地。这里为各年龄学生提供舒适、专注的练习空间。"
+      "copy": "练心馆 于 {{year}} 年建成，位于杭东一处安静的场地。这里为各年龄学生提供舒适、专注的练习空间。"
     },
     "instructors": {
       "eyebrow": "这里的教师",
@@ -120,7 +120,7 @@
     },
     "photos": {
       "eyebrow": "道场照片",
-      "title": "看看 RenshinKan 内部。",
+      "title": "看看 练心馆 内部。",
       "copy": "看看道场，以及在这里练习的人们。",
       "space": "练习空间",
       "onMat": "垫上",
@@ -129,15 +129,15 @@
     "journey": {
       "eyebrow": "道场历程",
       "title": "从空地到真正使用的练习垫。",
-      "copy": "来自和平文化基金会建设图库的照片，记录 RenshinKan 从空地到开垫练习的过程。"
+      "copy": "来自和平文化基金会建设图库的照片，记录 练心馆 从空地到开垫练习的过程。"
     },
     "location": {
       "eyebrow": "如何到达",
       "title": "首次到访前先找到道场。",
-      "copy": "RenshinKan Dojo 位于杭东 Baan Waen。家长和访客可使用地图规划路线，并提前留言确认最合适的课程时间和旁听位置。"
+      "copy": "练心馆道场 位于杭东 Baan Waen。家长和访客可使用地图规划路线，并提前留言确认最合适的课程时间和旁听位置。"
     },
     "visiting": {
-      "eyebrow": "到访 RenshinKan",
+      "eyebrow": "到访 练心馆",
       "title": "随时欢迎临时到访。",
       "copy": "如果你是新手，可以直接在上课时间前来。如果你是来访的合气道练习者，请提前简短留言，方便我们确认时间并安排接待。"
     }
@@ -189,7 +189,7 @@
   "contact": {
     "intro": {
       "eyebrow": "位置与联系",
-      "title": "计划首次到访 RenshinKan Dojo。",
+      "title": "计划首次到访 练心馆道场。",
       "copy": "道场位于 {{address}}。家长、初学者、有经验练习者和访客在上课前可先联系我们了解更多信息。"
     },
     "message": {
@@ -213,7 +213,7 @@
   },
   "instructorsPage": {
     "eyebrow": "教师",
-    "title": "认识 RenshinKan Dojo 的合气道教师。",
+    "title": "认识 练心馆道场 的合气道教师。",
     "copy": "了解带领课堂练习、引导初学者进入合气道，并帮助学生在垫上建立平静动作、尊重伙伴训练和稳定信心的教师们。"
   },
   "newsletter": {
@@ -233,31 +233,31 @@
     },
     "signup": {
       "eyebrow": "道场更新",
-      "title": "关注 RenshinKan 更新。",
+      "title": "关注 练心馆 更新。",
       "copy": "安全邮件服务接入后将开放订阅。现在可先在 Facebook 关注或联系道场，获取课程笔记、活动和工作坊公告。"
     }
   },
   "seo": {
-    "homeTitle": "RenshinKan Dojo | 清迈杭东合气道",
-    "homeDescription": "RenshinKan Dojo 在清迈杭东提供传统合气道和武道训练，课程适合初学者，欢迎儿童和来访练习者提前联系。",
-    "aikidoTitle": "什么是合气道？| RenshinKan Dojo 清迈",
-    "aikidoDescription": "了解合气道历史、植芝盛平、伙伴练习、受身、武器训练，以及 RenshinKan Dojo 在清迈的教学方式。",
-    "classesTitle": "杭东合气道课程 | RenshinKan Dojo",
+    "homeTitle": "练心馆道场 | 清迈杭东合气道",
+    "homeDescription": "练心馆道场 在清迈杭东提供传统合气道和武道训练，课程适合初学者，欢迎儿童和来访练习者提前联系。",
+    "aikidoTitle": "什么是合气道？| 练心馆道场 清迈",
+    "aikidoDescription": "了解合气道历史、植芝盛平、伙伴练习、受身、武器训练，以及 练心馆道场 在清迈的教学方式。",
+    "classesTitle": "杭东合气道课程 | 练心馆道场",
     "classesDescription": "清迈杭东合气道课程信息，包括练习时间、首次到访指南、级位考试和适合初学者的课程说明。",
-    "workshopsTitle": "清迈合气道工作坊 | RenshinKan Dojo",
-    "workshopsDescription": "RenshinKan Dojo 在清迈杭东为初学者、儿童和现有学生举办季节性合气道工作坊。",
-    "newsletterTitle": "道场更新 | RenshinKan 清迈合气道",
-    "newsletterDescription": "来自杭东和清迈的 RenshinKan Dojo 最新动态、学生消息、活动、照片和合气道社区记录。",
-    "communityTitle": "清迈合气道社区 | RenshinKan Dojo",
-    "communityDescription": "RenshinKan Dojo 是清迈合气道社区的一部分，与 Peace Culture Foundation、AikidoCMU 和本地武道练习相连。",
-    "supportTitle": "支持 RenshinKan Dojo | 清迈合气道",
-    "supportDescription": "通过学生贡献和捐赠支持 RenshinKan Dojo，让杭东和清迈的合气道训练保持开放可及。",
-    "contactTitle": "联系 RenshinKan Dojo | 杭东合气道",
-    "contactDescription": "联系清迈杭东 RenshinKan Dojo，咨询合气道课程、首次到访、儿童训练和来访练习安排。",
-    "visitTitle": "到访 RenshinKan Dojo | 杭东合气道",
-    "visitDescription": "计划首次到访清迈杭东 RenshinKan Dojo。欢迎初学者、家长和来访合气道练习者联系道场。",
-    "adminTitle": "管理 | RenshinKan Dojo",
-    "adminDescription": "RenshinKan Dojo 内容管理。",
+    "workshopsTitle": "清迈合气道工作坊 | 练心馆道场",
+    "workshopsDescription": "练心馆道场 在清迈杭东为初学者、儿童和现有学生举办季节性合气道工作坊。",
+    "newsletterTitle": "道场更新 | 练心馆 清迈合气道",
+    "newsletterDescription": "来自杭东和清迈的 练心馆道场 最新动态、学生消息、活动、照片和合气道社区记录。",
+    "communityTitle": "清迈合气道社区 | 练心馆道场",
+    "communityDescription": "练心馆道场 是清迈合气道社区的一部分，与 Peace Culture Foundation、AikidoCMU 和本地武道练习相连。",
+    "supportTitle": "支持 练心馆道场 | 清迈合气道",
+    "supportDescription": "通过学生贡献和捐赠支持 练心馆道场，让杭东和清迈的合气道训练保持开放可及。",
+    "contactTitle": "联系 练心馆道场 | 杭东合气道",
+    "contactDescription": "联系清迈杭东 练心馆道场，咨询合气道课程、首次到访、儿童训练和来访练习安排。",
+    "visitTitle": "到访 练心馆道场 | 杭东合气道",
+    "visitDescription": "计划首次到访清迈杭东 练心馆道场。欢迎初学者、家长和来访合气道练习者联系道场。",
+    "adminTitle": "管理 | 练心馆道场",
+    "adminDescription": "练心馆道场 内容管理。",
     "localBusinessDescription": "位于清迈杭东的传统合气道和武道训练。"
   }
 }

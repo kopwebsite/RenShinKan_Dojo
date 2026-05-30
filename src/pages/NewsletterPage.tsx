@@ -28,6 +28,22 @@ export function NewsletterPage() {
     }
   }, [dojoUpdates, location.hash]);
 
+  // Scroll to the anchored section (e.g. #newsletter-signup, #recent-events)
+  // after navigation settles. ScrollToTop resets to top on pathname change,
+  // so we defer slightly to land on the target instead.
+  useEffect(() => {
+    const id = location.hash.replace("#", "");
+    if (!id) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 90);
+
+    return () => window.clearTimeout(timer);
+  }, [location.hash]);
+
   useEffect(() => {
     if (activeEventIndex >= dojoUpdates.length) {
       setActiveEventIndex(0);
@@ -103,7 +119,7 @@ export function NewsletterPage() {
         )}
       </MotionSection>
 
-      <MotionSection className="container-shell pb-20">
+      <MotionSection id="newsletter-signup" className="container-shell scroll-mt-28 pb-20">
         <NewsletterSignup idPrefix="main-newsletter" />
       </MotionSection>
 

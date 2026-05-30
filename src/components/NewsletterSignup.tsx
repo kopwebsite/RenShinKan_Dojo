@@ -1,4 +1,4 @@
-import { Mail } from "lucide-react";
+import { CalendarDays, Mail, ShieldCheck, Sparkles, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "../i18n";
 
@@ -8,8 +8,32 @@ type NewsletterSignupProps = {
 };
 
 // Fallback height used until (or unless) the Brevo form reports its own height.
-// Kept generous so the form is never clipped on mobile where fields stack taller.
-const DEFAULT_FRAME_HEIGHT = 620;
+// Tuned to hug the Brevo form content (email + captcha + button) with a small
+// buffer. Mobile stacks taller, so the listener below grows it when needed.
+const DEFAULT_FRAME_HEIGHT = 470;
+
+const benefits = [
+  {
+    icon: CalendarDays,
+    title: "Upcoming workshops",
+    copy: "Seminar dates and visiting-instructor events before they fill up.",
+  },
+  {
+    icon: Sparkles,
+    title: "New class details",
+    copy: "Schedule changes, new courses, and grading announcements.",
+  },
+  {
+    icon: Users,
+    title: "Dojo community",
+    copy: "Stories from the mat, member milestones, and special gatherings.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "No spam, ever",
+    copy: "Only genuine dojo news. Unsubscribe in one click, anytime.",
+  },
+];
 
 function getSignupUrl() {
   const value = import.meta.env.VITE_BREVO_SIGNUP_FORM_URL;
@@ -77,39 +101,64 @@ export function NewsletterSignup({ compact = false, idPrefix = "newsletter" }: N
     return () => window.removeEventListener("message", onMessage);
   }, [canEmbed]);
 
+  const formColumn = signupUrl ? (
+    canEmbed ? (
+      <iframe
+        ref={frameRef}
+        id={`${idPrefix}-brevo-form`}
+        title={`${t("common.brand")} newsletter signup`}
+        src={signupUrl}
+        scrolling="no"
+        style={{ height: frameHeight }}
+        className="block w-full rounded-[1rem] border border-ink/10 bg-paper transition-[height] duration-300"
+        loading="lazy"
+      />
+    ) : (
+      <a href={signupUrl} target="_blank" rel="noopener noreferrer" className="btn-primary">
+        Open signup form
+      </a>
+    )
+  ) : (
+    <div className="rounded-[1.25rem] border border-dashed border-ink/20 bg-paper/55 p-5 text-sm leading-6 text-charcoal/68">
+      Add VITE_BREVO_SIGNUP_FORM_URL to show the Brevo signup form.
+    </div>
+  );
+
   return (
     <article className={`surface rounded-[2rem] ${compact ? "p-5" : "p-6 sm:p-8"}`}>
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-bamboo/10 text-bamboo">
-        <Mail size={21} aria-hidden="true" />
-      </div>
-      <h2 className={`${compact ? "mt-3 text-2xl" : "mt-4 text-3xl sm:text-4xl"} text-ink`}>
-        Get {t("common.brand")} updates by email.
-      </h2>
-      <p className="mt-4 leading-7 text-charcoal/78">
-        Dojo news, gradings, workshops, and community events — straight to your inbox.
-      </p>
-      {signupUrl ? (
-        canEmbed ? (
-          <iframe
-            ref={frameRef}
-            id={`${idPrefix}-brevo-form`}
-            title={`${t("common.brand")} newsletter signup`}
-            src={signupUrl}
-            scrolling="no"
-            style={{ height: frameHeight }}
-            className="mt-5 w-full rounded-[1.25rem] border border-ink/10 bg-paper transition-[height] duration-300"
-            loading="lazy"
-          />
-        ) : (
-          <a href={signupUrl} target="_blank" rel="noopener noreferrer" className="btn-primary mt-5">
-            Open signup form
-          </a>
-        )
-      ) : (
-        <div className="mt-5 rounded-[1.25rem] border border-dashed border-ink/20 bg-paper/55 p-5 text-sm leading-6 text-charcoal/68">
-          Add VITE_BREVO_SIGNUP_FORM_URL to show the Brevo signup form.
+      <div className="grid items-center gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
+        {/* Left: what you'll get */}
+        <div>
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-bamboo/10 text-bamboo">
+              <Mail size={21} aria-hidden="true" />
+            </div>
+            <h2 className={`${compact ? "text-2xl" : "text-3xl sm:text-4xl"} leading-tight text-ink`}>
+              Get {t("common.brand")} updates by email.
+            </h2>
+          </div>
+          <p className="mt-4 max-w-md leading-7 text-charcoal/78">
+            Join the dojo mailing list and we'll keep you in the loop:
+          </p>
+
+          <ul className="mt-6 grid gap-4 sm:grid-cols-2">
+            {benefits.map((benefit) => (
+              <li key={benefit.title} className="flex gap-3">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-bamboo/10 text-bamboo">
+                  <benefit.icon size={17} aria-hidden="true" />
+                </span>
+                <span>
+                  <span className="block text-sm font-bold text-ink">{benefit.title}</span>
+                  <span className="mt-1 block text-sm leading-6 text-charcoal/72">{benefit.copy}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
-      )}
+
+        {/* Right: signup form */}
+        <div className="w-full">{formColumn}</div>
+      </div>
     </article>
   );
 }

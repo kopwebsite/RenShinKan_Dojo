@@ -1,6 +1,5 @@
 import { ArrowUpRight, MapPin } from "lucide-react";
 import { Link } from "react-router-dom";
-import { NewsletterSignup } from "./NewsletterSignup";
 import { googleMapsUrl, siteInfo, socialLinks } from "../data/siteContent";
 import { useTranslation, type TranslationKey } from "../i18n";
 
@@ -61,7 +60,7 @@ export function Footer() {
           <p className="mt-5 text-sm leading-6 text-paper/75">
             {t("footer.stayConnectedCopy")}
           </p>
-          <Link to="/newsletter" className="btn-secondary mt-5 border-paper/20 bg-paper/10 text-paper hover:text-paper">
+          <Link to="/newsletter#newsletter-signup" className="btn-secondary mt-5 border-paper/20 bg-paper/10 text-paper hover:text-paper">
             {t("footer.updatesCta")}
           </Link>
           <div className="mt-7 flex flex-wrap gap-3">
@@ -79,9 +78,6 @@ export function Footer() {
             ))}
           </div>
         </div>
-      </div>
-      <div className="container-shell pb-12">
-        <NewsletterSignup compact idPrefix="footer-newsletter" />
       </div>
     </footer>
   );

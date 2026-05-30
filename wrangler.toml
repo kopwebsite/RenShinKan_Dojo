@@ -5,8 +5,12 @@ compatibility_date = "2026-05-28"
 
 [[kv_namespaces]]
 binding = "CONTENT_KV"
-# Add `id` and `preview_id` here if deploying with Wrangler instead of
-# configuring the binding in the Cloudflare Pages dashboard.
+# KV namespace: renshinkan-content
+# Production and preview currently point at the same namespace. To separate
+# them later, run `npx wrangler kv namespace create CONTENT_KV --preview`
+# and replace preview_id with the new id it prints.
+id = "6ab67d96ab894636bd7b7ef2fa97b7e2"
+preview_id = "6ab67d96ab894636bd7b7ef2fa97b7e2"
 
 [[r2_buckets]]
 binding = "MEDIA_BUCKET"

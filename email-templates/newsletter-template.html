@@ -1,0 +1,338 @@
+<!--
+  ============================================================================
+  Template : newsletter-template.html
+  Purpose  : Reusable RenshinKan Dojo newsletter (the "issue" you send to all
+             subscribers). Structure:
+               1) Masthead (logo, name, issue date)
+               2) FEATURED / LATEST letter  -> works for a SHORT blurb OR a LONG
+                  blog-style post (optional subheadings + pull-quote are shown in
+                  the code, commented; keep or delete them per issue)
+               3) "Read the full letter" button -> the issue's page on the website
+               4) A small reflection (optional)
+               5) EARLIER LETTERS -> compact previews that link to older issues
+               6) Call to action + Footer (address, contact, unsubscribe, mirror)
+
+  HOW IT WORKS / WHERE IT GOES:
+    - This is an EMAIL. Paste it into Brevo: Campaigns -> Email -> create a
+      campaign (or Templates -> New -> "Code your own"), pick your subscriber
+      list, edit the regions tagged "EDIT", and Send.
+    - The full articles live on your WEBSITE (renshinkandojo.org/newsletter).
+      The email links out to them, so a long post does not have to fit in the
+      email - show a teaser here and "Read the full letter" links to the site.
+
+  Brevo variables used:
+    {{ mirror }}        -> "view in browser" link (auto-filled on a campaign)
+    {{ contact.EMAIL }} -> recipient's email, shown in the footer
+    {{ unsubscribe }}   -> Brevo unsubscribe URL (required in the footer)
+    (The issue date is plain text you type in - params do not apply to campaigns.)
+
+  Images: thumbnails point at real .png files on the live site (PNG renders
+          everywhere, incl. Outlook for Windows). Swap them per issue.
+  ============================================================================
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="x-apple-disable-message-reformatting" />
+  <meta name="color-scheme" content="light" />
+  <meta name="supported-color-schemes" content="light" />
+  <title>Notes from the mat &middot; RenshinKan Dojo</title>
+  <!--[if mso]>
+  <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+  <![endif]-->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet" />
+  <style type="text/css">
+    html, body { margin: 0 !important; padding: 0 !important; height: 100% !important; width: 100% !important; }
+    * { -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; border-collapse: collapse; }
+    img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; display: block; }
+    a { text-decoration: none; }
+    .serif { font-family: 'Cormorant Garamond', 'Iowan Old Style', Georgia, Cambria, 'Times New Roman', Times, serif; }
+    .sans  { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    @media screen and (max-width: 600px) {
+      .container { width: 100% !important; }
+      .pad      { padding-left: 24px !important; padding-right: 24px !important; }
+      .pad-top  { padding-top: 28px !important; }
+      .h1       { font-size: 31px !important; line-height: 39px !important; }
+      .body-txt { font-size: 16px !important; line-height: 27px !important; }
+      .btn-a    { display: block !important; }
+      /* Stack the preview rows on small screens */
+      .stack-col { display: block !important; width: 100% !important; }
+      .b-thumb   { padding: 0 0 14px 0 !important; text-align: center !important; }
+      .b-thumb img { margin: 0 auto !important; }
+    }
+    @media (prefers-color-scheme: dark) {
+      body, .bg-canvas { background-color: #221d16 !important; }
+    }
+  </style>
+</head>
+<body class="bg-canvas" style="margin:0; padding:0; width:100%; background-color:#eae0cb;">
+  <!-- Preheader: EDIT this to a one-line teaser for the inbox preview -->
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#eae0cb; opacity:0;">
+    A quiet letter from the mat. The latest from the dojo, and a look back at earlier notes.
+    &#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bg-canvas" style="background-color:#eae0cb; background-image:url('https://renshinkan-dojo.pages.dev/parchment-texture.png'); background-size:cover; background-position:center;">
+    <tr>
+      <td align="center" style="padding:20px 12px 28px 12px;">
+
+        <!-- View in browser -->
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="container" style="width:600px; max-width:600px;">
+          <tr>
+            <td align="center" class="sans" style="padding:6px 16px 14px 16px; font-size:11px; line-height:16px; color:#8c8164; letter-spacing:0.4px;">
+              Trouble viewing this letter? <a href="{{ mirror }}" style="color:#7a6f60; text-decoration:underline;">Read it in your browser</a>.
+            </td>
+          </tr>
+        </table>
+
+        <!-- ====================== EMAIL CARD (max 600px) ====================== -->
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="container" style="width:600px; max-width:600px; background-color:#fbf7ef; border:1px solid #e3d8c1; border-radius:14px; overflow:hidden; box-shadow:0 24px 60px rgba(31,27,22,0.10);">
+
+          <!-- Masthead -->
+          <tr>
+            <td align="center" class="pad pad-top" style="padding:34px 40px 18px 40px;">
+              <img src="https://renshinkan-dojo.pages.dev/renshinkan-logo.png" width="58" height="58" alt="RenshinKan Dojo" style="width:58px; height:auto; margin:0 auto 12px auto;" />
+              <div class="serif" style="font-size:26px; line-height:30px; color:#1f1b16; letter-spacing:0.3px;">RenshinKan Dojo</div>
+              <!-- EDIT: issue date -->
+              <div class="sans" style="font-size:11px; line-height:16px; letter-spacing:3px; text-transform:uppercase; color:#4f6b4a; margin-top:7px; font-weight:600;">
+                Notes from the mat &middot; Spring 2026
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:0 40px 4px 40px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="width:56px; height:2px; background-color:#c8312a; font-size:0; line-height:0;">&nbsp;</td></tr></table>
+            </td>
+          </tr>
+
+          <!-- ============================================================= -->
+          <!-- 1. FEATURED / LATEST LETTER                                   -->
+          <!--    Works for a SHORT note OR a LONG blog-style post.          -->
+          <!--    Short note  : keep one or two paragraphs, delete the       -->
+          <!--                  commented subheading + pull-quote below.     -->
+          <!--    Long story  : un-comment them and add as many paragraphs,  -->
+          <!--                  subheadings and quotes as you like.          -->
+          <!-- ============================================================= -->
+
+          <!-- EDIT: feature image for the latest letter (swap src, or delete this row for a text-only note) -->
+          <tr>
+            <td style="padding:18px 0 0 0;">
+              <img src="https://renshinkan-dojo.pages.dev/dojo-photos/image-community.png" width="600" alt="Members of RenshinKan Dojo together after practice" style="width:100%; max-width:600px; height:auto; display:block;" />
+            </td>
+          </tr>
+
+          <tr>
+            <td class="pad" style="padding:28px 48px 0 48px;">
+              <div class="sans" style="font-size:11px; line-height:16px; letter-spacing:3px; text-transform:uppercase; color:#b22a22; font-weight:600;">Latest letter &middot; Spring 2026</div>
+              <!-- EDIT: headline of this issue -->
+              <h1 class="serif h1" style="margin:10px 0 0 0; font-weight:500; font-size:34px; line-height:42px; color:#1f1b16;">A season of steady practice</h1>
+            </td>
+          </tr>
+
+          <!-- EDIT: the letter itself. Add or remove <p> paragraphs freely. -->
+          <tr>
+            <td class="pad body-txt sans" style="padding:18px 48px 0 48px; font-size:17px; line-height:29px; color:#3d362c;">
+              <p style="margin:0 0 16px 0;">Dear friends,</p>
+              <p style="margin:0 0 16px 0;">The mat has been warm with practice this season, and there is a quiet steadiness in the room that we are grateful for. Whether you train with us each week or follow along from afar, thank you for being part of it.</p>
+              <p style="margin:0;">We have gathered a few moments worth sharing, and a small thought to carry into your own practice.</p>
+
+              <!-- ===== OPTIONAL long-form pieces. Delete the comment markers to use them. =====
+
+              <h2 class="serif" style="margin:26px 0 0 0; font-weight:500; font-size:24px; line-height:30px; color:#1f1b16;">A subheading for a longer story</h2>
+              <p style="margin:12px 0 0 0;">Add as much detail as you like here. The spacing and type sizes are set so a long, blog-style letter still reads comfortably on a phone.</p>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:22px; background-color:#f3ebda; border-left:3px solid #c8312a; border-radius:0 10px 10px 0;">
+                <tr><td style="padding:18px 24px;">
+                  <p class="serif" style="margin:0; font-size:21px; line-height:30px; color:#1f1b16; font-style:italic;">A pull quote to highlight a line that matters.</p>
+                </td></tr>
+              </table>
+
+              <p style="margin:18px 0 0 0;">Continue the story for as long as you need, then invite readers to the website for the full piece using the button below.</p>
+
+              ===== end optional pieces ===== -->
+            </td>
+          </tr>
+
+          <!-- EDIT: link to THIS issue's page on the website (full version + photos) -->
+          <tr>
+            <td align="center" class="pad" style="padding:26px 48px 6px 48px;">
+              <!--[if mso]>
+              <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="https://renshinkandojo.org/newsletter" style="height:50px;v-text-anchor:middle;width:260px;" arcsize="50%" strokecolor="#2a2018" fillcolor="#2a2018">
+                <w:anchorlock/>
+                <center style="color:#faf6f0;font-family:Georgia,'Times New Roman',serif;font-size:15px;font-weight:bold;">Read the full letter</center>
+              </v:roundrect>
+              <![endif]-->
+              <!--[if !mso]><!-- -->
+              <a class="btn-a sans" href="https://renshinkandojo.org/newsletter" style="display:inline-block; background-color:#2a2018; color:#faf6f0; font-size:15px; font-weight:600; line-height:20px; padding:15px 32px; border-radius:999px; text-decoration:none;">Read the full letter</a>
+              <!--<![endif]-->
+            </td>
+          </tr>
+
+          <!-- ===================== reflection (optional) ===================== -->
+          <tr>
+            <td class="pad" style="padding:30px 48px 0 48px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f3ebda; border-left:3px solid #c8312a; border-radius:0 10px 10px 0;">
+                <tr>
+                  <td style="padding:22px 28px;">
+                    <div class="sans" style="font-size:11px; line-height:16px; letter-spacing:2px; text-transform:uppercase; color:#7a6f60; font-weight:600; margin-bottom:12px;">From the mat</div>
+                    <!-- EDIT: a short reflection or teaching -->
+                    <p class="serif" style="margin:0; font-size:23px; line-height:33px; color:#1f1b16; font-style:italic;">&ldquo;True victory is victory over oneself.&rdquo;</p>
+                    <p class="sans" style="margin:12px 0 0 0; font-size:13px; line-height:20px; letter-spacing:1px; text-transform:uppercase; color:#7a6f60;">Morihei Ueshiba, O-Sensei</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- divider -->
+          <tr>
+            <td class="pad" style="padding:34px 48px 0 48px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-top:1px solid #ece2cd; font-size:0; line-height:0;">&nbsp;</td></tr></table>
+            </td>
+          </tr>
+
+          <!-- ============================================================= -->
+          <!-- 2. EARLIER LETTERS  (previews that link to older issues)      -->
+          <!--    Each links to that issue's page on the website.            -->
+          <!-- ============================================================= -->
+          <tr>
+            <td class="pad" style="padding:24px 48px 0 48px;">
+              <div class="sans" style="font-size:11px; line-height:16px; letter-spacing:3px; text-transform:uppercase; color:#4f6b4a; font-weight:600;">From the archive</div>
+              <h2 class="serif" style="margin:8px 0 18px 0; font-weight:500; font-size:26px; line-height:32px; color:#1f1b16;">Earlier letters</h2>
+            </td>
+          </tr>
+
+          <!-- EDIT: earlier letter 1 (thumb + date + title + one-line + link to its page) -->
+          <tr>
+            <td class="pad" style="padding:0 48px 0 48px;">
+              <a href="https://renshinkandojo.org/newsletter" style="text-decoration:none; color:inherit;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td class="stack-col b-thumb" width="120" valign="top" style="padding:0 18px 0 0;">
+                      <img src="https://renshinkan-dojo.pages.dev/dojo-photos/belt-promotion-test.png" width="120" alt="A student tests for the next belt rank" style="width:120px; max-width:120px; height:auto; border-radius:10px; display:block;" />
+                    </td>
+                    <td class="stack-col b-text" valign="top">
+                      <div class="sans" style="font-size:11px; letter-spacing:1px; text-transform:uppercase; color:#7a6f60; font-weight:600;">February 2026</div>
+                      <h3 class="serif" style="margin:5px 0 0 0; font-weight:500; font-size:20px; line-height:26px; color:#1f1b16;">Quiet progress, marked together</h3>
+                      <p class="sans" style="margin:6px 0 0 0; font-size:14px; line-height:22px; color:#3d362c;">A handful of students stepped forward for grading, and a few words on why we measure progress in years, not weeks.</p>
+                      <p style="margin:8px 0 0 0;"><span class="sans" style="font-size:14px; font-weight:600; color:#b22a22;">Read this letter &rarr;</span></p>
+                    </td>
+                  </tr>
+                </table>
+              </a>
+            </td>
+          </tr>
+
+          <tr>
+            <td class="pad" style="padding:20px 48px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-top:1px solid #ece2cd; font-size:0; line-height:0;">&nbsp;</td></tr></table>
+            </td>
+          </tr>
+
+          <!-- EDIT: earlier letter 2 -->
+          <tr>
+            <td class="pad" style="padding:0 48px 0 48px;">
+              <a href="https://renshinkandojo.org/newsletter" style="text-decoration:none; color:inherit;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td class="stack-col b-thumb" width="120" valign="top" style="padding:0 18px 0 0;">
+                      <img src="https://renshinkan-dojo.pages.dev/dojo-photos/kids-around-green-belt.png" width="120" alt="Children gathered around their instructor" style="width:120px; max-width:120px; height:auto; border-radius:10px; display:block;" />
+                    </td>
+                    <td class="stack-col b-text" valign="top">
+                      <div class="sans" style="font-size:11px; letter-spacing:1px; text-transform:uppercase; color:#7a6f60; font-weight:600;">January 2026</div>
+                      <h3 class="serif" style="margin:5px 0 0 0; font-weight:500; font-size:20px; line-height:26px; color:#1f1b16;">The children&rsquo;s class keeps growing</h3>
+                      <p class="sans" style="margin:6px 0 0 0; font-size:14px; line-height:22px; color:#3d362c;">Our youngest aikidoka continue to surprise us with their focus and their care for one another.</p>
+                      <p style="margin:8px 0 0 0;"><span class="sans" style="font-size:14px; font-weight:600; color:#b22a22;">Read this letter &rarr;</span></p>
+                    </td>
+                  </tr>
+                </table>
+              </a>
+            </td>
+          </tr>
+
+          <!-- See all -->
+          <tr>
+            <td align="center" class="pad" style="padding:24px 48px 0 48px;">
+              <a href="https://renshinkandojo.org/newsletter" class="sans" style="font-size:14px; font-weight:600; color:#b22a22; text-decoration:underline;">See all past letters</a>
+            </td>
+          </tr>
+
+          <!-- ===================== CALL TO ACTION ===================== -->
+          <tr>
+            <td class="pad" style="padding:34px 48px 0 48px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#2a2018; border-radius:14px;">
+                <tr>
+                  <td align="center" style="padding:34px 30px;">
+                    <h2 class="serif" style="margin:0; font-weight:500; font-size:27px; line-height:34px; color:#f6efe2;">Come train with us</h2>
+                    <p class="sans" style="margin:12px auto 0 auto; max-width:380px; font-size:15px; line-height:24px; color:#cabfa8;">There is no better way to understand aikido than to step onto the mat. Your first visit is always welcome.</p>
+                    <div style="margin-top:22px;">
+                      <!--[if mso]>
+                      <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="https://renshinkandojo.org/contact" style="height:50px;v-text-anchor:middle;width:220px;" arcsize="50%" strokecolor="#c8312a" fillcolor="#c8312a">
+                        <w:anchorlock/>
+                        <center style="color:#fbf7ef;font-family:Georgia,'Times New Roman',serif;font-size:15px;font-weight:bold;">Plan your visit</center>
+                      </v:roundrect>
+                      <![endif]-->
+                      <!--[if !mso]><!-- -->
+                      <a class="btn-a sans" href="https://renshinkandojo.org/contact" style="display:inline-block; background-color:#c8312a; color:#fbf7ef; font-size:15px; font-weight:600; line-height:20px; padding:15px 32px; border-radius:999px; text-decoration:none;">Plan your visit</a>
+                      <!--<![endif]-->
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Sign-off -->
+          <tr>
+            <td class="pad sans" style="padding:30px 48px 38px 48px; font-size:16px; line-height:25px; color:#3d362c;">
+              <p style="margin:0;">With warmth,</p>
+              <p class="serif" style="margin:4px 0 0 0; font-size:19px; color:#1f1b16;">The RenshinKan Dojo</p>
+            </td>
+          </tr>
+
+          <!-- ===================== FOOTER ===================== -->
+          <tr>
+            <td style="background-color:#2a2018; padding:30px 40px;" class="pad">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" class="sans" style="font-size:13px; line-height:21px; color:#b7a98f;">
+                    <div class="serif" style="font-size:17px; color:#f3ece0; margin-bottom:6px;">RenshinKan Dojo</div>
+                    <a href="https://www.google.com/maps/search/?api=1&amp;query=RenshinKan%20Dojo%2C%20155%20Soi%206%2C%20Suan%20Luang%20Village%2C%20T.%20Baan%20Waen%2C%20A.%20Hang%20Dong%2C%20Chiang%20Mai%2050230" style="color:#b7a98f; text-decoration:none;">155 Soi 6, Suan Luang Village, Baan Waen,<br />Hang Dong, Chiang Mai 50230</a>
+                    <div style="margin-top:14px;">
+                      <a href="https://www.facebook.com/RenShinKanChiangMai/" style="color:#e2d8c4; text-decoration:underline;">Facebook</a>
+                      &nbsp;&middot;&nbsp;
+                      <a href="mailto:contact@renshinkandojo.org" style="color:#e2d8c4; text-decoration:underline;">contact@renshinkandojo.org</a>
+                      &nbsp;&middot;&nbsp;
+                      <a href="https://renshinkandojo.org/" style="color:#e2d8c4; text-decoration:underline;">Website</a>
+                    </div>
+                    <div style="margin-top:16px; padding-top:16px; border-top:1px solid #43382b; font-size:12px; line-height:19px; color:#9a8d76;">
+                      You are receiving this letter at {{ contact.EMAIL }} as a member of the RenshinKan community.<br />
+                      Prefer not to receive these? <a href="{{ unsubscribe }}" style="color:#cdbfa6; text-decoration:underline;">Unsubscribe here</a>.
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+        <!-- ==================== /EMAIL CARD ==================== -->
+
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="container" style="width:600px; max-width:600px;">
+          <tr>
+            <td align="center" class="sans" style="padding:18px 24px 6px 24px; font-size:11px; line-height:17px; color:#8c8164;">
+              &copy; RenshinKan Dojo &middot; Aikido in Hang Dong, Chiang Mai, Thailand
+            </td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

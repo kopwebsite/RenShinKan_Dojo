@@ -1,8 +1,8 @@
-import { CheckCircle, ChevronDown, Facebook, Heart, QrCode, Repeat2, ShieldCheck } from "lucide-react";
+import { ChevronDown, Heart, QrCode, Repeat2, ShieldCheck } from "lucide-react";
 import { useState } from "react";
+import { ContributionForm } from "../components/ContributionForm";
 import { MotionSection } from "../components/MotionSection";
 import { ResponsiveImage } from "../components/ResponsiveImage";
-import { siteInfo } from "../data/siteContent";
 import { useTranslation } from "../i18n";
 import { assetPath } from "../utils/assetPath";
 
@@ -19,13 +19,6 @@ const dojoExpenses = [
 const transferDetails = [
   { label: "Current Details", value: "Request the current account or PromptPay details from the dojo before sending funds." },
   { label: "Reference", value: "Use your name so the contribution can be matched correctly." },
-];
-
-const contributionSteps = [
-  "Speak with a sensei before or after class.",
-  "Confirm whether in-person payment, bank transfer, or PromptPay is best.",
-  "Use your name as the transfer reference if sending funds digitally.",
-  "Ask again whenever your situation changes. The dojo is maintained by community care.",
 ];
 
 export function SupportPage() {
@@ -104,32 +97,10 @@ export function SupportPage() {
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
-          <article className="surface rounded-[2rem] p-8 sm:p-10">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-bamboo/15 text-bamboo">
-              <CheckCircle size={26} aria-hidden="true" />
-            </div>
-            <h3 className="mt-5 text-3xl text-ink">{t("support.monthly.arrangeTitle")}</h3>
-            <p className="mt-4 text-sm leading-6 text-charcoal/75">
-              {t("support.monthly.arrangeCopy")}
-            </p>
-            <ul className="mt-6 grid gap-3">
-              {contributionSteps.map((step) => (
-                <li key={step} className="flex items-start gap-3 text-sm text-charcoal/78">
-                  <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-bamboo" aria-hidden="true" />
-                  {step}
-                </li>
-              ))}
-            </ul>
-            <a
-              href={siteInfo.facebookUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-primary mt-7 inline-flex"
-            >
-              <Facebook size={18} aria-hidden="true" />
-              {t("common.messageDojo")}
-            </a>
-          </article>
+          {/* Warm, parent friendly monthly contribution form.
+              All wording and the backend connection points live inside
+              src/components/ContributionForm.tsx so it is easy to edit later. */}
+          <ContributionForm />
 
           <article className="surface rounded-[2rem] p-8 sm:p-10">
             <h3 className="text-3xl text-ink">{t("support.monthly.coversTitle")}</h3>

@@ -35,19 +35,242 @@ function eventUrl(env: BrevoEnv, event: RecentEvent) {
   return `${baseUrl}/newsletter#${encodeURIComponent(event.slug)}`;
 }
 
-function campaignHtml(env: BrevoEnv, event: RecentEvent) {
-  const link = eventUrl(env, event);
+// Turn the post body (plain text from the admin editor) into paragraphs.
+// Blank lines start a new paragraph; single line breaks become <br>.
+// Works for a one-line blurb or a long, multi-paragraph blog post.
+function renderParagraphs(text: string) {
+  const blocks = (text || "")
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean);
 
-  return `<!doctype html>
-<html>
-  <body style="font-family: Arial, sans-serif; color: #2f2a24; line-height: 1.6;">
-    <h1>${escapeHtml(event.title)}</h1>
-    <p><strong>${escapeHtml(event.date)}</strong></p>
-    <p>${escapeHtml(event.summary)}</p>
-    <p><a href="${escapeHtml(link)}">Read the update on the RenshinKan Dojo website</a></p>
-    <hr>
-    <p style="font-size: 12px; color: #6f675c;">You subscribed to RenshinKan Dojo updates.</p>
-  </body>
+  return blocks
+    .map(
+      (block) =>
+        `<p style="margin:0 0 16px 0;">${escapeHtml(block).replace(/\n/g, "<br />")}</p>`,
+    )
+    .join("\n              ");
+}
+
+// Render any extra photos attached to the post (the `media` array), skipping
+// videos and the lead image (which is already shown as the hero).
+function renderGalleryImages(media: RecentEvent["media"], leadSrc?: string) {
+  const items = (media || []).filter(
+    (item) => item.type === "image" && item.src && item.src !== leadSrc,
+  );
+
+  if (items.length === 0) {
+    return "";
+  }
+
+  return items
+    .map(
+      (item) => `
+          <tr>
+            <td class="pad" style="padding:20px 48px 0 48px;">
+              <img src="${escapeHtml(item.src)}" alt="${escapeHtml(item.alt || "")}" width="504" style="width:100%; max-width:504px; height:auto; display:block; border-radius:10px;" />${
+                item.caption
+                  ? `
+              <div class="sans" style="margin-top:8px; font-size:13px; line-height:19px; color:#7a6f60; font-style:italic;">${escapeHtml(item.caption)}</div>`
+                  : ""
+              }
+            </td>
+          </tr>`,
+    )
+    .join("");
+}
+
+function campaignHtml(env: BrevoEnv, event: RecentEvent) {
+  const base = (env.SITE_URL || "https://renshinkandojo.org").replace(/\/+$/, "");
+  const link = escapeHtml(eventUrl(env, event));
+  const logo = `${base}/renshinkan-logo.png`;
+  const texture = `${base}/parchment-texture.png`;
+  const contactUrl = `${base}/contact`;
+
+  // Prefer the full body; fall back to the summary if the body is empty.
+  const bodyText = event.body && event.body.trim() ? event.body : event.summary;
+  const bodyHtml = renderParagraphs(bodyText);
+  const galleryHtml = renderGalleryImages(event.media, event.image?.src);
+
+  // Lead photo (only if the post has one).
+  const heroImage = event.image
+    ? `
+          <tr>
+            <td style="padding:18px 0 0 0;">
+              <img src="${escapeHtml(event.image.src)}" alt="${escapeHtml(event.image.alt || event.title)}" width="600" style="width:100%; max-width:600px; height:auto; display:block;" />
+            </td>
+          </tr>`
+    : "";
+
+  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="x-apple-disable-message-reformatting" />
+  <meta name="color-scheme" content="light" />
+  <meta name="supported-color-schemes" content="light" />
+  <title>${escapeHtml(event.title)}</title>
+  <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet" />
+  <style type="text/css">
+    html, body { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+    * { -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; border-collapse: collapse; }
+    img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; display: block; }
+    a { text-decoration: none; }
+    .serif { font-family: 'Cormorant Garamond', 'Iowan Old Style', Georgia, Cambria, 'Times New Roman', Times, serif; }
+    .sans  { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    @media screen and (max-width: 600px) {
+      .container { width: 100% !important; }
+      .pad { padding-left: 24px !important; padding-right: 24px !important; }
+      .h1 { font-size: 31px !important; line-height: 39px !important; }
+      .body-txt { font-size: 16px !important; line-height: 27px !important; }
+      .btn-a { display: block !important; }
+    }
+    @media (prefers-color-scheme: dark) {
+      body, .bg-canvas { background-color: #221d16 !important; }
+    }
+  </style>
+</head>
+<body class="bg-canvas" style="margin:0; padding:0; width:100%; background-color:#eae0cb;">
+  <!-- Preheader: inbox preview text (the post summary) -->
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#eae0cb; opacity:0;">${escapeHtml(event.summary)}&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;</div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bg-canvas" style="background-color:#eae0cb; background-image:url('${texture}'); background-size:cover; background-position:center;">
+    <tr>
+      <td align="center" style="padding:20px 12px 28px 12px;">
+
+        <!-- View in browser -->
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="container" style="width:600px; max-width:600px;">
+          <tr>
+            <td align="center" class="sans" style="padding:6px 16px 14px 16px; font-size:11px; line-height:16px; color:#8c8164; letter-spacing:0.4px;">
+              Trouble viewing this letter? <a href="{{ mirror }}" style="color:#7a6f60; text-decoration:underline;">Read it in your browser</a>.
+            </td>
+          </tr>
+        </table>
+
+        <!-- ===================== EMAIL CARD (max 600px) ===================== -->
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="container" style="width:600px; max-width:600px; background-color:#fbf7ef; border:1px solid #e3d8c1; border-radius:14px; overflow:hidden; box-shadow:0 24px 60px rgba(31,27,22,0.10);">
+
+          <!-- Masthead -->
+          <tr>
+            <td align="center" class="pad" style="padding:34px 40px 18px 40px;">
+              <img src="${logo}" width="58" height="58" alt="RenshinKan Dojo" style="width:58px; height:auto; margin:0 auto 12px auto;" />
+              <div class="serif" style="font-size:26px; line-height:30px; color:#1f1b16; letter-spacing:0.3px;">RenshinKan Dojo</div>
+              <div class="sans" style="font-size:11px; line-height:16px; letter-spacing:3px; text-transform:uppercase; color:#4f6b4a; margin-top:7px; font-weight:600;">Notes from the mat</div>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:0 40px 4px 40px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="width:56px; height:2px; background-color:#c8312a; font-size:0; line-height:0;">&nbsp;</td></tr></table>
+            </td>
+          </tr>
+${heroImage}
+          <!-- Post date + title -->
+          <tr>
+            <td class="pad" style="padding:28px 48px 0 48px;">
+              <div class="sans" style="font-size:11px; line-height:16px; letter-spacing:3px; text-transform:uppercase; color:#b22a22; font-weight:600;">${escapeHtml(event.date)}</div>
+              <h1 class="serif h1" style="margin:10px 0 0 0; font-weight:500; font-size:34px; line-height:42px; color:#1f1b16;">${escapeHtml(event.title)}</h1>
+            </td>
+          </tr>
+
+          <!-- Post body (short or long) -->
+          <tr>
+            <td class="pad body-txt sans" style="padding:18px 48px 0 48px; font-size:17px; line-height:29px; color:#3d362c;">
+              ${bodyHtml}
+            </td>
+          </tr>
+${galleryHtml}
+          <!-- Read the full post on the website -->
+          <tr>
+            <td align="center" class="pad" style="padding:26px 48px 6px 48px;">
+              <!--[if mso]>
+              <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${link}" style="height:50px;v-text-anchor:middle;width:260px;" arcsize="50%" strokecolor="#2a2018" fillcolor="#2a2018">
+                <w:anchorlock/>
+                <center style="color:#faf6f0;font-family:Georgia,'Times New Roman',serif;font-size:15px;font-weight:bold;">Read the full post</center>
+              </v:roundrect>
+              <![endif]-->
+              <!--[if !mso]><!-- -->
+              <a class="btn-a sans" href="${link}" style="display:inline-block; background-color:#2a2018; color:#faf6f0; font-size:15px; font-weight:600; line-height:20px; padding:15px 32px; border-radius:999px; text-decoration:none;">Read the full post</a>
+              <!--<![endif]-->
+            </td>
+          </tr>
+
+          <!-- Call to action -->
+          <tr>
+            <td class="pad" style="padding:32px 48px 0 48px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#2a2018; border-radius:14px;">
+                <tr>
+                  <td align="center" style="padding:32px 30px;">
+                    <h2 class="serif" style="margin:0; font-weight:500; font-size:26px; line-height:33px; color:#f6efe2;">Come train with us</h2>
+                    <p class="sans" style="margin:12px auto 0 auto; max-width:380px; font-size:15px; line-height:24px; color:#cabfa8;">Beginners, children and visiting aikidoka are always welcome. Your first visit is on us.</p>
+                    <div style="margin-top:22px;">
+                      <!--[if mso]>
+                      <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${contactUrl}" style="height:50px;v-text-anchor:middle;width:220px;" arcsize="50%" strokecolor="#c8312a" fillcolor="#c8312a">
+                        <w:anchorlock/>
+                        <center style="color:#fbf7ef;font-family:Georgia,'Times New Roman',serif;font-size:15px;font-weight:bold;">Plan your visit</center>
+                      </v:roundrect>
+                      <![endif]-->
+                      <!--[if !mso]><!-- -->
+                      <a class="btn-a sans" href="${contactUrl}" style="display:inline-block; background-color:#c8312a; color:#fbf7ef; font-size:15px; font-weight:600; line-height:20px; padding:15px 32px; border-radius:999px; text-decoration:none;">Plan your visit</a>
+                      <!--<![endif]-->
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Sign-off -->
+          <tr>
+            <td class="pad sans" style="padding:30px 48px 38px 48px; font-size:16px; line-height:25px; color:#3d362c;">
+              <p style="margin:0;">With warmth,</p>
+              <p class="serif" style="margin:4px 0 0 0; font-size:19px; color:#1f1b16;">The RenshinKan Dojo</p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#2a2018; padding:30px 40px;" class="pad">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" class="sans" style="font-size:13px; line-height:21px; color:#b7a98f;">
+                    <div class="serif" style="font-size:17px; color:#f3ece0; margin-bottom:6px;">RenshinKan Dojo</div>
+                    <a href="https://www.google.com/maps/search/?api=1&amp;query=RenshinKan%20Dojo%2C%20155%20Soi%206%2C%20Suan%20Luang%20Village%2C%20T.%20Baan%20Waen%2C%20A.%20Hang%20Dong%2C%20Chiang%20Mai%2050230" style="color:#b7a98f; text-decoration:none;">155 Soi 6, Suan Luang Village, Baan Waen,<br />Hang Dong, Chiang Mai 50230</a>
+                    <div style="margin-top:14px;">
+                      <a href="https://www.facebook.com/RenShinKanChiangMai/" style="color:#e2d8c4; text-decoration:underline;">Facebook</a>
+                      &nbsp;&middot;&nbsp;
+                      <a href="mailto:contact@renshinkandojo.org" style="color:#e2d8c4; text-decoration:underline;">contact@renshinkandojo.org</a>
+                      &nbsp;&middot;&nbsp;
+                      <a href="${base}/" style="color:#e2d8c4; text-decoration:underline;">Website</a>
+                    </div>
+                    <div style="margin-top:16px; padding-top:16px; border-top:1px solid #43382b; font-size:12px; line-height:19px; color:#9a8d76;">
+                      You are receiving this letter at {{ contact.EMAIL }} as a member of the RenshinKan community.<br />
+                      Prefer not to receive these? <a href="{{ unsubscribe }}" style="color:#cdbfa6; text-decoration:underline;">Unsubscribe here</a>.
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+        <!-- ==================== /EMAIL CARD ==================== -->
+
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="container" style="width:600px; max-width:600px;">
+          <tr>
+            <td align="center" class="sans" style="padding:18px 24px 6px 24px; font-size:11px; line-height:17px; color:#8c8164;">
+              &copy; RenshinKan Dojo &middot; Aikido in Hang Dong, Chiang Mai, Thailand
+            </td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
 </html>`;
 }
 
@@ -91,8 +314,8 @@ export async function createAndSendRecentEventCampaign(env: BrevoEnv, event: Rec
       "api-key": env.BREVO_API_KEY!,
     },
     body: JSON.stringify({
-      name: `RenshinKan Dojo Update: ${event.title}`.slice(0, 120),
-      subject: `New RenshinKan Dojo Update: ${event.title}`,
+      name: `RenshinKan Dojo: ${event.title}`.slice(0, 120),
+      subject: event.title,
       sender: {
         email: env.BREVO_SENDER_EMAIL,
         name: env.BREVO_SENDER_NAME || "RenshinKan Dojo",

@@ -137,31 +137,31 @@ export const aikidoValues: IconContent[] = [
   {
     title: "Harmony",
     description:
-      "Aikido asks students to meet pressure without hardening against it.",
+      "Aikido meets force with calm instead of resistance. Rather than clashing, students learn to blend with an attack and guide it toward a peaceful end.",
     icon: HeartHandshake,
   },
   {
     title: "Movement",
     description:
-      "Circular footwork, balance, and timing help students enter, blend, and redirect.",
+      "The art lives in circular, flowing motion. Entering and turning replace straight line strength, so a technique works through position and timing rather than muscle.",
     icon: CircleDot,
   },
   {
     title: "Safety",
     description:
-      "Students learn falling, spacing, and attentive partner care before intensity.",
+      "Care always comes before intensity. Spacing, controlled technique, and soft falling let partners train fully while keeping each other safe.",
     icon: ShieldCheck,
   },
   {
     title: "Discipline",
     description:
-      "Class routines build focus, posture, patience, and confidence through repetition.",
+      "Aikido is learned through honest, repeated practice. Each class follows a settled rhythm that steadies the body and quiets the mind.",
     icon: BookOpen,
   },
   {
     title: "Respect",
     description:
-      "Bowing, listening, and protecting a partner are part of every technique.",
+      "Respect shapes everything on the mat. Practice begins and ends with a bow, and a partner is someone you protect, never someone you defeat.",
     icon: Leaf,
   },
 ];
@@ -191,6 +191,90 @@ export const principles = [
     title: "Respect Before Technique",
     description:
       "The quality of practice is measured by care, patience, and mutual trust.",
+  },
+];
+
+export const aikidoBenefits = [
+  {
+    title: "Discipline",
+    description:
+      "Bowing in, repeating each movement with care, and returning week after week build a quiet, steady discipline that soon feels natural.",
+  },
+  {
+    title: "Patience",
+    description:
+      "Techniques are learned slowly and refined over years, so practice gently teaches you to trust the process and value steady progress.",
+  },
+  {
+    title: "Focus",
+    description:
+      "Reading a partner's movement and meeting it at the right moment trains a clear, present attention you can carry into everyday life.",
+  },
+  {
+    title: "Confidence",
+    description:
+      "As techniques begin to work without force or strain, students grow a calm, grounded confidence that does not depend on size or strength.",
+  },
+  {
+    title: "Posture",
+    description:
+      "Aikido is practiced from an upright, relaxed stance, so good posture and a strong, settled base become second nature on and off the mat.",
+  },
+  {
+    title: "Coordination",
+    description:
+      "Blending footwork, breathing, and hand movement into one smooth action sharpens whole body coordination with every repetition.",
+  },
+  {
+    title: "Balance",
+    description:
+      "Entering, turning, and staying grounded while a partner moves teaches you to keep your balance and recover it quickly when it is tested.",
+  },
+  {
+    title: "Respect",
+    description:
+      "Every technique opens and closes with a bow, and partners look after one another, so respect runs through the way the whole dojo trains.",
+  },
+  {
+    title: "Awareness of others",
+    description:
+      "Working closely with a partner builds a real feel for distance, timing, and safety, keeping you aware of the people around you.",
+  },
+];
+
+export const aikidoForChildren = [
+  {
+    title: "Confidence to speak up",
+    description:
+      "Small, step by step successes on the mat help a quieter child stand a little taller, at the dojo and at school.",
+  },
+  {
+    title: "Listening and self control",
+    description:
+      "Waiting for a turn, following the count, and working gently with a partner teach children to listen and settle their energy.",
+  },
+  {
+    title: "Safe, playful falling",
+    description:
+      "Rolling and tumbling are taught as a game first, so children learn to fall without fear and look after themselves anywhere.",
+  },
+];
+
+export const aikidoForAdults = [
+  {
+    title: "Move after a day at a desk",
+    description:
+      "Gentle, flowing practice loosens stiff shoulders and hips and brings easy, natural movement back into the body.",
+  },
+  {
+    title: "A calmer, clearer mind",
+    description:
+      "Giving full attention to a partner and a technique leaves the day's stress at the door for ninety quiet minutes.",
+  },
+  {
+    title: "A friendly community",
+    description:
+      "You join a welcoming circle of people of all ages and backgrounds who train with patience and look out for each other.",
   },
 ];
 
@@ -633,6 +717,33 @@ export const pcfAikidoImages = {
   dojoExterior: {
     src: assetPath("/pcf-aikido/dojo-exterior.jpg"),
     alt: "Exterior view of RenshinKan Dojo in Hang Dong, Chiang Mai.",
+  },
+};
+
+export const aikidoActionImages = {
+  technique: {
+    src: assetPath("/dojo-photos/aikido-wristlock.webp"),
+    alt: "A RenshinKan student calmly applying a controlled wrist technique on a partner inside the dojo, with a wooden weapons rack on the wall behind.",
+  },
+  joTraining: {
+    src: assetPath("/dojo-photos/aikido-jo-training.webp"),
+    alt: "Two students practising paired jo staff movements at a public aikido demonstration.",
+  },
+  tantoTechnique: {
+    src: assetPath("/dojo-photos/aikido-tanto-technique.webp"),
+    alt: "A student performing a tanto knife disarm, guiding the partner into a forward roll.",
+  },
+  breakfall: {
+    src: assetPath("/dojo-photos/aikido-breakfall.webp"),
+    alt: "A student taking a high, relaxed breakfall during an aikido demonstration.",
+  },
+  pin: {
+    src: assetPath("/dojo-photos/aikido-pin.webp"),
+    alt: "A young aikido student holding a calm, controlled pin on a partner on the tatami mat.",
+  },
+  seminar: {
+    src: assetPath("/dojo-photos/aikido-seminar-demo.webp"),
+    alt: "An instructor demonstrating an aikido technique in front of a large seated group of students of all ages during a seminar.",
   },
 };
 

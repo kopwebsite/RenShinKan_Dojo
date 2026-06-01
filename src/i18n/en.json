@@ -213,6 +213,43 @@
       "title": "What is Aikido?",
       "subtitle": "A Japanese martial art of harmony, nonviolence, and lifelong personal growth."
     },
+    "overview": {
+      "eyebrow": "Understanding Aikido",
+      "title": "What Is Aikido?",
+      "intro1": "Aikido is a modern Japanese martial art founded in the early twentieth century by Morihei Ueshiba, known to students as O Sensei. Rather than meeting force with force, aikido teaches you to blend with an attack, redirect its energy, and control balance so that conflict can be resolved without relying on brute strength.",
+      "intro2": "Aikido grew from older Japanese martial traditions, including jujutsu and the classical weapons arts. It also shares qualities with arts such as judo, especially in its attention to balance, throws, and safe falling practice. The result is a practice that values calm, control, and genuine care for a training partner over winning or overpowering an opponent.",
+      "weaponsTitle": "Empty Hand and Weapons Training",
+      "weaponsIntro": "Weapons practice is not separate from empty hand aikido. Training with traditional wooden weapons teaches distance, timing, posture, center line, awareness, and clear body movement. Many empty hand techniques echo the same principles and movement patterns found in weapons work, especially those of the sword.",
+      "bokkenName": "Bokken",
+      "bokkenMeaning": "Wooden Sword",
+      "bokkenDesc": "Used to study posture, cutting lines, and the sword movement that shapes many aikido techniques.",
+      "joName": "Jo",
+      "joMeaning": "Wooden Staff",
+      "joDesc": "Used to develop extension, timing, and smooth, connected footwork.",
+      "tantoName": "Tanto",
+      "tantoMeaning": "Wooden Knife",
+      "tantoDesc": "Used to practice calm, safe responses, careful distance, and steady awareness.",
+      "weaponsClose": "Because hand to hand and weapons practice share the same foundation, growth in one naturally deepens understanding of the other. The two sides of aikido constantly support and explain each other."
+    },
+    "why": {
+      "eyebrow": "The Benefits",
+      "title": "Why Pick Aikido?",
+      "intro": "Aikido offers far more than self defense. Regular practice builds qualities that carry into daily life, helping students feel more settled, capable, and aware both on and off the mat.",
+      "benefitsLabel": "Qualities that grow with practice",
+      "ukemiTitle": "Learning to Fall Safely",
+      "ukemi1": "One of aikido's most practical life skills is ukemi, the art of falling and receiving techniques safely. From the very first class, students learn to relax, protect the head, round the body, roll, and land without getting hurt.",
+      "ukemi2": "This matters far beyond the dojo. Slips, trips, everyday accidents, sport, and the natural changes that come with aging all involve falling at some point. Learning to fall well is a real world skill that can genuinely help reduce the risk of injury.",
+      "close": "Aikido is not only about self defense. It is also about learning to move well, stay calm, and respond to pressure without panic or aggression."
+    },
+    "who": {
+      "eyebrow": "Everyone Is Welcome",
+      "title": "Who Can Practice?",
+      "intro": "Aikido can be practiced by adults, children, complete beginners, experienced martial artists, and visiting aikidoka alike. You do not need to be strong, athletic, flexible, or experienced to begin. Progress comes through steady practice, attention, and learning correct movement rather than relying on physical strength alone.",
+      "childrenTitle": "For Children",
+      "adultsTitle": "For Adults",
+      "visitorsTitle": "Visiting Aikidoka",
+      "visitorsDesc": "Aikidoka passing through Chiang Mai are always welcome to step onto the mat. Send a quick message before you visit so we can confirm the timing and have someone ready to greet you."
+    },
     "about": {
       "eyebrow": "About Aikido",
       "title": "Peace through movement, not force.",

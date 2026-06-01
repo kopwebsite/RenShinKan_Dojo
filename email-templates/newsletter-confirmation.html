@@ -1,0 +1,276 @@
+<!--
+  ============================================================================
+  Template : newsletter-confirmation.html
+  Purpose  : Double opt-in CONFIRMATION email for the RenshinKan Dojo newsletter.
+             Sent the moment someone submits their email, BEFORE they are
+             subscribed. Warmly thanks them and asks them to click the
+             confirmation link to complete sign-up.
+  Platform : Brevo (Sendinblue). Paste into the Double Opt-In confirmation email of
+             your Brevo subscription form: Contacts -> Forms -> (your form) ->
+             Confirmation type "Double opt-in" -> edit the confirmation email in
+             HTML / "code your own" mode and paste this file.
+             Table-based layout, mostly inline CSS, responsive, no JavaScript.
+
+  Brevo variables used:
+    {{ doubleoptin }}   -> Brevo's Double Opt-In confirmation URL. This is the special
+                           tag Brevo replaces with each contact's unique confirm link.
+                           Used on the confirm button AND the plain fallback link.
+    {{ contact.EMAIL }} -> recipient's email, shown in the footer
+    (No {{ unsubscribe }} here on purpose: the contact is not subscribed yet, so Brevo
+     has no unsubscribe link to insert at this stage.)
+
+  Bilingual: English first, then a Thai (ภาษาไทย) section with the same message and a
+  second confirm button (same {{ doubleoptin }} link). Thai text renders via the
+  reader's system Thai font. Have a native Thai speaker proof the wording before launch.
+
+  Images (absolute URLs on the live site):
+    Logo : https://renshinkan-dojo.pages.dev/renshinkan-logo.png
+    Hero : https://renshinkan-dojo.pages.dev/dojo-photos/new-hero-poster.png
+           ^ the watercolour koi-pond image used as the website's FRONT-PAGE hero
+             (see DojoPage.tsx -> "Watercolour koi background"). File lives at
+             /public/dojo-photos/new-hero-poster.png  (1672x941).
+           It is a PNG, so it renders in every major email client, INCLUDING
+           Outlook for Windows. To change it, edit the line tagged "HERO IMAGE".
+  ============================================================================
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="x-apple-disable-message-reformatting" />
+  <meta name="color-scheme" content="light" />
+  <meta name="supported-color-schemes" content="light" />
+  <title>Please confirm your RenshinKan newsletter subscription</title>
+  <!--[if mso]>
+  <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+  <![endif]-->
+  <!-- Web fonts load in clients that support them (Apple Mail, iOS Mail); everything else uses the fallbacks below. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet" />
+  <style type="text/css">
+    /* ---- Resets ---- */
+    html, body { margin: 0 !important; padding: 0 !important; height: 100% !important; width: 100% !important; }
+    * { -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; border-collapse: collapse; }
+    img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; display: block; }
+    a { text-decoration: none; }
+    /* ---- Brand fonts ---- */
+    .serif  { font-family: 'Cormorant Garamond', 'Iowan Old Style', Georgia, Cambria, 'Times New Roman', Times, serif; }
+    .sans   { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    /* ---- Mobile ---- */
+    @media screen and (max-width: 600px) {
+      .container { width: 100% !important; }
+      .pad      { padding-left: 24px !important; padding-right: 24px !important; }
+      .pad-top  { padding-top: 30px !important; }
+      .pad-bot  { padding-bottom: 30px !important; }
+      .h1       { font-size: 30px !important; line-height: 38px !important; }
+      .body-txt { font-size: 16px !important; line-height: 26px !important; }
+      .btn-a    { display: block !important; }
+      .hero-cell  { height: 300px !important; }
+      .hero-inner { padding: 30px 20px !important; }
+      .hero-name  { font-size: 29px !important; line-height: 35px !important; }
+    }
+    /* ---- Dark-mode: keep the parchment feel, avoid inverted mud ---- */
+    @media (prefers-color-scheme: dark) {
+      body, .bg-canvas { background-color: #221d16 !important; }
+    }
+  </style>
+</head>
+<body class="bg-canvas" style="margin:0; padding:0; width:100%; background-color:#eae0cb;">
+  <!-- Preheader: inbox preview text, hidden in the body -->
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#eae0cb; opacity:0;">
+    One small step to join the RenshinKan circle. Please confirm your email to begin. &middot; กรุณายืนยันอีเมลของคุณเพื่อเข้าร่วม
+    &#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;
+  </div>
+
+  <!-- Optional parchment texture on the outer canvas (solid #eae0cb is the fallback for Outlook). Remove this background-image if it ever looks off. -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bg-canvas" style="background-color:#eae0cb; background-image:url('https://renshinkan-dojo.pages.dev/parchment-texture.png'); background-size:cover; background-position:center;">
+    <tr>
+      <td align="center" style="padding:28px 12px;">
+
+        <!-- ====================== EMAIL CARD (max 600px) ====================== -->
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="container" style="width:600px; max-width:600px; background-color:#fbf7ef; border:1px solid #e3d8c1; border-radius:14px; overflow:hidden; box-shadow:0 24px 60px rgba(31,27,22,0.10);">
+
+          <!-- ============ HERO: logo + name laid over the koi-pond watercolour (like the website front page) ============ -->
+          <!-- Bulletproof background image: CSS background for Apple/iOS/Gmail, VML <v:rect> for Outlook, soft sage colour fallback. -->
+          <tr>
+            <td class="hero-cell" align="center" valign="middle" height="380" background="https://renshinkan-dojo.pages.dev/dojo-photos/new-hero-poster.png" style="height:380px; background-color:#cdd4c7; background-image:url('https://renshinkan-dojo.pages.dev/dojo-photos/new-hero-poster.png'); background-position:center center; background-size:cover; background-repeat:no-repeat;">
+              <!--[if gte mso 9]>
+              <v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:600px;height:380px;">
+                <v:fill type="frame" src="https://renshinkan-dojo.pages.dev/dojo-photos/new-hero-poster.png" color="#cdd4c7" />
+                <v:textbox inset="0,0,0,0">
+              <![endif]-->
+              <div>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td class="hero-inner" align="center" style="padding:44px 24px;">
+                      <!-- Enso brush mark (transparent PNG). Decorative: the dojo name is carried by the live text below. -->
+                      <img src="https://renshinkan-dojo.pages.dev/renshinkan-logo.png" width="66" height="66" alt="" style="width:66px; height:auto; margin:0 auto 14px auto; display:block;" />
+                      <div class="serif hero-name" style="font-size:34px; line-height:40px; color:#1f1b16; letter-spacing:0.4px; text-shadow:0 1px 4px rgba(250,247,239,0.7);">RenshinKan Dojo</div>
+                      <div class="sans" style="font-size:11px; line-height:16px; letter-spacing:3px; text-transform:uppercase; color:#33302a; margin-top:10px; font-weight:600; text-shadow:0 1px 3px rgba(250,247,239,0.75);">Aikido &middot; Hang Dong, Chiang Mai</div>
+                    </td>
+                  </tr>
+                </table>
+              </div>
+              <!--[if gte mso 9]>
+                </v:textbox>
+              </v:rect>
+              <![endif]-->
+            </td>
+          </tr>
+
+          <!-- Title + message -->
+          <tr>
+            <td class="pad" style="padding:30px 48px 0 48px;">
+              <h1 class="serif h1" style="margin:0; font-weight:500; font-size:33px; line-height:40px; color:#1f1b16;">We&rsquo;re so glad you found us</h1>
+            </td>
+          </tr>
+          <tr>
+            <td class="pad body-txt sans" style="padding:18px 48px 0 48px; font-size:17px; line-height:28px; color:#3d362c;">
+              <p style="margin:0 0 16px 0;">Hello,</p>
+              <p style="margin:0 0 16px 0;">Thank you for your interest in the RenshinKan Dojo newsletter. It truly means a lot that you would like to stay close to the quiet, steady life of the dojo.</p>
+              <p style="margin:0;">There is just one small thing left. Please confirm that this email is really yours by tapping the button below. It only takes a moment, and then you are part of the circle.</p>
+            </td>
+          </tr>
+
+          <!-- CTA button (bulletproof: VML for Outlook, padded anchor elsewhere) -->
+          <tr>
+            <td align="center" class="pad" style="padding:30px 48px 6px 48px;">
+              <!--[if mso]>
+              <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{ doubleoptin }}" style="height:52px;v-text-anchor:middle;width:280px;" arcsize="50%" strokecolor="#2a2018" fillcolor="#2a2018">
+                <w:anchorlock/>
+                <center style="color:#faf6f0;font-family:Georgia,'Times New Roman',serif;font-size:16px;font-weight:bold;">Confirm my email</center>
+              </v:roundrect>
+              <![endif]-->
+              <!--[if !mso]><!-- -->
+              <a class="btn-a sans" href="{{ doubleoptin }}" style="display:inline-block; background-color:#2a2018; color:#faf6f0; font-size:16px; font-weight:600; line-height:20px; padding:16px 34px; border-radius:999px; text-decoration:none;">Confirm my email</a>
+              <!--<![endif]-->
+            </td>
+          </tr>
+
+          <!-- Plain-text fallback link -->
+          <tr>
+            <td class="pad sans" style="padding:16px 48px 0 48px; font-size:13px; line-height:21px; color:#7a6f60;">
+              <p style="margin:0 0 6px 0;">If the button doesn&rsquo;t work, copy and paste this link into your browser:</p>
+              <p style="margin:0; word-break:break-all;"><a href="{{ doubleoptin }}" style="color:#b22a22; text-decoration:underline;">{{ doubleoptin }}</a></p>
+            </td>
+          </tr>
+
+          <!-- Reassurance -->
+          <tr>
+            <td class="pad sans" style="padding:24px 48px 0 48px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="border-top:1px solid #ece2cd; padding-top:20px; font-size:14px; line-height:22px; color:#7a6f60; font-style:italic;">
+                    Did you receive this by mistake? No worries at all. You can simply ignore this message. Without confirming, you will not receive any further emails, and your address will not be added to anything.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Sign-off -->
+          <tr>
+            <td class="pad sans" style="padding:26px 48px 6px 48px; font-size:16px; line-height:25px; color:#3d362c;">
+              <p style="margin:0;">With warmth,</p>
+              <p class="serif" style="margin:4px 0 0 0; font-size:19px; color:#1f1b16;">The RenshinKan Dojo</p>
+            </td>
+          </tr>
+
+          <!-- ===================== ภาษาไทย (THAI) ===================== -->
+          <tr>
+            <td class="pad" style="padding:18px 48px 0 48px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="border-top:1px solid #ece2cd; padding-top:24px;">
+                    <span class="sans" style="font-size:11px; letter-spacing:3px; text-transform:uppercase; color:#4f6b4a; font-weight:600;">ภาษาไทย</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td class="pad" style="padding:14px 48px 0 48px;">
+              <h2 class="serif h1" style="margin:0; font-weight:500; font-size:30px; line-height:40px; color:#1f1b16;">เราดีใจมากที่คุณแวะเข้ามา</h2>
+            </td>
+          </tr>
+          <tr>
+            <td class="pad body-txt sans" style="padding:14px 48px 0 48px; font-size:17px; line-height:31px; color:#3d362c;">
+              <p style="margin:0 0 14px 0;">สวัสดีค่ะ</p>
+              <p style="margin:0 0 14px 0;">ขอบคุณที่สนใจรับจดหมายข่าวของสำนักเร็นชินคัง เรารู้สึกซาบซึ้งที่คุณอยากติดตามเรื่องราวความเป็นไปอย่างเงียบสงบของสำนักของเรา</p>
+              <p style="margin:0;">เหลืออีกเพียงขั้นตอนเดียว กรุณายืนยันว่าอีเมลนี้เป็นของคุณจริง โดยกดปุ่มด้านล่าง ใช้เวลาเพียงครู่เดียว แล้วคุณก็จะเป็นส่วนหนึ่งของเรา</p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" class="pad" style="padding:24px 48px 4px 48px;">
+              <!--[if mso]>
+              <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{ doubleoptin }}" style="height:52px;v-text-anchor:middle;width:280px;" arcsize="50%" strokecolor="#2a2018" fillcolor="#2a2018">
+                <w:anchorlock/>
+                <center style="color:#faf6f0;font-family:Tahoma,sans-serif;font-size:16px;font-weight:bold;">ยืนยันอีเมลของฉัน</center>
+              </v:roundrect>
+              <![endif]-->
+              <!--[if !mso]><!-- -->
+              <a class="btn-a sans" href="{{ doubleoptin }}" style="display:inline-block; background-color:#2a2018; color:#faf6f0; font-size:16px; font-weight:600; line-height:20px; padding:16px 34px; border-radius:999px; text-decoration:none;">ยืนยันอีเมลของฉัน</a>
+              <!--<![endif]-->
+            </td>
+          </tr>
+          <tr>
+            <td class="pad sans" style="padding:18px 48px 0 48px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="border-top:1px solid #ece2cd; padding-top:18px; font-size:14px; line-height:25px; color:#7a6f60; font-style:italic;">
+                    หากคุณได้รับอีเมลนี้โดยไม่ได้ตั้งใจ ไม่ต้องกังวล เพียงไม่ต้องทำสิ่งใด คุณจะไม่ได้รับอีเมลเพิ่มเติม และที่อยู่ของคุณจะไม่ถูกเพิ่มไปที่ใด
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td class="pad sans" style="padding:22px 48px 38px 48px; font-size:16px; line-height:27px; color:#3d362c;">
+              <p style="margin:0;">ด้วยความอบอุ่น</p>
+              <p class="serif" style="margin:4px 0 0 0; font-size:19px; color:#1f1b16;">สำนักเร็นชินคัง</p>
+            </td>
+          </tr>
+
+          <!-- ===================== FOOTER ===================== -->
+          <tr>
+            <td style="background-color:#2a2018; padding:30px 40px;" class="pad">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" class="sans" style="font-size:13px; line-height:21px; color:#b7a98f;">
+                    <div class="serif" style="font-size:17px; color:#f3ece0; margin-bottom:6px;">RenshinKan Dojo</div>
+                    <a href="https://www.google.com/maps/search/?api=1&amp;query=RenshinKan%20Dojo%2C%20155%20Soi%206%2C%20Suan%20Luang%20Village%2C%20T.%20Baan%20Waen%2C%20A.%20Hang%20Dong%2C%20Chiang%20Mai%2050230" style="color:#b7a98f; text-decoration:none;">155 Soi 6, Suan Luang Village, Baan Waen,<br />Hang Dong, Chiang Mai 50230</a>
+                    <div style="margin-top:14px;">
+                      <a href="https://www.facebook.com/RenShinKanChiangMai/" style="color:#e2d8c4; text-decoration:underline;">Facebook</a>
+                      &nbsp;&middot;&nbsp;
+                      <a href="mailto:contact@renshinkandojo.org" style="color:#e2d8c4; text-decoration:underline;">contact@renshinkandojo.org</a>
+                    </div>
+                    <div style="margin-top:16px; padding-top:16px; border-top:1px solid #43382b; font-size:12px; line-height:19px; color:#9a8d76;">
+                      This message was sent to {{ contact.EMAIL }} because this address was entered on our newsletter form. If it was not you, there is nothing you need to do, and you will not be subscribed.<br /><br />
+                      อีเมลนี้ถูกส่งถึง {{ contact.EMAIL }} เนื่องจากมีการกรอกที่อยู่นี้ในแบบฟอร์มรับข่าวสารของเรา หากไม่ใช่คุณ ไม่ต้องทำสิ่งใด และคุณจะไม่ถูกเพิ่มเป็นสมาชิก
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+        <!-- ==================== /EMAIL CARD ==================== -->
+
+        <!-- Quiet sign-off line under the card -->
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="container" style="width:600px; max-width:600px;">
+          <tr>
+            <td align="center" class="sans" style="padding:18px 24px 6px 24px; font-size:11px; line-height:17px; color:#8c8164;">
+              &copy; RenshinKan Dojo &middot; Aikido in Hang Dong, Chiang Mai, Thailand
+            </td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

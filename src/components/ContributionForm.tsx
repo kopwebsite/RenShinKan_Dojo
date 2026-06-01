@@ -85,7 +85,6 @@ type PaymentMethodId = (typeof PAYMENT_METHODS)[number]["id"];
 interface ContributionDetails {
   parentName: string; // optional
   studentName: string; // required
-  studentAge: string; // optional
   email: string; // required
   phone: string; // required
   address: string; // required
@@ -97,7 +96,6 @@ interface ContributionDetails {
 const emptyDetails: ContributionDetails = {
   parentName: "",
   studentName: "",
-  studentAge: "",
   email: "",
   phone: "",
   address: "",
@@ -258,19 +256,6 @@ export function ContributionForm() {
                 className="input-field"
                 value={details.studentName}
                 onChange={(event) => updateField("studentName", event.target.value)}
-              />
-            </Field>
-
-            <Field label="Student age" htmlFor="studentAge" hint="Optional">
-              <input
-                id="studentAge"
-                name="studentAge"
-                type="number"
-                min="1"
-                inputMode="numeric"
-                className="input-field"
-                value={details.studentAge}
-                onChange={(event) => updateField("studentAge", event.target.value)}
               />
             </Field>
 

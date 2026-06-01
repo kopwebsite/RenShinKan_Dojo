@@ -118,6 +118,7 @@ function normalizeRecentEvent(value: unknown): RecentEvent | null {
     image: image ?? undefined,
     media,
     notifySubscribers: value.notifySubscribers === true,
+    showInCommunityCalendar: value.showInCommunityCalendar === true,
     newsletter,
     createdAt,
     updatedAt,
@@ -246,4 +247,10 @@ export function getPublishedRecentEvents(content: EditableContent, limit?: numbe
     .sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
 
   return typeof limit === "number" ? events.slice(0, limit) : events;
+}
+
+export function getCommunityCalendarEvents(content: EditableContent) {
+  return content.recentEvents
+    .filter((event) => event.published && event.showInCommunityCalendar === true)
+    .sort((a, b) => Date.parse(a.date) - Date.parse(b.date));
 }

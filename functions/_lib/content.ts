@@ -25,6 +25,7 @@ export type RecentEvent = {
   image?: MediaItem;
   media?: MediaItem[];
   notifySubscribers?: boolean;
+  showInCommunityCalendar?: boolean;
   newsletter?: {
     status: NewsletterStatus;
     sentAt?: string | null;
@@ -172,6 +173,7 @@ function validateRecentEvent(value: unknown, index: number): RecentEvent {
     image,
     media,
     notifySubscribers: value.notifySubscribers === true,
+    showInCommunityCalendar: value.showInCommunityCalendar === true,
     newsletter: validateNewsletter(value.newsletter),
     createdAt,
     updatedAt,

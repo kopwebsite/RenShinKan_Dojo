@@ -25,6 +25,7 @@ export type RecentEvent = {
   image?: MediaItem;
   media?: MediaItem[];
   notifySubscribers?: boolean;
+  showInCommunityCalendar?: boolean;
   newsletter?: {
     status: NewsletterStatus;
     sentAt?: string | null;

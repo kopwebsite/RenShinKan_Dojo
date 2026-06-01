@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   UsersRound,
 } from "lucide-react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { MediaSlider } from "../components/MediaSlider";
 import { MotionSection } from "../components/MotionSection";
@@ -20,7 +21,7 @@ import {
   relatedDojos,
 } from "../data/siteContent";
 import { useTranslation } from "../i18n";
-import { useEditableContent } from "../lib/content";
+import { getCommunityCalendarEvents, useEditableContent } from "../lib/content";
 import { assetPath } from "../utils/assetPath";
 
 export function CommunityPage() {
@@ -28,7 +29,7 @@ export function CommunityPage() {
   const { content } = useEditableContent();
   const activeHistoryMedia = content.historyMedia.length ? content.historyMedia : historyMedia;
   const [cmuHeroPhoto, ...cmuGalleryPhotos] = cmuAikidoClub.photos;
-  const upcomingEvents = [
+  const staticUpcomingEvents = [
     {
       title: "Community Practice Day",
       date: "Posted through dojo updates",
@@ -47,6 +48,15 @@ export function CommunityPage() {
         "A student gathering with a shared meal, open mat, or volunteer day. Confirmed details are shared in the dojo updates.",
     },
   ];
+  const communityCalendarEvents = useMemo(() => getCommunityCalendarEvents(content), [content]);
+  const upcomingEvents = communityCalendarEvents.length
+    ? communityCalendarEvents.map((event) => ({
+        title: event.title,
+        date: event.date,
+        description: event.summary || event.body,
+        href: `/newsletter#${event.slug}`,
+      }))
+    : staticUpcomingEvents;
 
   return (
     <>
@@ -122,7 +132,15 @@ export function CommunityPage() {
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-bamboo">
                   {event.date}
                 </p>
-                <h3 className="mt-2 font-serif text-3xl text-ink sm:text-4xl">{event.title}</h3>
+                <h3 className="mt-2 font-serif text-3xl text-ink sm:text-4xl">
+                  {"href" in event ? (
+                    <Link to={event.href} className="transition hover:text-vermilion">
+                      {event.title}
+                    </Link>
+                  ) : (
+                    event.title
+                  )}
+                </h3>
                 <p className="mt-3 text-base text-charcoal/75 max-w-2xl">{event.description}</p>
               </div>
             </div>

@@ -130,6 +130,7 @@ function makeEvent(): RecentEvent {
     image: undefined,
     media: [],
     notifySubscribers: false,
+    showInCommunityCalendar: false,
     newsletter: {
       status: "not_sent",
       sentAt: null,
@@ -156,6 +157,7 @@ function eventSnapshot(event?: RecentEvent) {
     image: event.image,
     media: event.media,
     notifySubscribers: event.notifySubscribers,
+    showInCommunityCalendar: event.showInCommunityCalendar,
     newsletter: event.newsletter,
   });
 }
@@ -634,6 +636,7 @@ export function AdminPage() {
         ...event,
         slug: event.slug || slugify(event.title),
         notifySubscribers: event.notifySubscribers === true,
+        showInCommunityCalendar: event.showInCommunityCalendar === true,
         newsletter: event.newsletter ?? {
           status: "not_sent" as const,
           sentAt: null,
@@ -874,7 +877,7 @@ export function AdminPage() {
                         {event.date || "No date"} · Newsletter status: {statusLabel(event)}
                       </span>
                       <span className="mt-1 block text-sm text-charcoal/55">
-                        {event.published ? "Published" : "Draft"} · {mediaPreview.length} media item
+                        {event.published ? "Published" : "Draft"} · {event.showInCommunityCalendar ? "Community calendar" : "Not on calendar"} · {mediaPreview.length} media item
                         {mediaPreview.length === 1 ? "" : "s"}
                       </span>
                     </span>
@@ -991,6 +994,16 @@ export function AdminPage() {
                       }
                     />
                     Notify subscribers
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-sm font-bold text-ink">
+                    <input
+                      type="checkbox"
+                      checked={event.showInCommunityCalendar === true}
+                      onChange={(inputEvent) =>
+                        updateEvent(event.id, (current) => ({ ...current, showInCommunityCalendar: inputEvent.target.checked }))
+                      }
+                    />
+                    Community calendar
                   </label>
                 </div>
 

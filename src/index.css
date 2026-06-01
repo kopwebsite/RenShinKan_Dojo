@@ -10,17 +10,20 @@
   --color-cta-bg: #2A2018;
   --color-cta-bg-hover: #1F1714;
   --color-cta-text: #FAF6F0;
-  --color-dropdown-bg: rgba(255, 253, 250, 0.92);
-  --color-dropdown-hover: rgba(248, 246, 243, 0.72);
+  /* Opaque washi-paper dropdown so menu text never overlaps content behind it */
+  --color-dropdown-bg: #faf5ec;
+  --color-dropdown-hover: #f1ebde;
   --color-border: rgba(31, 27, 22, 0.06);
   --color-paper: 42 30% 98%;
   --color-ink: 210 12% 11%;
   --color-charcoal: 215 16% 18%;
   --color-stone: 39 10% 64%;
   --color-mist: 42 34% 89%;
-  --color-vermilion: 5 86% 55%;
+  --color-vermilion: 9 76% 53%;
   --color-bamboo: 118 16% 38%;
   --color-wood: 30 38% 43%;
+  /* Soft persimmon / kaki — warm muted orange-red for the Support call-to-action */
+  --color-persimmon: 16 55% 44%;
   --header-height: 60px;
   --hero-viewport-height: calc(100dvh - var(--header-height));
   --site-zoom: 0.82;
@@ -176,16 +179,77 @@ body::after {
   .btn-primary,
   .btn-secondary,
   .btn-quiet {
-    @apply inline-flex min-h-12 max-w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-center text-sm font-bold leading-tight transition duration-300 focus-visible:outline-vermilion;
+    @apply relative inline-flex min-h-12 max-w-full items-center justify-center gap-2 overflow-hidden rounded-full px-6 py-3 text-center text-sm font-bold leading-tight focus-visible:outline-vermilion;
     white-space: normal;
+    transition:
+      transform 520ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 520ms ease,
+      border-color 360ms ease,
+      background-color 360ms ease,
+      color 360ms ease;
+  }
+
+  /* Soft ink-bloom that settles in on hover — like brush ink soaking into paper */
+  .btn-primary::after,
+  .btn-secondary::after {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    content: "";
+    border-radius: inherit;
+    opacity: 0;
+    transition: opacity 600ms ease;
+    pointer-events: none;
   }
 
   .btn-primary {
-    @apply bg-ink text-paper shadow-soft hover:-translate-y-0.5 hover:bg-charcoal;
+    @apply text-paper;
+    background-image: linear-gradient(165deg, hsl(var(--color-charcoal)) 0%, hsl(var(--color-ink)) 100%);
+    box-shadow:
+      inset 0 1px 0 hsl(var(--color-paper) / 0.12),
+      0 10px 26px hsl(var(--color-ink) / 0.18),
+      0 2px 6px hsl(var(--color-ink) / 0.12);
+  }
+
+  .btn-primary::after {
+    background: radial-gradient(120% 90% at 50% 118%, hsl(var(--color-paper) / 0.16), transparent 62%);
+  }
+
+  .btn-primary:hover {
+    @apply -translate-y-0.5;
+    box-shadow:
+      inset 0 1px 0 hsl(var(--color-paper) / 0.16),
+      0 16px 36px hsl(var(--color-ink) / 0.24),
+      0 4px 10px hsl(var(--color-ink) / 0.14);
+  }
+
+  .btn-primary:hover::after {
+    opacity: 1;
   }
 
   .btn-secondary {
-    @apply border border-ink/15 bg-paper/70 text-ink hover:-translate-y-0.5 hover:border-vermilion/50 hover:text-vermilion;
+    @apply text-ink;
+    background-image: linear-gradient(180deg, hsl(var(--color-paper)) 0%, hsl(var(--color-mist)) 100%);
+    border: 1px solid hsl(var(--color-ink) / 0.16);
+    box-shadow:
+      inset 0 1px 0 hsl(var(--color-paper) / 0.7),
+      0 8px 18px hsl(var(--color-ink) / 0.07);
+  }
+
+  .btn-secondary::after {
+    background: radial-gradient(120% 90% at 50% 118%, hsl(var(--color-wood) / 0.12), transparent 60%);
+  }
+
+  .btn-secondary:hover {
+    @apply -translate-y-0.5;
+    border-color: hsl(var(--color-wood) / 0.45);
+    box-shadow:
+      inset 0 1px 0 hsl(var(--color-paper) / 0.8),
+      0 14px 28px hsl(var(--color-ink) / 0.11);
+  }
+
+  .btn-secondary:hover::after {
+    opacity: 1;
   }
 
   .btn-quiet {
@@ -198,7 +262,11 @@ body::after {
   }
 
   .card-hover {
-    @apply transition duration-300 hover:-translate-y-1 hover:border-vermilion/35 hover:shadow-soft;
+    @apply hover:-translate-y-0.5 hover:border-vermilion/30 hover:shadow-soft;
+    transition:
+      transform 520ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 520ms ease,
+      border-color 360ms ease;
   }
 
   .input-field {
@@ -362,6 +430,121 @@ body::after {
 [class~="bg-paper/50"] {
   background-color: hsl(var(--color-paper) / 0.48) !important;
   backdrop-filter: blur(10px);
+}
+
+.btn-secondary.text-paper,
+.btn-secondary[class~="text-paper"] {
+  color: hsl(var(--color-paper)) !important;
+  background-color: hsl(var(--color-ink) / 0.36) !important;
+  background-image: linear-gradient(165deg, hsl(var(--color-charcoal) / 0.92) 0%, hsl(var(--color-ink) / 0.96) 100%) !important;
+  border-color: hsl(var(--color-paper) / 0.28) !important;
+  box-shadow:
+    inset 0 1px 0 hsl(var(--color-paper) / 0.14),
+    0 10px 22px hsl(var(--color-ink) / 0.22);
+}
+
+.btn-secondary.text-paper::after,
+.btn-secondary[class~="text-paper"]::after {
+  background: radial-gradient(120% 90% at 50% 118%, hsl(var(--color-vermilion) / 0.18), transparent 60%);
+}
+
+.btn-secondary.text-paper:hover,
+.btn-secondary[class~="text-paper"]:hover {
+  color: hsl(var(--color-paper)) !important;
+  background-color: hsl(var(--color-ink) / 0.5) !important;
+  border-color: hsl(var(--color-vermilion) / 0.6) !important;
+  box-shadow:
+    inset 0 1px 0 hsl(var(--color-paper) / 0.16),
+    0 14px 30px hsl(var(--color-ink) / 0.3);
+}
+
+html.admin-route body,
+body.admin-simple {
+  background: #ffffff !important;
+  background-image: none !important;
+  background-attachment: scroll !important;
+}
+
+html.admin-route body::before,
+html.admin-route body::after,
+body.admin-simple::before,
+body.admin-simple::after {
+  display: none !important;
+  content: none !important;
+}
+
+html.admin-route #root,
+body.admin-simple #root {
+  zoom: 1;
+}
+
+body.admin-simple h1,
+body.admin-simple h2,
+body.admin-simple h3,
+body.admin-simple h4 {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body.admin-simple .surface,
+body.admin-simple .bg-paper,
+body.admin-simple .bg-white,
+body.admin-simple [class~="bg-paper/95"],
+body.admin-simple [class~="bg-paper/90"],
+body.admin-simple [class~="bg-paper/85"],
+body.admin-simple [class~="bg-paper/80"],
+body.admin-simple [class~="bg-paper/75"],
+body.admin-simple [class~="bg-paper/70"],
+body.admin-simple [class~="bg-paper/60"],
+body.admin-simple [class~="bg-paper/50"] {
+  background: #ffffff !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
+body.admin-simple .surface,
+body.admin-simple article,
+body.admin-simple [class*="rounded-"],
+body.admin-simple .input-field,
+body.admin-simple .btn-primary,
+body.admin-simple .btn-secondary,
+body.admin-simple .btn-quiet {
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+body.admin-simple .btn-primary,
+body.admin-simple .btn-secondary,
+body.admin-simple .btn-quiet {
+  background-image: none !important;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+body.admin-simple .btn-primary::after,
+body.admin-simple .btn-secondary::after {
+  display: none !important;
+}
+
+body.admin-simple .btn-primary {
+  border: 1px solid #111827;
+  background: #111827 !important;
+  color: #ffffff;
+}
+
+body.admin-simple .btn-secondary {
+  border: 1px solid #d1d5db;
+  background: #ffffff !important;
+  color: #111827;
+}
+
+body.admin-simple .btn-primary:hover,
+body.admin-simple .btn-secondary:hover {
+  transform: none !important;
+}
+
+body.admin-simple .input-field {
+  background: #ffffff !important;
+  backdrop-filter: none !important;
+  border-color: #d1d5db !important;
 }
 
 @keyframes renshinkan-logo-stroke {

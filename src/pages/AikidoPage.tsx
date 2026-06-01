@@ -1,7 +1,6 @@
 import {
   ArrowUpRight,
   Camera,
-  HeartHandshake,
   ShieldCheck,
   Sparkles,
   Swords,
@@ -20,7 +19,6 @@ import {
   aikidoHistoricalPhotos,
   aikidoHistorySections,
   aikidoHistorySources,
-  aikidoValues,
   instructorSource,
   instructors,
   pcfAikidoImages,
@@ -115,22 +113,71 @@ export function AikidoPage() {
 
       {/* What Is Aikido? */}
       <MotionSection id="aikido-overview" className="container-shell scroll-mt-28 py-20">
-        <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-          <div>
-            <p className="eyebrow">{t("aikido.overview.eyebrow")}</p>
-            <h2 className="section-title">{t("aikido.overview.title")}</h2>
-            <div className="mt-5 grid gap-4 text-base text-charcoal/80 sm:text-lg">
-              <p>{t("aikido.overview.intro1")}</p>
-              <p>{t("aikido.overview.intro2")}</p>
-            </div>
-          </div>
+        <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
           <figure className="surface overflow-hidden rounded-[2rem]">
             <ResponsiveImage
-              src={aikidoActionImages.technique.src}
-              alt={aikidoActionImages.technique.alt}
-              imgClassName="aspect-[4/3] w-full object-cover lg:aspect-[4/5]"
+              src={pcfAikidoImages.classPractice.src}
+              alt={pcfAikidoImages.classPractice.alt}
+              imgClassName="aspect-[4/3] w-full object-cover"
+            />
+          </figure>
+          <div>
+            <p className="eyebrow">{t("aikido.about.eyebrow")}</p>
+            <h2 className="section-title">{t("aikido.about.title")}</h2>
+            <p className="mt-5 text-base leading-7 text-charcoal/80 sm:text-lg">
+              {t("aikido.about.copy")}
+            </p>
+            <div className="mt-8 grid gap-3 sm:grid-cols-3">
+              {[
+                {
+                  title: t("aikido.about.point1Title"),
+                  body: t("aikido.about.point1Body"),
+                },
+                {
+                  title: t("aikido.about.point2Title"),
+                  body: t("aikido.about.point2Body"),
+                },
+                {
+                  title: t("aikido.about.point3Title"),
+                  body: t("aikido.about.point3Body"),
+                },
+              ].map((pt) => (
+                <div key={pt.title} className="rounded-2xl bg-bamboo/10 px-5 py-4">
+                  <p className="text-sm font-bold text-ink">{pt.title}</p>
+                  <p className="mt-1 text-xs leading-5 text-charcoal/70">{pt.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="mt-5 grid gap-5 sm:grid-cols-2">
+          <figure className="surface card-hover overflow-hidden rounded-[2rem]">
+            <ResponsiveImage
+              src={pcfAikidoImages.joBokken.src}
+              alt={pcfAikidoImages.joBokken.alt}
+              imgClassName="aspect-video w-full object-cover"
               loading="lazy"
             />
+            <figcaption className="p-5">
+              <h3 className="text-2xl text-ink">{t("aikido.about.traditionTitle")}</h3>
+              <p className="mt-2 text-sm text-charcoal/75">
+                {t("aikido.about.traditionCopy")}
+              </p>
+            </figcaption>
+          </figure>
+          <figure className="surface card-hover overflow-hidden rounded-[2rem]">
+            <ResponsiveImage
+              src={pcfAikidoImages.kamiza.src}
+              alt={pcfAikidoImages.kamiza.alt}
+              imgClassName="aspect-video w-full object-cover"
+              loading="lazy"
+            />
+            <figcaption className="p-5">
+              <h3 className="text-2xl text-ink">{t("aikido.about.spaceTitle")}</h3>
+              <p className="mt-2 text-sm text-charcoal/75">
+                {t("aikido.about.spaceCopy")}
+              </p>
+            </figcaption>
           </figure>
         </div>
 
@@ -269,17 +316,17 @@ export function AikidoPage() {
 
       {/* Who Can Practice? */}
       <MotionSection id="who-can-practice" className="container-shell scroll-mt-28 pb-20">
-        <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-          <div>
+        <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
+          <div className="max-w-3xl">
             <p className="eyebrow">{t("aikido.who.eyebrow")}</p>
             <h2 className="section-title">{t("aikido.who.title")}</h2>
             <p className="section-copy">{t("aikido.who.intro")}</p>
           </div>
           <figure className="surface overflow-hidden rounded-[2rem]">
             <ResponsiveImage
-              src={aikidoActionImages.pin.src}
-              alt={aikidoActionImages.pin.alt}
-              imgClassName="aspect-[4/3] w-full object-cover lg:aspect-[4/5]"
+              src={aikidoActionImages.trainingPin.src}
+              alt={aikidoActionImages.trainingPin.alt}
+              imgClassName="aspect-[3/4] w-full object-cover"
               loading="lazy"
             />
           </figure>
@@ -322,120 +369,6 @@ export function AikidoPage() {
               </div>
             );
           })}
-
-          <div className="surface rounded-[2rem] p-6 sm:p-8">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-bamboo/10 text-bamboo">
-                <HeartHandshake size={18} aria-hidden="true" />
-              </div>
-              <h3 className="text-2xl text-ink sm:text-3xl">
-                {t("aikido.who.visitorsTitle")}
-              </h3>
-            </div>
-            <p className="mt-3 max-w-3xl text-base leading-7 text-charcoal/80">
-              {t("aikido.who.visitorsDesc")}
-            </p>
-          </div>
-        </div>
-        <figure className="surface mt-5 overflow-hidden rounded-[2rem]">
-          <ResponsiveImage
-            src={aikidoActionImages.seminar.src}
-            alt={aikidoActionImages.seminar.alt}
-            imgClassName="aspect-[4/3] w-full object-cover sm:aspect-[16/9]"
-            objectPosition="center 40%"
-            loading="lazy"
-          />
-        </figure>
-      </MotionSection>
-
-      <MotionSection className="container-shell pb-20">
-        <div className="grid grid-cols-2 gap-3 min-[420px]:gap-4 md:grid-cols-2 xl:grid-cols-5">
-          {aikidoValues.map((value) => {
-            const Icon = value.icon;
-            return (
-              <article key={value.title} className="surface card-hover rounded-[1.35rem] p-4 min-[420px]:p-5 sm:rounded-[1.75rem] lg:p-7">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-bamboo/10 text-bamboo sm:h-11 sm:w-11">
-                  <Icon size={20} aria-hidden="true" />
-                </div>
-                <h2 className="mt-4 text-[1.24rem] leading-tight text-ink min-[420px]:text-[1.36rem] sm:mt-6 sm:text-2xl">
-                  {value.title}
-                </h2>
-                <p className="mt-2 text-xs leading-5 text-charcoal/75 sm:mt-3 sm:text-sm sm:leading-6">
-                  {value.description}
-                </p>
-              </article>
-            );
-          })}
-        </div>
-      </MotionSection>
-
-      <MotionSection className="container-shell pb-20">
-        <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
-          <figure className="surface overflow-hidden rounded-[2rem]">
-            <ResponsiveImage
-              src={pcfAikidoImages.classPractice.src}
-              alt={pcfAikidoImages.classPractice.alt}
-              imgClassName="aspect-[4/3] w-full object-cover"
-            />
-          </figure>
-          <div>
-            <p className="eyebrow">{t("aikido.about.eyebrow")}</p>
-            <h2 className="section-title">{t("aikido.about.title")}</h2>
-            <p className="mt-5 text-base leading-7 text-charcoal/80 sm:text-lg">
-              {t("aikido.about.copy")}
-            </p>
-            <div className="mt-8 grid gap-3 sm:grid-cols-3">
-              {[
-                {
-                  title: t("aikido.about.point1Title"),
-                  body: t("aikido.about.point1Body"),
-                },
-                {
-                  title: t("aikido.about.point2Title"),
-                  body: t("aikido.about.point2Body"),
-                },
-                {
-                  title: t("aikido.about.point3Title"),
-                  body: t("aikido.about.point3Body"),
-                },
-              ].map((pt) => (
-                <div key={pt.title} className="rounded-2xl bg-bamboo/10 px-5 py-4">
-                  <p className="text-sm font-bold text-ink">{pt.title}</p>
-                  <p className="mt-1 text-xs leading-5 text-charcoal/70">{pt.body}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="mt-5 grid gap-5 sm:grid-cols-2">
-          <figure className="surface card-hover overflow-hidden rounded-[2rem]">
-            <ResponsiveImage
-              src={pcfAikidoImages.joBokken.src}
-              alt={pcfAikidoImages.joBokken.alt}
-              imgClassName="aspect-video w-full object-cover"
-              loading="lazy"
-            />
-            <figcaption className="p-5">
-              <h3 className="text-2xl text-ink">{t("aikido.about.traditionTitle")}</h3>
-              <p className="mt-2 text-sm text-charcoal/75">
-                {t("aikido.about.traditionCopy")}
-              </p>
-            </figcaption>
-          </figure>
-          <figure className="surface card-hover overflow-hidden rounded-[2rem]">
-            <ResponsiveImage
-              src={pcfAikidoImages.kamiza.src}
-              alt={pcfAikidoImages.kamiza.alt}
-              imgClassName="aspect-video w-full object-cover"
-              loading="lazy"
-            />
-            <figcaption className="p-5">
-              <h3 className="text-2xl text-ink">{t("aikido.about.spaceTitle")}</h3>
-              <p className="mt-2 text-sm text-charcoal/75">
-                {t("aikido.about.spaceCopy")}
-              </p>
-            </figcaption>
-          </figure>
         </div>
       </MotionSection>
 

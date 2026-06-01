@@ -71,7 +71,6 @@ export function DojoPage() {
   return (
     <>
       <section id="home" className="relative isolate min-h-[var(--hero-viewport-height)] scroll-mt-28 overflow-hidden">
-        {/* Watercolour koi background */}
         <ResponsiveImage
           src={assetPath("/dojo-photos/new-hero-poster.png")}
           alt=""
@@ -126,7 +125,7 @@ export function DojoPage() {
             <div>
               {recentUpdates.length > 0 ? (
                 <>
-                  <div className="relative overflow-hidden rounded-[1.75rem] border border-ink/10 bg-paper/65">
+                  <div className="relative h-[28rem] overflow-hidden rounded-[1.75rem] border border-ink/10 bg-paper/65 sm:h-[24rem] lg:h-[21rem]">
                     <AnimatePresence mode="wait" initial={false}>
                       <motion.div
                         key={recentEventIndex}
@@ -134,7 +133,7 @@ export function DojoPage() {
                         animate={{ opacity: 1, x: 0 }}
                         exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: -20 }}
                         transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
-                        className="grid gap-0 lg:grid-cols-[0.86fr_1fr]"
+                        className="grid h-full grid-rows-[auto_1fr] gap-0 lg:grid-cols-[0.86fr_1fr] lg:grid-rows-1"
                       >
                         <ResponsiveImage
                           src={
@@ -143,22 +142,22 @@ export function DojoPage() {
                             assetPath("/dojo-photos/aikido-hero-new.png")
                           }
                           alt={`${recentUpdates[recentEventIndex].title} at ${t("common.brand")}.`}
-                          imgClassName="aspect-[4/3] h-full w-full object-cover"
+                          imgClassName="h-40 w-full object-cover sm:h-44 lg:h-full"
                           loading="lazy"
                         />
-                        <div className="p-6 sm:p-8">
+                        <div className="flex min-h-0 flex-col overflow-hidden p-6 sm:p-8">
                           <p className="text-xs font-bold uppercase tracking-[0.16em] text-bamboo">
                             {recentUpdates[recentEventIndex].date}
                           </p>
-                          <h3 className="mt-4 text-2xl leading-tight text-ink sm:text-4xl">
+                          <h3 className="mt-3 line-clamp-2 text-2xl leading-tight text-ink sm:text-3xl">
                             {recentUpdates[recentEventIndex].title}
                           </h3>
-                          <p className="mt-4 text-sm leading-7 text-charcoal/75">
+                          <p className="mt-3 line-clamp-3 text-sm leading-7 text-charcoal/75 sm:line-clamp-4">
                             {recentUpdates[recentEventIndex].summary}
                           </p>
                           <Link
                             to={`/newsletter#${recentUpdates[recentEventIndex].slug}`}
-                            className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-vermilion transition hover:text-ink"
+                            className="mt-auto inline-flex items-center gap-2 pt-5 text-sm font-bold text-vermilion transition hover:text-ink"
                           >
                             {t("common.viewUpdate")}
                             <ArrowRight size={15} aria-hidden="true" />

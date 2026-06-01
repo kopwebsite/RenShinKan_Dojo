@@ -18,7 +18,6 @@ import {
   communityValues,
   pcfDojoPhotos,
   peaceCultureFoundation,
-  relatedDojos,
 } from "../data/siteContent";
 import { useTranslation } from "../i18n";
 import { getCommunityCalendarEvents, useEditableContent } from "../lib/content";
@@ -29,34 +28,13 @@ export function CommunityPage() {
   const { content } = useEditableContent();
   const activeHistoryMedia = content.historyMedia.length ? content.historyMedia : historyMedia;
   const [cmuHeroPhoto, ...cmuGalleryPhotos] = cmuAikidoClub.photos;
-  const staticUpcomingEvents = [
-    {
-      title: "Community Practice Day",
-      date: "Posted through dojo updates",
-      description: `An open training session welcoming students from ${t("common.brand")}, AikidoCMU, and other connected dojos.`,
-    },
-    {
-      title: "Peace Culture Workshop",
-      date: "Posted through dojo updates",
-      description:
-        "A foundation-connected workshop on peace education, safety, and community-building through aikido.",
-    },
-    {
-      title: "Dojo Gathering",
-      date: "Posted through dojo updates",
-      description:
-        "A student gathering with a shared meal, open mat, or volunteer day. Confirmed details are shared in the dojo updates.",
-    },
-  ];
   const communityCalendarEvents = useMemo(() => getCommunityCalendarEvents(content), [content]);
-  const upcomingEvents = communityCalendarEvents.length
-    ? communityCalendarEvents.map((event) => ({
-        title: event.title,
-        date: event.date,
-        description: event.summary || event.body,
-        href: `/newsletter#${event.slug}`,
-      }))
-    : staticUpcomingEvents;
+  const upcomingEvents = communityCalendarEvents.map((event) => ({
+    title: event.title,
+    date: event.date,
+    description: event.summary || event.body,
+    href: `/newsletter#${event.slug}`,
+  }));
 
   return (
     <>
@@ -117,35 +95,49 @@ export function CommunityPage() {
             {t("community.events.copy")}
           </p>
         </div>
-        <div className="surface rounded-[2.5rem] overflow-hidden">
-          {upcomingEvents.map((event, i) => (
-            <div
-              key={event.title}
-              className={`flex flex-col items-start gap-4 px-6 py-7 sm:flex-row sm:gap-8 sm:px-10 sm:py-9 lg:gap-10 lg:px-12${
-                i < upcomingEvents.length - 1 ? " border-b border-ink/[0.07]" : ""
-              }`}
-            >
-              <div className="mt-0.5 flex h-12 w-12 flex-none items-center justify-center rounded-full bg-vermilion/10 text-vermilion sm:h-14 sm:w-14">
-                <CalendarDays size={24} aria-hidden="true" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-bamboo">
-                  {event.date}
-                </p>
-                <h3 className="mt-2 font-serif text-3xl text-ink sm:text-4xl">
-                  {"href" in event ? (
+        {upcomingEvents.length > 0 ? (
+          <div className="surface rounded-[2.5rem] overflow-hidden">
+            {upcomingEvents.map((event, i) => (
+              <div
+                key={event.title}
+                className={`flex flex-col items-start gap-4 px-6 py-7 sm:flex-row sm:gap-8 sm:px-10 sm:py-9 lg:gap-10 lg:px-12${
+                  i < upcomingEvents.length - 1 ? " border-b border-ink/[0.07]" : ""
+                }`}
+              >
+                <div className="mt-0.5 flex h-12 w-12 flex-none items-center justify-center rounded-full bg-vermilion/10 text-vermilion sm:h-14 sm:w-14">
+                  <CalendarDays size={24} aria-hidden="true" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-bamboo">
+                    {event.date}
+                  </p>
+                  <h3 className="mt-2 font-serif text-3xl text-ink sm:text-4xl">
                     <Link to={event.href} className="transition hover:text-vermilion">
                       {event.title}
                     </Link>
-                  ) : (
-                    event.title
-                  )}
-                </h3>
-                <p className="mt-3 text-base text-charcoal/75 max-w-2xl">{event.description}</p>
+                  </h3>
+                  <p className="mt-3 text-base text-charcoal/75 max-w-2xl">{event.description}</p>
+                </div>
               </div>
+            ))}
+          </div>
+        ) : (
+          <div className="surface flex flex-col items-center rounded-[2.5rem] px-6 py-16 text-center sm:px-10">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-bamboo/10 text-bamboo">
+              <CalendarDays size={30} aria-hidden="true" />
             </div>
-          ))}
-        </div>
+            <h3 className="mt-6 font-serif text-3xl text-ink sm:text-4xl">
+              {t("community.events.emptyTitle")}
+            </h3>
+            <p className="mt-4 max-w-xl text-base leading-7 text-charcoal/75">
+              {t("community.events.emptyCopy")}
+            </p>
+            <Link to="/newsletter#recent-events" className="btn-secondary mt-7">
+              {t("community.events.emptyCta")}
+              <ArrowUpRight size={16} aria-hidden="true" />
+            </Link>
+          </div>
+        )}
       </MotionSection>
 
       {/* Past Events */}
@@ -438,74 +430,6 @@ export function CommunityPage() {
               </figcaption>
             </figure>
           ))}
-        </div>
-      </MotionSection>
-
-      {/* Other Dojos */}
-      <MotionSection id="other-dojos" className="container-shell scroll-mt-28 pb-20">
-        <div className="mb-8 max-w-3xl">
-          <p className="eyebrow">{t("community.otherDojos.eyebrow")}</p>
-          <h2 className="section-title">{t("community.otherDojos.title")}</h2>
-          <p className="section-copy">
-            {t("community.otherDojos.copy")}
-          </p>
-        </div>
-        <div className="grid gap-5 md:grid-cols-3">
-          {relatedDojos.map((dojo) => (
-            <article
-              key={dojo.name}
-              className="surface card-hover rounded-[1.75rem] p-6 flex flex-col"
-            >
-              {dojo.logo ? (
-                <div className="h-14 w-14 flex-none">
-                  <img
-                    src={dojo.logo}
-                    alt={`${dojo.name} logo`}
-                    className="h-full w-full object-contain"
-                  />
-                </div>
-              ) : (
-                <div className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-bamboo/10 text-bamboo">
-                  <UsersRound size={22} aria-hidden="true" />
-                </div>
-              )}
-              <h3 className="mt-5 text-2xl text-ink">{dojo.name}</h3>
-              <p className="mt-1 text-xs font-bold uppercase tracking-[0.14em] text-charcoal/50">
-                {dojo.location}
-              </p>
-              <p className="mt-3 flex-1 text-sm text-charcoal/75">{dojo.description}</p>
-              {dojo.url ? (
-                <a
-                  href={dojo.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-5 inline-flex items-center gap-1.5 text-sm font-bold text-vermilion transition hover:text-ink"
-                >
-                  {t("common.visitWebsite")}
-                  <ArrowUpRight size={15} aria-hidden="true" />
-                </a>
-              ) : dojo.facebook ? (
-                <a
-                  href={dojo.facebook}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-5 inline-flex items-center gap-1.5 text-sm font-bold text-vermilion transition hover:text-ink"
-                >
-                  {t("common.facebookPage")}
-                  <ArrowUpRight size={15} aria-hidden="true" />
-                </a>
-              ) : null}
-            </article>
-          ))}
-        </div>
-        <div className="mt-8 rounded-[1.75rem] bg-bamboo/10 p-6 ring-1 ring-bamboo/20">
-          <p className="text-sm text-charcoal/78">
-            <span className="font-bold text-ink">{t("community.otherDojos.know")}</span>{" "}
-            {t("community.otherDojos.knowCopy")}{" "}
-            <Link to="/contact" className="font-bold text-vermilion hover:text-ink transition">
-              {t("common.contactUs")}
-            </Link>
-          </p>
         </div>
       </MotionSection>
     </>

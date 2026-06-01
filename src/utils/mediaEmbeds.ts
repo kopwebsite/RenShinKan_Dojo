@@ -1,12 +1,13 @@
-export function isValidEmbedUrl(value: string) {
+export function isValidEmbedUrl(value: string): boolean {
   const trimmed = value.trim();
 
   if (!trimmed) {
     return false;
   }
 
-  if (trimmed.startsWith("<iframe") && trimmed.includes("src=")) {
-    return true;
+  if (trimmed.startsWith("<iframe")) {
+    const match = trimmed.match(/src=["']([^"']+)["']/i);
+    return match ? isValidEmbedUrl(match[1]) : false;
   }
 
   try {
@@ -16,12 +17,14 @@ export function isValidEmbedUrl(value: string) {
       url.pathname.includes("/embed/") ||
       url.pathname.includes("/video/") ||
       url.pathname.includes("/player/");
+    const isVimeoPage = host === "vimeo.com" && /^\/\d+/.test(url.pathname);
 
     return (
       url.protocol === "https:" &&
       (isEmbedPath ||
         host === "youtube.com" ||
         host === "youtu.be" ||
+        isVimeoPage ||
         host === "player.vimeo.com" ||
         host.endsWith(".youtube.com"))
     );
@@ -50,6 +53,18 @@ export function normalizeEmbedUrl(value: string) {
       const id = url.searchParams.get("v");
       if (id) {
         return `https://www.youtube.com/embed/${id}`;
+      }
+
+      const shortsMatch = url.pathname.match(/^\/shorts\/([^/?#]+)/);
+      if (shortsMatch) {
+        return `https://www.youtube.com/embed/${shortsMatch[1]}`;
+      }
+    }
+
+    if (host === "vimeo.com") {
+      const id = url.pathname.match(/^\/(\d+)/)?.[1];
+      if (id) {
+        return `https://player.vimeo.com/video/${id}`;
       }
     }
 

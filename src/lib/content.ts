@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type {
+  BodyMediaPlacement,
   EditableContent,
   ExamAnnouncement,
   MediaItem,
@@ -8,6 +9,12 @@ import type {
   RecentEvent,
 } from "../types/editableContent";
 import { assetPath } from "../utils/assetPath";
+import {
+  clampBodyMediaPosition,
+  clampBodyMediaWidth,
+  normalizeBodyMediaAlign,
+} from "../utils/eventBody";
+import { isValidEmbedUrl } from "../utils/mediaEmbeds";
 
 export const emptyEditableContent: EditableContent = {
   version: 1,
@@ -37,6 +44,21 @@ function asOptionalNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
+function normalizeBodyMediaPlacement(value: unknown): BodyMediaPlacement | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  return {
+    position:
+      typeof value.position === "number" && Number.isFinite(value.position)
+        ? clampBodyMediaPosition(value.position, Number.MAX_SAFE_INTEGER)
+        : undefined,
+    widthPercent: clampBodyMediaWidth(value.widthPercent),
+    align: normalizeBodyMediaAlign(value.align),
+  };
+}
+
 function normalizeNewsletterStatus(value: unknown): NewsletterStatus {
   return value === "pending" || value === "sent" || value === "failed" ? value : "not_sent";
 }
@@ -54,6 +76,10 @@ function normalizeMediaItem(value: unknown): MediaItem | null {
     return null;
   }
 
+  if (type === "video" && !isValidEmbedUrl(src)) {
+    return null;
+  }
+
   return {
     id,
     src,
@@ -66,6 +92,7 @@ function normalizeMediaItem(value: unknown): MediaItem | null {
     objectPosition: asOptionalString(value.objectPosition),
     width: asOptionalNumber(value.width),
     height: asOptionalNumber(value.height),
+    bodyPlacement: normalizeBodyMediaPlacement(value.bodyPlacement),
   };
 }
 

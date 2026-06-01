@@ -1,11 +1,57 @@
+import { Languages } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { MediaSlider } from "../components/MediaSlider";
+import { EventBodyRenderer } from "../components/EventBodyRenderer";
 import { NewsletterSignup } from "../components/NewsletterSignup";
 import { MotionSection } from "../components/MotionSection";
 import { newsletters } from "../data/siteContent";
-import { useTranslation } from "../i18n";
+import { useTranslation, type Language } from "../i18n";
 import { getPublishedRecentEvents, useEditableContent } from "../lib/content";
+
+const googleTranslateTarget: Record<Language, string> = {
+  en: "en",
+  th: "th",
+  "zh-CN": "zh-CN",
+  ja: "ja",
+};
+
+function buildGoogleTranslateTextUrl(targetLanguage: string, text: string) {
+  const params = new URLSearchParams({
+    sl: "auto",
+    tl: targetLanguage,
+    text,
+    op: "translate",
+  });
+
+  return `https://translate.google.com/?${params.toString()}`;
+}
+
+function NewsletterTranslateButton({
+  title,
+  text,
+  className = "",
+}: {
+  title: string;
+  text: string;
+  className?: string;
+}) {
+  const { language, t } = useTranslation();
+  const targetLanguage = googleTranslateTarget[language] ?? "en";
+  const href = buildGoogleTranslateTextUrl(targetLanguage, text);
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-bamboo/30 bg-paper/80 px-4 py-2 text-sm font-bold text-bamboo transition hover:border-bamboo hover:bg-bamboo/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo ${className}`}
+      aria-label={t("newsletter.translate.aria", { title })}
+    >
+      <Languages size={16} aria-hidden="true" />
+      {t("newsletter.translate.label")}
+    </a>
+  );
+}
 
 export function NewsletterPage() {
   const { t } = useTranslation();
@@ -19,6 +65,9 @@ export function NewsletterPage() {
     : activeEvent?.image
       ? [activeEvent.image]
       : [];
+  const activeEventTranslationText = activeEvent
+    ? [activeEvent.date, activeEvent.title, activeEvent.summary, activeEvent.body].filter(Boolean).join("\n\n")
+    : "";
 
   useEffect(() => {
     const slug = location.hash.replace("#", "");
@@ -73,22 +122,27 @@ export function NewsletterPage() {
 
         {activeEvent ? (
           <article id={activeEvent.slug} className="surface rounded-[2rem] p-6 sm:p-8">
-            <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
-              <div>
-                <p className="text-sm font-bold text-bamboo">{activeEvent.date}</p>
-                <h3 className="mt-5 text-3xl leading-tight text-ink sm:text-5xl">{activeEvent.title}</h3>
-                <p className="mt-5 max-w-3xl text-base leading-7 text-charcoal/75">{activeEvent.summary}</p>
-                <p className="mt-5 max-w-3xl whitespace-pre-line text-sm leading-7 text-charcoal/78">
-                  {activeEvent.body}
-                </p>
-              </div>
-              <MediaSlider media={activeMedia} label={`${activeEvent.title} media`} />
+            <p className="text-sm font-bold text-bamboo">{activeEvent.date}</p>
+            <h3 className="mt-5 text-3xl leading-tight text-ink sm:text-5xl">{activeEvent.title}</h3>
+            <div className="mt-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <p className="max-w-3xl text-base leading-7 text-charcoal/75">{activeEvent.summary}</p>
+              <NewsletterTranslateButton
+                title={activeEvent.title}
+                text={activeEventTranslationText}
+                className="lg:shrink-0"
+              />
             </div>
+            <EventBodyRenderer
+              body={activeEvent.body}
+              media={activeMedia}
+              fallbackTitle={activeEvent.title}
+              className="mt-6 max-w-4xl"
+            />
           </article>
         ) : (
           <article className="surface rounded-[2rem] p-6 sm:p-8">
             <p className="text-sm leading-6 text-charcoal/72">
-              Recent dojo updates will appear here after they are published.
+              {t("newsletter.recent.empty")}
             </p>
           </article>
         )}
@@ -134,6 +188,11 @@ export function NewsletterPage() {
               <p className="text-sm font-bold text-bamboo">{item.date}</p>
               <h3 className="mt-4 text-3xl leading-tight text-ink">{item.title}</h3>
               <p className="mt-4 text-sm text-charcoal/75">{item.summary}</p>
+              <NewsletterTranslateButton
+                title={item.title}
+                text={[item.date, item.title, item.summary].join("\n\n")}
+                className="mt-5"
+              />
             </article>
           ))}
         </div>

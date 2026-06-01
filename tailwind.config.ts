@@ -11,6 +11,7 @@ const config: Config = {
         stone: "hsl(var(--color-stone) / <alpha-value>)",
         mist: "hsl(var(--color-mist) / <alpha-value>)",
         vermilion: "hsl(var(--color-vermilion) / <alpha-value>)",
+        persimmon: "hsl(var(--color-persimmon) / <alpha-value>)",
         bamboo: "hsl(var(--color-bamboo) / <alpha-value>)",
         wood: "hsl(var(--color-wood) / <alpha-value>)",
       },

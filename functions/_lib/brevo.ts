@@ -35,49 +35,181 @@ function eventUrl(env: BrevoEnv, event: RecentEvent) {
   return `${baseUrl}/newsletter#${encodeURIComponent(event.slug)}`;
 }
 
-// Turn the post body (plain text from the admin editor) into paragraphs.
-// Blank lines start a new paragraph; single line breaks become <br>.
-// Works for a one-line blurb or a long, multi-paragraph blog post.
-function renderParagraphs(text: string) {
-  const blocks = (text || "")
+function absoluteUrl(base: string, src: string) {
+  if (/^(https?:|mailto:|tel:)/i.test(src)) {
+    return src;
+  }
+
+  return src.startsWith("/") ? `${base}${src}` : `${base}/${src}`;
+}
+
+function splitBodyParagraphs(text: string) {
+  return (text || "")
     .split(/\n{2,}/)
     .map((block) => block.trim())
     .filter(Boolean);
-
-  return blocks
-    .map(
-      (block) =>
-        `<p style="margin:0 0 16px 0;">${escapeHtml(block).replace(/\n/g, "<br />")}</p>`,
-    )
-    .join("\n              ");
 }
 
-// Render any extra photos attached to the post (the `media` array), skipping
-// videos and the lead image (which is already shown as the hero).
-function renderGalleryImages(media: RecentEvent["media"], leadSrc?: string) {
-  const items = (media || []).filter(
-    (item) => item.type === "image" && item.src && item.src !== leadSrc,
-  );
+function bodyPlacement(item: NonNullable<RecentEvent["media"]>[number], paragraphCount: number) {
+  const placement = item.bodyPlacement;
+  const position =
+    typeof placement?.position === "number" && Number.isFinite(placement.position)
+      ? Math.min(Math.max(Math.round(placement.position), 0), paragraphCount)
+      : paragraphCount;
+  const widthPercent =
+    typeof placement?.widthPercent === "number" && Number.isFinite(placement.widthPercent)
+      ? Math.min(Math.max(Math.round(placement.widthPercent), 25), 100)
+      : 70;
+  const align = placement?.align === "left" || placement?.align === "right" ? placement.align : "center";
 
-  if (items.length === 0) {
-    return "";
+  return { position, widthPercent, align };
+}
+
+function normalizeEmbedUrl(value: string) {
+  const trimmed = value.trim();
+
+  if (trimmed.startsWith("<iframe")) {
+    const match = trimmed.match(/src=["']([^"']+)["']/i);
+    return match?.[1] ?? trimmed;
   }
 
-  return items
-    .map(
-      (item) => `
+  try {
+    const url = new URL(trimmed);
+    const host = url.hostname.replace(/^www\./, "");
+
+    if (host === "youtu.be") {
+      return `https://www.youtube.com/embed/${url.pathname.slice(1)}`;
+    }
+
+    if (host === "youtube.com" || host.endsWith(".youtube.com")) {
+      const id = url.searchParams.get("v");
+      if (id) {
+        return `https://www.youtube.com/embed/${id}`;
+      }
+
+      const shortsMatch = url.pathname.match(/^\/shorts\/([^/?#]+)/);
+      if (shortsMatch) {
+        return `https://www.youtube.com/embed/${shortsMatch[1]}`;
+      }
+    }
+
+    if (host === "vimeo.com") {
+      const id = url.pathname.match(/^\/(\d+)/)?.[1];
+      if (id) {
+        return `https://player.vimeo.com/video/${id}`;
+      }
+    }
+
+    return trimmed;
+  } catch {
+    return trimmed;
+  }
+}
+
+function videoWatchUrl(value: string) {
+  const embedUrl = normalizeEmbedUrl(value);
+
+  try {
+    const url = new URL(embedUrl);
+    const host = url.hostname.replace(/^www\./, "");
+
+    if (host === "youtube.com" || host.endsWith(".youtube.com")) {
+      const id = url.pathname.match(/^\/embed\/([^/?#]+)/)?.[1];
+      if (id) {
+        return `https://www.youtube.com/watch?v=${id}`;
+      }
+    }
+
+    if (host === "player.vimeo.com") {
+      const id = url.pathname.match(/^\/video\/([^/?#]+)/)?.[1];
+      if (id) {
+        return `https://vimeo.com/${id}`;
+      }
+    }
+
+    return embedUrl;
+  } catch {
+    return embedUrl;
+  }
+}
+
+function renderParagraphRow(text: string) {
+  const paragraphHtml = escapeHtml(text).replace(/\n/g, "<br />");
+
+  return `
           <tr>
-            <td class="pad" style="padding:20px 48px 0 48px;">
-              <img src="${escapeHtml(item.src)}" alt="${escapeHtml(item.alt || "")}" width="504" style="width:100%; max-width:504px; height:auto; display:block; border-radius:10px;" />${
+            <td class="pad body-txt sans" style="padding:18px 48px 0 48px; font-size:17px; line-height:29px; color:#3d362c;">
+              <p style="margin:0 0 16px 0;">${paragraphHtml}</p>
+            </td>
+          </tr>`;
+}
+
+function renderMediaRow(base: string, item: NonNullable<RecentEvent["media"]>[number], paragraphCount: number) {
+  const placement = bodyPlacement(item, paragraphCount);
+  const maxWidth = Math.round(504 * (placement.widthPercent / 100));
+
+  if (item.type === "video") {
+    const href = escapeHtml(videoWatchUrl(item.src));
+    const title = escapeHtml(item.title || item.caption || "Watch video");
+
+    return `
+          <tr>
+            <td class="pad" align="${placement.align}" style="padding:20px 48px 0 48px;">
+              <table role="presentation" width="${maxWidth}" cellpadding="0" cellspacing="0" border="0" style="width:100%; max-width:${maxWidth}px; border:1px solid #e3d8c1; background-color:#fffaf2;">
+                <tr>
+                  <td class="sans" style="padding:16px; font-size:15px; line-height:23px; color:#3d362c;">
+                    <div style="font-weight:700; color:#1f1b16;">${title}</div>
+                    <div style="margin-top:8px;"><a href="${href}" style="color:#b22a22; text-decoration:underline;">Watch video</a></div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>`;
+  }
+
+  const imageSrc = escapeHtml(absoluteUrl(base, item.src));
+
+  return `
+          <tr>
+            <td class="pad" align="${placement.align}" style="padding:20px 48px 0 48px;">
+              <img src="${imageSrc}" alt="${escapeHtml(item.alt || "")}" width="${maxWidth}" style="width:100%; max-width:${maxWidth}px; height:auto; display:block;" />${
                 item.caption
                   ? `
               <div class="sans" style="margin-top:8px; font-size:13px; line-height:19px; color:#7a6f60; font-style:italic;">${escapeHtml(item.caption)}</div>`
                   : ""
               }
             </td>
-          </tr>`,
-    )
-    .join("");
+          </tr>`;
+}
+
+function renderEventBodyRows(base: string, event: RecentEvent) {
+  const bodyText = event.body && event.body.trim() ? event.body : event.summary;
+  const paragraphs = splitBodyParagraphs(bodyText);
+  const paragraphCount = paragraphs.length;
+  const media = event.media?.length ? event.media : event.image ? [event.image] : [];
+  const mediaByPosition = new Map<number, typeof media>();
+  const rows: string[] = [];
+
+  for (const item of media) {
+    const placement = bodyPlacement(item, paragraphCount);
+    const items = mediaByPosition.get(placement.position) ?? [];
+    items.push(item);
+    mediaByPosition.set(placement.position, items);
+  }
+
+  const pushMediaRows = (position: number) => {
+    for (const item of mediaByPosition.get(position) ?? []) {
+      rows.push(renderMediaRow(base, item, paragraphCount));
+    }
+  };
+
+  pushMediaRows(0);
+  paragraphs.forEach((paragraph, index) => {
+    rows.push(renderParagraphRow(paragraph));
+    pushMediaRows(index + 1);
+  });
+
+  return rows.join("\n");
 }
 
 function campaignHtml(env: BrevoEnv, event: RecentEvent) {
@@ -86,21 +218,7 @@ function campaignHtml(env: BrevoEnv, event: RecentEvent) {
   const logo = `${base}/renshinkan-logo.png`;
   const texture = `${base}/parchment-texture.png`;
   const contactUrl = `${base}/contact`;
-
-  // Prefer the full body; fall back to the summary if the body is empty.
-  const bodyText = event.body && event.body.trim() ? event.body : event.summary;
-  const bodyHtml = renderParagraphs(bodyText);
-  const galleryHtml = renderGalleryImages(event.media, event.image?.src);
-
-  // Lead photo (only if the post has one).
-  const heroImage = event.image
-    ? `
-          <tr>
-            <td style="padding:18px 0 0 0;">
-              <img src="${escapeHtml(event.image.src)}" alt="${escapeHtml(event.image.alt || event.title)}" width="600" style="width:100%; max-width:600px; height:auto; display:block;" />
-            </td>
-          </tr>`
-    : "";
+  const bodyRows = renderEventBodyRows(base, event);
 
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en">
@@ -167,7 +285,6 @@ function campaignHtml(env: BrevoEnv, event: RecentEvent) {
               <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="width:56px; height:2px; background-color:#c8312a; font-size:0; line-height:0;">&nbsp;</td></tr></table>
             </td>
           </tr>
-${heroImage}
           <!-- Post date + title -->
           <tr>
             <td class="pad" style="padding:28px 48px 0 48px;">
@@ -175,14 +292,8 @@ ${heroImage}
               <h1 class="serif h1" style="margin:10px 0 0 0; font-weight:500; font-size:34px; line-height:42px; color:#1f1b16;">${escapeHtml(event.title)}</h1>
             </td>
           </tr>
-
-          <!-- Post body (short or long) -->
-          <tr>
-            <td class="pad body-txt sans" style="padding:18px 48px 0 48px; font-size:17px; line-height:29px; color:#3d362c;">
-              ${bodyHtml}
-            </td>
-          </tr>
-${galleryHtml}
+          <!-- Post body and embedded media -->
+${bodyRows}
           <!-- Read the full post on the website -->
           <tr>
             <td align="center" class="pad" style="padding:26px 48px 6px 48px;">

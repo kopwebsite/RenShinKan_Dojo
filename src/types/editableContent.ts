@@ -1,5 +1,13 @@
 export type NewsletterStatus = "not_sent" | "pending" | "sent" | "failed";
 
+export type BodyMediaAlign = "left" | "center" | "right";
+
+export type BodyMediaPlacement = {
+  position?: number;
+  widthPercent?: number;
+  align?: BodyMediaAlign;
+};
+
 export type MediaItem = {
   id: string;
   src: string;
@@ -12,6 +20,7 @@ export type MediaItem = {
   objectPosition?: string;
   width?: number;
   height?: number;
+  bodyPlacement?: BodyMediaPlacement;
 };
 
 export type RecentEvent = {

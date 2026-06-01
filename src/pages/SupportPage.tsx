@@ -3,23 +3,81 @@ import { useState } from "react";
 import { ContributionForm } from "../components/ContributionForm";
 import { MotionSection } from "../components/MotionSection";
 import { ResponsiveImage } from "../components/ResponsiveImage";
-import { useTranslation } from "../i18n";
+import { useTranslation, type TranslationKey } from "../i18n";
 import { assetPath } from "../utils/assetPath";
 
 const dojoExpenses = [
-  { label: "Electricity & Water", note: "Monthly utility bills for the training hall, changing rooms, and grounds." },
-  { label: "Mat Cleaning & Upkeep", note: "Regular cleaning supplies, sanitising, and tatami maintenance." },
-  { label: "Building Maintenance", note: "Ongoing repairs, painting, and general upkeep of the dojo structure and garden." },
-  { label: "Training Equipment", note: "Replacement and maintenance of bokken, jo, tanto, and other practice gear." },
-  { label: "Event & Seminar Costs", note: "Hosting visiting instructors, open days, belt examinations, and community events." },
-  { label: "Garden & Grounds", note: "Maintaining the outdoor space, plants, pathways, and the area surrounding the dojo." },
-  { label: "Student Welfare", note: "Drinking water, post-class refreshments, and small comforts that make the dojo welcoming." },
-];
+  {
+    labelKey: "support.expenses.utilities.label",
+    noteKey: "support.expenses.utilities.note",
+  },
+  {
+    labelKey: "support.expenses.mats.label",
+    noteKey: "support.expenses.mats.note",
+  },
+  {
+    labelKey: "support.expenses.building.label",
+    noteKey: "support.expenses.building.note",
+  },
+  {
+    labelKey: "support.expenses.equipment.label",
+    noteKey: "support.expenses.equipment.note",
+  },
+  {
+    labelKey: "support.expenses.safety.label",
+    noteKey: "support.expenses.safety.note",
+  },
+  {
+    labelKey: "support.expenses.events.label",
+    noteKey: "support.expenses.events.note",
+  },
+  {
+    labelKey: "support.expenses.garden.label",
+    noteKey: "support.expenses.garden.note",
+  },
+  {
+    labelKey: "support.expenses.welfare.label",
+    noteKey: "support.expenses.welfare.note",
+  },
+  {
+    labelKey: "support.expenses.admin.label",
+    noteKey: "support.expenses.admin.note",
+  },
+] satisfies { labelKey: TranslationKey; noteKey: TranslationKey }[];
 
-const transferDetails = [
-  { label: "Current Details", value: "Request the current account or PromptPay details from the dojo before sending funds." },
-  { label: "Reference", value: "Use your name so the contribution can be matched correctly." },
-];
+const contributionHighlights = [
+  {
+    valueKey: "support.highlights.dueDate.value",
+    labelKey: "support.highlights.dueDate.label",
+    noteKey: "support.highlights.dueDate.note",
+  },
+  {
+    valueKey: "support.highlights.returned.value",
+    labelKey: "support.highlights.returned.label",
+    noteKey: "support.highlights.returned.note",
+  },
+  {
+    valueKey: "support.highlights.shared.value",
+    labelKey: "support.highlights.shared.label",
+    noteKey: "support.highlights.shared.note",
+  },
+] satisfies { valueKey: TranslationKey; labelKey: TranslationKey; noteKey: TranslationKey }[];
+
+const donationUseKeys = [
+  "support.donations.uses.workshops",
+  "support.donations.uses.equipment",
+  "support.donations.uses.exams",
+  "support.donations.uses.outreach",
+  "support.donations.uses.access",
+] satisfies TranslationKey[];
+
+// Dojo bank / PromptPay details for direct transfers. Keep these in sync with
+// BANK_DETAILS in src/components/ContributionForm.tsx ("Pay with PromptPay QR code").
+const BANK_DETAILS = {
+  promptPayId: "0969380064", // same as the dojo mobile number
+  accountNumber: "232-2-86409-7",
+  bankName: "Kasikorn Bank",
+};
 
 const PROMPTPAY_QR_IMAGE = "/images/promptpay-qr.png";
 
@@ -27,9 +85,11 @@ export function SupportPage() {
   const { t } = useTranslation();
   const [transferOpen, setTransferOpen] = useState(false);
   const localizedTransferDetails = [
-    transferDetails[0],
-    { label: "Account Name", value: `${t("common.brand")} / Peace Culture Foundation` },
-    transferDetails[1],
+    { label: t("support.transfer.accountName"), value: `${t("common.brand")} / Peace Culture Foundation` },
+    { label: t("support.transfer.bank"), value: BANK_DETAILS.bankName },
+    { label: t("support.transfer.accountNumber"), value: BANK_DETAILS.accountNumber },
+    { label: t("support.transfer.promptPayId"), value: BANK_DETAILS.promptPayId },
+    { label: t("support.transfer.reference"), value: "Mr. Pass Thummaprugsa" },
   ];
 
   return (
@@ -104,24 +164,50 @@ export function SupportPage() {
               src/components/ContributionForm.tsx so it is easy to edit later. */}
           <ContributionForm />
 
-          <article className="surface rounded-[2rem] p-8 sm:p-10">
-            <h3 className="text-3xl text-ink">{t("support.monthly.coversTitle")}</h3>
-            <p className="mt-4 text-sm text-charcoal/75">
-              {t("support.monthly.coversCopy")}
-            </p>
-            <div className="mt-6 divide-y divide-ink/10">
-              {dojoExpenses.map((expense) => (
-                <div key={expense.label} className="py-4">
-                  <p className="text-sm font-bold text-ink">{expense.label}</p>
-                  <p className="mt-1 text-xs leading-5 text-charcoal/65">{expense.note}</p>
+          <article className="surface flex h-full flex-col rounded-[2rem] p-8 sm:p-10">
+            <div>
+              <h3 className="text-3xl text-ink">{t("support.monthly.coversTitle")}</h3>
+              <p className="mt-4 text-sm leading-6 text-charcoal/75">
+                {t("support.monthly.coversCopy")}
+              </p>
+            </div>
+
+            <div className="mt-7 grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+              {contributionHighlights.map((item) => (
+                <div key={item.labelKey} className="rounded-[1.35rem] border border-ink/10 bg-paper/65 p-4">
+                  <p className="text-2xl font-bold text-vermilion">{t(item.valueKey)}</p>
+                  <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-ink/70">
+                    {t(item.labelKey)}
+                  </p>
+                  <p className="mt-2 text-xs leading-5 text-charcoal/65">{t(item.noteKey)}</p>
                 </div>
               ))}
             </div>
-            <div className="mt-6 rounded-[1.5rem] bg-ink/90 p-5 text-paper backdrop-blur-sm">
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-mist/70">{t("support.monthly.reminderEyebrow")}</p>
-              <p className="mt-2 text-sm font-bold leading-6">
-                {t("support.monthly.reminderCopy")}
-              </p>
+
+            <div className="mt-7 grid flex-1 gap-3">
+              {dojoExpenses.map((expense) => (
+                <div key={expense.labelKey} className="rounded-[1.25rem] border border-ink/10 bg-paper/55 px-4 py-3.5">
+                  <p className="text-sm font-bold text-ink">{t(expense.labelKey)}</p>
+                  <p className="mt-1 text-xs leading-5 text-charcoal/65">{t(expense.noteKey)}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-7 grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+              <div className="rounded-[1.5rem] bg-bamboo/10 p-5 ring-1 ring-bamboo/20">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-bamboo/80">
+                  {t("support.monthly.whyTitle")}
+                </p>
+                <p className="mt-2 text-sm font-bold leading-6 text-ink">
+                  {t("support.monthly.whyCopy")}
+                </p>
+              </div>
+              <div className="rounded-[1.5rem] bg-ink/90 p-5 text-paper backdrop-blur-sm">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-mist/70">{t("support.monthly.reminderEyebrow")}</p>
+                <p className="mt-2 text-sm font-bold leading-6">
+                  {t("support.monthly.reminderCopy")}
+                </p>
+              </div>
             </div>
           </article>
         </div>
@@ -144,7 +230,7 @@ export function SupportPage() {
             <div className="w-72 max-w-full rounded-[2rem] border border-ink/10 bg-paper p-3 shadow-soft">
               <img
                 src={assetPath(PROMPTPAY_QR_IMAGE)}
-                alt="PromptPay QR code for RenshinKan Dojo donations"
+                alt={t("support.donations.promptPayQrAlt")}
                 className="aspect-square w-full rounded-[1.4rem] object-contain"
                 width={720}
                 height={720}
@@ -166,16 +252,10 @@ export function SupportPage() {
             <article className="surface rounded-[2rem] p-8">
               <h3 className="text-3xl text-ink">{t("support.donations.whereTitle")}</h3>
               <ul className="mt-5 grid gap-3">
-                {[
-                  "Workshops and guest instructor visits",
-                  "Training equipment and mat maintenance",
-                  "Belt examination events and materials",
-                  "Community outreach and open-day costs",
-                  "Keeping practice affordable for students with less flexibility",
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-3 text-sm text-charcoal/80">
+                {donationUseKeys.map((itemKey) => (
+                  <li key={itemKey} className="flex items-start gap-3 text-sm text-charcoal/80">
                     <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-vermilion" aria-hidden="true" />
-                    {item}
+                    {t(itemKey)}
                   </li>
                 ))}
               </ul>

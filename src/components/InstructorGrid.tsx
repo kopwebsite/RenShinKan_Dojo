@@ -1,14 +1,28 @@
 import { Medal, UserRoundCheck } from "lucide-react";
+import { useState } from "react";
 import { instructors } from "../data/siteContent";
 import { useTranslation } from "../i18n";
 import { ResponsiveImage } from "./ResponsiveImage";
 
+// Mobile lays instructors out two per row (grid-cols-2). Track the open state
+// per row so toggling one card's "training background" also expands its row
+// partner, keeping the row visually balanced.
+const MOBILE_COLUMNS = 2;
+
 export function InstructorGrid() {
   const { t } = useTranslation();
+  const [openRows, setOpenRows] = useState<Record<number, boolean>>({});
+
+  const toggleRow = (row: number) => {
+    setOpenRows((prev) => ({ ...prev, [row]: !prev[row] }));
+  };
 
   return (
     <div className="grid grid-cols-2 gap-3 min-[420px]:gap-4 sm:gap-5 lg:grid-cols-3">
-      {instructors.map((instructor) => (
+      {instructors.map((instructor, index) => {
+        const row = Math.floor(index / MOBILE_COLUMNS);
+        const isRowOpen = Boolean(openRows[row]);
+        return (
         <article
           key={instructor.name}
           className="surface card-hover overflow-hidden rounded-[1.35rem] sm:rounded-[2rem]"
@@ -39,8 +53,14 @@ export function InstructorGrid() {
             <p className="mt-2 text-sm font-semibold leading-tight text-charcoal/76 sm:hidden">
               {instructor.rank}
             </p>
-            <details className="mt-3 sm:hidden">
-              <summary className="cursor-pointer text-xs font-bold uppercase tracking-[0.12em] text-vermilion">
+            <details className="mt-3 sm:hidden" open={isRowOpen}>
+              <summary
+                className="cursor-pointer text-xs font-bold uppercase tracking-[0.12em] text-vermilion"
+                onClick={(event) => {
+                  event.preventDefault();
+                  toggleRow(row);
+                }}
+              >
                 {t("common.trainingBackground")}
               </summary>
               <p className="mt-2 text-xs leading-5 text-charcoal/72">
@@ -79,7 +99,8 @@ export function InstructorGrid() {
             </dl>
           </div>
         </article>
-      ))}
+        );
+      })}
     </div>
   );
 }

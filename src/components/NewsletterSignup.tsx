@@ -11,29 +11,33 @@ type NewsletterSignupProps = {
 // Tuned to hug the Brevo form content (email + captcha + button) with a small
 // buffer. Mobile stacks taller, so the listener below grows it when needed.
 const DEFAULT_FRAME_HEIGHT = 470;
+const BREVO_FORM_MAX_WIDTH = 540;
+const BREVO_FRAME_OVERSCAN_X = 24;
+const BREVO_FRAME_CROP_TOP = 40;
+const BREVO_FRAME_CROP_BOTTOM = 102;
 
 const benefits = [
   {
     icon: CalendarDays,
-    title: "Upcoming workshops",
-    copy: "Seminar dates and visiting-instructor events before they fill up.",
+    titleKey: "newsletter.signup.benefits.workshops.title",
+    copyKey: "newsletter.signup.benefits.workshops.copy",
   },
   {
     icon: Sparkles,
-    title: "New class details",
-    copy: "Schedule changes, new courses, and grading announcements.",
+    titleKey: "newsletter.signup.benefits.classes.title",
+    copyKey: "newsletter.signup.benefits.classes.copy",
   },
   {
     icon: Users,
-    title: "Dojo community",
-    copy: "Stories from the mat, member milestones, and special gatherings.",
+    titleKey: "newsletter.signup.benefits.community.title",
+    copyKey: "newsletter.signup.benefits.community.copy",
   },
   {
     icon: ShieldCheck,
-    title: "No spam, ever",
-    copy: "Only genuine dojo news. Unsubscribe in one click, anytime.",
+    titleKey: "newsletter.signup.benefits.privacy.title",
+    copyKey: "newsletter.signup.benefits.privacy.copy",
   },
-];
+] as const;
 
 function getSignupUrl() {
   const value = import.meta.env.VITE_BREVO_SIGNUP_FORM_URL;
@@ -103,24 +107,36 @@ export function NewsletterSignup({ compact = false, idPrefix = "newsletter" }: N
 
   const formColumn = signupUrl ? (
     canEmbed ? (
-      <iframe
-        ref={frameRef}
-        id={`${idPrefix}-brevo-form`}
-        title={`${t("common.brand")} newsletter signup`}
-        src={signupUrl}
-        scrolling="no"
-        style={{ height: frameHeight }}
-        className="block w-full rounded-[1rem] border border-ink/10 bg-paper transition-[height] duration-300"
-        loading="lazy"
-      />
+      <div
+        className="mx-auto w-full overflow-hidden rounded-[0.5rem] border border-ink/10 bg-paper shadow-line transition-[height] duration-300"
+        style={{
+          height: Math.max(frameHeight - BREVO_FRAME_CROP_TOP - BREVO_FRAME_CROP_BOTTOM, 320),
+          maxWidth: BREVO_FORM_MAX_WIDTH,
+        }}
+      >
+        <iframe
+          ref={frameRef}
+          id={`${idPrefix}-brevo-form`}
+          title={t("newsletter.signup.frameTitle", { brand: t("common.brand") })}
+          src={signupUrl}
+          scrolling="no"
+          style={{
+            height: frameHeight,
+            width: `calc(100% + ${BREVO_FRAME_OVERSCAN_X * 2}px)`,
+            transform: `translate(-${BREVO_FRAME_OVERSCAN_X}px, -${BREVO_FRAME_CROP_TOP}px)`,
+          }}
+          className="block max-w-none border-0 bg-paper transition-[height] duration-300"
+          loading="eager"
+        />
+      </div>
     ) : (
       <a href={signupUrl} target="_blank" rel="noopener noreferrer" className="btn-primary">
-        Open signup form
+        {t("newsletter.signup.openForm")}
       </a>
     )
   ) : (
     <div className="rounded-[1.25rem] border border-dashed border-ink/20 bg-paper/55 p-5 text-sm leading-6 text-charcoal/68">
-      Add VITE_BREVO_SIGNUP_FORM_URL to show the Brevo signup form.
+      {t("newsletter.signup.missingConfig")}
     </div>
   );
 
@@ -134,22 +150,22 @@ export function NewsletterSignup({ compact = false, idPrefix = "newsletter" }: N
               <Mail size={21} aria-hidden="true" />
             </div>
             <h2 className={`${compact ? "text-2xl" : "text-3xl sm:text-4xl"} leading-tight text-ink`}>
-              Get {t("common.brand")} updates by email.
+              {t("newsletter.signup.emailTitle", { brand: t("common.brand") })}
             </h2>
           </div>
           <p className="mt-4 max-w-md leading-7 text-charcoal/78">
-            Join the dojo mailing list and we'll keep you in the loop:
+            {t("newsletter.signup.emailCopy")}
           </p>
 
           <ul className="mt-6 grid gap-4 sm:grid-cols-2">
             {benefits.map((benefit) => (
-              <li key={benefit.title} className="flex gap-3">
+              <li key={benefit.titleKey} className="flex gap-3">
                 <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-bamboo/10 text-bamboo">
                   <benefit.icon size={17} aria-hidden="true" />
                 </span>
                 <span>
-                  <span className="block text-sm font-bold text-ink">{benefit.title}</span>
-                  <span className="mt-1 block text-sm leading-6 text-charcoal/72">{benefit.copy}</span>
+                  <span className="block text-sm font-bold text-ink">{t(benefit.titleKey)}</span>
+                  <span className="mt-1 block text-sm leading-6 text-charcoal/72">{t(benefit.copyKey)}</span>
                 </span>
               </li>
             ))}

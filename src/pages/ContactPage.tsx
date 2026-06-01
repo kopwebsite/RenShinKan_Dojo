@@ -1,4 +1,4 @@
-import { Facebook } from "lucide-react";
+import { Facebook, Mail } from "lucide-react";
 import { LocationCard } from "../components/LocationCard";
 import { MotionSection } from "../components/MotionSection";
 import { siteInfo } from "../data/siteContent";
@@ -33,15 +33,21 @@ export function ContactPage() {
               <p className="mt-4 text-charcoal/80 leading-7">
                 {t("contact.message.copy")}
               </p>
-              <a
-                href={siteInfo.facebookUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-primary mt-6 inline-flex"
-              >
-                <Facebook size={18} aria-hidden="true" />
-                {t("common.messageUsFacebook")}
-              </a>
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <a
+                  href={siteInfo.facebookUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-primary inline-flex"
+                >
+                  <Facebook size={18} aria-hidden="true" />
+                  {t("common.messageUsFacebook")}
+                </a>
+                <a href={`mailto:${siteInfo.email}`} className="btn-secondary inline-flex">
+                  <Mail size={18} aria-hidden="true" />
+                  {t("contact.message.emailCta")}
+                </a>
+              </div>
             </article>
 
             <article className="surface rounded-[2rem] p-6 sm:p-8">
@@ -58,15 +64,21 @@ export function ContactPage() {
                   </li>
                 ))}
               </ul>
-              <a
-                href={siteInfo.facebookUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-primary mt-6 inline-flex"
-              >
-                <Facebook size={18} aria-hidden="true" />
-                {t("contact.before.cta")}
-              </a>
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <a
+                  href={siteInfo.facebookUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-primary inline-flex"
+                >
+                  <Facebook size={18} aria-hidden="true" />
+                  {t("contact.before.cta")}
+                </a>
+                <a href={`mailto:${siteInfo.email}`} className="btn-secondary inline-flex">
+                  <Mail size={18} aria-hidden="true" />
+                  {t("contact.before.emailCta")}
+                </a>
+              </div>
             </article>
           </div>
         </div>

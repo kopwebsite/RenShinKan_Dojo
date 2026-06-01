@@ -92,6 +92,7 @@ export const siteInfo = {
   address:
     "155 Soi 6, Suan Luang Village, T. Baan Waen, A. Hang Dong, Chiang Mai 50230",
   facebookUrl: "https://www.facebook.com/RenShinKanChiangMai/",
+  email: "contact@renshinkandojo.org",
   foundationUrl: "https://www.peaceculturefoundation.org/renshinkan-dojo",
   builtYear: "2013",
 };
@@ -329,17 +330,31 @@ export const aikidoTimeline: AikidoTimelineItem[] = [
     sectionId: "international-spread",
   },
   {
-    year: "1961-1970s",
-    title: "Aikido in Thailand",
+    year: "1961",
+    title: "Aikido Reaches Thailand",
     description:
-      "Aikido is introduced to Thailand with Hombu support, and Bangkok becomes a base for national growth.",
+      "Aikido is introduced to Thailand by Nobuyoshi Tamura Shihan, with technical support from Aikido World Headquarters in Tokyo.",
     sectionId: "thailand",
   },
   {
-    year: "1980s-present",
+    year: "1970",
+    title: "Renbukan Dojo, Bangkok",
+    description:
+      "Renbukan Dojo is founded in Bangkok and becomes the headquarters of the Aikido Association of Thailand under Motohiro Fukakusa Shihan.",
+    sectionId: "thailand",
+  },
+  {
+    year: "1980s",
+    title: "The Thai Aikido Network",
+    description:
+      "Bangkok teachers such as Motohiro Fukakusa Shihan and Prapant Chittaputta Shihan train a generation that carries aikido to universities and provinces beyond the capital.",
+    sectionId: "thailand",
+  },
+  {
+    year: "1986-present",
     title: "Chiang Mai and RenshinKan",
     description:
-      "Northern Thailand practice grows through university and dojo communities, leading to RenshinKan's local training culture.",
+      "Northern Thailand practice grows through the Chiang Mai University Aikido Club and dojo communities, leading to RenshinKan's local training culture.",
     sectionId: "renshinkan-practice",
   },
 ];
@@ -745,6 +760,10 @@ export const aikidoActionImages = {
     src: assetPath("/dojo-photos/aikido-seminar-demo.webp"),
     alt: "An instructor demonstrating an aikido technique in front of a large seated group of students of all ages during a seminar.",
   },
+  trainingPin: {
+    src: assetPath("/dojo-photos/aikido-training-pin-2x.webp"),
+    alt: "A RenshinKan student applying a calm, controlled pin on a partner during aikido training on the tatami mat.",
+  },
 };
 
 export const dojoPhotos = [
@@ -1148,7 +1167,7 @@ export const instructors: Instructor[] = [
   {
     role: "Founder / Senior Instructor",
     name: "Kop Narumol",
-    rank: "2nd dan",
+    rank: "3rd dan",
     trainingBackground:
       "Narumol (Kop) Thammapruksa began aikido at the Chiang Mai University Aikido Club. In 2008, she enrolled at the Aikido Academy at Hombu Dojo, Tokyo, and received 2nd kyu under Koichi Toriumi Shihan and Yoshiaki Yokota Shihan. In 2012, while an exchange student at Osaka University, she practiced at Shosenji Dojo under Katsuyuki Shimamoto Shihan and received shodan from Hombu Dojo under Tsuruzo Miyamoto Shihan.",
     imageSrc: assetPath("/instructors/kop-narumol.jpg"),
@@ -1157,7 +1176,7 @@ export const instructors: Instructor[] = [
   {
     role: "Instructor",
     name: "Major Kittisak Siriparp (Tor)",
-    rank: "1st dan",
+    rank: "2nd dan",
     trainingBackground:
       "Started aikido at the Chiang Mai University Aikido Club in 2003 and trained under Sombat Tapanya and Teerarat Boripantakul.",
     imageSrc: assetPath("/instructors/major-kittisak-siriparp-current.png"),
@@ -1166,7 +1185,7 @@ export const instructors: Instructor[] = [
   {
     role: "Instructor",
     name: "Fuengwich Maneekarn (Tong)",
-    rank: "1st dan",
+    rank: "2nd dan",
     trainingBackground:
       "Started aikido at the Chiang Mai University Aikido Club in 2002 and trained under Sombat Tapanya and Teerarat Boripantakul.",
     imageSrc: assetPath("/instructors/major-kittisak-siriparp.png"),
@@ -1175,7 +1194,7 @@ export const instructors: Instructor[] = [
   {
     role: "Instructor",
     name: "Siriphorn Manokeaw (Bee)",
-    rank: "1st dan",
+    rank: "2nd dan",
     trainingBackground:
       "Started aikido at the Chiang Mai University Aikido Club in 2012 and trained under Sombat Tapanya and Teerarat Boripantakul.",
     imageSrc: assetPath("/instructors/siriphorn-manokeaw-current.png"),
@@ -1283,59 +1302,6 @@ export const beltLevels = [
     techniques: "Up to 1 Kyu and Bokken Technique · Irimi-Nage (3) · Kote-Gaeshi (3)",
     days: 140,
     color: "black",
-  },
-];
-
-export const faqs = [
-  {
-    question: "Do I need experience to join?",
-    answer:
-      "Not at all. Everyone is welcome, regardless of background. Aikido is learned from the very beginning, and new students are introduced gradually alongside people at all levels.",
-  },
-  {
-    question: "What age is welcome?",
-    answer:
-      "All ages are welcome at RenshinKan. We have classes for children, teens, adults, and older students. If you are unsure whether a class is the right fit for your age group, just come along and see.",
-  },
-  {
-    question: "Is aikido safe for children?",
-    answer:
-      "Yes! Aikido is often described as the art of nonviolence. Its techniques are built around blending with force rather than meeting it head on. As long as students take practice seriously and follow the guidance of their instructor, it is a very safe art. Students learn falling, spacing, and partner care gradually, so no one is pushed beyond what they are ready for.",
-  },
-  {
-    question: "Can parents watch?",
-    answer:
-      "Yes! The dojo has a viewing deck with seating so parents can observe class and get a feel for the tone and rhythm of practice. Parents are also very welcome to join in on the mat themselves. Aikido is a great activity to share as a family.",
-  },
-  {
-    question: "What should beginners wear?",
-    answer:
-      "Comfortable, loose trousers and a T-shirt are perfectly fine for a first visit. There is no need to buy a keikogi right away. Students are only expected to get one when they feel ready and settled in. If you are interested in getting a keikogi, the dojo can help point you in the right direction.",
-  },
-  {
-    question: "Does aikido involve competition?",
-    answer:
-      "Aikido has no competitions or tournaments. It is a cooperative martial art. Both partners work together, taking turns as the one who initiates and the one who receives. The goal is to learn timing, balance, and how to move safely with another person, not to win.",
-  },
-  {
-    question: "How do students learn to fall safely?",
-    answer:
-      "Students begin with low, careful ukemi practice, learning how to protect the head, soften impact, and move with the floor before techniques become more dynamic.",
-  },
-  {
-    question: "I am super busy. Can I still come?",
-    answer:
-      "Yes. Aikido is great exercise and stretching for both the body and the mind, and even one session a week makes a difference. Come every day or just once a week. Whatever your schedule allows. There is no pressure to attend at any fixed frequency.",
-  },
-  {
-    question: "How much is the monthly dojo upkeep fee?",
-    answer:
-      "The dojo recommends a contribution of 1,500 baht per month to help cover running expenses. Instructors are not paid, and all contributions go directly back into maintaining and running the dojo.",
-  },
-  {
-    question: "How do we arrange a first visit?",
-    answer:
-      "Feel free to drop in at any class time. No booking needed. If you prefer to reach out first, you are welcome to contact us ahead of time. Visiting aikidoka are recommended to get in touch before coming so we can make sure the timing works well.",
   },
 ];
 

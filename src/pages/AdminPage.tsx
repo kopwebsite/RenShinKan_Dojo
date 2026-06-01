@@ -9,21 +9,33 @@ import {
   RefreshCw,
   Save,
   Trash2,
-  UploadCloud,
   X,
 } from "lucide-react";
 import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
-import { MediaSlider } from "../components/MediaSlider";
+import { EventBodyRenderer } from "../components/EventBodyRenderer";
 import {
   historyMedia as defaultHistoryMedia,
   onTheMatMedia as defaultOnTheMatMedia,
   passedTestStudents as defaultPassedTestStudents,
 } from "../data/editableContent";
 import { emptyEditableContent, loadEditableContent } from "../lib/content";
-import type { EditableContent, MediaItem, PassedTestStudent, RecentEvent } from "../types/editableContent";
+import type {
+  BodyMediaPlacement,
+  EditableContent,
+  MediaItem,
+  PassedTestStudent,
+  RecentEvent,
+} from "../types/editableContent";
+import {
+  defaultBodyMediaPlacement,
+  normalizeBodyMediaPlacement,
+  splitEventBodyParagraphs,
+} from "../utils/eventBody";
+import { isValidEmbedUrl, normalizeEmbedUrl } from "../utils/mediaEmbeds";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_FILES = 10;
+const MAX_EVENT_PHOTOS = 6;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 type AdminSectionId = "recentEvents" | "onTheMatMedia" | "historyMedia" | "passedTestStudents";
@@ -188,6 +200,26 @@ function getEventMedia(event: RecentEvent) {
   return event.image ? [event.image] : [];
 }
 
+function eventPhotoCount(event: RecentEvent) {
+  return getEventMedia(event).filter((item) => item.type === "image").length;
+}
+
+function bodyPositionLabel(position: number, paragraphCount: number) {
+  if (paragraphCount === 0) {
+    return "In body";
+  }
+
+  if (position === 0) {
+    return "Before body text";
+  }
+
+  if (position >= paragraphCount) {
+    return "After body text";
+  }
+
+  return `After paragraph ${position}`;
+}
+
 function sectionTitle(title: string, copy: string) {
   return (
     <div className="mb-5">
@@ -255,6 +287,7 @@ export function AdminPage() {
   const [publishMessage, setPublishMessage] = useState("");
   const [warnings, setWarnings] = useState<string[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [videoEmbedInputs, setVideoEmbedInputs] = useState<Record<string, string>>({});
   const [openSections, setOpenSections] = useState<Record<AdminSectionId, boolean>>({
     recentEvents: false,
     onTheMatMedia: false,
@@ -262,6 +295,16 @@ export function AdminPage() {
     passedTestStudents: false,
   });
   const [openEventIds, setOpenEventIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    document.documentElement.classList.add("admin-route");
+    document.body.classList.add("admin-simple");
+
+    return () => {
+      document.documentElement.classList.remove("admin-route");
+      document.body.classList.remove("admin-simple");
+    };
+  }, []);
 
   useEffect(() => {
     fetch("/api/admin/session", { credentials: "include" })
@@ -410,61 +453,162 @@ export function AdminPage() {
   };
 
   const deleteEvent = (id: string) => {
+    const removed = draft.recentEvents.find((event) => event.id === id);
+
+    if (removed) {
+      getEventMedia(removed).forEach((item) => removePendingUpload(item.src));
+    }
+
     setDraft((current) => ({
       ...current,
       recentEvents: current.recentEvents.filter((event) => event.id !== id),
     }));
+    setOpenEventIds((current) => current.filter((eventId) => eventId !== id));
+    setVideoEmbedInputs((current) => {
+      const { [id]: _removed, ...rest } = current;
+      return rest;
+    });
   };
 
-  const changeImage = (eventId: string, fileEvent: ChangeEvent<HTMLInputElement>) => {
-    const file = fileEvent.target.files?.[0];
+  const addEventPhotos = (eventId: string, fileEvent: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(fileEvent.target.files ?? []);
     fileEvent.target.value = "";
 
-    if (!file) {
+    if (files.length === 0) {
       return;
     }
 
-    if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+    const targetEvent = draft.recentEvents.find((event) => event.id === eventId);
+    if (!targetEvent) {
+      return;
+    }
+
+    if (eventPhotoCount(targetEvent) + files.length > MAX_EVENT_PHOTOS) {
       setPublishStatus("error");
-      setPublishMessage("Images must be JPEG, PNG, or WebP.");
+      setPublishMessage(`Recent events can include at most ${MAX_EVENT_PHOTOS} photos.`);
       return;
     }
 
-    if (file.size > MAX_FILE_SIZE) {
+    if (pendingUploads.length + files.length > MAX_FILES) {
       setPublishStatus("error");
-      setPublishMessage("Images must be 5 MB or smaller.");
+      setPublishMessage(`You can upload at most ${MAX_FILES} files in one publish.`);
       return;
     }
 
-    if (pendingUploads.length >= MAX_FILES) {
-      setPublishStatus("error");
-      setPublishMessage("You can upload at most 10 files in one publish.");
-      return;
+    for (const file of files) {
+      const error = validateImageFile(file);
+
+      if (error) {
+        setPublishStatus("error");
+        setPublishMessage(error);
+        return;
+      }
     }
 
-    const uploadId = `upload-${crypto.randomUUID()}`;
-    const mediaItem: MediaItem = {
-      id: `media-${crypto.randomUUID()}`,
-      src: `pending:${uploadId}`,
-      alt: file.name.replace(/\.[^.]+$/, ""),
-      type: "image",
-    };
+    const newUploads: PendingUpload[] = [];
+    const newItems: MediaItem[] = files.map((file) => {
+      const uploadId = `upload-${crypto.randomUUID()}`;
+      newUploads.push({ id: uploadId, file, previewUrl: URL.createObjectURL(file) });
 
-    setPendingUploads((current) => [
-      ...current,
-      {
-        id: uploadId,
-        file,
-        previewUrl: URL.createObjectURL(file),
-      },
-    ]);
+      return {
+        id: `media-${crypto.randomUUID()}`,
+        src: `pending:${uploadId}`,
+        alt: file.name.replace(/\.[^.]+$/, ""),
+        type: "image",
+        bodyPlacement: defaultBodyMediaPlacement(targetEvent.body),
+      };
+    });
+
+    setPendingUploads((current) => [...current, ...newUploads]);
     updateEvent(eventId, (current) => ({
       ...current,
-      image: mediaItem,
-      media: [mediaItem],
+      image: current.image ?? newItems[0],
+      media: [...getEventMedia(current), ...newItems],
     }));
     setPublishStatus("idle");
     setPublishMessage("");
+  };
+
+  const addEventVideo = (eventId: string) => {
+    const targetEvent = draft.recentEvents.find((event) => event.id === eventId);
+    const rawUrl = (videoEmbedInputs[eventId] ?? "").trim();
+
+    if (!targetEvent || !rawUrl) {
+      return;
+    }
+
+    if (!isValidEmbedUrl(rawUrl)) {
+      setPublishStatus("error");
+      setPublishMessage("Use a supported HTTPS YouTube or Vimeo URL, or an iframe embed from one of those services.");
+      return;
+    }
+
+    const mediaItem: MediaItem = {
+      id: `media-${crypto.randomUUID()}`,
+      src: rawUrl,
+      alt: "",
+      type: "video",
+      title: "Video",
+      bodyPlacement: defaultBodyMediaPlacement(targetEvent.body),
+    };
+
+    updateEvent(eventId, (current) => ({
+      ...current,
+      media: [...getEventMedia(current), mediaItem],
+    }));
+    setVideoEmbedInputs((current) => ({ ...current, [eventId]: "" }));
+    setPublishStatus("idle");
+    setPublishMessage("");
+  };
+
+  const updateEventMediaItem = (
+    eventId: string,
+    mediaId: string,
+    updater: (item: MediaItem) => MediaItem,
+  ) => {
+    updateEvent(eventId, (current) => {
+      const media = getEventMedia(current).map((item) => (item.id === mediaId ? updater(item) : item));
+      const image = media.find((item) => item.id === current.image?.id && item.type === "image") ??
+        media.find((item) => item.type === "image");
+
+      return { ...current, image, media };
+    });
+  };
+
+  const updateEventMediaPlacement = (
+    eventId: string,
+    mediaId: string,
+    paragraphCount: number,
+    placementUpdate: Partial<Required<BodyMediaPlacement>>,
+  ) => {
+    updateEventMediaItem(eventId, mediaId, (item) => {
+      const currentPlacement = normalizeBodyMediaPlacement(item.bodyPlacement, paragraphCount);
+
+      return {
+        ...item,
+        bodyPlacement: {
+          ...currentPlacement,
+          ...placementUpdate,
+        },
+      };
+    });
+  };
+
+  const deleteEventMedia = (eventId: string, mediaId: string) => {
+    const targetEvent = draft.recentEvents.find((event) => event.id === eventId);
+    const removed = targetEvent ? getEventMedia(targetEvent).find((item) => item.id === mediaId) : undefined;
+
+    if (removed) {
+      removePendingUpload(removed.src);
+    }
+
+    updateEvent(eventId, (current) => {
+      const media = getEventMedia(current).filter((item) => item.id !== mediaId);
+      const image = media.find((item) => item.id === current.image?.id && item.type === "image") ??
+        media.find((item) => item.type === "image");
+
+      return { ...current, image, media };
+    });
   };
 
   const resolveSrc = (src: string) => {
@@ -797,16 +941,6 @@ export function AdminPage() {
         </div>
       </div>
 
-      <div className="mb-8 rounded-[1.5rem] bg-bamboo/10 p-5 ring-1 ring-bamboo/20">
-        <div className="flex gap-3">
-          <UploadCloud className="mt-1 shrink-0 text-bamboo" size={20} aria-hidden="true" />
-          <p className="text-sm leading-6 text-charcoal/78">
-            Publishing uses an HttpOnly admin session and server-side Cloudflare Pages Functions. Storage and Brevo
-            credentials are never sent to the browser.
-          </p>
-        </div>
-      </div>
-
       {publishMessage ? (
         <div
           className={`mb-8 rounded-[1.5rem] p-5 ring-1 ${
@@ -858,6 +992,8 @@ export function AdminPage() {
             {draft.recentEvents.map((event) => {
               const eventOpen = openEventIds.includes(event.id);
               const mediaPreview = previewMedia(event);
+              const paragraphCount = splitEventBodyParagraphs(event.body).length;
+              const photoCount = eventPhotoCount(event);
 
               return (
               <article key={event.id} className="rounded-[1.5rem] bg-paper/60 p-5 ring-1 ring-ink/10">
@@ -930,21 +1066,6 @@ export function AdminPage() {
                       }
                     />
                   </label>
-                  <label className="block text-sm font-bold text-ink">
-                    Image alt text
-                    <input
-                      className="input-field"
-                      value={event.image?.alt ?? ""}
-                      onChange={(inputEvent) => {
-                        const alt = inputEvent.target.value;
-                        updateEvent(event.id, (current) => ({
-                          ...current,
-                          image: current.image ? { ...current.image, alt } : current.image,
-                          media: current.media?.map((item) => (item.id === current.image?.id ? { ...item, alt } : item)),
-                        }));
-                      }}
-                    />
-                  </label>
                 </div>
 
                 <label className="mt-5 block text-sm font-bold text-ink">
@@ -969,12 +1090,210 @@ export function AdminPage() {
                   />
                 </label>
 
+                <div className="mt-5 rounded-lg border border-ink/10 bg-white p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h4 className="text-base font-bold text-ink">Body media</h4>
+                      <p className="mt-1 text-sm text-charcoal/70">
+                        {photoCount}/{MAX_EVENT_PHOTOS} photos, {mediaPreview.filter((item) => item.type === "video").length} video
+                        {mediaPreview.filter((item) => item.type === "video").length === 1 ? "" : "s"}
+                      </p>
+                    </div>
+                    <label className="btn-secondary cursor-pointer">
+                      <ImagePlus size={17} aria-hidden="true" />
+                      Add photos
+                      <input
+                        className="hidden"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        multiple
+                        onChange={(inputEvent) => addEventPhotos(event.id, inputEvent)}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                    <label className="flex-1 text-sm font-bold text-ink">
+                      Video embed
+                      <input
+                        className="input-field"
+                        value={videoEmbedInputs[event.id] ?? ""}
+                        placeholder="https://www.youtube.com/watch?v=..."
+                        onChange={(inputEvent) =>
+                          setVideoEmbedInputs((current) => ({ ...current, [event.id]: inputEvent.target.value }))
+                        }
+                      />
+                    </label>
+                    <button type="button" className="btn-secondary self-end" onClick={() => addEventVideo(event.id)}>
+                      <Plus size={17} aria-hidden="true" />
+                      Add video
+                    </button>
+                  </div>
+
+                  {mediaPreview.length ? (
+                    <div className="mt-5 grid gap-4">
+                      {mediaPreview.map((item) => {
+                        const placement = normalizeBodyMediaPlacement(item.bodyPlacement, paragraphCount);
+
+                        return (
+                          <div key={item.id} className="grid gap-4 rounded-lg border border-ink/10 p-4 lg:grid-cols-[180px_1fr]">
+                            <div className="overflow-hidden rounded-md border border-ink/10 bg-ink/5">
+                              {item.type === "video" ? (
+                                <iframe
+                                  src={normalizeEmbedUrl(item.src)}
+                                  title={item.title || item.caption || "Video preview"}
+                                  className="aspect-video w-full"
+                                  loading="lazy"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                  allowFullScreen
+                                />
+                              ) : (
+                                <img src={item.src} alt={item.alt || ""} className="aspect-video w-full object-cover" loading="lazy" />
+                              )}
+                            </div>
+
+                            <div className="grid gap-3">
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                <label className="text-sm font-bold text-ink">
+                                  {item.type === "video" ? "Video title" : "Alt text"}
+                                  <input
+                                    className="input-field"
+                                    value={item.type === "video" ? item.title ?? "" : item.alt ?? ""}
+                                    onChange={(inputEvent) =>
+                                      updateEventMediaItem(event.id, item.id, (current) => ({
+                                        ...current,
+                                        ...(current.type === "video"
+                                          ? { title: inputEvent.target.value }
+                                          : { alt: inputEvent.target.value }),
+                                      }))
+                                    }
+                                  />
+                                </label>
+                                <label className="text-sm font-bold text-ink">
+                                  Caption
+                                  <input
+                                    className="input-field"
+                                    value={item.caption ?? ""}
+                                    onChange={(inputEvent) =>
+                                      updateEventMediaItem(event.id, item.id, (current) => ({
+                                        ...current,
+                                        caption: inputEvent.target.value,
+                                      }))
+                                    }
+                                  />
+                                </label>
+                              </div>
+
+                              <div className="grid gap-3 sm:grid-cols-3">
+                                <label className="text-sm font-bold text-ink">
+                                  Position
+                                  <select
+                                    className="input-field"
+                                    value={placement.position}
+                                    onChange={(inputEvent) =>
+                                      updateEventMediaPlacement(event.id, item.id, paragraphCount, {
+                                        position: Number(inputEvent.target.value),
+                                      })
+                                    }
+                                  >
+                                    {Array.from({ length: paragraphCount + 1 }, (_, position) => (
+                                      <option key={position} value={position}>
+                                        {bodyPositionLabel(position, paragraphCount)}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                                <label className="text-sm font-bold text-ink">
+                                  Align
+                                  <select
+                                    className="input-field"
+                                    value={placement.align}
+                                    onChange={(inputEvent) =>
+                                      updateEventMediaPlacement(event.id, item.id, paragraphCount, {
+                                        align: inputEvent.target.value as "left" | "center" | "right",
+                                      })
+                                    }
+                                  >
+                                    <option value="left">Left</option>
+                                    <option value="center">Center</option>
+                                    <option value="right">Right</option>
+                                  </select>
+                                </label>
+                                <label className="text-sm font-bold text-ink">
+                                  Width {placement.widthPercent}%
+                                  <input
+                                    className="mt-4 w-full"
+                                    type="range"
+                                    min="25"
+                                    max="100"
+                                    step="5"
+                                    value={placement.widthPercent}
+                                    onChange={(inputEvent) =>
+                                      updateEventMediaPlacement(event.id, item.id, paragraphCount, {
+                                        widthPercent: Number(inputEvent.target.value),
+                                      })
+                                    }
+                                  />
+                                </label>
+                              </div>
+
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  className="btn-secondary"
+                                  disabled={placement.position === 0}
+                                  onClick={() =>
+                                    updateEventMediaPlacement(event.id, item.id, paragraphCount, {
+                                      position: placement.position - 1,
+                                    })
+                                  }
+                                >
+                                  Move up
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-secondary"
+                                  disabled={placement.position >= paragraphCount}
+                                  onClick={() =>
+                                    updateEventMediaPlacement(event.id, item.id, paragraphCount, {
+                                      position: placement.position + 1,
+                                    })
+                                  }
+                                >
+                                  Move down
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-secondary text-vermilion"
+                                  onClick={() => deleteEventMedia(event.id, item.id)}
+                                >
+                                  <Trash2 size={16} aria-hidden="true" />
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="mt-4 rounded-lg border border-ink/10 bg-paper/60 p-4 text-sm text-charcoal/70">
+                      No media added to this event.
+                    </p>
+                  )}
+
+                  <div className="mt-6 border-t border-ink/10 pt-5">
+                    <h4 className="text-base font-bold text-ink">Body preview</h4>
+                    <EventBodyRenderer
+                      body={event.body}
+                      media={mediaPreview}
+                      fallbackTitle={event.title || "Recent event"}
+                      className="mt-3 rounded-lg border border-ink/10 bg-white p-4"
+                    />
+                  </div>
+                </div>
+
                 <div className="mt-5 flex flex-wrap gap-4">
-                  <label className="btn-secondary cursor-pointer">
-                    <ImagePlus size={17} aria-hidden="true" />
-                    Upload image
-                    <input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={(inputEvent) => changeImage(event.id, inputEvent)} />
-                  </label>
                   <label className="inline-flex items-center gap-2 text-sm font-bold text-ink">
                     <input
                       type="checkbox"
@@ -1006,10 +1325,6 @@ export function AdminPage() {
                     Community calendar
                   </label>
                 </div>
-
-                {mediaPreview.length ? (
-                  <MediaSlider media={mediaPreview} label={`${event.title || "Recent event"} media preview`} className="mt-6" />
-                ) : null}
                 </div>
               </article>
               );

@@ -1,60 +1,60 @@
 {
   "common": {
     "brand": "练心馆道场",
-    "readMore": "阅读更多",
+    "readMore": "了解更多",
     "viewUpdate": "查看更新",
-    "visitClass": "参观课程",
+    "visitClass": "参观班级",
     "learnAboutAikido": "了解合气道",
-    "planYourVisit": "计划到访",
+    "planYourVisit": "计划您的访问",
     "getInTouch": "联系我们",
-    "observeClass": "旁听课程",
-    "askAboutVisiting": "咨询到访",
-    "messageDojo": "联系道场",
-    "messageUsFacebook": "通过 Facebook 联系我们",
-    "followFacebook": "在 Facebook 关注",
+    "observeClass": "观摩课堂",
+    "askAboutVisiting": "询问参观事宜",
+    "messageDojo": "给道场留言",
+    "messageUsFacebook": "在 Facebook 上给我们留言",
+    "followFacebook": "在脸书上关注",
     "openMap": "打开地图",
-    "sourceGallery": "来源图库",
+    "sourceGallery": "来源画廊",
     "source": "来源",
     "video": "视频",
-    "for": "适合",
-    "rank": "段级",
-    "trainingBackground": "训练经历",
+    "for": "对于",
+    "rank": "排名",
+    "trainingBackground": "培训背景",
     "teachingFocus": "教学重点",
     "languagesSpoken": "使用语言",
     "days": "天",
     "dateAndTime": "日期和时间",
     "contactUs": "联系我们",
     "visitWebsite": "访问网站",
-    "facebookPage": "Facebook 页面",
-    "emailAikidoCmu": "发送邮件给 AikidoCMU"
+    "facebookPage": "脸书页面",
+    "emailAikidoCmu": "电子邮件合气道CMU"
   },
   "a11y": {
-    "skipToContent": "跳到内容",
+    "skipToContent": "跳至内容",
     "mainNavigation": "主导航",
     "footerNavigation": "页脚导航",
-    "mobileNavigation": "移动端导航",
+    "mobileNavigation": "手机导航",
     "openNavigationMenu": "打开导航菜单",
     "closeNavigationMenu": "关闭导航菜单",
     "socialLinks": "社交链接",
     "languageSelector": "语言选择器",
     "chooseLanguage": "选择语言",
-    "currentLanguage": "当前语言：{{language}}。切换语言",
+    "currentLanguage": "当前语言：{{language}}。更改语言",
     "expandMenu": "展开 {{label}} 菜单",
-    "collapseMenu": "收起 {{label}} 菜单",
-    "previousEvent": "上一个活动",
+    "collapseMenu": "折叠 {{label}} 菜单",
+    "previousEvent": "之前的活动",
     "nextEvent": "下一个活动",
-    "goToEvent": "转到活动 {{number}}",
+    "goToEvent": "转至事件 {{number}}",
     "previousMedia": "上一个 {{label}}",
     "nextMedia": "下一个 {{label}}",
     "previousPhoto": "上一张照片",
     "nextPhoto": "下一张照片",
     "goToPhoto": "转到照片 {{number}}",
     "showPhoto": "显示 {{title}}",
-    "mapTitle": "{{name}} Google 地图",
+    "mapTitle": "{{name}} 谷歌地图",
     "openAddressInMaps": "在 Google 地图中打开 {{address}}",
-    "portraitPlaceholder": "{{name}} 肖像占位图",
-    "beltProgressionChart": "合气道级位进阶图",
-    "beltRankLabel": "{{rank}} {{rankSub}} - {{days}} 个训练日"
+    "portraitPlaceholder": "{{name}} 肖像占位符",
+    "beltProgressionChart": "合气道级进阶图",
+    "beltRankLabel": "{{rank}} {{rankSub}} - {{days}} 培训天数"
   },
   "language": {
     "en": "英语",
@@ -65,199 +65,595 @@
   "nav": {
     "ourDojo": "我们的道场",
     "home": "首页",
-    "instructors": "教师",
+    "instructors": "导师",
     "dojoPhotos": "道场照片",
     "dojoHistory": "道场历史",
-    "location": "位置",
+    "location": "地点",
     "classes": "课程",
     "information": "信息",
-    "classSchedule": "课程时间",
-    "firstVisitGuide": "首次到访指南",
-    "beltExams": "级位考试",
-    "gallery": "图库",
-    "faq": "常见问题",
+    "classSchedule": "课程表",
+    "firstVisitGuide": "初次参观指南",
+    "beltExams": "腰带考试",
+    "gallery": "画廊",
+    "faq": "常见问题解答",
     "aikido": "合气道",
     "whatIsAikido": "什么是合气道",
-    "historyOfAikido": "合气道历史",
-    "oSensei": "植芝盛平",
+    "historyOfAikido": "合气道的历史",
+    "oSensei": "大老师",
     "community": "社区",
-    "upcomingEvents": "即将举行",
-    "pastEvents": "过往活动",
+    "upcomingEvents": "即将举行的活动",
+    "pastEvents": "过去的活动",
     "peaceCultureFoundation": "和平文化基金会",
-    "chiangMaiCmu": "清迈 CMU",
+    "chiangMaiCmu": "清迈卡耐基梅隆大学",
     "otherDojos": "其他道场",
     "support": "支持",
-    "monthlyContribution": "月度支持",
-    "donations": "捐赠",
-    "newsletter": "消息",
+    "monthlyContribution": "每月供款",
+    "donations": "捐款",
+    "newsletter": "时事通讯",
     "contact": "联系我们"
   },
   "footer": {
-    "tagline": "在清迈杭东进行合气道和武道训练。",
-    "explore": "浏览",
+    "tagline": "清迈杭东的合气道和武术训练。",
+    "explore": "探索",
     "stayConnected": "保持联系",
-    "stayConnectedCopy": "接收课程笔记、首次到访指南和工作坊公告。",
+    "stayConnectedCopy": "接收课堂笔记、首次访问指导和研讨会公告。",
     "updatesCta": "道场更新"
   },
   "home": {
     "hero": {
-      "subtitle": "位于清迈杭东的传统合气道和武道训练。课程适合初学者，欢迎儿童和来访的合气道练习者。"
+      "subtitle": "泰国清迈杭东的合气道课程和传统武术训练。适合初学者练习，欢迎儿童，并邀请参观合气道。"
     },
     "recent": {
       "eyebrow": "近期活动",
-      "title": "道场近况，集中查看。",
-      "copy": "来自训练日、考试、研习会和 练心馆 社区时刻的三条最新更新。"
+      "title": "最近的道场更新，聚集在一处。",
+      "copy": "RenshinKan 培训日、考试、研讨会和社区时刻的三项最新更新。"
     },
     "facilities": {
       "eyebrow": "我们的道场",
-      "title": "位于杭东、欢迎各年龄学生的练习空间。",
-      "copy": "练心馆 于 {{year}} 年建成，位于杭东一处安静的场地。这里为各年龄学生提供舒适、专注的练习空间。"
+      "title": "杭东为所有年龄段的学生提供一个温馨的练习空间。",
+      "copy": "RenshinKan 建于{{year}}，位于杭东一处安静的地产上。该空间专为各个年龄段的学生提供舒适、专注的练习而设计。"
     },
     "instructors": {
-      "eyebrow": "这里的教师",
-      "title": "真正热爱教学的人。",
-      "copy": "我们的教师已经练习多年，也关心每一位学生。你会在每个阶段感受到耐心、鼓励和稳定的指导。"
+      "eyebrow": "谁在这里教书",
+      "title": "真正热爱他们所教的人。",
+      "copy": "我们的教练已经执业数十年，他们关心他们所教的人。你会发现他们在各个层面上都很耐心、令人鼓舞并且始终如一。"
     },
     "photos": {
       "eyebrow": "道场照片",
-      "title": "看看 练心馆 内部。",
-      "copy": "看看道场，以及在这里练习的人们。",
-      "space": "练习空间",
-      "onMat": "垫上",
-      "onMatGallery": "垫上图库"
+      "title": "仁心馆内部一览。",
+      "copy": "看看道场和在这里训练的人们。",
+      "space": "空间",
+      "onMat": "在垫子上",
+      "onMatGallery": "在垫画廊上"
     },
     "journey": {
-      "eyebrow": "道场历程",
-      "title": "从空地到真正使用的练习垫。",
-      "copy": "来自和平文化基金会建设图库的照片，记录 练心馆 从空地到开垫练习的过程。"
+      "eyebrow": "道场之旅",
+      "title": "从空地到工作垫。",
+      "copy": "和平文化基金会的照片搭建了画廊，跟随RenshinKan从一块空地一直到在垫子上开始练习。"
     },
     "location": {
-      "eyebrow": "如何到达",
-      "title": "首次到访前先找到道场。",
-      "copy": "练心馆道场 位于杭东 Baan Waen。家长和访客可使用地图规划路线，并提前留言确认最合适的课程时间和旁听位置。"
+      "eyebrow": "到达这里",
+      "title": "在第一次访问之前找到道场。",
+      "copy": "RenshinKan道场位于杭东Baan Waen。家长和访客可以使用地图来计划抵达时间，然后提前发送消息，以便道场可以确认最佳的上课时间和观摩地点。"
     },
     "visiting": {
-      "eyebrow": "到访 练心馆",
-      "title": "随时欢迎临时到访。",
-      "copy": "如果你是新手，可以直接在上课时间前来。如果你是来访的合气道练习者，请提前简短留言，方便我们确认时间并安排接待。"
+      "eyebrow": "参观仁心馆",
+      "title": "随时欢迎您前来参观。",
+      "copy": "如果您是新人，请随时加入。只要在上课时间出现就可以了。如果您来访合气道，我们希望您能提前收到一条简短的消息，以便我们确保时间安排正确，并有人可以正确地迎接您。"
     }
   },
   "classes": {
     "intro": {
-      "eyebrow": "课程与家长指南",
-      "title": "一个适合开始、成长并持续练习的地方。",
-      "copy": "这里欢迎所有人，从完全初学者和儿童，到经过清迈的有经验合气道练习者。每节课 90 分钟，分为两部分。前半段适合刚开始的人，后半段开放给所有级别，进行更深入的技术练习。可直接到访，也可先联系我们咨询。",
-      "imageAlt": "穿白色练功服的学生在垫上围成一圈，中间放着绿色腰带。"
+      "eyebrow": "课程和家长指南",
+      "title": "一个欢迎您开始、成长和不断展示的地方。",
+      "copy": "这里欢迎所有人，从初学者和儿童到经过清迈的合气道经验丰富的人。每节课时长 90 分钟，分为两个部分。前半部分适合初学者和儿童，后半部分适合中级学生、成人和武器练习。如果您有疑问，请随时前来或先联系我们。",
+      "imageAlt": "身穿白色校服的学生在垫子上围成一圈，中间有绿带。"
     },
     "halves": {
-      "firstEyebrow": "前半段",
-      "firstTitle": "初学者",
-      "firstCopy": "每节课开头都为刚开始练习的人设计，以稳定节奏学习安全受身、基本姿势、步法和伙伴意识。",
-      "secondEyebrow": "后半段",
-      "secondTitle": "所有级别 / 深入练习",
-      "secondCopy": "第二部分进入更高要求的技术、组合和伙伴练习，适合成人和准备继续提升的学生。"
+      "firstEyebrow": "上半场",
+      "firstTitle": "初学者/儿童",
+      "firstCopy": "每堂课的开头部分都是为初学者和儿童设计的。安全跌倒、基本姿势、步法和有节奏的伙伴意识。",
+      "secondEyebrow": "下半场",
+      "secondTitle": "中级/成人/武器",
+      "secondCopy": "第二部分进入要求更高的技术工作、组合、伙伴训练和武器练习，适合准备进一步推进的成人和学生。"
     },
     "schedule": {
-      "eyebrow": "每周时间表",
-      "title": "每周四节课，稳定进行。",
-      "copy": "周二、周四晚上，周六、周日上午。每节课 90 分钟，采用同样的两段结构：初学者先练，然后所有级别一起练习。",
-      "imageAlt": "每周课程表：周二和周四 17:30-19:00，周六和周日 9:00-10:30"
+      "eyebrow": "每周日程",
+      "title": "每周四次，每周一次。",
+      "copy": "周二和周四晚上，周六和周日早上。每节课时长 90 分钟，并遵循相同的两部分结构：首先是初学者，然后是所有级别。",
+      "imageAlt": "每周上课时间：周二、周四 17:30-19:00，周六、周日 9:00-10:30"
     },
     "firstVisit": {
-      "eyebrow": "首次到访指南",
-      "title": "平静的第一节课，从几个简单步骤开始。",
-      "copy": "本指南面向初学者、家长和来访练习者。请提前留言，以便确认合适的课程时间，以及适合旁听还是参加练习。",
-      "beforeTitle": "到达前",
-      "item1": "欢迎临时到访，请在上课时间前来",
-      "item2": "提前留言确认上课时间和注意事项",
-      "item3": "至少提前 30 分钟到达，协助准备道场",
-      "item4": "穿宽松长裤和 T 恤。练功服可等稳定练习后再准备",
-      "item5": "上垫前请脱鞋并清洗双脚",
-      "item6": "请让教师或资深学生带你完成开课礼仪"
+      "eyebrow": "初次参观指南",
+      "title": "平静的头等舱从几个简单的步骤开始。",
+      "copy": "本指南适合初学者、家长和参观合气道。请提前留言，以便我们确认正确的上课时间以及是否旁听或参加。",
+      "beforeTitle": "在您抵达之前",
+      "item1": "欢迎来访，上课时一起来即可",
+      "item2": "提前留言以确认上课时间和预期内容",
+      "item3": "至少提前 30 分钟到达，帮助准备道场",
+      "item4": "穿宽松的裤子和 T 恤。只有当您准备好后才需要keikogi",
+      "item5": "上垫子前脱鞋并洗脚",
+      "item6": "让教练或高年级学生指导您完成鞠躬仪式"
     },
     "beltExams": {
-      "eyebrow": "级位考试",
-      "copy": "级位考试依照 All Dojo Chiang Mai 在 Aikikai 体系下的标准进行。通过级位系统需要完成指定技术，并达到每一级的最低训练日数。下表列出晋级所需内容。",
+      "eyebrow": "腰带考试",
+      "copy": "腰带考试遵循 Aikikai 隶属的所有道场清迈标准。通过 kyu 系统取得进展需要完成列出的技术和每个级别的最少培训天数。下表显示了需要推进的内容。",
       "graduationEyebrow": "毕业时刻",
       "graduationTitle": "通过考试的学生。"
     },
     "faq": {
-      "eyebrow": "家长常见问题",
-      "title": "第一次鞠躬前的答案。"
+      "eyebrow": "家长常见问题解答",
+      "title": "在第一次鞠躬之前回答。",
+      "items": {
+        "experience": {
+          "question": "我需要经验才能加入吗？",
+          "answer": "一点也不。无论背景如何，每个人都受到欢迎。合气道是从一开始就学习的，新学员会随着各个级别的人一起逐渐介绍。"
+        },
+        "age": {
+          "question": "什么年龄的人受欢迎？",
+          "answer": "仁心馆欢迎所有年龄段的人。我们为儿童、青少年、成人和年龄较大的学生开设课程。如果您不确定某个课程是否适合您的年龄段，请过来看看。"
+        },
+        "childrenSafety": {
+          "question": "合气道对儿童安全吗？",
+          "answer": "是的。合气道通常被描述为非暴力的艺术。它的技术是建立在用力混合而不是正面迎击的基础上的。只要学生认真练习并听从老师的指导，这是一门非常安全的艺术。学生们逐渐学习跌倒、间隔和伙伴照顾，因此没有人会被逼到超出他们准备的范围。"
+        },
+        "parentsWatch": {
+          "question": "家长可以看吗？",
+          "answer": "是的。道场设有带座位的观景台，方便家长旁听课堂并感受练习的基调和节奏。也非常欢迎家长亲自参与垫子上的活动。合气道是一项适合家庭分享的伟大活动。"
+        },
+        "beginnerClothes": {
+          "question": "初学者应该穿什么？",
+          "answer": "舒适宽松的裤子和 T 恤非常适合初次来访。没有必要立即购买keikogi。学生只有在准备好并安顿下来后才能获得一件。如果您有兴趣获得一件经工，道场可以帮助您指明正确的方向。"
+        },
+        "competition": {
+          "question": "合气道涉及竞争吗？",
+          "answer": "合气道没有比赛或锦标赛。这是一种合作武术。双方合作，轮流作为发起者和接收者。我们的目标是学习时机、平衡以及如何与他人安全地移动，而不是为了获胜。"
+        },
+        "falling": {
+          "question": "学生如何学会安全跌倒？",
+          "answer": "学生从低位、仔细的 ukemi 练习开始，学习如何保护头部、减轻冲击力以及随着地板移动，然后技术变得更加动态。"
+        },
+        "busySchedule": {
+          "question": "我很忙。我还能来吗？",
+          "answer": "是的。合气道是一种很好的身体和心灵锻炼和伸展运动，即使每周一次也会有所不同。每天来或每周来一次。无论您的日程允许什么。没有压力以任何固定频率参加。"
+        },
+        "monthlyFee": {
+          "question": "每月道场维护费是多少？",
+          "answer": "道场建议每月捐款 1,500 泰铢，以帮助支付日常开支。导师没有报酬，所有贡献都直接返回到道场的维护和运行中。"
+        },
+        "firstVisit": {
+          "question": "我们如何安排第一次访问？",
+          "answer": "请随时在任何上课时间前来。无需预订。如果您想先联系我们，欢迎您提前联系我们。建议参观合气道之前先联系我们，以便我们确保时间安排得当。"
+        }
+      }
     }
   },
   "contact": {
     "intro": {
-      "eyebrow": "位置与联系",
-      "title": "计划首次到访 练心馆道场。",
-      "copy": "道场位于 {{address}}。家长、初学者、有经验练习者和访客在上课前可先联系我们了解更多信息。"
+      "eyebrow": "地点及联系方式",
+      "title": "计划第一次参观仁心馆道场。",
+      "copy": "道场位于 {{address}}。家长、初学者、经验丰富的合气道和访客应在上课前联系以获取更多信息。"
     },
     "message": {
       "eyebrow": "联系我们",
-      "title": "更方便通过 Facebook 留言吗？",
-      "copy": "欢迎直接通过 Facebook 联系我们。关于课程、时间表或首次到访的问题，我们都乐意回答。"
+      "title": "联系我们的两种简单方法。",
+      "copy": "请随时联系我们——在 Facebook 上给我们留言或发送电子邮件至 contact@renshinkandojo.org。我们很乐意回答有关课程、日程安排或您首次访问的任何问题。",
+      "emailCta": "电子邮件 contact@renshinkandojo.org"
     },
     "before": {
-      "eyebrow": "到访前",
-      "title": "留言中请包含什么。",
-      "copy": "请告诉我们年龄段、是否有合气道或武道经验，以及想来的课程日期。欢迎初学者。",
+      "eyebrow": "参观之前",
+      "title": "请随意过来。",
+      "copy": "欢迎您旁听课程，无需提前发送消息。如果您想先打个招呼，可以在来之前通过 Facebook 或发送电子邮件至 contact@renshinkandojo.org 与我们联系。",
       "item1": "穿方便活动的舒适衣服。",
-      "item2": "稍早到达，方便有人接待你。",
-      "item3": "家长可以询问旁听儿童练习。",
-      "item4": "来访练习者请说明级别和原道场。",
-      "cta": "咨询到访课程"
+      "item2": "早一点到达，以便有人迎接您。",
+      "item3": "家长可以询问观察孩子的练习情况。",
+      "item4": "欢迎来合气道提级和家道场。",
+      "cta": "在 Facebook 上给我们留言",
+      "emailCta": "给道场发电子邮件"
     }
   },
-  "locationCard": {
-    "eyebrow": "位置"
+  "aikido": {
+    "hero": {
+      "title": "什么是合气道？",
+      "subtitle": "和谐、非暴力和终身个人成长的日本武术。"
+    },
+    "overview": {
+      "eyebrow": "了解合气道",
+      "title": "什么是合气道？",
+      "intro1": "合气道是一种现代日本武术，由学生称为大老师的植芝盛平于二十世纪初创立。合气道不是以武力对抗，而是教你如何融入攻击、重新引导能量并控制平衡，以便在不依靠蛮力的情况下解决冲突。",
+      "intro2": "合气道源自日本古老的武术传统，包括柔术和古典武器艺术。它还与柔道等艺术具有共同的品质，特别是在注重平衡、投掷和安全坠落练习方面。其结果是一种重视训练伙伴的冷静、控制和真诚关怀的做法，而不是赢得或压倒对手。",
+      "weaponsTitle": "空手武器训练",
+      "weaponsIntro": "武器练习与空手合气道是分不开的。使用传统木制武器进行训练可以教授距离、时机、姿势、中心线、意识和清晰的身体动作。许多空手技术与武器工作中发现的相同原理和运动模式相呼应，尤其是剑的技术。",
+      "bokkenName": "博肯",
+      "bokkenMeaning": "木剑",
+      "bokkenDesc": "用于研究塑造许多合气道技术的姿势、切割线和剑的动作。",
+      "joName": "乔",
+      "joMeaning": "木杖",
+      "joDesc": "用于发展伸展、时机以及流畅、连接的步法。",
+      "tantoName": "短藤",
+      "tantoMeaning": "木刀",
+      "tantoDesc": "用于练习冷静、安全的反应、谨慎的距离和稳定的意识。",
+      "weaponsClose": "因为徒手格斗和武器练习有着相同的基础，其中一方的成长自然会加深对另一方的理解。合气道的双方不断地相互支持和解释。"
+    },
+    "why": {
+      "eyebrow": "好处",
+      "title": "为什么选择合气道？",
+      "intro": "合气道提供的不仅仅是自卫。定期练习可以培养融入日常生活的品质，帮助学生在赛场内外感觉更稳定、更有能力、更有意识。",
+      "benefitsLabel": "随着实践而成长的品质",
+      "ukemiTitle": "学习安全跌倒",
+      "ukemi1": "合气道最实用的生活技能之一是“ukemi”，即安全坠落和接收技术的艺术。从第一堂课开始，学生们就学会放松、保护头部、转动身体、滚动和着陆，以免受伤。",
+      "ukemi2": "这远远超出了道场的范围。滑倒、绊倒、日常事故、运动以及随着年龄增长而发生的自然变化都与跌倒有关。学习如何正确摔倒是一项现实世界技能，可以真正帮助降低受伤风险。",
+      "close": "合气道不仅仅是自卫。它还涉及学习如何良好地移动、保持冷静以及在不恐慌或攻击性的情况下应对压力。"
+    },
+    "who": {
+      "eyebrow": "欢迎大家",
+      "title": "谁可以练习？",
+      "intro": "成人、儿童、初学者和经验丰富的武术家都可以练习合气道。开始时，您不需要强壮、运动、灵活或经验丰富。即使是年纪很大的资深从业者，也会受到热烈欢迎，并可以按照自己的节奏继续训练——这是随着时间的推移保持活跃、灵活和灵活的绝佳方式。进步来自于稳定的练习、注意力和学习正确的动作，而不是仅仅依靠体力。",
+      "childrenTitle": "儿童用",
+      "adultsTitle": "成人用",
+      "visitorsTitle": "参观合气道",
+      "visitorsDesc": "路过清迈的合气道随时欢迎您踏上垫子。在您访问之前发送一条简短消息，以便我们确认时间并安排专人迎接您。"
+    },
+    "about": {
+      "eyebrow": "关于合气道",
+      "title": "和平是通过运动而不是武力实现的。",
+      "copy": "合气道是由植芝盛平于20世纪初创立的日本武术。它源自柔术、柔道和剑术等古典传统，但采取了不同的方向。合气道不是攻击或压倒性的，而是教你如何融入传入的能量，改变它的方向，并在不造成伤害的情况下解决冲突。没有竞争，没有侵略。这种做法是关于冷静、自律以及学会在压力下保持冷静。",
+      "point1Title": "扎根于日本",
+      "point1Body": "由植芝守平根据古典柔术和合气剑传统创立。",
+      "point2Title": "非暴力",
+      "point2Body": "重定向和抵消武力而不是对抗它。没有引人注目，就没有竞争。",
+      "point3Title": "内在纪律",
+      "point3Body": "建立冷静、意识和尊重。这些品质远远超出了垫子的范围。",
+      "traditionTitle": "植根于传统",
+      "traditionCopy": "Bokken 和 jo 练习将合气道与其演变而来的日本古典武器艺术联系起来，与几个世纪的武道有着生动的联系。",
+      "spaceTitle": "尊重的空间",
+      "spaceCopy": "神座是每个道场关注的焦点。它反映了合气道对真诚、尊重以及稳定、开放心态的重视。"
+    },
+    "instructors": {
+      "eyebrow": "炼心馆导师",
+      "title": "根植于清迈的行行。",
+      "copy": "RenshinKan 的讲师在日本、曼谷和清迈接受过培训，建立了一条欢迎各个年龄段和背景的学生的教学线。",
+      "cta": "完整的教练简介"
+    },
+    "history": {
+      "eyebrow": "合气道历史",
+      "title": "从古老的武道到当地的活生生的实践。",
+      "copy": "每个条目都标志着下面讲述的完整书面历史中的一个时期。",
+      "primarySources": "主要来源",
+      "storyEyebrow": "历史故事",
+      "storyTitle": "老师啊，合气道，以及从武力到和谐的道路。",
+      "storyCopy": "合气道的意思是“和谐精神之道”，这个名字反映了其融合而不是冲突的创始理念。它的历史并不是从暴力到温柔的直线。这是一个关于古老武术、精神探索、战时压力、战后重建以及普通人学习尊重练习的分层故事。"
+    }
   },
-  "instructorsPage": {
-    "eyebrow": "教师",
-    "title": "认识 练心馆道场 的合气道教师。",
-    "copy": "了解带领课堂练习、引导初学者进入合气道，并帮助学生在垫上建立平静动作、尊重伙伴训练和稳定信心的教师们。"
+  "community": {
+    "intro": {
+      "eyebrow": "和平文化与社区",
+      "title": "合气道是一种尊重、安全和个人成长的日常练习。",
+      "copy": "RenshinKan 位于更广泛网络的中心，该网络包括和平文化基金会、合气道 CMU 大学俱乐部以及清迈各地的道场社区。这里的合气道不仅仅是一个训练系统。这是一种学习如何冷静、谨慎地解决冲突的共享方式。",
+      "imageAlt": "和平文化基金会和仁心馆社区。"
+    },
+    "events": {
+      "eyebrow": "即将举行的活动",
+      "title": "社区日历。",
+      "copy": "研讨会、开放垫日、志愿者活动和道场聚会的确认日期将在确定后发布在此处。",
+      "emptyTitle": "目前日历上没有任何内容。",
+      "emptyCopy": "目前没有安排任何活动。目前垫子上很安静——请尽快回来查看，任何研讨会、垫子开放日或聚会都会在确认后出现在此处。",
+      "emptyCta": "查看最近的道场更新"
+    },
+    "past": {
+      "eyebrow": "过去的活动",
+      "title": "回顾我们的历史",
+      "copy": "来自公开示威、学校参观和共享培训活动的照片，使道场进入了更广泛的社区。",
+      "sliderLabel": "回顾我们的历史媒体"
+    },
+    "foundation": {
+      "eyebrow": "和平文化基金会",
+      "title": "RenshinKan 道场和社区使命背后的组织。",
+      "copy": "和平文化基金会于 2013 年建立了 RenshinKan，并继续将道场的培训文化与整个清迈的儿童安全、美容预防和和平解决冲突等更广泛的工作联系起来。",
+      "visit": "参观基金会",
+      "advocacy": "宣传工作",
+      "groomingEyebrow": "预防仪容仪表",
+      "groomingTitle": "预防始于语言、界限和值得信赖的成年人。",
+      "groomingCta": "预防仪容仪表页面",
+      "photoEyebrow": "来自和平文化基金会",
+      "founder": "创始人"
+    },
+    "cmu": {
+      "eyebrow": "清迈大学合气道俱乐部",
+      "heroEyebrow": "清迈大学",
+      "heroTitle": "AikidoCMU：自 1986 年左右开始在 CMU 开展合气道。",
+      "publicDays": "公众日",
+      "community": "社区",
+      "studentsGuests": "学生及嘉宾",
+      "roots": "根源",
+      "since": "大约从1986年开始",
+      "title": "仁心馆的血统开始的地方。",
+      "copy1": "RenshinKan 的创始人 Ajarn Sombat Tapanya 和 Ajarn Teerarat Boripantakul 都曾在合气道 CMU 接受过训练，然后于 2013 年建立 RenshinKan 道场。该大学俱乐部自 20 世纪 80 年代中期以来一直是清迈合气道社区的一部分，首先与 CMU 柔道俱乐部共享空间，然后发展成为自己的练习团体。",
+      "copy2": "合气道 CMU 一贯欢迎 CMU 学生、国际学生和社区成员定期遵守纪律并相互尊重地进行训练。他们的公开会议仍然对任何认真练习的人开放，因此请提前留言以确认当前时间和地点。",
+      "publicPractice": "公开实践"
+    },
+    "otherDojos": {
+      "eyebrow": "其他道场",
+      "title": "更广泛的清迈合气道网络的一部分。",
+      "copy": "RenshinKan 是清迈和泰国更广泛的合气道社区的一部分。以下是将道场与更广泛的实践世界联系起来的主要组织和机构。",
+      "know": "知道另一个相连的道场或组织吗？",
+      "knowCopy": "联系我们，我们会将其添加到此处。"
+    }
+  },
+  "support": {
+    "intro": {
+      "eyebrow": "支持仁心馆",
+      "title": "保持道场开放。保持练习可及性。",
+      "copy": "有两种提供帮助的方式：为在这里训练的人提供定期社区捐款，以及为任何想要支持清迈合气道和武术训练的人提供一次性捐款。",
+      "imageAlt": "清迈的 RenshinKan 道场社区。"
+    },
+    "monthly": {
+      "eyebrow": "社区维护",
+      "title": "这个道场的存在是因为它的学生们照顾它。",
+      "copy1": "每个在 RenshinKan 定期接受培训的学生都需要贡献 {{amount}}。这不是会员费。这是一项共同的责任。灯光、水、垫子、维修、空间本身：所有这些都是由使用它的人支撑的。",
+      "amount": "每月 1,500 泰铢",
+      "copy2": "当在这里训练的每个人都做出贡献时，道场对于当前的学生、新初学者和更广泛的清迈社区来说就会保持强大。",
+      "noteStrong": "教师不会从捐款中获得任何报酬。",
+      "note": "每泰铢都会直接回到你训练的空间。",
+      "supportImageAlt": "学生们在杭东仁心馆道场练习合气道。",
+      "arrangeTitle": "如何安排捐款",
+      "arrangeCopy": "该静态网站不处理付款或收集付款详细信息。请直接与道场安排捐款。",
+      "coversTitle": "您的贡献涵盖哪些内容",
+      "coversCopy": "每泰铢都会直接回到道场。以下是您每月捐款帮助涵盖的各个类别，从训练大厅和垫子到武器、维护、活动以及保持空间温馨的小舒适设施。在此清单之外没有任何花费。",
+      "reminderEyebrow": "值得重复的提醒",
+      "reminderCopy": "教师不会从这些资金中得到补偿。他们教导是因为他们实践，他们实践是因为他们相信。钱可以让灯亮起来。",
+      "whyTitle": "为什么每月？",
+      "whyCopy": "定期捐款可以让道场在事情变得紧急之前计划维修和补给。"
+    },
+    "donations": {
+      "eyebrow": "捐款",
+      "title": "想支持清迈的合气道吗？",
+      "copy": "你不必在这里训练来支持道场。如果您相信合气道的宗旨，一次性捐款是让杭东和清迈继续练习合气道的直接方式。",
+      "qrTitle": "即时支付二维码",
+      "qrCopy": "直接给我们留言通过 PromptPay 捐款。",
+      "qrNote": "在发送资金之前请求当前的二维码。",
+      "whereTitle": "它去哪里",
+      "noSalary": "您的捐款不会支付任何人的工资或个人收入。这是一个社区道场，由热爱练习的人经营。",
+      "transfer": "想要直接转账？",
+      "promptPayQrAlt": "PromptPay 仁心馆道场捐款二维码",
+      "uses": {
+        "workshops": "研讨会和客座讲师访问",
+        "equipment": "训练设备和垫子维护",
+        "exams": "腰带考试活动和材料",
+        "outreach": "社区外展和开放日费用",
+        "access": "让灵活性较低的学生负担得起练习费用"
+      }
+    },
+    "expenses": {
+      "utilities": {
+        "label": "水电",
+        "note": "训练馆、更衣室、浴室和场地的每月水电费。"
+      },
+      "mats": {
+        "label": "垫子清洁和保养",
+        "note": "清洁用品、消毒、榻榻米护理和小型维修，确保练习安全。"
+      },
+      "building": {
+        "label": "建筑物维修",
+        "note": "正在进行的修缮、油漆、屋顶检查、照明、风扇和道场的一般维护。"
+      },
+      "equipment": {
+        "label": "训练设备",
+        "note": "更换和维护 bokken、jo、tanto、靶子和共享练习装备。"
+      },
+      "safety": {
+        "label": "安全与急救",
+        "note": "适合儿童、初学者和普通课程的基本急救用品和安全物品。"
+      },
+      "events": {
+        "label": "活动和研讨会费用",
+        "note": "举办客座讲师、开放日、腰带考试和社区活动。"
+      },
+      "garden": {
+        "label": "花园和庭院",
+        "note": "维护室外空间、植物、通道、停车场和道场周围环境。"
+      },
+      "welfare": {
+        "label": "学生福利",
+        "note": "饮用水、课后茶点和小舒适设施让道场充满温馨。"
+      },
+      "admin": {
+        "label": "管理与记录",
+        "note": "保持清晰的缴款记录，以便家人和老师可以正确跟踪每个月的情况。"
+      }
+    },
+    "highlights": {
+      "dueDate": {
+        "value": "第一名",
+        "label": "每个月到期",
+        "note": "可预测的日期使共享账单和维护易于管理。"
+      },
+      "returned": {
+        "value": "100%",
+        "label": "回到道场",
+        "note": "贡献主要集中在空间、学生和实践上。"
+      },
+      "shared": {
+        "value": "所有年龄段",
+        "label": "大家共享",
+        "note": "家庭、成人、初学者和普通学生都帮助保持开放。"
+      }
+    },
+    "transfer": {
+      "accountName": "账户名称",
+      "bank": "银行",
+      "accountNumber": "帐号",
+      "promptPayId": "PromptPay ID（与手机相同）",
+      "reference": "参考"
+    },
+    "contribution": {
+      "title": "安排您的每月供款",
+      "copy": "请分享一些详细信息并选择您希望如何贡献。只需要几个字段。如果您想添加的话，其他一切都在那里。",
+      "fields": {
+        "parentName": "父母或监护人姓名",
+        "studentName": "学生姓名",
+        "email": "电子邮件地址",
+        "phone": "电话号码",
+        "address": "家庭住址",
+        "notes": "老师的笔记"
+      },
+      "optional": "可选",
+      "paymentLegend": "您想如何贡献？",
+      "comingSoon": "即将推出",
+      "notesPlaceholder": "任何你想让老师知道的事情。",
+      "consent": "我了解每月的捐款应在每月 1 日到期，以帮助确保道场顺利运营。",
+      "submitting": "正在提交...",
+      "submit": "提交我的贡献详细信息",
+      "methods": {
+        "inPerson": {
+          "label": "亲自付款",
+          "note": "将每月的捐款交给道场的老师。"
+        },
+        "qr": {
+          "label": "使用 PromptPay 二维码付款",
+          "note": "从您的银行应用程序扫描并付款，或直接转账到 dojo 银行帐户。"
+        },
+        "scheduled": {
+          "label": "设置预定付款",
+          "note": "此选项尚未准备好。我们仍在设置中。"
+        }
+      },
+      "errors": {
+        "parentName": "请添加父母或监护人姓名。",
+        "studentName": "请添加学生姓名。",
+        "email": "请添加电子邮件地址。",
+        "emailInvalid": "请检查此电子邮件地址。",
+        "phone": "请添加电话号码。",
+        "address": "请添加您的家庭住址。",
+        "paymentMethod": "请选择您想要的贡献方式。",
+        "consent": "请勾选该框以继续。",
+        "turnstileMissing": "Cloudflare 验证尚未配置。",
+        "turnstileRequired": "请完成 Cloudflare 验证。",
+        "turnstileExpired": "Cloudflare 验证已过期。请重新填写。",
+        "turnstileLoad": "Cloudflare 验证无法加载。请再试一次。",
+        "submitFailed": "无法提交您的贡献详细信息。请再试一次。"
+      },
+      "confirm": {
+        "title": "谢谢 - 又一步",
+        "inPerson": "你还没有完全完成。您的详细信息已收到，导师也已收到通知，因此他们将期待您亲自到道场做出贡献。请下次上课时交给老师。为了帮助我们保持准确的记录，请继续以同样的方式通过此表格支付您未来的每月付款，以便我们的系统中跟踪每笔捐款。每月捐款应于每月 1 日缴纳，以确保道场顺利运营。",
+        "qr": "你还没有完全完成。老师已收到通知，将留意您的付款情况。当您扫描二维码或转账至道场账户时，请在交易或转账备注中注明您学生的姓名，以便我们与您进行匹配。还请继续通过此表格支付您未来的每月付款，以便我们可以跟踪每笔捐款。每月捐款应于每月 1 日缴纳，以确保道场顺利运营。",
+        "fallbackTitle": "谢谢你",
+        "fallback": "感谢您对仁心馆道场的支持。每月捐款应于每月 1 日缴纳，以确保道场顺利运营。"
+      },
+      "qrTitle": "即时支付二维码",
+      "qrAlt": "PromptPay 仁心馆道场二维码",
+      "bankTitle": "直接转账至银行",
+      "bankCopy": "也欢迎您将您的贡献直接转入道场帐户。",
+      "turnstile": {
+        "missingTitle": "Cloudflare 验证需要公共站点密钥。",
+        "missingCopy": "将 VITE_TURNSTILE_SITE_KEY 添加到站点环境，以便此表单可以接受提交。",
+        "title": "Cloudflare验证"
+      }
+    }
   },
   "newsletter": {
     "intro": {
-      "eyebrow": "消息",
-      "title": "给家庭和学生的温和更新。",
-      "copy": "订阅初学者指南、家长笔记、工作坊公告，以及关于平静练习的短文。"
+      "eyebrow": "时事通讯",
+      "title": "为家庭和学生提供温和的更新。",
+      "copy": "报名参加初学者指导、家长笔记、研讨会公告以及冷静练习反思。"
     },
     "recent": {
       "eyebrow": "近期活动",
-      "title": "与社区分享的道场时刻。",
-      "copy": "了解近期课程、级位提升日、来访教师课程和垫上的其他时刻。"
+      "title": "与社区分享的 Dojo 时刻。",
+      "copy": "了解最近的课程、金腰带促销日、客座教练课程以及其他赛场时刻。",
+      "empty": "最近的道场更新发布后将出现在此处。"
     },
     "notes": {
-      "eyebrow": "近期笔记",
-      "title": "关于第一步和稳定练习的短文。"
+      "eyebrow": "最近的笔记",
+      "title": "为第一步和稳定练习而写的简短文章。"
     },
     "signup": {
       "eyebrow": "道场更新",
-      "title": "关注 练心馆 更新。",
-      "copy": "安全邮件服务接入后将开放订阅。现在可先在 Facebook 关注或联系道场，获取课程笔记、活动和工作坊公告。"
+      "title": "关注仁心馆更新。",
+      "copy": "添加安全电子邮件提供商后将连接时事通讯注册。目前，请在 Facebook 上关注道场或向道场发送消息，以获取课堂笔记、活动更新和研讨会公告。",
+      "frameTitle": "{{brand}} 新闻通讯注册",
+      "openForm": "打开注册表单",
+      "missingConfig": "添加 VITE_BREVO_SIGNUP_FORM_URL 以显示 Brevo 注册表单。",
+      "emailTitle": "通过电子邮件获取 {{brand}} 更新。",
+      "emailCopy": "加入 dojo 邮件列表，我们将随时通知您：",
+      "benefits": {
+        "workshops": {
+          "title": "即将举行的研讨会",
+          "copy": "研讨会日期和客座讲师活动名额有限。"
+        },
+        "classes": {
+          "title": "新班级详情",
+          "copy": "时间表变更、新课程和评分公告。"
+        },
+        "community": {
+          "title": "道场社区",
+          "copy": "垫子上的故事、会员里程碑和特别聚会。"
+        },
+        "privacy": {
+          "title": "永远没有垃圾邮件",
+          "copy": "只有正宗的道场新闻。随时一键取消订阅。"
+        }
+      }
+    },
+    "translate": {
+      "label": "翻译此新闻通讯",
+      "aria": "使用 Google 翻译翻译 {{title}}"
     }
   },
+  "workshops": {
+    "intro": {
+      "eyebrow": "研讨会和活动",
+      "title": "适合初学者、儿童、武器研究和游客的集中练习。",
+      "copy": "日期将在会议确认后公布。定期回来查看或关注道场更新，以了解安排的新研讨会。"
+    },
+    "updates": {
+      "eyebrow": "更新",
+      "title": "遵循课堂笔记和新的研讨会公告。",
+      "cta": "查看道场更新"
+    },
+    "filters": {
+      "all": "全部",
+      "beginner": "初学者",
+      "children": "儿童",
+      "weapons": "武器",
+      "label": "车间过滤器"
+    },
+    "empty": {
+      "title": "全年都会宣布新的研讨会。",
+      "copy": "关注道场更新或向道场发送有关参观课程的消息。"
+    }
+  },
+  "instructorsPage": {
+    "eyebrow": "导师",
+    "title": "与仁心馆道场的合气道教练见面。",
+    "copy": "结识指导课堂练习、向初学者介绍合气道的老师，帮助学生建立平静的动作、尊重的伙伴训练以及在垫子上坚定的信心。"
+  },
+  "locationCard": {
+    "eyebrow": "地点"
+  },
   "seo": {
-    "homeTitle": "练心馆道场 | 清迈杭东合气道",
-    "homeDescription": "练心馆道场 在清迈杭东提供传统合气道和武道训练，课程适合初学者，欢迎儿童和来访练习者提前联系。",
-    "aikidoTitle": "什么是合气道？| 练心馆道场 清迈",
-    "aikidoDescription": "了解合气道历史、植芝盛平、伙伴练习、受身、武器训练，以及 练心馆道场 在清迈的教学方式。",
-    "classesTitle": "杭东合气道课程 | 练心馆道场",
-    "classesDescription": "清迈杭东合气道课程信息，包括练习时间、首次到访指南、级位考试和适合初学者的课程说明。",
-    "workshopsTitle": "清迈合气道工作坊 | 练心馆道场",
-    "workshopsDescription": "练心馆道场 在清迈杭东为初学者、儿童和现有学生举办季节性合气道工作坊。",
-    "newsletterTitle": "道场更新 | 练心馆 清迈合气道",
-    "newsletterDescription": "来自杭东和清迈的 练心馆道场 最新动态、学生消息、活动、照片和合气道社区记录。",
-    "communityTitle": "清迈合气道社区 | 练心馆道场",
-    "communityDescription": "练心馆道场 是清迈合气道社区的一部分，与 Peace Culture Foundation、AikidoCMU 和本地武道练习相连。",
-    "supportTitle": "支持 练心馆道场 | 清迈合气道",
-    "supportDescription": "通过学生贡献和捐赠支持 练心馆道场，让杭东和清迈的合气道训练保持开放可及。",
-    "contactTitle": "联系 练心馆道场 | 杭东合气道",
-    "contactDescription": "联系清迈杭东 练心馆道场，咨询合气道课程、首次到访、儿童训练和来访练习安排。",
-    "visitTitle": "到访 练心馆道场 | 杭东合气道",
-    "visitDescription": "计划首次到访清迈杭东 练心馆道场。欢迎初学者、家长和来访合气道练习者联系道场。",
-    "adminTitle": "管理 | 练心馆道场",
-    "adminDescription": "练心馆道场 内容管理。",
-    "localBusinessDescription": "位于清迈杭东的传统合气道和武道训练。"
+    "homeTitle": "炼心馆道场 |泰国清迈杭东的合气道",
+    "homeDescription": "RenshinKan Dojo 在泰国清迈杭东提供合气道课程和武术训练。欢迎初学者、儿童和参观合气道。",
+    "aikidoTitle": "什么是合气道？ |清迈仁心馆道场",
+    "aikidoDescription": "了解合气道历史、O Sensei、ukemi、武器使用，以及清迈杭东的 RenshinKan 道场如何教授合气道。",
+    "instructorsTitle": "清迈合气道教练| 清迈合气道教练炼心馆道场",
+    "instructorsDescription": "与 RenshinKan Dojo 合气道教练见面，他们教授初学者友好课程、儿童、成人，并在清迈杭东参观合气道。",
+    "classesTitle": "清迈杭东合气道课程|炼心馆道场",
+    "classesDescription": "清迈杭东的合气道课程信息。查看练习时间、首次访问指导、腰带考试和适合初学者的课程详细信息。",
+    "workshopsTitle": "清迈合气道工作坊|炼心馆道场",
+    "workshopsDescription": "清迈杭东的 RenshinKan 道场为初学者、儿童和在校学生举办季节性合气道研讨会。",
+    "newsletterTitle": "道场更新 |清迈仁心馆合气道",
+    "newsletterDescription": "最近的 RenshinKan 道场更新、学生新闻、活动、照片以及杭东和清迈的合气道社区笔记。",
+    "communityTitle": "清迈合气道社区|炼心馆道场",
+    "communityDescription": "RenshinKan 道场是清迈合气道社区的一部分，与和平文化基金会、合气道 CMU 和当地武术练习机构有联系。",
+    "supportTitle": "支持仁心馆道场 |清迈合气道",
+    "supportDescription": "支持 RenshinKan 道场，并通过学生捐款和捐款帮助杭东和清迈保持合气道培训的可及性。",
+    "contactTitle": "联络仁心馆道场 |清迈杭东的合气道",
+    "contactDescription": "请联系泰国清迈杭东的 RenshinKan 道场，询问合气道课程、初学者参观、儿童培训和参观合气道练习。",
+    "visitTitle": "参观炼心馆道场 |清迈杭东的合气道",
+    "visitDescription": "计划第一次参观泰国清迈杭东的仁心馆道场。欢迎初学者、家长和参观合气道。",
+    "adminTitle": "管理员 |炼心馆道场",
+    "adminDescription": "RenshinKan 道场内容管理。",
+    "localBusinessDescription": "泰国清迈杭东的仁心馆道场合气道课程和传统武术训练。"
   }
 }

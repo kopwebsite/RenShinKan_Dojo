@@ -339,17 +339,18 @@
 
 .supportNavLink {
   min-height: 38px;
-  border: 1px solid hsl(var(--color-vermilion) / 0.28);
+  border: 1px solid hsl(var(--color-persimmon) / 0.34);
   border-radius: 999px;
   padding: 9px 16px;
-  background: hsl(var(--color-vermilion) / 0.11);
-  color: var(--color-brand-red);
+  background: hsl(var(--color-persimmon) / 0.12);
+  color: hsl(var(--color-persimmon));
   font-weight: 750;
   transition:
-    background 150ms ease,
-    border-color 150ms ease,
-    color 150ms ease,
-    transform 150ms ease;
+    background 220ms ease,
+    border-color 220ms ease,
+    color 220ms ease,
+    box-shadow 220ms ease,
+    transform 220ms ease;
 }
 
 .supportNavLink::after {
@@ -359,9 +360,10 @@
 .supportNavLink:hover,
 .supportNavLink:focus-visible,
 .supportNavLink[data-active="true"] {
-  border-color: hsl(var(--color-vermilion) / 0.48);
-  background: var(--color-brand-red);
-  color: var(--color-paper);
+  border-color: hsl(var(--color-persimmon) / 0.55);
+  background: hsl(var(--color-persimmon));
+  color: hsl(var(--color-paper));
+  box-shadow: 0 8px 18px hsl(var(--color-persimmon) / 0.28);
   transform: translateY(-1px);
 }
 
@@ -375,20 +377,23 @@
   position: absolute;
   top: 100%;
   left: 0;
+  z-index: 120;
   width: 240px;
   padding-top: 29px;
 }
 
 .dropdownPanel {
+  position: relative;
+  z-index: 1;
   width: 240px;
   overflow: hidden;
   padding: 10px 0;
+  border: 1px solid rgba(31, 27, 22, 0.08);
   border-radius: 12px;
   background: var(--color-dropdown-bg);
-  backdrop-filter: blur(12px);
   box-shadow:
-    0 12px 32px rgba(31, 27, 22, 0.08),
-    0 2px 8px rgba(31, 27, 22, 0.04);
+    0 18px 40px rgba(31, 27, 22, 0.14),
+    0 4px 12px rgba(31, 27, 22, 0.06);
 }
 
 .dropdownItem {
@@ -531,11 +536,11 @@
 
 .mobileSupportAccordion,
 .mobileSupportNavLink {
-  border: 1px solid hsl(var(--color-vermilion) / 0.28);
+  border: 1px solid hsl(var(--color-persimmon) / 0.34);
   border-radius: 18px;
   padding: 0 16px;
-  background: hsl(var(--color-vermilion) / 0.1);
-  color: var(--color-brand-red);
+  background: hsl(var(--color-persimmon) / 0.12);
+  color: hsl(var(--color-persimmon));
 }
 
 .mobileAccordionLabel {

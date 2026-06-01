@@ -1,19 +1,39 @@
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
-import { faqs } from "../data/siteContent";
+import { useTranslation, type TranslationKey } from "../i18n";
+
+const faqItems = [
+  "experience",
+  "age",
+  "childrenSafety",
+  "parentsWatch",
+  "beginnerClothes",
+  "competition",
+  "falling",
+  "busySchedule",
+  "monthlyFee",
+  "firstVisit",
+] as const;
+
+const faqTranslations = faqItems.map((item) => ({
+  id: item,
+  questionKey: `classes.faq.items.${item}.question`,
+  answerKey: `classes.faq.items.${item}.answer`,
+})) satisfies Array<{ id: string; questionKey: TranslationKey; answerKey: TranslationKey }>;
 
 export function FAQAccordion() {
+  const { t } = useTranslation();
   const [openIndex, setOpenIndex] = useState(0);
 
   return (
     <div className="grid gap-3">
-      {faqs.map((faq, index) => {
+      {faqTranslations.map((faq, index) => {
         const isOpen = openIndex === index;
         const panelId = `faq-panel-${index}`;
         const buttonId = `faq-button-${index}`;
 
         return (
-          <article key={faq.question} className="surface rounded-[1.5rem]">
+          <article key={faq.id} className="surface rounded-[1.5rem]">
             <h3>
               <button
                 id={buttonId}
@@ -23,7 +43,7 @@ export function FAQAccordion() {
                 aria-controls={panelId}
                 onClick={() => setOpenIndex(isOpen ? -1 : index)}
               >
-                <span>{faq.question}</span>
+                <span>{t(faq.questionKey)}</span>
                 <ChevronDown
                   className={`h-5 w-5 shrink-0 transition ${isOpen ? "rotate-180" : ""}`}
                   aria-hidden="true"
@@ -37,7 +57,7 @@ export function FAQAccordion() {
               hidden={!isOpen}
               className="px-5 pb-5 text-sm text-charcoal/78"
             >
-              {faq.answer}
+              {t(faq.answerKey)}
             </div>
           </article>
         );

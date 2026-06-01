@@ -1,5 +1,13 @@
 export type NewsletterStatus = "not_sent" | "pending" | "sent" | "failed";
 
+export type BodyMediaAlign = "left" | "center" | "right";
+
+export type BodyMediaPlacement = {
+  position?: number;
+  widthPercent?: number;
+  align?: BodyMediaAlign;
+};
+
 export type MediaItem = {
   id: string;
   src: string;
@@ -12,6 +20,7 @@ export type MediaItem = {
   objectPosition?: string;
   width?: number;
   height?: number;
+  bodyPlacement?: BodyMediaPlacement;
 };
 
 export type RecentEvent = {
@@ -47,6 +56,8 @@ export type EditableContent = {
 };
 
 const allowedNewsletterStatuses = new Set<NewsletterStatus>(["not_sent", "pending", "sent", "failed"]);
+const allowedBodyMediaAligns = new Set<BodyMediaAlign>(["left", "center", "right"]);
+const MAX_RECENT_EVENT_PHOTOS = 6;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -70,6 +81,59 @@ function optionalNumber(record: Record<string, unknown>, key: string) {
   return typeof record[key] === "number" && Number.isFinite(record[key]) ? record[key] as number : undefined;
 }
 
+function validateBodyMediaPlacement(value: unknown): BodyMediaPlacement | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const position = optionalNumber(value, "position");
+  const widthPercent = optionalNumber(value, "widthPercent");
+  const align = allowedBodyMediaAligns.has(value.align as BodyMediaAlign)
+    ? value.align as BodyMediaAlign
+    : undefined;
+
+  return {
+    position: position == null ? undefined : Math.max(0, Math.round(position)),
+    widthPercent: widthPercent == null ? undefined : Math.min(Math.max(Math.round(widthPercent), 25), 100),
+    align,
+  };
+}
+
+function isValidEmbedUrl(value: string): boolean {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return false;
+  }
+
+  if (trimmed.startsWith("<iframe")) {
+    const match = trimmed.match(/src=["']([^"']+)["']/i);
+    return match ? isValidEmbedUrl(match[1]) : false;
+  }
+
+  try {
+    const url = new URL(trimmed);
+    const host = url.hostname.replace(/^www\./, "");
+    const isEmbedPath =
+      url.pathname.includes("/embed/") ||
+      url.pathname.includes("/video/") ||
+      url.pathname.includes("/player/");
+    const isVimeoPage = host === "vimeo.com" && /^\/\d+/.test(url.pathname);
+
+    return (
+      url.protocol === "https:" &&
+      (isEmbedPath ||
+        host === "youtube.com" ||
+        host === "youtu.be" ||
+        isVimeoPage ||
+        host === "player.vimeo.com" ||
+        host.endsWith(".youtube.com"))
+    );
+  } catch {
+    return false;
+  }
+}
+
 function validateMediaItem(value: unknown, path: string): MediaItem {
   if (!isRecord(value)) {
     throw new Error(`${path} must be an object`);
@@ -91,6 +155,10 @@ function validateMediaItem(value: unknown, path: string): MediaItem {
     throw new Error(`${path}.type must be image or video`);
   }
 
+  if (type === "video" && !isValidEmbedUrl(src)) {
+    throw new Error(`${path}.src must be a supported HTTPS video embed URL`);
+  }
+
   return {
     id,
     src,
@@ -103,6 +171,7 @@ function validateMediaItem(value: unknown, path: string): MediaItem {
     objectPosition: optionalString(value, "objectPosition"),
     width: optionalNumber(value, "width"),
     height: optionalNumber(value, "height"),
+    bodyPlacement: validateBodyMediaPlacement(value.bodyPlacement),
   };
 }
 
@@ -161,6 +230,15 @@ function validateRecentEvent(value: unknown, index: number): RecentEvent {
 
   const image = value.image == null ? undefined : validateMediaItem(value.image, `${path}.image`);
   const media = value.media == null ? [] : validateMediaList(value.media, `${path}.media`);
+  const photoCount = new Set(
+    [...media, ...(image ? [image] : [])]
+      .filter((item) => item.type === "image")
+      .map((item) => item.id || item.src),
+  ).size;
+
+  if (photoCount > MAX_RECENT_EVENT_PHOTOS) {
+    throw new Error(`${path}.media can include at most ${MAX_RECENT_EVENT_PHOTOS} photos`);
+  }
 
   return {
     id,

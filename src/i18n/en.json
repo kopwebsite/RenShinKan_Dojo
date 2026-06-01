@@ -183,7 +183,49 @@
     },
     "faq": {
       "eyebrow": "Parent FAQ",
-      "title": "Answers before the first bow."
+      "title": "Answers before the first bow.",
+      "items": {
+        "experience": {
+          "question": "Do I need experience to join?",
+          "answer": "Not at all. Everyone is welcome, regardless of background. Aikido is learned from the very beginning, and new students are introduced gradually alongside people at all levels."
+        },
+        "age": {
+          "question": "What age is welcome?",
+          "answer": "All ages are welcome at RenshinKan. We have classes for children, teens, adults, and older students. If you are unsure whether a class is the right fit for your age group, just come along and see."
+        },
+        "childrenSafety": {
+          "question": "Is aikido safe for children?",
+          "answer": "Yes. Aikido is often described as the art of nonviolence. Its techniques are built around blending with force rather than meeting it head on. As long as students take practice seriously and follow the guidance of their instructor, it is a very safe art. Students learn falling, spacing, and partner care gradually, so no one is pushed beyond what they are ready for."
+        },
+        "parentsWatch": {
+          "question": "Can parents watch?",
+          "answer": "Yes. The dojo has a viewing deck with seating so parents can observe class and get a feel for the tone and rhythm of practice. Parents are also very welcome to join in on the mat themselves. Aikido is a great activity to share as a family."
+        },
+        "beginnerClothes": {
+          "question": "What should beginners wear?",
+          "answer": "Comfortable, loose trousers and a T-shirt are perfectly fine for a first visit. There is no need to buy a keikogi right away. Students are only expected to get one when they feel ready and settled in. If you are interested in getting a keikogi, the dojo can help point you in the right direction."
+        },
+        "competition": {
+          "question": "Does aikido involve competition?",
+          "answer": "Aikido has no competitions or tournaments. It is a cooperative martial art. Both partners work together, taking turns as the one who initiates and the one who receives. The goal is to learn timing, balance, and how to move safely with another person, not to win."
+        },
+        "falling": {
+          "question": "How do students learn to fall safely?",
+          "answer": "Students begin with low, careful ukemi practice, learning how to protect the head, soften impact, and move with the floor before techniques become more dynamic."
+        },
+        "busySchedule": {
+          "question": "I am very busy. Can I still come?",
+          "answer": "Yes. Aikido is good exercise and stretching for both the body and the mind, and even one session a week makes a difference. Come every day or just once a week. Whatever your schedule allows. There is no pressure to attend at any fixed frequency."
+        },
+        "monthlyFee": {
+          "question": "How much is the monthly dojo upkeep fee?",
+          "answer": "The dojo recommends a contribution of 1,500 baht per month to help cover running expenses. Instructors are not paid, and all contributions go directly back into maintaining and running the dojo."
+        },
+        "firstVisit": {
+          "question": "How do we arrange a first visit?",
+          "answer": "Feel free to drop in at any class time. No booking needed. If you prefer to reach out first, you are welcome to contact us ahead of time. Visiting aikidoka are recommended to get in touch before coming so we can make sure the timing works well."
+        }
+      }
     }
   },
   "contact": {
@@ -194,18 +236,20 @@
     },
     "message": {
       "eyebrow": "Get in Touch",
-      "title": "Prefer to message us through Facebook?",
-      "copy": "You're welcome to reach out to us directly on Facebook. We're happy to answer any questions about classes, schedules, or your first visit."
+      "title": "Two easy ways to reach us.",
+      "copy": "Reach out any time — message us on Facebook or email us at contact@renshinkandojo.org. We're happy to answer any questions about classes, schedules, or your first visit.",
+      "emailCta": "Email contact@renshinkandojo.org"
     },
     "before": {
       "eyebrow": "Before You Visit",
-      "title": "What to include in your message.",
-      "copy": "Tell us your age group, aikido or martial arts experience if any, and the class day you would like to visit. Beginners are welcome.",
+      "title": "Feel free to just drop in.",
+      "copy": "You're welcome to drop in to a class without messaging ahead. If you'd like to say hello first, you can connect with us on Facebook or by email at contact@renshinkandojo.org before you come.",
       "item1": "Wear comfortable clothes that allow movement.",
       "item2": "Arrive a little early so someone can welcome you.",
       "item3": "Parents may ask about observing children's practice.",
-      "item4": "Visiting aikidoka should mention rank and home dojo.",
-      "cta": "Ask about visiting class"
+      "item4": "Visiting aikidoka are welcome to mention rank and home dojo.",
+      "cta": "Message us on Facebook",
+      "emailCta": "Email the dojo"
     }
   },
   "aikido": {
@@ -244,7 +288,7 @@
     "who": {
       "eyebrow": "Everyone Is Welcome",
       "title": "Who Can Practice?",
-      "intro": "Aikido can be practiced by adults, children, complete beginners, experienced martial artists, and visiting aikidoka alike. You do not need to be strong, athletic, flexible, or experienced to begin. Progress comes through steady practice, attention, and learning correct movement rather than relying on physical strength alone.",
+      "intro": "Aikido can be practiced by adults, children, complete beginners, and experienced martial artists alike. You do not need to be strong, athletic, flexible, or experienced to begin. Even very senior practitioners, well into older age, are warmly welcome and can keep training at their own pace — it is a wonderful way to stay active, mobile, and flexible as the years go on. Progress comes through steady practice, attention, and learning correct movement rather than relying on physical strength alone.",
       "childrenTitle": "For Children",
       "adultsTitle": "For Adults",
       "visitorsTitle": "Visiting Aikidoka",
@@ -274,7 +318,7 @@
     "history": {
       "eyebrow": "Aikido History",
       "title": "From older budo to a living local practice.",
-      "copy": "Each entry connects to the full written history below. Click any item to jump to that period of the story.",
+      "copy": "Each entry marks a period in the full written history told below.",
       "primarySources": "Primary Sources",
       "storyEyebrow": "Historical Story",
       "storyTitle": "O Sensei, aikido, and the path from force to harmony.",
@@ -291,7 +335,10 @@
     "events": {
       "eyebrow": "Upcoming Events",
       "title": "Community calendar.",
-      "copy": "Confirmed dates for seminars, open mat days, volunteer activities, and dojo gatherings will be posted here as they're set."
+      "copy": "Confirmed dates for seminars, open mat days, volunteer activities, and dojo gatherings will be posted here as they're set.",
+      "emptyTitle": "Nothing on the calendar right now.",
+      "emptyCopy": "There are no events scheduled at the moment. The mat is quiet for now — check back soon, and any seminars, open mat days, or gatherings will appear here as they're confirmed.",
+      "emptyCta": "See recent dojo updates"
     },
     "past": {
       "eyebrow": "Past Events",
@@ -352,9 +399,11 @@
       "arrangeTitle": "How to arrange a contribution",
       "arrangeCopy": "This static website does not process payments or collect payment details. Please arrange contributions directly with the dojo.",
       "coversTitle": "What your contribution covers",
-      "coversCopy": "Below is every category the dojo spends money on. Nothing else.",
+      "coversCopy": "Every baht goes straight back into the dojo. Below is each category your monthly contribution helps cover, from the training hall and mats to weapons, upkeep, events, and the small comforts that keep the space welcoming. Nothing is spent outside this list.",
       "reminderEyebrow": "A reminder worth repeating",
-      "reminderCopy": "Instructors are not compensated from these funds. They teach because they practice, and they practice because they believe in it. The money keeps the lights on."
+      "reminderCopy": "Instructors are not compensated from these funds. They teach because they practice, and they practice because they believe in it. The money keeps the lights on.",
+      "whyTitle": "Why monthly?",
+      "whyCopy": "Regular contributions let the dojo plan repairs and supplies before something becomes urgent."
     },
     "donations": {
       "eyebrow": "Donations",
@@ -365,7 +414,141 @@
       "qrNote": "Request the current QR code before sending funds.",
       "whereTitle": "Where it goes",
       "noSalary": "No part of your donation pays anyone's salary or personal income. This is a community dojo, run by people who love the practice.",
-      "transfer": "Prefer to transfer directly?"
+      "transfer": "Prefer to transfer directly?",
+      "promptPayQrAlt": "PromptPay QR code for RenshinKan Dojo donations",
+      "uses": {
+        "workshops": "Workshops and guest instructor visits",
+        "equipment": "Training equipment and mat maintenance",
+        "exams": "Belt examination events and materials",
+        "outreach": "Community outreach and open-day costs",
+        "access": "Keeping practice affordable for students with less flexibility"
+      }
+    },
+    "expenses": {
+      "utilities": {
+        "label": "Electricity & Water",
+        "note": "Monthly utility bills for the training hall, changing rooms, bathrooms, and grounds."
+      },
+      "mats": {
+        "label": "Mat Cleaning & Upkeep",
+        "note": "Cleaning supplies, sanitising, tatami care, and small repairs that keep practice safe."
+      },
+      "building": {
+        "label": "Building Maintenance",
+        "note": "Ongoing repairs, painting, roof checks, lighting, fans, and general upkeep of the dojo."
+      },
+      "equipment": {
+        "label": "Training Equipment",
+        "note": "Replacement and maintenance of bokken, jo, tanto, targets, and shared practice gear."
+      },
+      "safety": {
+        "label": "Safety & First Aid",
+        "note": "Basic first-aid supplies and safety items for children, beginners, and regular classes."
+      },
+      "events": {
+        "label": "Event & Seminar Costs",
+        "note": "Hosting visiting instructors, open days, belt examinations, and community events."
+      },
+      "garden": {
+        "label": "Garden & Grounds",
+        "note": "Maintaining the outdoor space, plants, pathways, parking area, and the dojo surroundings."
+      },
+      "welfare": {
+        "label": "Student Welfare",
+        "note": "Drinking water, post-class refreshments, and small comforts that make the dojo welcoming."
+      },
+      "admin": {
+        "label": "Admin & Records",
+        "note": "Keeping contribution records clear so families and senseis can track each month properly."
+      }
+    },
+    "highlights": {
+      "dueDate": {
+        "value": "1st",
+        "label": "Due each month",
+        "note": "A predictable date keeps shared bills and upkeep manageable."
+      },
+      "returned": {
+        "value": "100%",
+        "label": "Back to the dojo",
+        "note": "Contributions stay focused on the space, students, and practice."
+      },
+      "shared": {
+        "value": "All ages",
+        "label": "Shared by everyone",
+        "note": "Families, adults, beginners, and regular students all help keep it open."
+      }
+    },
+    "transfer": {
+      "accountName": "Account Name",
+      "bank": "Bank",
+      "accountNumber": "Account Number",
+      "promptPayId": "PromptPay ID (same as mobile)",
+      "reference": "Reference"
+    },
+    "contribution": {
+      "title": "Arrange your monthly contribution",
+      "copy": "Please share a few details and choose how you would like to contribute. Only a few fields are needed. Everything else is there if you wish to add it.",
+      "fields": {
+        "parentName": "Parent or guardian name",
+        "studentName": "Student name",
+        "email": "Email address",
+        "phone": "Phone number",
+        "address": "Home address",
+        "notes": "Notes for Sensei"
+      },
+      "optional": "Optional",
+      "paymentLegend": "How would you like to contribute?",
+      "comingSoon": "Coming soon",
+      "notesPlaceholder": "Anything you would like Sensei to know.",
+      "consent": "I understand that monthly contributions are due on the 1st of every month to help ensure the dojo can operate smoothly.",
+      "submitting": "Submitting...",
+      "submit": "Submit my contribution details",
+      "methods": {
+        "inPerson": {
+          "label": "Pay in person",
+          "note": "Hand your monthly contribution to Sensei at the dojo."
+        },
+        "qr": {
+          "label": "Pay with PromptPay QR code",
+          "note": "Scan and pay from your banking app, or transfer directly to the dojo bank account."
+        },
+        "scheduled": {
+          "label": "Set up scheduled payment",
+          "note": "This option is not ready yet. We are still setting it up."
+        }
+      },
+      "errors": {
+        "parentName": "Please add the parent or guardian name.",
+        "studentName": "Please add the student name.",
+        "email": "Please add an email address.",
+        "emailInvalid": "Please check this email address.",
+        "phone": "Please add a phone number.",
+        "address": "Please add your home address.",
+        "paymentMethod": "Please choose how you would like to contribute.",
+        "consent": "Please tick the box to continue.",
+        "turnstileMissing": "Cloudflare verification is not configured yet.",
+        "turnstileRequired": "Please complete the Cloudflare verification.",
+        "turnstileExpired": "Cloudflare verification expired. Please complete it again.",
+        "turnstileLoad": "Cloudflare verification could not load. Please try again.",
+        "submitFailed": "Unable to submit your contribution details. Please try again."
+      },
+      "confirm": {
+        "title": "Thank you - one more step",
+        "inPerson": "You are not quite done yet. Your details have been received and the senseis have been notified, so they will be expecting your contribution in person at the dojo. Please hand it to Sensei at your next class. To help us keep accurate records, please continue to make your future monthly payments this same way, through this form, so every contribution is tracked in our system. Monthly contributions are due on the 1st of every month to help ensure the dojo can operate smoothly.",
+        "qr": "You are not quite done yet. The senseis have been notified and will be on the lookout for your payment. When you scan the QR code or transfer to the dojo account, please include your student's name in the notes of the transaction or transfer so we can match it to you. Please also continue to make your future monthly payments through this form so we can keep track of every contribution. Monthly contributions are due on the 1st of every month to help ensure the dojo can operate smoothly.",
+        "fallbackTitle": "Thank you",
+        "fallback": "Thank you for supporting RenshinKan Dojo. Monthly contributions are due on the 1st of every month to help ensure the dojo can operate smoothly."
+      },
+      "qrTitle": "PromptPay QR code",
+      "qrAlt": "PromptPay QR code for RenshinKan Dojo",
+      "bankTitle": "Transfer directly to bank",
+      "bankCopy": "You are also welcome to transfer your contribution straight to the dojo account.",
+      "turnstile": {
+        "missingTitle": "Cloudflare verification needs a public site key.",
+        "missingCopy": "Add VITE_TURNSTILE_SITE_KEY to the site environment so this form can accept submissions.",
+        "title": "Cloudflare verification"
+      }
     }
   },
   "newsletter": {
@@ -377,7 +560,8 @@
     "recent": {
       "eyebrow": "Recent Events",
       "title": "Dojo moments to share with the community.",
-      "copy": "Catch up on recent classes, belt promotion days, visiting instructor sessions, and other moments from the mat."
+      "copy": "Catch up on recent classes, belt promotion days, visiting instructor sessions, and other moments from the mat.",
+      "empty": "Recent dojo updates will appear here after they are published."
     },
     "notes": {
       "eyebrow": "Recent Notes",
@@ -386,7 +570,34 @@
     "signup": {
       "eyebrow": "Dojo Updates",
       "title": "Follow RenshinKan updates.",
-      "copy": "Newsletter signup will be connected after a secure email provider is added. For now, follow or message the dojo on Facebook for class notes, event updates, and workshop announcements."
+      "copy": "Newsletter signup will be connected after a secure email provider is added. For now, follow or message the dojo on Facebook for class notes, event updates, and workshop announcements.",
+      "frameTitle": "{{brand}} newsletter signup",
+      "openForm": "Open signup form",
+      "missingConfig": "Add VITE_BREVO_SIGNUP_FORM_URL to show the Brevo signup form.",
+      "emailTitle": "Get {{brand}} updates by email.",
+      "emailCopy": "Join the dojo mailing list and we'll keep you in the loop:",
+      "benefits": {
+        "workshops": {
+          "title": "Upcoming workshops",
+          "copy": "Seminar dates and visiting-instructor events before they fill up."
+        },
+        "classes": {
+          "title": "New class details",
+          "copy": "Schedule changes, new courses, and grading announcements."
+        },
+        "community": {
+          "title": "Dojo community",
+          "copy": "Stories from the mat, member milestones, and special gatherings."
+        },
+        "privacy": {
+          "title": "No spam, ever",
+          "copy": "Only genuine dojo news. Unsubscribe in one click, anytime."
+        }
+      }
+    },
+    "translate": {
+      "label": "Translate this newsletter",
+      "aria": "Translate {{title}} with Google Translate"
     }
   },
   "workshops": {

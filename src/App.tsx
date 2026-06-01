@@ -1,6 +1,5 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { FloatingFirstVisit } from "./components/FloatingFirstVisit";
 import { Footer } from "./components/Footer";
 import { Navbar } from "./components/Navbar";
 import { ScrollToTop } from "./components/ScrollToTop";
@@ -48,7 +47,6 @@ export default function App() {
           </Routes>
         </Suspense>
       </main>
-      <FloatingFirstVisit />
       <Footer />
     </>
   );

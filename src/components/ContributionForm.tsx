@@ -1,5 +1,6 @@
 import { Banknote, CheckCircle, HandCoins, QrCode } from "lucide-react";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation, type TranslationKey } from "../i18n";
 import { assetPath } from "../utils/assetPath";
 
 /*
@@ -22,10 +23,10 @@ import { assetPath } from "../utils/assetPath";
  * labelled SETTINGS below, so you can edit the wording, the bank details, and
  * the QR code image without digging through the form logic.
  *
- * WHERE TO CONNECT A BACKEND:
- *   See the submitContribution() and notifySensei() functions further down.
- *   Both are placeholders with comments showing exactly where to plug in a
- *   Google Form, a Google Sheet, an email notification, or any simple backend.
+ * BACKEND CONNECTION:
+ *   submitContribution() posts JSON to a Cloudflare Worker/Pages Function.
+ *   The Worker owns the Google Form URL and entry IDs so they are never
+ *   exposed in browser code.
  * ============================================================================
  */
 
@@ -44,45 +45,108 @@ const BANK_DETAILS = {
   bankName: "Kasikorn Bank",
 };
 
-// The consent the parent must agree to before they can submit.
-const CONSENT_TEXT =
-  "I understand that monthly contributions are due on the 1st of every month to help ensure the dojo can operate smoothly.";
-
-// A gentle reminder reused in the confirmation messages.
-const DUE_REMINDER =
-  "Monthly contributions are due on the 1st of every month to help ensure the dojo can operate smoothly.";
-
 // The contribution methods shown on the first page. The parent picks one.
 // To turn the scheduled payment on later, set its "disabled" value to false.
 const PAYMENT_METHODS = [
   {
     id: "inPerson",
-    label: "Pay in person",
-    note: "Hand your monthly contribution to Sensei at the dojo.",
+    backendLabel: "Pay in person",
+    labelKey: "support.contribution.methods.inPerson.label",
+    noteKey: "support.contribution.methods.inPerson.note",
     disabled: false,
   },
   {
     id: "qr",
-    label: "Pay with PromptPay QR code",
-    note: "Scan and pay from your banking app, or transfer directly to the dojo bank account.",
+    backendLabel: "Pay with PromptPay QR code",
+    labelKey: "support.contribution.methods.qr.label",
+    noteKey: "support.contribution.methods.qr.note",
     disabled: false,
   },
   {
     id: "scheduled",
-    label: "Set up scheduled payment",
-    note: "This option is not ready yet. We are still setting it up.",
+    backendLabel: "Set up scheduled payment",
+    labelKey: "support.contribution.methods.scheduled.label",
+    noteKey: "support.contribution.methods.scheduled.note",
     disabled: true, // greyed out for now
   },
-] as const;
+] as const satisfies readonly {
+  id: string;
+  backendLabel: string;
+  labelKey: TranslationKey;
+  noteKey: TranslationKey;
+  disabled: boolean;
+}[];
 
 type PaymentMethodId = (typeof PAYMENT_METHODS)[number]["id"];
+const SUBMISSION_FAILED_ERROR = "CONTRIBUTION_SUBMIT_FAILED";
+
+const MEMBERSHIP_WORKER_URL = (import.meta.env.VITE_MEMBERSHIP_WORKER_URL || "/api/membership").trim();
+const TURNSTILE_SITE_KEY = (import.meta.env.VITE_TURNSTILE_SITE_KEY || "").trim();
+const TURNSTILE_SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+
+type TurnstileOptions = {
+  sitekey: string;
+  callback: (token: string) => void;
+  "expired-callback": () => void;
+  "error-callback": () => void;
+  theme?: "auto" | "light" | "dark";
+  size?: "normal" | "compact" | "flexible";
+};
+
+type TurnstileApi = {
+  ready: (callback: () => void) => void;
+  render: (container: HTMLElement | string, options: TurnstileOptions) => string | undefined;
+  reset: (widgetId?: string) => void;
+  remove: (widgetId?: string) => void;
+};
+
+declare global {
+  interface Window {
+    turnstile?: TurnstileApi;
+  }
+}
+
+let turnstileScriptPromise: Promise<void> | null = null;
+
+function loadTurnstileScript() {
+  if (typeof window === "undefined") return Promise.resolve();
+  if (window.turnstile) return Promise.resolve();
+
+  if (!turnstileScriptPromise) {
+    turnstileScriptPromise = new Promise((resolve, reject) => {
+      const existingScript = document.querySelector<HTMLScriptElement>(
+        'script[src^="https://challenges.cloudflare.com/turnstile/v0/api.js"]',
+      );
+
+      if (existingScript) {
+        existingScript.addEventListener("load", () => resolve(), { once: true });
+        existingScript.addEventListener("error", () => reject(new Error("Unable to load Cloudflare Turnstile.")), {
+          once: true,
+        });
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = TURNSTILE_SCRIPT_SRC;
+      script.async = true;
+      script.defer = true;
+      script.addEventListener("load", () => resolve(), { once: true });
+      script.addEventListener("error", () => reject(new Error("Unable to load Cloudflare Turnstile.")), {
+        once: true,
+      });
+      document.head.appendChild(script);
+    });
+  }
+
+  return turnstileScriptPromise;
+}
 
 /* ---------------------------------------------------------------------------
  * 2. FORM DATA SHAPE
  * ------------------------------------------------------------------------- */
 
 interface ContributionDetails {
-  parentName: string; // optional
+  parentName: string; // required
   studentName: string; // required
   email: string; // required
   phone: string; // required
@@ -103,10 +167,10 @@ const emptyDetails: ContributionDetails = {
   consent: false,
 };
 
-type FieldErrors = Partial<Record<keyof ContributionDetails, string>>;
+type FieldErrors = Partial<Record<keyof ContributionDetails | "turnstile", string>>;
 
 /* ---------------------------------------------------------------------------
- * 3. BACKEND PLACEHOLDERS  (this is where you connect things later)
+ * 3. BACKEND SUBMISSION
  * ------------------------------------------------------------------------- */
 
 /**
@@ -138,23 +202,34 @@ type FieldErrors = Partial<Record<keyof ContributionDetails, string>>;
  *     Any endpoint that accepts JSON will work. Return a resolved promise on
  *     success so the confirmation screen can appear.
  */
-async function submitContribution(details: ContributionDetails): Promise<void> {
-  // TODO: replace this console log with a real submission (see notes above).
-  console.log("New monthly contribution request:", details);
-  return Promise.resolve();
+async function submitContribution(details: ContributionDetails, turnstileToken: string): Promise<void> {
+  const response = await fetch(MEMBERSHIP_WORKER_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      parentName: details.parentName.trim(),
+      studentName: details.studentName.trim(),
+      emailAddress: details.email.trim(),
+      phoneNumber: details.phone.trim(),
+      homeAddress: details.address.trim(),
+      paymentMethod: getPaymentMethodLabel(details.paymentMethod),
+      notes: details.notes.trim(),
+      agreement: "Check",
+      turnstileToken,
+    }),
+  });
+
+  const result = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
+
+  if (!response.ok || !result?.success) {
+    throw new Error(result?.error || SUBMISSION_FAILED_ERROR);
+  }
 }
 
-/**
- * Called when the parent chooses "Pay in person".
- *
- * This is where you can let Sensei know to expect the contribution. For
- * example, POST to a Cloudflare Pages Function that sends an email or a
- * Facebook message. For now it just logs to the console.
- */
-async function notifySensei(details: ContributionDetails): Promise<void> {
-  // TODO: add Sensei notification logic here (email, message, etc.).
-  console.log("Sensei notification (pay in person):", details.studentName, details.email);
-  return Promise.resolve();
+function getPaymentMethodLabel(paymentMethod: PaymentMethodId | "") {
+  return PAYMENT_METHODS.find((method) => method.id === paymentMethod)?.backendLabel ?? paymentMethod;
 }
 
 /* ---------------------------------------------------------------------------
@@ -162,14 +237,21 @@ async function notifySensei(details: ContributionDetails): Promise<void> {
  * ------------------------------------------------------------------------- */
 
 export function ContributionForm() {
+  const { t } = useTranslation();
   const [details, setDetails] = useState<ContributionDetails>(emptyDetails);
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [submitError, setSubmitError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileResetSignal, setTurnstileResetSignal] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submittedDetails, setSubmittedDetails] = useState<ContributionDetails | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Update a single field and clear any error already showing for it.
   function updateField<K extends keyof ContributionDetails>(field: K, value: ContributionDetails[K]) {
     setDetails((current) => ({ ...current, [field]: value }));
+    setSubmitError("");
     setErrors((current) => {
       if (!current[field]) return current;
       const next = { ...current };
@@ -179,43 +261,94 @@ export function ContributionForm() {
   }
 
   // Check the required fields and return any problems we find.
-  function validate(values: ContributionDetails): FieldErrors {
+  function validate(values: ContributionDetails, verificationToken: string): FieldErrors {
     const found: FieldErrors = {};
-    if (!values.studentName.trim()) found.studentName = "Please add the student name.";
+    if (!values.parentName.trim()) found.parentName = t("support.contribution.errors.parentName");
+    if (!values.studentName.trim()) found.studentName = t("support.contribution.errors.studentName");
     if (!values.email.trim()) {
-      found.email = "Please add an email address.";
+      found.email = t("support.contribution.errors.email");
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) {
-      found.email = "Please check this email address.";
+      found.email = t("support.contribution.errors.emailInvalid");
     }
-    if (!values.phone.trim()) found.phone = "Please add a phone number.";
-    if (!values.address.trim()) found.address = "Please add your home address.";
-    if (!values.paymentMethod) found.paymentMethod = "Please choose how you would like to contribute.";
-    if (!values.consent) found.consent = "Please tick the box to continue.";
+    if (!values.phone.trim()) found.phone = t("support.contribution.errors.phone");
+    if (!values.address.trim()) found.address = t("support.contribution.errors.address");
+    if (!values.paymentMethod) found.paymentMethod = t("support.contribution.errors.paymentMethod");
+    if (!values.consent) found.consent = t("support.contribution.errors.consent");
+    if (!TURNSTILE_SITE_KEY) {
+      found.turnstile = t("support.contribution.errors.turnstileMissing");
+    } else if (!verificationToken) {
+      found.turnstile = t("support.contribution.errors.turnstileRequired");
+    }
     return found;
   }
 
+  const clearTurnstileError = useCallback(() => {
+    setErrors((current) => {
+      if (!current.turnstile) return current;
+      const next = { ...current };
+      delete next.turnstile;
+      return next;
+    });
+  }, []);
+
+  const handleTurnstileVerify = useCallback((token: string) => {
+    setTurnstileToken(token);
+    setSubmitError("");
+    clearTurnstileError();
+  }, [clearTurnstileError]);
+
+  const handleTurnstileExpire = useCallback(() => {
+    setTurnstileToken("");
+    setErrors((current) => ({
+      ...current,
+      turnstile: t("support.contribution.errors.turnstileExpired"),
+    }));
+  }, [t]);
+
+  const handleTurnstileError = useCallback(() => {
+    setTurnstileToken("");
+    setErrors((current) => ({
+      ...current,
+      turnstile: t("support.contribution.errors.turnstileLoad"),
+    }));
+  }, [t]);
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const found = validate(details);
+    setSubmitError("");
+    const found = validate(details, turnstileToken);
     setErrors(found);
 
     if (Object.keys(found).length > 0) {
       // Move focus to the first field that needs attention.
       const firstError = Object.keys(found)[0];
-      const element = formRef.current?.querySelector<HTMLElement>(`[name="${firstError}"]`);
+      const selector = firstError === "turnstile" ? "[data-turnstile-block]" : `[name="${firstError}"]`;
+      const element = formRef.current?.querySelector<HTMLElement>(selector);
       element?.focus();
       return;
     }
 
-    await submitContribution(details);
-
-    // If they are paying in person, let Sensei know to expect them.
-    if (details.paymentMethod === "inPerson") {
-      await notifySensei(details);
+    setSubmitting(true);
+    try {
+      await submitContribution(details, turnstileToken);
+      setSubmittedDetails(details);
+      setDetails(emptyDetails);
+      setTurnstileToken("");
+      setSubmitted(true);
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error && error.message !== SUBMISSION_FAILED_ERROR
+          ? error.message
+          : t("support.contribution.errors.submitFailed"),
+      );
+      setTurnstileToken("");
+      setTurnstileResetSignal((signal) => signal + 1);
+    } finally {
+      setSubmitting(false);
     }
-
-    setSubmitted(true);
   }
+
+  const confirmationDetails = submittedDetails ?? details;
 
   return (
     <article className="surface rounded-[2rem] p-6 sm:p-8 lg:p-10">
@@ -226,26 +359,27 @@ export function ContributionForm() {
       {/* ---- STAGE 1: the parent details form ---- */}
       {!submitted && (
         <>
-          <h3 className="mt-5 text-3xl text-ink">Arrange your monthly contribution</h3>
+          <h3 className="mt-5 text-3xl text-ink">{t("support.contribution.title")}</h3>
           <p className="mt-4 text-sm leading-6 text-charcoal/75">
-            Please share a few details and choose how you would like to contribute. Only a few fields are
-            needed. Everything else is there if you wish to add it.
+            {t("support.contribution.copy")}
           </p>
 
           <form ref={formRef} onSubmit={handleSubmit} noValidate className="mt-7 grid gap-5">
-            <Field label="Parent or guardian name" htmlFor="parentName" hint="Optional">
+            <Field label={t("support.contribution.fields.parentName")} htmlFor="parentName" required error={errors.parentName}>
               <input
                 id="parentName"
                 name="parentName"
                 type="text"
+                required
                 autoComplete="name"
+                aria-invalid={Boolean(errors.parentName)}
                 className="input-field"
                 value={details.parentName}
                 onChange={(event) => updateField("parentName", event.target.value)}
               />
             </Field>
 
-            <Field label="Student name" htmlFor="studentName" required error={errors.studentName}>
+            <Field label={t("support.contribution.fields.studentName")} htmlFor="studentName" required error={errors.studentName}>
               <input
                 id="studentName"
                 name="studentName"
@@ -258,7 +392,7 @@ export function ContributionForm() {
               />
             </Field>
 
-            <Field label="Email address" htmlFor="email" required error={errors.email}>
+            <Field label={t("support.contribution.fields.email")} htmlFor="email" required error={errors.email}>
               <input
                 id="email"
                 name="email"
@@ -272,7 +406,7 @@ export function ContributionForm() {
               />
             </Field>
 
-            <Field label="Phone number" htmlFor="phone" required error={errors.phone}>
+            <Field label={t("support.contribution.fields.phone")} htmlFor="phone" required error={errors.phone}>
               <input
                 id="phone"
                 name="phone"
@@ -287,7 +421,7 @@ export function ContributionForm() {
               />
             </Field>
 
-            <Field label="Home address" htmlFor="address" required error={errors.address}>
+            <Field label={t("support.contribution.fields.address")} htmlFor="address" required error={errors.address}>
               <textarea
                 id="address"
                 name="address"
@@ -305,7 +439,7 @@ export function ContributionForm() {
                 Google Form or Google Sheet can record which method was chosen. */}
             <fieldset>
               <legend className="flex items-center gap-2 text-sm font-semibold text-ink">
-                How would you like to contribute?
+                {t("support.contribution.paymentLegend")}
                 <span className="text-vermilion" aria-hidden="true">
                   *
                 </span>
@@ -336,14 +470,16 @@ export function ContributionForm() {
                       />
                       <span>
                         <span className="block text-sm font-semibold text-ink">
-                          {method.label}
+                          {t(method.labelKey)}
                           {method.disabled && (
                             <span className="ml-2 rounded-full bg-ink/10 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-charcoal/60">
-                              Coming soon
+                              {t("support.contribution.comingSoon")}
                             </span>
                           )}
                         </span>
-                        <span className="mt-0.5 block text-xs leading-5 text-charcoal/65">{method.note}</span>
+                        <span className="mt-0.5 block text-xs leading-5 text-charcoal/65">
+                          {t(method.noteKey)}
+                        </span>
                       </span>
                     </label>
                   );
@@ -354,12 +490,16 @@ export function ContributionForm() {
               )}
             </fieldset>
 
-            <Field label="Notes for Sensei" htmlFor="notes" hint="Optional">
+            <Field
+              label={t("support.contribution.fields.notes")}
+              htmlFor="notes"
+              hint={t("support.contribution.optional")}
+            >
               <textarea
                 id="notes"
                 name="notes"
                 rows={3}
-                placeholder="Anything you would like Sensei to know."
+                placeholder={t("support.contribution.notesPlaceholder")}
                 className="input-field"
                 value={details.notes}
                 onChange={(event) => updateField("notes", event.target.value)}
@@ -378,16 +518,35 @@ export function ContributionForm() {
                   checked={details.consent}
                   onChange={(event) => updateField("consent", event.target.checked)}
                 />
-                <span className="text-sm leading-6 text-charcoal/80">{CONSENT_TEXT}</span>
+                <span className="text-sm leading-6 text-charcoal/80">{t("support.contribution.consent")}</span>
               </label>
               {errors.consent && (
                 <p className="mt-1.5 text-xs font-semibold text-vermilion">{errors.consent}</p>
               )}
             </div>
 
-            <button type="submit" className="btn-primary mt-1 w-full sm:w-auto">
+            <TurnstileWidget
+              siteKey={TURNSTILE_SITE_KEY}
+              error={errors.turnstile}
+              resetSignal={turnstileResetSignal}
+              onVerify={handleTurnstileVerify}
+              onExpire={handleTurnstileExpire}
+              onError={handleTurnstileError}
+            />
+
+            {submitError && (
+              <p className="rounded-2xl border border-vermilion/25 bg-vermilion/5 px-4 py-3 text-sm font-semibold text-vermilion">
+                {submitError}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              className="btn-primary mt-1 w-full disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              disabled={submitting || !TURNSTILE_SITE_KEY}
+            >
               <CheckCircle size={18} aria-hidden="true" />
-              Submit my contribution details
+              {submitting ? t("support.contribution.submitting") : t("support.contribution.submit")}
             </button>
           </form>
         </>
@@ -397,24 +556,18 @@ export function ContributionForm() {
       {submitted && (
         <div className="mt-5">
           {/* PAY IN PERSON confirmation */}
-          {details.paymentMethod === "inPerson" && (
+          {confirmationDetails.paymentMethod === "inPerson" && (
             <>
-              <h3 className="text-3xl text-ink">Thank you</h3>
-              <ConfirmationNote>
-                Thank you. Sensei has been notified and will be expecting your monthly contribution in
-                person. {DUE_REMINDER}
-              </ConfirmationNote>
+              <h3 className="text-3xl text-ink">{t("support.contribution.confirm.title")}</h3>
+              <ConfirmationNote>{t("support.contribution.confirm.inPerson")}</ConfirmationNote>
             </>
           )}
 
           {/* PAY WITH QR CODE confirmation, with the direct bank transfer option */}
-          {details.paymentMethod === "qr" && (
+          {confirmationDetails.paymentMethod === "qr" && (
             <>
-              <h3 className="text-3xl text-ink">Thank you</h3>
-              <ConfirmationNote>
-                Thank you. Here is the PromptPay QR code. We appreciate your contribution and your care for
-                the dojo. {DUE_REMINDER}
-              </ConfirmationNote>
+              <h3 className="text-3xl text-ink">{t("support.contribution.confirm.title")}</h3>
+              <ConfirmationNote>{t("support.contribution.confirm.qr")}</ConfirmationNote>
 
               <div className="mt-6 grid gap-6 sm:grid-cols-[auto_1fr] sm:items-start">
                 {/* QR code. */}
@@ -422,12 +575,12 @@ export function ContributionForm() {
                   <div className="flex items-center gap-2 text-vermilion">
                     <QrCode size={18} aria-hidden="true" />
                     <span className="text-xs font-bold uppercase tracking-[0.14em] text-charcoal/60">
-                      PromptPay QR code
+                      {t("support.contribution.qrTitle")}
                     </span>
                   </div>
                   <img
                     src={assetPath(PROMPTPAY_QR_IMAGE)}
-                    alt="PromptPay QR code for RenshinKan Dojo"
+                    alt={t("support.contribution.qrAlt")}
                     className="aspect-square w-56 max-w-full rounded-2xl border border-ink/10 bg-paper object-contain p-2"
                     width={224}
                     height={224}
@@ -440,15 +593,15 @@ export function ContributionForm() {
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-vermilion/10 text-vermilion">
                       <Banknote size={22} aria-hidden="true" />
                     </div>
-                    <h4 className="text-xl text-ink">Transfer directly to bank</h4>
+                    <h4 className="text-xl text-ink">{t("support.contribution.bankTitle")}</h4>
                   </div>
                   <p className="mt-3 text-sm leading-6 text-charcoal/75">
-                    You are also welcome to transfer your contribution straight to the dojo account.
+                    {t("support.contribution.bankCopy")}
                   </p>
                   <dl className="mt-4 grid gap-3">
-                    <BankRow label="PromptPay ID (same as mobile)" value={BANK_DETAILS.promptPayId} />
-                    <BankRow label="Account number" value={BANK_DETAILS.accountNumber} />
-                    <BankRow label="Bank" value={BANK_DETAILS.bankName} />
+                    <BankRow label={t("support.transfer.promptPayId")} value={BANK_DETAILS.promptPayId} />
+                    <BankRow label={t("support.transfer.accountNumber")} value={BANK_DETAILS.accountNumber} />
+                    <BankRow label={t("support.transfer.bank")} value={BANK_DETAILS.bankName} />
                   </dl>
                 </div>
               </div>
@@ -456,10 +609,10 @@ export function ContributionForm() {
           )}
 
           {/* Safety net: if somehow no method was set, show a gentle thank you. */}
-          {details.paymentMethod !== "inPerson" && details.paymentMethod !== "qr" && (
+          {confirmationDetails.paymentMethod !== "inPerson" && confirmationDetails.paymentMethod !== "qr" && (
             <>
-              <h3 className="text-3xl text-ink">Thank you</h3>
-              <ConfirmationNote>Thank you for supporting RenshinKan Dojo. {DUE_REMINDER}</ConfirmationNote>
+              <h3 className="text-3xl text-ink">{t("support.contribution.confirm.fallbackTitle")}</h3>
+              <ConfirmationNote>{t("support.contribution.confirm.fallback")}</ConfirmationNote>
             </>
           )}
         </div>
@@ -471,6 +624,93 @@ export function ContributionForm() {
 /* ---------------------------------------------------------------------------
  * 5. SMALL PRESENTATION HELPERS
  * ------------------------------------------------------------------------- */
+
+function TurnstileWidget({
+  siteKey,
+  error,
+  resetSignal,
+  onVerify,
+  onExpire,
+  onError,
+}: {
+  siteKey: string;
+  error?: string;
+  resetSignal: number;
+  onVerify: (token: string) => void;
+  onExpire: () => void;
+  onError: () => void;
+}) {
+  const { t } = useTranslation();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!siteKey || !containerRef.current) return;
+
+    let mounted = true;
+
+    loadTurnstileScript()
+      .then(() => {
+        window.turnstile?.ready(() => {
+          if (!mounted || !containerRef.current || widgetIdRef.current) return;
+
+          widgetIdRef.current = window.turnstile?.render(containerRef.current, {
+            sitekey: siteKey,
+            theme: "light",
+            size: "flexible",
+            callback: onVerify,
+            "expired-callback": onExpire,
+            "error-callback": onError,
+          }) ?? null;
+        });
+      })
+      .catch(() => {
+        if (mounted) onError();
+      });
+
+    return () => {
+      mounted = false;
+
+      if (widgetIdRef.current) {
+        window.turnstile?.remove(widgetIdRef.current);
+        widgetIdRef.current = null;
+      }
+    };
+  }, [siteKey, onVerify, onExpire, onError]);
+
+  useEffect(() => {
+    if (resetSignal > 0 && widgetIdRef.current) {
+      window.turnstile?.reset(widgetIdRef.current);
+    }
+  }, [resetSignal]);
+
+  if (!siteKey) {
+    return (
+      <div
+        data-turnstile-block
+        tabIndex={-1}
+        className="rounded-2xl border border-vermilion/20 bg-vermilion/5 px-4 py-3 outline-none"
+      >
+        <p className="text-sm font-semibold text-vermilion">{t("support.contribution.turnstile.missingTitle")}</p>
+        <p className="mt-1 text-xs leading-5 text-charcoal/65">
+          {t("support.contribution.turnstile.missingCopy")}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      data-turnstile-block
+      tabIndex={-1}
+      className="rounded-2xl border border-ink/15 bg-paper/60 px-4 py-4 outline-none"
+    >
+      <p className="mb-3 text-sm font-semibold text-ink">{t("support.contribution.turnstile.title")}</p>
+      <div ref={containerRef} />
+      {error && <p className="mt-2 text-xs font-semibold text-vermilion">{error}</p>}
+    </div>
+  );
+}
 
 // A labelled form field with an optional hint and an error message.
 function Field({

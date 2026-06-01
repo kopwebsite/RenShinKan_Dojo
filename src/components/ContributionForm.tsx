@@ -33,8 +33,7 @@ import { assetPath } from "../utils/assetPath";
  * 1. EASY TO EDIT SETTINGS
  * ------------------------------------------------------------------------- */
 
-// Replace this with the real PromptPay QR image once you have it.
-// Drop the file into the public/images folder and update the path here.
+// Cropped PromptPay QR asset used by the monthly contribution confirmation.
 const PROMPTPAY_QR_IMAGE = "/images/promptpay-qr.png";
 
 // Bank and PromptPay details shown when a parent chooses to transfer directly.
@@ -418,8 +417,7 @@ export function ContributionForm() {
               </ConfirmationNote>
 
               <div className="mt-6 grid gap-6 sm:grid-cols-[auto_1fr] sm:items-start">
-                {/* QR code. Replace PROMPTPAY_QR_IMAGE at the top of this file
-                    with the real QR image when you have it. */}
+                {/* QR code. */}
                 <div className="flex flex-col items-center gap-2">
                   <div className="flex items-center gap-2 text-vermilion">
                     <QrCode size={18} aria-hidden="true" />

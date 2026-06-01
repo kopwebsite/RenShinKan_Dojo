@@ -1,4 +1,4 @@
-import { ChevronDown, Heart, QrCode, Repeat2, ShieldCheck } from "lucide-react";
+import { ChevronDown, Heart, Repeat2, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { ContributionForm } from "../components/ContributionForm";
 import { MotionSection } from "../components/MotionSection";
@@ -20,6 +20,8 @@ const transferDetails = [
   { label: "Current Details", value: "Request the current account or PromptPay details from the dojo before sending funds." },
   { label: "Reference", value: "Use your name so the contribution can be matched correctly." },
 ];
+
+const PROMPTPAY_QR_IMAGE = "/images/promptpay-qr.png";
 
 export function SupportPage() {
   const { t } = useTranslation();
@@ -139,12 +141,21 @@ export function SupportPage() {
 
         <div className="grid gap-8 lg:grid-cols-[auto_1fr]">
           <div className="flex flex-col items-center gap-4">
-            <div className="flex aspect-square w-64 max-w-full flex-col items-center justify-center rounded-[2rem] border-2 border-dashed border-bamboo/40 bg-paper/60 text-center">
-              <QrCode size={48} className="text-bamboo/50" aria-hidden="true" />
-              <p className="mt-4 text-xs font-bold uppercase tracking-[0.14em] text-charcoal/50">{t("support.donations.qrTitle")}</p>
-              <p className="mt-2 px-6 text-xs text-charcoal/40">
-                {t("support.donations.qrCopy")}
-              </p>
+            <div className="w-72 max-w-full rounded-[2rem] border border-ink/10 bg-paper p-3 shadow-soft">
+              <img
+                src={assetPath(PROMPTPAY_QR_IMAGE)}
+                alt="PromptPay QR code for RenshinKan Dojo donations"
+                className="aspect-square w-full rounded-[1.4rem] object-contain"
+                width={720}
+                height={720}
+                loading="lazy"
+              />
+              <div className="px-3 pb-2 pt-4 text-center">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-charcoal/50">{t("support.donations.qrTitle")}</p>
+                <p className="mt-2 text-xs text-charcoal/55">
+                  {t("support.donations.qrCopy")}
+                </p>
+              </div>
             </div>
             <p className="max-w-[16rem] text-center text-xs text-charcoal/55">
               {t("support.donations.qrNote")}

@@ -79,21 +79,23 @@ const dropdownNavItems: DropdownNavItem[] = [
       { labelKey: "nav.otherDojos", to: "/community#other-dojos" },
     ],
   },
-  {
-    id: "support",
-    labelKey: "nav.support",
-    to: "/support",
-    dropdown: [
-      { labelKey: "nav.monthlyContribution", to: "/support#monthly-contribution" },
-      { labelKey: "nav.donations", to: "/support#donations" },
-    ],
-  },
 ];
+
+const supportNavItem: DropdownNavItem = {
+  id: "support",
+  labelKey: "nav.support",
+  to: "/support",
+  dropdown: [
+    { labelKey: "nav.monthlyContribution", to: "/support#monthly-contribution" },
+    { labelKey: "nav.donations", to: "/support#donations" },
+  ],
+};
 
 const navItems: NavItem[] = [
   ...dropdownNavItems,
   { id: "newsletter", labelKey: "nav.newsletter", to: "/newsletter" },
   { id: "contact", labelKey: "nav.contact", to: "/contact" },
+  supportNavItem,
 ];
 
 const languageFlagClassByCode: Record<Language, string> = {
@@ -409,7 +411,12 @@ export function Navbar({ currentPath }: NavbarProps) {
 
                 if (!hasDropdown(item)) {
                   return (
-                    <Link key={item.id} to={item.to} className={styles.navLink} data-active={isActive}>
+                    <Link
+                      key={item.id}
+                      to={item.to}
+                      className={`${styles.navLink} ${item.id === "support" ? styles.supportNavLink : ""}`}
+                      data-active={isActive}
+                    >
                       {itemLabel}
                     </Link>
                   );
@@ -435,7 +442,7 @@ export function Navbar({ currentPath }: NavbarProps) {
                   >
                     <button
                       type="button"
-                      className={styles.navLink}
+                      className={`${styles.navLink} ${item.id === "support" ? styles.supportNavLink : ""}`}
                       data-active={isActive}
                       aria-expanded={isOpen}
                       aria-haspopup="true"
@@ -532,7 +539,7 @@ export function Navbar({ currentPath }: NavbarProps) {
                     <Link
                       key={item.id}
                       to={item.to}
-                      className={styles.mobileNavLink}
+                      className={`${styles.mobileNavLink} ${item.id === "support" ? styles.mobileSupportNavLink : ""}`}
                       data-active={isNavItemActive(item)}
                       onClick={() => setIsMobileOpen(false)}
                     >
@@ -545,7 +552,12 @@ export function Navbar({ currentPath }: NavbarProps) {
 
                 return (
                   <div key={item.id} className={styles.mobileAccordion}>
-                    <div className={styles.mobileAccordionButton} data-active={isNavItemActive(item)}>
+                    <div
+                      className={`${styles.mobileAccordionButton} ${
+                        item.id === "support" ? styles.mobileSupportAccordion : ""
+                      }`}
+                      data-active={isNavItemActive(item)}
+                    >
                       <Link
                         to={item.to}
                         className={styles.mobileAccordionLabel}

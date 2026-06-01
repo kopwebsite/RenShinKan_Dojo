@@ -337,6 +337,34 @@
   transform: scaleX(1);
 }
 
+.supportNavLink {
+  min-height: 38px;
+  border: 1px solid hsl(var(--color-vermilion) / 0.28);
+  border-radius: 999px;
+  padding: 9px 16px;
+  background: hsl(var(--color-vermilion) / 0.11);
+  color: var(--color-brand-red);
+  font-weight: 750;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    transform 150ms ease;
+}
+
+.supportNavLink::after {
+  display: none;
+}
+
+.supportNavLink:hover,
+.supportNavLink:focus-visible,
+.supportNavLink[data-active="true"] {
+  border-color: hsl(var(--color-vermilion) / 0.48);
+  background: var(--color-brand-red);
+  color: var(--color-paper);
+  transform: translateY(-1px);
+}
+
 .chevron {
   font-size: 10px;
   line-height: 1;
@@ -498,6 +526,15 @@
 
 .mobileAccordionButton[data-active="true"],
 .mobileNavLink[data-active="true"] {
+  color: var(--color-brand-red);
+}
+
+.mobileSupportAccordion,
+.mobileSupportNavLink {
+  border: 1px solid hsl(var(--color-vermilion) / 0.28);
+  border-radius: 18px;
+  padding: 0 16px;
+  background: hsl(var(--color-vermilion) / 0.1);
   color: var(--color-brand-red);
 }
 

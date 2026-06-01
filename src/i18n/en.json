@@ -146,16 +146,16 @@
     "intro": {
       "eyebrow": "Classes & Parent Guide",
       "title": "A welcoming place to start, grow, and keep showing up.",
-      "copy": "Everyone is welcome here, from complete beginners and children to experienced aikidoka passing through Chiang Mai. Each session is 90 minutes and has two parts. The first half is designed for people who are just starting out, and the second half opens up to all levels for more focused technique work. Drop in anytime or reach out first if you have questions.",
+      "copy": "Everyone is welcome here, from complete beginners and children to experienced aikidoka passing through Chiang Mai. Each session is 90 minutes and has two parts. The first half is for beginners and kids, and the second half is for intermediate students, adults, and weapons practice. Drop in anytime or reach out first if you have questions.",
       "imageAlt": "Students in white uniforms lying in a circle on the mat with green belts in the centre."
     },
     "halves": {
       "firstEyebrow": "First Half",
-      "firstTitle": "Beginners",
-      "firstCopy": "The opening portion of every class is designed for people just starting out. Safe falling, basic posture, footwork, and partner awareness at a measured pace.",
+      "firstTitle": "Beginners / Kids",
+      "firstCopy": "The opening portion of every class is designed for beginners and children. Safe falling, basic posture, footwork, and partner awareness at a measured pace.",
       "secondEyebrow": "Second Half",
-      "secondTitle": "All Levels / Serious Practice",
-      "secondCopy": "The second portion moves into more demanding technique work, combinations, and partner drills suited to adults and students who are ready to push further."
+      "secondTitle": "Intermediate / Adults / Weapons",
+      "secondCopy": "The second portion moves into more demanding technique work, combinations, partner drills, and weapons practice suited to adults and students who are ready to push further."
     },
     "schedule": {
       "eyebrow": "Weekly Schedule",

@@ -13,8 +13,13 @@ import {
 } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from "react";
 import { MediaSlider } from "../components/MediaSlider";
+import {
+  historyMedia as defaultHistoryMedia,
+  onTheMatMedia as defaultOnTheMatMedia,
+  passedTestStudents as defaultPassedTestStudents,
+} from "../data/editableContent";
 import { emptyEditableContent, loadEditableContent } from "../lib/content";
-import type { EditableContent, MediaItem, RecentEvent } from "../types/editableContent";
+import type { EditableContent, MediaItem, PassedTestStudent, RecentEvent } from "../types/editableContent";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_FILES = 10;
@@ -39,6 +44,72 @@ function slugify(value: string) {
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function validateImageFile(file: File): string | null {
+  if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+    return "Images must be JPEG, PNG, or WebP.";
+  }
+
+  if (file.size > MAX_FILE_SIZE) {
+    return "Images must be 5 MB or smaller.";
+  }
+
+  return null;
+}
+
+type DefaultMedia = {
+  id: string;
+  src: string;
+  type?: "image" | "video";
+  alt?: string;
+  caption?: string;
+  title?: string;
+  objectPosition?: string;
+  avif?: string;
+  webp?: string;
+  width?: number;
+  height?: number;
+};
+
+function toMediaItem(value: DefaultMedia): MediaItem {
+  return {
+    id: value.id,
+    src: value.src,
+    type: value.type === "video" ? "video" : "image",
+    alt: value.alt ?? "",
+    caption: value.caption,
+    title: value.title,
+    objectPosition: value.objectPosition,
+    avif: value.avif,
+    webp: value.webp,
+    width: value.width,
+    height: value.height,
+  };
+}
+
+type DefaultStudent = {
+  id: string;
+  image: string;
+  alt?: string;
+  name?: string;
+  caption?: string;
+  date?: string;
+  dateAdded?: string;
+  objectPosition?: string;
+};
+
+function toPassedStudent(value: DefaultStudent): PassedTestStudent {
+  return {
+    id: value.id,
+    image: value.image,
+    alt: value.alt,
+    name: value.name,
+    caption: value.caption,
+    date: value.date,
+    dateAdded: value.dateAdded,
+    objectPosition: value.objectPosition,
+  };
 }
 
 function makeEvent(): RecentEvent {
@@ -155,8 +226,19 @@ export function AdminPage() {
     }
 
     loadEditableContent().then((content) => {
-      setDraft(content);
-      setBaseline(content);
+      // Seed the galleries from the built-in defaults when nothing has been
+      // published yet, so admins can see and delete the existing photos.
+      const seeded: EditableContent = {
+        ...content,
+        historyMedia: content.historyMedia.length ? content.historyMedia : defaultHistoryMedia.map(toMediaItem),
+        onTheMatMedia: content.onTheMatMedia.length ? content.onTheMatMedia : defaultOnTheMatMedia.map(toMediaItem),
+        passedTestStudents: content.passedTestStudents.length
+          ? content.passedTestStudents
+          : defaultPassedTestStudents.map(toPassedStudent),
+      };
+
+      setDraft(seeded);
+      setBaseline(seeded);
     });
   }, [isAuthed]);
 
@@ -178,6 +260,13 @@ export function AdminPage() {
       return event.published && event.notifySubscribers === true && !hasSentNewsletter(event) && !hasSentNewsletter(previous);
     });
   }, [baselineEvents, draft.recentEvents]);
+
+  const galleriesChanged = useMemo(() => {
+    return (
+      JSON.stringify([draft.historyMedia, draft.onTheMatMedia, draft.passedTestStudents]) !==
+      JSON.stringify([baseline.historyMedia, baseline.onTheMatMedia, baseline.passedTestStudents])
+    );
+  }, [draft.historyMedia, draft.onTheMatMedia, draft.passedTestStudents, baseline.historyMedia, baseline.onTheMatMedia, baseline.passedTestStudents]);
 
   const previewMedia = (event: RecentEvent) => {
     return getEventMedia(event).map((item) => {
@@ -307,6 +396,162 @@ export function AdminPage() {
     setPublishMessage("");
   };
 
+  const resolveSrc = (src: string) => {
+    if (!src.startsWith("pending:")) {
+      return src;
+    }
+
+    const upload = pendingById.get(src.replace("pending:", ""));
+    return upload ? upload.previewUrl : src;
+  };
+
+  const removePendingUpload = (src: string) => {
+    if (!src.startsWith("pending:")) {
+      return;
+    }
+
+    const uploadId = src.replace("pending:", "");
+    setPendingUploads((current) => {
+      const target = current.find((upload) => upload.id === uploadId);
+
+      if (target) {
+        URL.revokeObjectURL(target.previewUrl);
+      }
+
+      return current.filter((upload) => upload.id !== uploadId);
+    });
+  };
+
+  const addGalleryPhotos = (key: "historyMedia" | "onTheMatMedia", fileEvent: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(fileEvent.target.files ?? []);
+    fileEvent.target.value = "";
+
+    if (files.length === 0) {
+      return;
+    }
+
+    const newUploads: PendingUpload[] = [];
+    const newItems: MediaItem[] = [];
+
+    for (const file of files) {
+      const error = validateImageFile(file);
+
+      if (error) {
+        setPublishStatus("error");
+        setPublishMessage(error);
+        return;
+      }
+
+      if (pendingUploads.length + newUploads.length >= MAX_FILES) {
+        setPublishStatus("error");
+        setPublishMessage(`You can add at most ${MAX_FILES} new photos per publish. Publish these first, then add more.`);
+        break;
+      }
+
+      const uploadId = `upload-${crypto.randomUUID()}`;
+      newUploads.push({ id: uploadId, file, previewUrl: URL.createObjectURL(file) });
+      newItems.push({
+        id: `media-${crypto.randomUUID()}`,
+        src: `pending:${uploadId}`,
+        alt: file.name.replace(/\.[^.]+$/, ""),
+        type: "image",
+      });
+    }
+
+    if (newItems.length === 0) {
+      return;
+    }
+
+    setPendingUploads((current) => [...current, ...newUploads]);
+    setDraft((current) =>
+      key === "historyMedia"
+        ? { ...current, historyMedia: [...current.historyMedia, ...newItems] }
+        : { ...current, onTheMatMedia: [...current.onTheMatMedia, ...newItems] },
+    );
+
+    if (newItems.length === files.length) {
+      setPublishStatus("idle");
+      setPublishMessage("");
+    }
+  };
+
+  const deleteGalleryPhoto = (key: "historyMedia" | "onTheMatMedia", id: string) => {
+    const removed = draft[key].find((item) => item.id === id);
+
+    if (removed) {
+      removePendingUpload(removed.src);
+    }
+
+    setDraft((current) =>
+      key === "historyMedia"
+        ? { ...current, historyMedia: current.historyMedia.filter((item) => item.id !== id) }
+        : { ...current, onTheMatMedia: current.onTheMatMedia.filter((item) => item.id !== id) },
+    );
+  };
+
+  const addPassedStudents = (fileEvent: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(fileEvent.target.files ?? []);
+    fileEvent.target.value = "";
+
+    if (files.length === 0) {
+      return;
+    }
+
+    const newUploads: PendingUpload[] = [];
+    const newStudents: PassedTestStudent[] = [];
+
+    for (const file of files) {
+      const error = validateImageFile(file);
+
+      if (error) {
+        setPublishStatus("error");
+        setPublishMessage(error);
+        return;
+      }
+
+      if (pendingUploads.length + newUploads.length >= MAX_FILES) {
+        setPublishStatus("error");
+        setPublishMessage(`You can add at most ${MAX_FILES} new photos per publish. Publish these first, then add more.`);
+        break;
+      }
+
+      const uploadId = `upload-${crypto.randomUUID()}`;
+      newUploads.push({ id: uploadId, file, previewUrl: URL.createObjectURL(file) });
+      newStudents.push({
+        id: `student-${crypto.randomUUID()}`,
+        image: `pending:${uploadId}`,
+        alt: file.name.replace(/\.[^.]+$/, ""),
+        dateAdded: new Date().toISOString().slice(0, 10),
+        objectPosition: "center",
+      });
+    }
+
+    if (newStudents.length === 0) {
+      return;
+    }
+
+    setPendingUploads((current) => [...current, ...newUploads]);
+    setDraft((current) => ({ ...current, passedTestStudents: [...current.passedTestStudents, ...newStudents] }));
+
+    if (newStudents.length === files.length) {
+      setPublishStatus("idle");
+      setPublishMessage("");
+    }
+  };
+
+  const deletePassedStudent = (id: string) => {
+    const removed = draft.passedTestStudents.find((student) => student.id === id);
+
+    if (removed) {
+      removePendingUpload(removed.image);
+    }
+
+    setDraft((current) => ({
+      ...current,
+      passedTestStudents: current.passedTestStudents.filter((student) => student.id !== id),
+    }));
+  };
+
   const publish = async () => {
     setPublishStatus("saving");
     setPublishMessage("Saving content to Cloudflare...");
@@ -400,6 +645,59 @@ export function AdminPage() {
     );
   }
 
+  const renderMediaGallery = (key: "historyMedia" | "onTheMatMedia", title: string, copy: string) => {
+    const items = draft[key];
+
+    return (
+      <section className="surface rounded-[2rem] p-6 sm:p-8">
+        {sectionTitle(title, copy)}
+        <div className="mb-5 flex flex-wrap items-center gap-3">
+          <label className="btn-secondary cursor-pointer">
+            <ImagePlus size={17} aria-hidden="true" />
+            Add photos
+            <input
+              className="hidden"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              onChange={(fileEvent) => addGalleryPhotos(key, fileEvent)}
+            />
+          </label>
+          <p className="text-sm text-charcoal/65">
+            {items.length} photo{items.length === 1 ? "" : "s"}
+          </p>
+        </div>
+
+        {items.length === 0 ? (
+          <p className="rounded-[1.5rem] bg-paper/60 p-5 text-sm leading-6 text-charcoal/72 ring-1 ring-ink/10">
+            No photos yet. Use “Add photos” to upload.
+          </p>
+        ) : (
+          <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {items.map((item) => (
+              <li key={item.id} className="relative overflow-hidden rounded-[1.25rem] ring-1 ring-ink/10">
+                <div className="aspect-[4/3] bg-ink/5">
+                  <img src={resolveSrc(item.src)} alt={item.alt || ""} className="h-full w-full object-cover" loading="lazy" />
+                </div>
+                {item.src.startsWith("pending:") ? (
+                  <span className="absolute left-2 top-2 rounded-full bg-bamboo px-2 py-0.5 text-xs font-bold text-paper">New</span>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => deleteGalleryPhoto(key, item.id)}
+                  className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-ink/80 text-paper transition hover:bg-vermilion focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper"
+                  aria-label={`Delete photo ${item.alt || item.id}`}
+                >
+                  <Trash2 size={16} aria-hidden="true" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    );
+  };
+
   return (
     <section className="container-shell py-12 sm:py-16">
       <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
@@ -407,7 +705,7 @@ export function AdminPage() {
           <p className="eyebrow">Admin</p>
           <h1 className="section-title">Dojo content editor</h1>
           <p className="section-copy">
-            Edit recent events, upload event images, and save the public content stored on Cloudflare.
+            Edit recent events, manage the photo galleries, and save the public content stored on Cloudflare.
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -602,6 +900,73 @@ export function AdminPage() {
           </div>
         </section>
 
+        {renderMediaGallery(
+          "onTheMatMedia",
+          "On the Mat",
+          "Add or remove photos in the “On the Mat” gallery shown on the Dojo page.",
+        )}
+
+        {renderMediaGallery(
+          "historyMedia",
+          "A Look at Our History",
+          "Add or remove photos in the “A Look at Our History” gallery shown on the Community page.",
+        )}
+
+        <section className="surface rounded-[2rem] p-6 sm:p-8">
+          {sectionTitle(
+            "Students Who've Passed the Test",
+            "Add or remove photos in the graduation gallery shown on the Classes page.",
+          )}
+          <div className="mb-5 flex flex-wrap items-center gap-3">
+            <label className="btn-secondary cursor-pointer">
+              <ImagePlus size={17} aria-hidden="true" />
+              Add photos
+              <input
+                className="hidden"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                onChange={addPassedStudents}
+              />
+            </label>
+            <p className="text-sm text-charcoal/65">
+              {draft.passedTestStudents.length} photo{draft.passedTestStudents.length === 1 ? "" : "s"}
+            </p>
+          </div>
+
+          {draft.passedTestStudents.length === 0 ? (
+            <p className="rounded-[1.5rem] bg-paper/60 p-5 text-sm leading-6 text-charcoal/72 ring-1 ring-ink/10">
+              No photos yet. Use “Add photos” to upload.
+            </p>
+          ) : (
+            <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              {draft.passedTestStudents.map((student) => (
+                <li key={student.id} className="relative overflow-hidden rounded-[1.25rem] ring-1 ring-ink/10">
+                  <div className="aspect-[4/3] bg-ink/5">
+                    <img
+                      src={resolveSrc(student.image)}
+                      alt={student.alt || student.name || ""}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                  {student.image.startsWith("pending:") ? (
+                    <span className="absolute left-2 top-2 rounded-full bg-bamboo px-2 py-0.5 text-xs font-bold text-paper">New</span>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => deletePassedStudent(student.id)}
+                    className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-ink/80 text-paper transition hover:bg-vermilion focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper"
+                    aria-label={`Delete photo ${student.alt || student.name || student.id}`}
+                  >
+                    <Trash2 size={16} aria-hidden="true" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
         <section className="surface rounded-[2rem] p-6 sm:p-8">
           {sectionTitle("Exam Announcement", "Optional text shown in the classes and belt exams section after publishing.")}
           <input
@@ -650,6 +1015,10 @@ export function AdminPage() {
               <div className="flex justify-between gap-4">
                 <dt>Recent Events changed</dt>
                 <dd className="font-bold text-ink">{changedEvents.length}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt>Gallery photos</dt>
+                <dd className="font-bold text-ink">{galleriesChanged ? "Edited" : "No change"}</dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt>Files uploaded</dt>

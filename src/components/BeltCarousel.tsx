@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { useState } from "react";
 import { passedTestStudents } from "../data/editableContent";
 import { useTranslation } from "../i18n";
@@ -29,12 +29,13 @@ export function BeltCarousel({ students = passedTestStudents }: BeltCarouselProp
   const prevIdx = (active - 1 + n) % n;
   const nextIdx = (active + 1) % n;
   const activeStudent = students[active];
-  const dotWindowSize = 11;
-  const dotStart = Math.max(
-    0,
-    Math.min(active - Math.floor(dotWindowSize / 2), n - dotWindowSize),
-  );
-  const visibleDots = students.slice(dotStart, dotStart + dotWindowSize);
+  const indexWindowSize = 5;
+  const indexJumpSize = 10;
+  const visibleIndexCount = Math.min(indexWindowSize, n);
+  const maxIndexStart = Math.max(n - visibleIndexCount, 0);
+  const indexStart = Math.min(Math.max(active - Math.floor(visibleIndexCount / 2), 0), maxIndexStart);
+  const visibleIndexes = Array.from({ length: visibleIndexCount }, (_, idx) => indexStart + idx);
+  const jumpBy = (offset: number) => setActive((index) => ((index + offset) % n + n) % n);
   const hasStudentText = Boolean(activeStudent.name || activeStudent.caption || activeStudent.date);
 
   return (
@@ -110,29 +111,52 @@ export function BeltCarousel({ students = passedTestStudents }: BeltCarouselProp
         <ChevronRight size={18} aria-hidden="true" />
       </button>
 
-      {/* Dot indicators */}
-      <div className="mt-4 flex flex-wrap justify-center gap-1">
-        {visibleDots.map((student, visibleIndex) => {
-          const i = dotStart + visibleIndex;
+      {/* Numbered index navigation (matches the other galleries) */}
+      {n > 1 ? (
+        <nav
+          className="mt-5 flex flex-wrap items-center justify-center gap-2"
+          aria-label={t("classes.beltExams.graduationTitle")}
+        >
+          <button
+            type="button"
+            onClick={() => jumpBy(-indexJumpSize)}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/10 bg-paper/70 text-ink transition hover:bg-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo"
+            aria-label={`Skip back ${indexJumpSize} photos`}
+          >
+            <ChevronsLeft size={18} aria-hidden="true" />
+          </button>
 
-          return (
-            <button
-              key={student.id}
-              type="button"
-              onClick={() => setActive(i)}
-              aria-label={t("a11y.goToPhoto", { number: i + 1 })}
-              className="flex h-7 min-w-7 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo"
-            >
-              <span
-                className={`h-1.5 rounded-full transition-all duration-300 ${
-                  i === active ? "w-6 bg-bamboo" : "w-1.5 bg-ink/20"
+          {visibleIndexes.map((i) => {
+            const isActive = i === active;
+
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setActive(i)}
+                className={`flex h-10 min-w-10 items-center justify-center rounded-full px-3 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo ${
+                  isActive
+                    ? "bg-ink text-paper shadow-line"
+                    : "border border-ink/10 bg-paper/70 text-ink hover:bg-paper"
                 }`}
-                aria-hidden="true"
-              />
-            </button>
-          );
-        })}
-      </div>
+                aria-label={t("a11y.goToPhoto", { number: i + 1 })}
+                aria-current={isActive ? true : undefined}
+              >
+                {i + 1}
+              </button>
+            );
+          })}
+
+          <button
+            type="button"
+            onClick={() => jumpBy(indexJumpSize)}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/10 bg-paper/70 text-ink transition hover:bg-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo"
+            aria-label={`Skip ahead ${indexJumpSize} photos`}
+          >
+            <ChevronsRight size={18} aria-hidden="true" />
+          </button>
+        </nav>
+      ) : null}
       {hasStudentText ? (
         <div className="mx-auto mt-5 max-w-2xl text-center">
           {activeStudent.name ? <h4 className="text-2xl text-ink">{activeStudent.name}</h4> : null}

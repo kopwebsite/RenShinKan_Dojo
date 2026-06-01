@@ -142,7 +142,7 @@ export const historyMedia: EditableMedia[] = createNumberedMedia(
   "/past-events/misc-gallery",
   "history-photo",
   "RenshinKan dojo history photo",
-);
+).filter((item) => item.id !== "history-photo-001");
 
 export const onTheMatMedia: EditableMedia[] = createNumberedMedia(
   14,

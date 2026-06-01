@@ -70,7 +70,7 @@ export function DojoPage() {
 
   return (
     <>
-      <section id="home" className="relative isolate min-h-[calc(100svh-var(--header-height)-1rem)] scroll-mt-28 overflow-hidden">
+      <section id="home" className="relative isolate min-h-[var(--hero-viewport-height)] scroll-mt-28 overflow-hidden">
         {/* Watercolour koi background */}
         <ResponsiveImage
           src={assetPath("/dojo-photos/new-hero-poster.png")}
@@ -83,7 +83,7 @@ export function DojoPage() {
           fetchPriority="high"
         />
 
-        <div className="relative container-shell grid min-h-[calc(100svh-var(--header-height)-1rem)] place-items-center py-14 text-center sm:py-16">
+        <div className="relative container-shell grid min-h-[var(--hero-viewport-height)] place-items-center py-14 text-center sm:py-16">
           <div className="relative mx-auto max-w-5xl">
             <div className="absolute left-1/2 top-1/2 -z-10 h-[18rem] w-[18rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-bamboo/15 sm:h-[27rem] sm:w-[27rem]" />
             <BrushCircleLogo paintOn className="mx-auto mb-5 h-24 w-24 sm:h-36 sm:w-36 lg:h-40 lg:w-40" />

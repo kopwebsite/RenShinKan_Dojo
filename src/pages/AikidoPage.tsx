@@ -90,7 +90,7 @@ export function AikidoPage() {
   return (
     <>
       {/* Aikido hero */}
-      <section id="what-is-aikido" className="relative isolate min-h-[calc(100svh-var(--header-height)-1rem)] overflow-hidden scroll-mt-28">
+      <section id="what-is-aikido" className="relative isolate min-h-[var(--hero-viewport-height)] overflow-hidden scroll-mt-28">
         <ResponsiveImage
           src={assetPath("/dojo-photos/aikido-hero-new.png")}
           alt=""
@@ -101,7 +101,7 @@ export function AikidoPage() {
           height={836}
           fetchPriority="high"
         />
-        <div className="relative flex min-h-[calc(100svh-var(--header-height)-1rem)] items-center justify-center py-16 text-center sm:py-20">
+        <div className="relative flex min-h-[var(--hero-viewport-height)] items-center justify-center py-16 text-center sm:py-20">
           <div className="mx-auto max-w-3xl px-5 sm:px-8">
             <h1 className="mx-auto mt-3 max-w-3xl text-4xl leading-[0.98] text-ink sm:text-6xl lg:text-7xl">
               {t("aikido.hero.title")}

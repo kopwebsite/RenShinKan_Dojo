@@ -1,6 +1,7 @@
 import {
   AlertCircle,
   CheckCircle,
+  ChevronDown,
   ImagePlus,
   Lock,
   LogOut,
@@ -11,7 +12,7 @@ import {
   UploadCloud,
   X,
 } from "lucide-react";
-import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from "react";
+import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import { MediaSlider } from "../components/MediaSlider";
 import {
   historyMedia as defaultHistoryMedia,
@@ -24,6 +25,8 @@ import type { EditableContent, MediaItem, PassedTestStudent, RecentEvent } from 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_FILES = 10;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+type AdminSectionId = "recentEvents" | "onTheMatMedia" | "historyMedia" | "passedTestStudents";
 
 type PendingUpload = {
   id: string;
@@ -192,6 +195,52 @@ function sectionTitle(title: string, copy: string) {
   );
 }
 
+function CollapsibleEditorSection({
+  title,
+  copy,
+  summary,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  copy: string;
+  summary?: string;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  const panelId = `admin-section-${slugify(title)}`;
+
+  return (
+    <section className="surface rounded-[2rem] p-6 sm:p-8">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={onToggle}
+        className="flex w-full flex-col gap-4 text-left sm:flex-row sm:items-start sm:justify-between"
+      >
+        <span>
+          <span className="block text-3xl leading-tight text-ink">{title}</span>
+          <span className="mt-2 block max-w-3xl text-sm leading-6 text-charcoal/72">{copy}</span>
+          {summary ? <span className="mt-3 block text-sm font-bold text-charcoal/62">{summary}</span> : null}
+        </span>
+        <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-paper/70 text-ink ring-1 ring-ink/10 transition hover:bg-paper">
+          <ChevronDown
+            size={20}
+            aria-hidden="true"
+            className={`transition-transform ${open ? "rotate-180" : ""}`}
+          />
+        </span>
+      </button>
+      <div id={panelId} className={open ? "mt-6" : "hidden"}>
+        {children}
+      </div>
+    </section>
+  );
+}
+
 export function AdminPage() {
   const [sessionChecked, setSessionChecked] = useState(false);
   const [isAuthed, setIsAuthed] = useState(() => sessionStorage.getItem("renshinkan-admin-hint") === "true");
@@ -204,6 +253,13 @@ export function AdminPage() {
   const [publishMessage, setPublishMessage] = useState("");
   const [warnings, setWarnings] = useState<string[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [openSections, setOpenSections] = useState<Record<AdminSectionId, boolean>>({
+    recentEvents: false,
+    onTheMatMedia: false,
+    historyMedia: false,
+    passedTestStudents: false,
+  });
+  const [openEventIds, setOpenEventIds] = useState<string[]>([]);
 
   useEffect(() => {
     fetch("/api/admin/session", { credentials: "include" })
@@ -279,6 +335,16 @@ export function AdminPage() {
     });
   };
 
+  const toggleSection = (section: AdminSectionId) => {
+    setOpenSections((current) => ({ ...current, [section]: !current[section] }));
+  };
+
+  const toggleEvent = (eventId: string) => {
+    setOpenEventIds((current) =>
+      current.includes(eventId) ? current.filter((id) => id !== eventId) : [...current, eventId],
+    );
+  };
+
   const login = async (event: FormEvent) => {
     event.preventDefault();
     setAuthError("");
@@ -332,10 +398,13 @@ export function AdminPage() {
   };
 
   const addEvent = () => {
+    const event = makeEvent();
     setDraft((current) => ({
       ...current,
-      recentEvents: [makeEvent(), ...current.recentEvents],
+      recentEvents: [event, ...current.recentEvents],
     }));
+    setOpenSections((current) => ({ ...current, recentEvents: true }));
+    setOpenEventIds((current) => [event.id, ...current]);
   };
 
   const deleteEvent = (id: string) => {
@@ -649,8 +718,13 @@ export function AdminPage() {
     const items = draft[key];
 
     return (
-      <section className="surface rounded-[2rem] p-6 sm:p-8">
-        {sectionTitle(title, copy)}
+      <CollapsibleEditorSection
+        title={title}
+        copy={copy}
+        summary={`${items.length} photo${items.length === 1 ? "" : "s"}`}
+        open={openSections[key]}
+        onToggle={() => toggleSection(key)}
+      >
         <div className="mb-5 flex flex-wrap items-center gap-3">
           <label className="btn-secondary cursor-pointer">
             <ImagePlus size={17} aria-hidden="true" />
@@ -694,7 +768,7 @@ export function AdminPage() {
             ))}
           </ul>
         )}
-      </section>
+      </CollapsibleEditorSection>
     );
   };
 
@@ -759,11 +833,13 @@ export function AdminPage() {
       ) : null}
 
       <div className="grid gap-8">
-        <section className="surface rounded-[2rem] p-6 sm:p-8">
-          {sectionTitle(
-            "Recent Events",
-            "Create and edit public dojo updates. Published events appear on the Recent Events page.",
-          )}
+        <CollapsibleEditorSection
+          title="Recent Events"
+          copy="Create and edit public dojo updates. Published events appear on the Recent Events page."
+          summary={`${draft.recentEvents.length} event${draft.recentEvents.length === 1 ? "" : "s"}`}
+          open={openSections.recentEvents}
+          onToggle={() => toggleSection("recentEvents")}
+        >
           <button type="button" className="btn-secondary mb-6" onClick={addEvent}>
             <Plus size={17} aria-hidden="true" />
             Add Recent Event
@@ -776,19 +852,45 @@ export function AdminPage() {
               </p>
             ) : null}
 
-            {draft.recentEvents.map((event) => (
+            {draft.recentEvents.map((event) => {
+              const eventOpen = openEventIds.includes(event.id);
+              const mediaPreview = previewMedia(event);
+
+              return (
               <article key={event.id} className="rounded-[1.5rem] bg-paper/60 p-5 ring-1 ring-ink/10">
-                <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-bamboo">Recent Event</p>
-                    <p className="mt-2 text-sm text-charcoal/65">Newsletter status: {statusLabel(event)}</p>
-                  </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <button
+                    type="button"
+                    aria-expanded={eventOpen}
+                    onClick={() => toggleEvent(event.id)}
+                    className="flex flex-1 items-start justify-between gap-4 text-left"
+                  >
+                    <span>
+                      <span className="block text-xs font-bold uppercase tracking-[0.16em] text-bamboo">Recent Event</span>
+                      <span className="mt-2 block text-xl leading-tight text-ink">
+                        {event.title.trim() || "Untitled recent event"}
+                      </span>
+                      <span className="mt-2 block text-sm text-charcoal/65">
+                        {event.date || "No date"} · Newsletter status: {statusLabel(event)}
+                      </span>
+                      <span className="mt-1 block text-sm text-charcoal/55">
+                        {event.published ? "Published" : "Draft"} · {mediaPreview.length} media item
+                        {mediaPreview.length === 1 ? "" : "s"}
+                      </span>
+                    </span>
+                    <ChevronDown
+                      size={20}
+                      aria-hidden="true"
+                      className={`mt-1 shrink-0 text-ink transition-transform ${eventOpen ? "rotate-180" : ""}`}
+                    />
+                  </button>
                   <button type="button" className="btn-secondary text-vermilion" onClick={() => deleteEvent(event.id)}>
                     <Trash2 size={16} aria-hidden="true" />
                     Delete
                   </button>
                 </div>
 
+                <div className={eventOpen ? "mt-5" : "hidden"}>
                 <div className="grid gap-5 lg:grid-cols-2">
                   <label className="block text-sm font-bold text-ink">
                     Title
@@ -892,13 +994,15 @@ export function AdminPage() {
                   </label>
                 </div>
 
-                {previewMedia(event).length ? (
-                  <MediaSlider media={previewMedia(event)} label={`${event.title || "Recent event"} media preview`} className="mt-6" />
+                {mediaPreview.length ? (
+                  <MediaSlider media={mediaPreview} label={`${event.title || "Recent event"} media preview`} className="mt-6" />
                 ) : null}
+                </div>
               </article>
-            ))}
+              );
+            })}
           </div>
-        </section>
+        </CollapsibleEditorSection>
 
         {renderMediaGallery(
           "onTheMatMedia",
@@ -912,11 +1016,13 @@ export function AdminPage() {
           "Add or remove photos in the “A Look at Our History” gallery shown on the Community page.",
         )}
 
-        <section className="surface rounded-[2rem] p-6 sm:p-8">
-          {sectionTitle(
-            "Students Who've Passed the Test",
-            "Add or remove photos in the graduation gallery shown on the Classes page.",
-          )}
+        <CollapsibleEditorSection
+          title="Students Who've Passed the Test"
+          copy="Add or remove photos in the graduation gallery shown on the Classes page."
+          summary={`${draft.passedTestStudents.length} photo${draft.passedTestStudents.length === 1 ? "" : "s"}`}
+          open={openSections.passedTestStudents}
+          onToggle={() => toggleSection("passedTestStudents")}
+        >
           <div className="mb-5 flex flex-wrap items-center gap-3">
             <label className="btn-secondary cursor-pointer">
               <ImagePlus size={17} aria-hidden="true" />
@@ -965,7 +1071,7 @@ export function AdminPage() {
               ))}
             </ul>
           )}
-        </section>
+        </CollapsibleEditorSection>
 
         <section className="surface rounded-[2rem] p-6 sm:p-8">
           {sectionTitle("Exam Announcement", "Optional text shown in the classes and belt exams section after publishing.")}

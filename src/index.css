@@ -22,7 +22,7 @@
   --color-vermilion: 9 76% 53%;
   --color-bamboo: 118 16% 38%;
   --color-wood: 30 38% 43%;
-  /* Soft persimmon / kaki — warm muted orange-red for the Support call-to-action */
+  /* Soft persimmon / kaki: warm muted orange-red for the Support call-to-action */
   --color-persimmon: 16 55% 44%;
   --header-height: 60px;
   --hero-viewport-height: calc(100dvh - var(--header-height));
@@ -58,10 +58,10 @@ body {
   background-color: #f4ead4;
   background-image:
     linear-gradient(rgb(255 248 225 / 0.24), rgb(255 248 225 / 0.24)),
-    url("/backgrounds/manuscript-desktop.png");
+    url("/optimized/backgrounds/manuscript-desktop.webp");
   background-position: center, center;
   background-size: cover, cover;
-  background-attachment: fixed, fixed;
+  background-attachment: scroll, scroll;
   background-repeat: no-repeat, no-repeat;
   background-blend-mode: normal, normal;
   color: hsl(var(--color-ink));
@@ -69,38 +69,6 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   overflow-x: clip;
-}
-
-body::before {
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  pointer-events: none;
-  content: "";
-  background-image:
-    radial-gradient(circle at 8% 28%, rgb(89 59 28 / 0.05), transparent 8rem),
-    radial-gradient(circle at 88% 76%, rgb(93 63 30 / 0.04), transparent 10rem),
-    radial-gradient(circle at 42% 36%, rgb(121 88 42 / 0.03), transparent 5rem);
-  background-size: cover, cover, cover;
-  mix-blend-mode: multiply;
-  opacity: 0.48;
-}
-
-body::after {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  content: "";
-  background-image:
-    radial-gradient(circle at 12% 34%, rgb(87 58 27 / 0.12) 0 0.11rem, transparent 0.18rem),
-    radial-gradient(circle at 64% 22%, rgb(112 76 35 / 0.11) 0 0.09rem, transparent 0.16rem),
-    radial-gradient(circle at 77% 68%, rgb(87 58 27 / 0.1) 0 0.1rem, transparent 0.18rem),
-    radial-gradient(circle at 35% 78%, rgb(255 248 220 / 0.34) 0 0.16rem, transparent 0.28rem);
-  background-position: 0 0, 8rem 4rem, 3rem 10rem, 12rem 2rem;
-  background-size: 11rem 13rem, 15rem 12rem, 13rem 15rem, 17rem 14rem;
-  mix-blend-mode: multiply;
-  opacity: 0.4;
 }
 
 #root {
@@ -189,7 +157,7 @@ body::after {
       color 360ms ease;
   }
 
-  /* Soft ink-bloom that settles in on hover — like brush ink soaking into paper */
+  /* Soft ink-bloom that settles in on hover, like brush ink soaking into paper */
   .btn-primary::after,
   .btn-secondary::after {
     position: absolute;
@@ -352,9 +320,9 @@ body::after {
   body {
     background-image:
       linear-gradient(rgb(255 248 225 / 0.3), rgb(255 248 225 / 0.3)),
-      url("/backgrounds/manuscript-mobile.png");
+      url("/optimized/backgrounds/manuscript-mobile.webp");
     background-position: center, center 45%;
-    background-attachment: fixed, fixed;
+    background-attachment: scroll, scroll;
   }
 
   .container-shell {

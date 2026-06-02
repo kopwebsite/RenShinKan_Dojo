@@ -1,18 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { facilities } from "../data/siteContent";
+import { useTranslation } from "../i18n";
+import { facilityKeys, translateTitleDescription } from "../utils/siteContentTranslations";
 
 export function FacilityGrid() {
+  const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const localizedFacilities = facilities.map((facility, index) =>
+    translateTitleDescription(t, facility, facilityKeys[index]),
+  );
 
   const scrollToIndex = useCallback((index: number) => {
     const container = scrollRef.current;
     if (!container) return;
-    const clamped = Math.max(0, Math.min(index, facilities.length - 1));
+    const clamped = Math.max(0, Math.min(index, localizedFacilities.length - 1));
     const card = container.children[clamped] as HTMLElement | undefined;
     card?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-  }, []);
+  }, [localizedFacilities.length]);
 
   const handleScroll = useCallback(() => {
     const container = scrollRef.current;
@@ -39,7 +45,7 @@ export function FacilityGrid() {
   }, [handleScroll]);
 
   const atStart = activeIndex === 0;
-  const atEnd = activeIndex === facilities.length - 1;
+  const atEnd = activeIndex === localizedFacilities.length - 1;
 
   return (
     <div className="relative">
@@ -48,7 +54,7 @@ export function FacilityGrid() {
         onScroll={handleScroll}
         className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden min-[420px]:gap-4 lg:mx-0 lg:grid lg:grid-cols-5 lg:overflow-visible lg:px-0 lg:pb-0"
       >
-        {facilities.map((facility) => {
+        {localizedFacilities.map((facility) => {
           const Icon = facility.icon;
           return (
             <article
@@ -75,19 +81,19 @@ export function FacilityGrid() {
           type="button"
           onClick={() => scrollToIndex(activeIndex - 1)}
           disabled={atStart}
-          aria-label="Previous facility"
+          aria-label={t("data.facilities.previous")}
           className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/10 bg-paper/60 text-ink backdrop-blur-md transition hover:border-vermilion/30 hover:text-vermilion disabled:cursor-not-allowed disabled:opacity-35"
         >
           <ChevronLeft aria-hidden="true" size={20} />
         </button>
 
-        <div className="flex items-center gap-2" role="tablist" aria-label="Facilities">
-          {facilities.map((facility, index) => (
+        <div className="flex items-center gap-2" role="tablist" aria-label={t("data.facilities.navigation")}>
+          {localizedFacilities.map((facility, index) => (
             <button
               key={facility.title}
               type="button"
               onClick={() => scrollToIndex(index)}
-              aria-label={`Go to ${facility.title}`}
+              aria-label={t("data.facilities.goTo", { title: facility.title })}
               aria-current={index === activeIndex}
               className={`h-2 rounded-full transition-all ${
                 index === activeIndex ? "w-6 bg-bamboo" : "w-2 bg-ink/20"
@@ -100,7 +106,7 @@ export function FacilityGrid() {
           type="button"
           onClick={() => scrollToIndex(activeIndex + 1)}
           disabled={atEnd}
-          aria-label="Next facility"
+          aria-label={t("data.facilities.next")}
           className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/10 bg-paper/60 text-ink backdrop-blur-md transition hover:border-vermilion/30 hover:text-vermilion disabled:cursor-not-allowed disabled:opacity-35"
         >
           <ChevronRight aria-hidden="true" size={20} />

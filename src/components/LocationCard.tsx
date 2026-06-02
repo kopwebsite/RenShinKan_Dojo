@@ -1,5 +1,5 @@
 import { ArrowUpRight, MapPin } from "lucide-react";
-import { googleMapsUrl, siteInfo } from "../data/siteContent";
+import { googleMapsUrl, siteInfo } from "../data/siteMeta";
 import { useTranslation } from "../i18n";
 
 const mapQuery = `${siteInfo.name}, ${siteInfo.address}`;

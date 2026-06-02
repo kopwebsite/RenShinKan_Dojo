@@ -66,7 +66,7 @@ The current admin UI exposes:
 - the examination announcement text
 - edits/deletes for existing dojo updates
 
-Photos selected in `/admin` preview locally, then upload to R2 when the admin saves. The first update photo becomes the slider's first item and the front-page image. The server validates MIME type, file extension, image signature, file count, and file size.
+Photos selected in `/admin` are converted to WebP in the browser, preview locally, then upload to R2 when the admin saves. The first update photo becomes the slider's first item and the front-page image. The server stores WebP images, validates MIME type, file extension, image signature, file count, and file size, and also allows newsletter document attachments.
 
 The public front page shows the 3 most recent published dojo updates from Cloudflare KV. The newsletter page shows the full update with title, body, date, and an image slider.
 

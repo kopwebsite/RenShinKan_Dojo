@@ -37,7 +37,11 @@ async function getMediaResponse(env: Env, params: Params, includeBody: boolean) 
   const month = param(params.month);
   const file = param(params.file);
 
-  if (!year?.match(/^\d{4}$/) || !month?.match(/^\d{2}$/) || !file?.match(/^[a-z0-9][a-z0-9_.-]*\.(jpe?g|png|webp)$/i)) {
+  if (
+    !year?.match(/^\d{4}$/) ||
+    !month?.match(/^\d{2}$/) ||
+    !file?.match(/^[a-z0-9][a-z0-9_.-]*\.(jpe?g|png|webp|pdf|docx|pptx?)$/i)
+  ) {
     return notFound();
   }
 

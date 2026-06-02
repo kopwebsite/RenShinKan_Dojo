@@ -1,6 +1,6 @@
 import { ArrowUpRight, MapPin } from "lucide-react";
 import { Link } from "react-router-dom";
-import { googleMapsUrl, siteInfo, socialLinks } from "../data/siteContent";
+import { googleMapsUrl, siteInfo, socialLinks } from "../data/siteMeta";
 import { useTranslation, type TranslationKey } from "../i18n";
 
 const footerNavigation: Array<{ labelKey: TranslationKey; path: string }> = [

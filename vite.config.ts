@@ -24,4 +24,13 @@ function normalizeBasePath(basePath?: string) {
 export default defineConfig({
   base: normalizeBasePath(process.env.BASE_PATH),
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          return id.includes("node_modules") ? "vendor" : undefined;
+        },
+      },
+    },
+  },
 });

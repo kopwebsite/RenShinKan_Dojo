@@ -8,6 +8,9 @@ export type BodyMediaPlacement = {
   align?: BodyMediaAlign;
 };
 
+export type DocumentMediaKind = "pdf" | "docx" | "ppt";
+export type DocumentDisplayMode = "inline" | "link";
+
 export type MediaItem = {
   id: string;
   src: string;
@@ -15,8 +18,12 @@ export type MediaItem = {
   webp?: string;
   alt: string;
   caption?: string;
-  type: "image" | "video";
+  type: "image" | "video" | "document";
   title?: string;
+  documentKind?: DocumentMediaKind;
+  displayMode?: DocumentDisplayMode;
+  fileName?: string;
+  fileSize?: number;
   objectPosition?: string;
   width?: number;
   height?: number;
@@ -57,6 +64,8 @@ export type EditableContent = {
 
 const allowedNewsletterStatuses = new Set<NewsletterStatus>(["not_sent", "pending", "sent", "failed"]);
 const allowedBodyMediaAligns = new Set<BodyMediaAlign>(["left", "center", "right"]);
+const allowedDocumentKinds = new Set<DocumentMediaKind>(["pdf", "docx", "ppt"]);
+const allowedDocumentDisplayModes = new Set<DocumentDisplayMode>(["inline", "link"]);
 const MAX_RECENT_EVENT_PHOTOS = 6;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -141,7 +150,10 @@ function validateMediaItem(value: unknown, path: string): MediaItem {
 
   const id = requireString(value, "id").trim();
   const src = requireString(value, "src").trim();
-  const type = value.type === "video" ? "video" : value.type === "image" ? "image" : null;
+  const type =
+    value.type === "video" || value.type === "image" || value.type === "document"
+      ? value.type
+      : null;
 
   if (!id) {
     throw new Error(`${path}.id is required`);
@@ -152,11 +164,15 @@ function validateMediaItem(value: unknown, path: string): MediaItem {
   }
 
   if (!type) {
-    throw new Error(`${path}.type must be image or video`);
+    throw new Error(`${path}.type must be image, video, or document`);
   }
 
   if (type === "video" && !isValidEmbedUrl(src)) {
     throw new Error(`${path}.src must be a supported HTTPS video embed URL`);
+  }
+
+  if (type === "document" && !allowedDocumentKinds.has(value.documentKind as DocumentMediaKind)) {
+    throw new Error(`${path}.documentKind must be pdf, docx, or ppt`);
   }
 
   return {
@@ -168,6 +184,13 @@ function validateMediaItem(value: unknown, path: string): MediaItem {
     caption: optionalString(value, "caption"),
     type,
     title: optionalString(value, "title"),
+    documentKind: type === "document" ? value.documentKind as DocumentMediaKind : undefined,
+    displayMode:
+      type === "document" && allowedDocumentDisplayModes.has(value.displayMode as DocumentDisplayMode)
+        ? value.displayMode as DocumentDisplayMode
+        : undefined,
+    fileName: type === "document" ? optionalString(value, "fileName") : undefined,
+    fileSize: type === "document" ? optionalNumber(value, "fileSize") : undefined,
     objectPosition: optionalString(value, "objectPosition"),
     width: optionalNumber(value, "width"),
     height: optionalNumber(value, "height"),

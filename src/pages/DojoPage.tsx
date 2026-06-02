@@ -11,19 +11,22 @@ import { MediaSlider } from "../components/MediaSlider";
 import { MotionSection } from "../components/MotionSection";
 import { ResponsiveImage } from "../components/ResponsiveImage";
 import { onTheMatMedia } from "../data/editableContent";
-import { renshinkanBuildPhotos, dojoPhotos, siteInfo } from "../data/siteContent";
+import { renshinkanBuildPhotos, dojoPhotos } from "../data/siteContent";
+import { siteInfo } from "../data/siteMeta";
 import { useTranslation } from "../i18n";
 import { getPublishedRecentEvents, useEditableContent } from "../lib/content";
 import { assetPath } from "../utils/assetPath";
+import { dojoPhotoKeys, translateDojoPhoto } from "../utils/siteContentTranslations";
 
 export function DojoPage() {
   const { t } = useTranslation();
   const { content } = useEditableContent();
   const recentUpdates = getPublishedRecentEvents(content, 3);
   const matMedia = content.onTheMatMedia.length ? content.onTheMatMedia : onTheMatMedia;
+  const localizedDojoPhotos = dojoPhotos.map((photo, index) => translateDojoPhoto(t, photo, dojoPhotoKeys[index]));
   const [activeSpacePhotoIndex, setActiveSpacePhotoIndex] = useState(0);
-  const activeSpacePhoto = dojoPhotos[activeSpacePhotoIndex];
-  const spacePhotoOptions = dojoPhotos.filter((_, index) => index !== activeSpacePhotoIndex);
+  const activeSpacePhoto = localizedDojoPhotos[activeSpacePhotoIndex];
+  const spacePhotoOptions = localizedDojoPhotos.filter((_, index) => index !== activeSpacePhotoIndex);
   const shouldReduceMotion = useReducedMotion();
   const [recentEventIndex, setRecentEventIndex] = useState(0);
 
@@ -117,10 +120,19 @@ export function DojoPage() {
               <p className="mt-4 text-charcoal/78">
                 {t("home.recent.copy")}
               </p>
-              <Link to="/newsletter#recent-events" className="btn-secondary mt-6">
-                {t("common.readMore")}
-                <ArrowRight size={17} aria-hidden="true" />
-              </Link>
+              <div className="mt-6 flex flex-col items-start gap-3">
+                <Link to="/newsletter#recent-events" className="btn-secondary">
+                  {t("common.readMore")}
+                  <ArrowRight size={17} aria-hidden="true" />
+                </Link>
+                <Link
+                  to="/newsletter#newsletter-signup"
+                  className="inline-flex items-center gap-2 rounded-full border border-bamboo/25 bg-bamboo/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-bamboo transition hover:border-bamboo/45 hover:bg-bamboo/15 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo"
+                >
+                  {t("home.recent.newsletterSignupCta")}
+                  <ArrowRight size={14} aria-hidden="true" />
+                </Link>
+              </div>
             </div>
             <div>
               {recentUpdates.length > 0 ? (
@@ -202,7 +214,7 @@ export function DojoPage() {
                 </>
               ) : (
                 <div className="rounded-[1.75rem] border border-ink/10 bg-paper/65 p-7 text-sm leading-6 text-charcoal/72">
-                  Recent dojo updates will appear here after they are published.
+                  {t("newsletter.recent.empty")}
                 </div>
               )}
             </div>
@@ -210,7 +222,7 @@ export function DojoPage() {
         </div>
       </MotionSection>
 
-      <MotionSection id="facilities" className="container-shell pb-20">
+      <MotionSection id="dojo" className="container-shell scroll-mt-28 pb-20">
         <div className="mb-8 max-w-3xl">
           <p className="eyebrow">{t("home.facilities.eyebrow")}</p>
           <h2 className="section-title">{t("home.facilities.title")}</h2>
@@ -276,7 +288,7 @@ export function DojoPage() {
 
           <div className="grid grid-cols-3 gap-2 sm:gap-4 lg:grid-cols-1 lg:grid-rows-3">
             {spacePhotoOptions.map((photo) => {
-              const photoIndex = dojoPhotos.findIndex((item) => item.src === photo.src);
+              const photoIndex = localizedDojoPhotos.findIndex((item) => item.src === photo.src);
 
               return (
                 <button

@@ -8,6 +8,9 @@ export type BodyMediaPlacement = {
   align?: BodyMediaAlign;
 };
 
+export type DocumentMediaKind = "pdf" | "docx" | "ppt";
+export type DocumentDisplayMode = "inline" | "link";
+
 export type MediaItem = {
   id: string;
   src: string;
@@ -15,8 +18,12 @@ export type MediaItem = {
   webp?: string;
   alt: string;
   caption?: string;
-  type: "image" | "video";
+  type: "image" | "video" | "document";
   title?: string;
+  documentKind?: DocumentMediaKind;
+  displayMode?: DocumentDisplayMode;
+  fileName?: string;
+  fileSize?: number;
   objectPosition?: string;
   width?: number;
   height?: number;

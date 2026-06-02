@@ -23,6 +23,8 @@ screenshots/
 .wrangler/
 Dojo pictures/
 New Photos/
+*_result.txt
+*.tmp
 vite-preview.log
 vite-preview.err.log
 

@@ -54,7 +54,12 @@
     "openAddressInMaps": "Open {{address}} in Google Maps",
     "portraitPlaceholder": "{{name}} portrait placeholder",
     "beltProgressionChart": "Aikido kyu progression chart",
-    "beltRankLabel": "{{rank}} {{rankSub}} - {{days}} training days"
+    "beltRankLabel": "{{rank}} {{rankSub}} - {{days}} training days",
+    "skipBackPhotos": "Skip back {{count}} photos",
+    "skipAheadPhotos": "Skip ahead {{count}} photos",
+    "mediaSlideNavigation": "{{label}} slide navigation",
+    "skipBackMediaItems": "Skip back {{count}} {{label}} items",
+    "skipAheadMediaItems": "Skip ahead {{count}} {{label}} items"
   },
   "language": {
     "en": "English",
@@ -106,7 +111,8 @@
     "recent": {
       "eyebrow": "Recent Events",
       "title": "Recent dojo updates, gathered in one place.",
-      "copy": "The three newest updates from training days, examinations, seminars, and community moments at RenshinKan."
+      "copy": "The three newest updates from training days, examinations, seminars, and community moments at RenshinKan.",
+      "newsletterSignupCta": "Sign up for the newsletter"
     },
     "facilities": {
       "eyebrow": "Our Dojo",
@@ -232,7 +238,7 @@
     "intro": {
       "eyebrow": "Location & Contact",
       "title": "Plan a first visit to RenshinKan Dojo.",
-      "copy": "The dojo is located at {{address}}. Parents, beginners, experienced aikidoka, and visitors should get in touch for more information before attending class."
+      "copy": "The dojo is located at {{address}}. Drop-ins are welcome for parents, beginners, experienced aikidoka, and visitors. No booking is needed, though you are welcome to message ahead if you prefer."
     },
     "message": {
       "eyebrow": "Get in Touch",
@@ -246,7 +252,7 @@
       "copy": "You're welcome to drop in to a class without messaging ahead. If you'd like to say hello first, you can connect with us on Facebook or by email at contact@renshinkandojo.org before you come.",
       "item1": "Wear comfortable clothes that allow movement.",
       "item2": "Arrive a little early so someone can welcome you.",
-      "item3": "Parents may ask about observing children's practice.",
+      "item3": "Parking is available, and parents are welcome to watch students practice.",
       "item4": "Visiting aikidoka are welcome to mention rank and home dojo.",
       "cta": "Message us on Facebook",
       "emailCta": "Email the dojo"
@@ -633,13 +639,13 @@
   },
   "seo": {
     "homeTitle": "RenshinKan Dojo | Aikido in Hang Dong, Chiang Mai, Thailand",
-    "homeDescription": "RenshinKan Dojo offers aikido classes and martial arts training in Hang Dong, Chiang Mai, Thailand. Beginners, children, and visiting aikidoka welcome.",
-    "aikidoTitle": "What Is Aikido? | RenshinKan Dojo Chiang Mai",
-    "aikidoDescription": "Learn aikido history, O Sensei, ukemi, weapons work, and how RenshinKan Dojo teaches aikido in Hang Dong, Chiang Mai.",
+    "homeDescription": "RenshinKan Dojo offers aikido and Japanese martial arts training in Hang Dong, Chiang Mai. Beginner-friendly classes welcome children, adults, and visiting aikidoka.",
+    "aikidoTitle": "Aikido in Chiang Mai | Japanese Martial Arts at RenshinKan Dojo",
+    "aikidoDescription": "Learn what aikido is, how it grew from Japanese jujutsu and aiki-jujutsu roots, and how RenshinKan teaches calm self-defense in Hang Dong, Chiang Mai.",
     "instructorsTitle": "Aikido Instructors in Chiang Mai | RenshinKan Dojo",
     "instructorsDescription": "Meet the RenshinKan Dojo aikido instructors teaching beginner friendly classes, children, adults, and visiting aikidoka in Hang Dong, Chiang Mai.",
     "classesTitle": "Aikido Classes in Hang Dong, Chiang Mai | RenshinKan Dojo",
-    "classesDescription": "Aikido class information for Hang Dong, Chiang Mai. See practice times, first visit guidance, belt exams, and beginner friendly class details.",
+    "classesDescription": "Aikido class information for Hang Dong, Chiang Mai. See practice times, first visit guidance, belt exams, and martial arts classes for kids and adults.",
     "workshopsTitle": "Aikido Workshops in Chiang Mai | RenshinKan Dojo",
     "workshopsDescription": "Seasonal aikido workshops for beginners, children, and current students at RenshinKan Dojo in Hang Dong, Chiang Mai.",
     "newsletterTitle": "Dojo Updates | RenshinKan Aikido Chiang Mai",
@@ -649,11 +655,361 @@
     "supportTitle": "Support RenshinKan Dojo | Aikido Chiang Mai",
     "supportDescription": "Support RenshinKan Dojo and help keep aikido training accessible in Hang Dong and Chiang Mai through student contributions and donations.",
     "contactTitle": "Contact RenshinKan Dojo | Aikido in Hang Dong, Chiang Mai",
-    "contactDescription": "Contact RenshinKan Dojo in Hang Dong, Chiang Mai, Thailand to ask about aikido classes, beginner visits, children training, and visiting aikidoka practice.",
+    "contactDescription": "Contact RenshinKan Dojo in Hang Dong, Chiang Mai, Thailand to ask about aikido classes, beginner visits, kids training, adult practice, and visiting aikidoka.",
     "visitTitle": "Visit RenshinKan Dojo | Aikido in Hang Dong, Chiang Mai",
     "visitDescription": "Plan a first visit to RenshinKan Dojo in Hang Dong, Chiang Mai, Thailand. Beginners, parents, and visiting aikidoka are welcome.",
     "adminTitle": "Admin | RenshinKan Dojo",
     "adminDescription": "RenshinKan Dojo content administration.",
-    "localBusinessDescription": "Aikido classes and traditional martial arts training at RenshinKan Dojo in Hang Dong, Chiang Mai, Thailand."
+    "localBusinessDescription": "Aikido classes, Japanese martial arts, and practical self-defense training for children and adults at RenshinKan Dojo in Hang Dong, Chiang Mai."
+  },
+  "data": {
+    "facilities": {
+      "previous": "Previous facility",
+      "next": "Next facility",
+      "navigation": "Facility navigation",
+      "goTo": "Show {{title}}",
+      "changingRooms": {
+        "title": "Changing Rooms",
+        "description": "Separate male and female changing rooms support comfortable visits."
+      },
+      "bathrooms": {
+        "title": "Bathrooms & Handwashing",
+        "description": "Bathrooms include handwashing facilities for students and guests."
+      },
+      "water": {
+        "title": "Drinking Water",
+        "description": "A water cooler is available so students can hydrate during practice."
+      },
+      "weapons": {
+        "title": "Training Weapons",
+        "description": "Aikido weapons are available for bokken, jo, and tanto practice."
+      },
+      "viewingDeck": {
+        "title": "Parent Viewing Deck",
+        "description": "A seated viewing deck lets parents and visitors observe class."
+      }
+    },
+    "dojoPhotos": {
+      "koiPond": {
+        "title": "Koi Pond",
+        "description": "A small koi pond tucked into the garden grounds.",
+        "alt": "Koi pond in the RenshinKan Dojo garden."
+      },
+      "garden": {
+        "title": "The Garden",
+        "description": "Greenery surrounds the dojo and gives the space a calm, settled feel.",
+        "alt": "Garden surrounding RenshinKan Dojo in Hang Dong."
+      },
+      "courtyard": {
+        "title": "Courtyard",
+        "description": "The open courtyard connects the main dojo building to the rest of the grounds.",
+        "alt": "Open courtyard at RenshinKan Dojo."
+      },
+      "trainingHall": {
+        "title": "Training Hall",
+        "description": "The main training space with tatami mats, high ceilings, and plenty of room to move.",
+        "alt": "RenshinKan Dojo interior training hall."
+      }
+    },
+    "instructors": {
+      "sombat": {
+        "role": "Founder / Senior Instructor",
+        "rank": "5th dan",
+        "trainingBackground": "Began aikido training in New Haven, Connecticut, in 1980, then trained at the Thai Aikido Association in Bangkok from 1982 under Motohiro Fukakusa Shihan and Prapant Chittaputta Shihan. Founded the Chiang Mai University Aikido Club in 1986 and Renshinkan Dojo in 2012.",
+        "imageAlt": "Sombat Tapanya in aikido uniform at RenshinKan Dojo."
+      },
+      "teerarat": {
+        "role": "Senior Instructor",
+        "rank": "3rd dan",
+        "trainingBackground": "Started aikido at the Chiang Mai University Aikido Club in 1986 and trained under Motohiro Fukakusa Shihan and Prapant Chittaputta Shihan.",
+        "imageAlt": "Teerarat Boripantakul in aikido uniform at RenshinKan Dojo."
+      },
+      "kop": {
+        "role": "Founder / Senior Instructor",
+        "rank": "3rd dan",
+        "trainingBackground": "Narumol (Kop) Thammapruksa began aikido at the Chiang Mai University Aikido Club. In 2008, she enrolled at the Aikido Academy at Hombu Dojo, Tokyo, and received 2nd kyu under Koichi Toriumi Shihan and Yoshiaki Yokota Shihan. In 2012, while an exchange student at Osaka University, she practiced at Shosenji Dojo under Katsuyuki Shimamoto Shihan and received shodan from Hombu Dojo under Tsuruzo Miyamoto Shihan.",
+        "imageAlt": "Kop Narumol in aikido uniform at RenshinKan Dojo."
+      },
+      "kittisak": {
+        "role": "Instructor",
+        "rank": "2nd dan",
+        "trainingBackground": "Started aikido at the Chiang Mai University Aikido Club in 2003 and trained under Sombat Tapanya and Teerarat Boripantakul.",
+        "imageAlt": "Major Kittisak Siriparp in aikido uniform at RenshinKan Dojo."
+      },
+      "fuengwich": {
+        "role": "Instructor",
+        "rank": "2nd dan",
+        "trainingBackground": "Started aikido at the Chiang Mai University Aikido Club in 2002 and trained under Sombat Tapanya and Teerarat Boripantakul.",
+        "imageAlt": "Fuengwich Maneekarn in aikido uniform at RenshinKan Dojo."
+      },
+      "siriphorn": {
+        "role": "Instructor",
+        "rank": "2nd dan",
+        "trainingBackground": "Started aikido at the Chiang Mai University Aikido Club in 2012 and trained under Sombat Tapanya and Teerarat Boripantakul.",
+        "imageAlt": "Siriphorn Manokeaw in aikido uniform at RenshinKan Dojo."
+      }
+    },
+    "workshops": {
+      "beginningAikido": {
+        "title": "Beginning Aikido",
+        "date": "First Sunday of each month",
+        "time": "09:00-10:30",
+        "audience": "New adults and teens",
+        "description": "A calm introduction to bowing, posture, footwork, safe falling, and cooperative partner practice."
+      },
+      "fallingConfidence": {
+        "title": "Falling With Confidence",
+        "date": "Family workshop dates posted seasonally",
+        "time": "Weekend mornings",
+        "audience": "Children and parents",
+        "description": "Playful rolling and landing skills that help children move safely on and off the mat."
+      },
+      "weaponsDistance": {
+        "title": "Weapons And Distance",
+        "date": "Announced with visiting teachers",
+        "time": "By schedule",
+        "audience": "Students with basic ukemi",
+        "description": "Bokken, jo, and tanto practice for spacing, timing, and calm attention."
+      }
+    },
+    "aikido": {
+      "instructorSourceLabel": "Peace Culture Foundation instructors page",
+      "actionCaptions": {
+        "jo": "Paired jo practice trains distance, timing, and a calm line of movement.",
+        "tanto": "Tanto practice turns a threatening line into a safe path for both partners."
+      },
+      "benefits": {
+        "discipline": {
+          "title": "Discipline",
+          "description": "Bowing in, repeating each movement with care, and returning week after week build a quiet, steady discipline that soon feels natural."
+        },
+        "patience": {
+          "title": "Patience",
+          "description": "Techniques are learned slowly and refined over years, so practice gently teaches you to trust the process and value steady progress."
+        },
+        "focus": {
+          "title": "Focus",
+          "description": "Reading a partner's movement and meeting it at the right moment trains a clear, present attention you can carry into everyday life."
+        },
+        "confidence": {
+          "title": "Confidence",
+          "description": "As techniques begin to work without force or strain, students grow a calm, grounded confidence that does not depend on size or strength."
+        },
+        "posture": {
+          "title": "Posture",
+          "description": "Aikido is practiced from an upright, relaxed stance, so good posture and a strong, settled base become second nature on and off the mat."
+        },
+        "coordination": {
+          "title": "Coordination",
+          "description": "Blending footwork, breathing, and hand movement into one smooth action sharpens whole body coordination with every repetition."
+        },
+        "balance": {
+          "title": "Balance",
+          "description": "Entering, turning, and staying grounded while a partner moves teaches you to keep your balance and recover it quickly when it is tested."
+        },
+        "respect": {
+          "title": "Respect",
+          "description": "Every technique opens and closes with a bow, and partners look after one another, so respect runs through the way the whole dojo trains."
+        },
+        "awareness": {
+          "title": "Awareness of others",
+          "description": "Working closely with a partner builds a real feel for distance, timing, and safety, keeping you aware of the people around you."
+        }
+      },
+      "children": {
+        "speakUp": {
+          "title": "Confidence to speak up",
+          "description": "Small, step by step successes on the mat help a quieter child stand a little taller, at the dojo and at school."
+        },
+        "selfControl": {
+          "title": "Listening and self control",
+          "description": "Waiting for a turn, following the count, and working gently with a partner teach children to listen and settle their energy."
+        },
+        "falling": {
+          "title": "Safe, playful falling",
+          "description": "Rolling and tumbling are taught as a game first, so children learn to fall without fear and look after themselves anywhere."
+        }
+      },
+      "adults": {
+        "move": {
+          "title": "Move after a day at a desk",
+          "description": "Gentle, flowing practice loosens stiff shoulders and hips and brings easy, natural movement back into the body."
+        },
+        "mind": {
+          "title": "A calmer, clearer mind",
+          "description": "Giving full attention to a partner and a technique leaves the day's stress at the door for ninety quiet minutes."
+        },
+        "community": {
+          "title": "A friendly community",
+          "description": "You join a welcoming circle of people of all ages and backgrounds who train with patience and look out for each other."
+        }
+      },
+      "timeline": {
+        "earlyLife": {
+          "title": "Early Life and Training",
+          "description": "Morihei Ueshiba grows up in Wakayama as Japan modernizes, studying several traditional martial systems before aikido exists."
+        },
+        "hokkaido": {
+          "title": "Hokkaido and Daito-ryu",
+          "description": "Frontier life and intensive study with Sokaku Takeda give Ueshiba the technical base later transformed into aikido."
+        },
+        "omoto": {
+          "title": "Omoto-kyo and Ayabe",
+          "description": "Onisaburo Deguchi and Omoto spiritual practice pull Ueshiba toward a martial path shaped by purification, service, and ethical purpose."
+        },
+        "tokyo": {
+          "title": "Tokyo and Aiki-budo",
+          "description": "In prewar Tokyo, Ueshiba teaches a demanding art to serious students as Kobukan Dojo becomes known for severe practice."
+        },
+        "iwama": {
+          "title": "Iwama and Postwar Renewal",
+          "description": "The name aikido is adopted, the Aiki Shrine is established, and postwar practice resumes through the Aikikai Foundation."
+        },
+        "hombu": {
+          "title": "Hombu Dojo and Public Aikido",
+          "description": "Kisshomaru Ueshiba helps organize daily training, public demonstrations, publishing, and the modern Aikikai identity."
+        },
+        "international": {
+          "title": "International Spread",
+          "description": "Aikido teachers and organizations carry the art beyond Japan, building a worldwide practice culture."
+        },
+        "thailand": {
+          "title": "Aikido Reaches Thailand",
+          "description": "Aikido is introduced to Thailand by Nobuyoshi Tamura Shihan, with technical support from Aikido World Headquarters in Tokyo."
+        },
+        "renbukan": {
+          "title": "Renbukan Dojo, Bangkok",
+          "description": "Renbukan Dojo is founded in Bangkok and becomes the headquarters of the Aikido Association of Thailand under Motohiro Fukakusa Shihan."
+        },
+        "thaiNetwork": {
+          "title": "The Thai Aikido Network",
+          "description": "Bangkok teachers such as Motohiro Fukakusa Shihan and Prapant Chittaputta Shihan train a generation that carries aikido to universities and provinces beyond the capital."
+        },
+        "chiangMai": {
+          "title": "Chiang Mai and RenshinKan",
+          "description": "Northern Thailand practice grows through the Chiang Mai University Aikido Club and dojo communities, leading to RenshinKan's local training culture."
+        }
+      }
+    },
+    "community": {
+      "values": {
+        "respect": {
+          "title": "Mutual Respect",
+          "description": "Practice begins with listening and care for the person in front of you."
+        },
+        "safety": {
+          "title": "Community Safety",
+          "description": "The dojo's culture supports listening, calm boundaries, and steady personal growth."
+        },
+        "peace": {
+          "title": "Peace Culture",
+          "description": "Aikido offers a practical language for meeting conflict without aggression."
+        },
+        "growth": {
+          "title": "Shared Growth",
+          "description": "Beginners, parents, children, and visitors all contribute to a welcoming training space."
+        }
+      },
+      "foundation": {
+        "aikidoConnection": "Aikido supports that culture through lived habits: listening before reacting, protecting the person in front of you, redirecting pressure without aggression, and practicing responsibility with a partner.",
+        "groomingPrevention": "The foundation's grooming-prevention work helps communities name unsafe patterns, strengthen boundaries, and give adults and young people clearer tools for recognizing and responding to manipulation.",
+        "pillars": {
+          "relationships": "Respectful relationships",
+          "boundaries": "Consent and healthy boundaries",
+          "awareness": "Awareness of grooming patterns",
+          "education": "Community safety through education"
+        }
+      },
+      "pcfPhotos": {
+        "liblab": {
+          "title": "LibLab: Books for Communities",
+          "caption": "The foundation's LibLab programme puts books into communities that need them.",
+          "alt": "Stacks of books from the Peace Culture Foundation's LibLab community literacy programme."
+        },
+        "learning": {
+          "title": "Learning in Every Setting",
+          "caption": "Peace culture is built through education, in classrooms, dojos, and communities alike.",
+          "alt": "An open book resting on a table surrounded by nature."
+        },
+        "safety": {
+          "title": "Child Safety Education",
+          "caption": "Teaching communities to recognise unsafe patterns and protect the young people around them.",
+          "alt": "Peace Culture Foundation grooming prevention awareness graphic."
+        },
+        "sombat": {
+          "title": "Dr. Sombat Tapanya",
+          "caption": "Founder of the Peace Culture Foundation and the person behind both its mission and RenshinKan Dojo.",
+          "alt": "Dr. Sombat Tapanya, founder of the Peace Culture Foundation."
+        }
+      },
+      "cmu": {
+        "practice": {
+          "days": "Monday, Wednesday, Friday",
+          "time": "Publicly listed as 6:00-8:00 p.m.",
+          "location": "The AikidoCMU article describes practice on the ground floor of the Student Union Building. The history page also lists the Chiang Mai University Aikido Club at the Gymnasium Building on Suthep Road.",
+          "note": "These public schedule notes are older. Visitors should confirm the current room and start time with AikidoCMU before going."
+        },
+        "address": "Chiang Mai University Aikido Club, Gymnasium Building, Chiang Mai University, Suthep Road, Chiang Mai, Thailand",
+        "links": {
+          "history": "AikidoCMU History",
+          "practice": "Practice Article",
+          "logo": "CMU Logo Source"
+        }
+      },
+      "cmuPhotos": {
+        "practice": {
+          "title": "Practice At CMU",
+          "caption": "A public AikidoCMU newsletter image showing partner practice and circular movement.",
+          "alt": "AikidoCMU practitioners training on a white mat in Chiang Mai."
+        },
+        "history": {
+          "title": "Northern Thailand Aikido",
+          "caption": "A source image from Aikido Chiang Mai Unite's history of aikido in northern Thailand.",
+          "alt": "AikidoCMU history image from the Aikido Chiang Mai Unite page."
+        },
+        "roots": {
+          "title": "Student Club Roots",
+          "caption": "A public AikidoCMU image connected to the university club's early community story.",
+          "alt": "AikidoCMU club members practicing together."
+        },
+        "falling": {
+          "title": "Safe Falling",
+          "caption": "Partner practice imagery from an AikidoCMU article on aikido and peace-making.",
+          "alt": "AikidoCMU student falling safely during partner practice."
+        },
+        "blend": {
+          "title": "Blend And Redirect",
+          "caption": "Practice imagery showing the cooperative roles of uke and nage.",
+          "alt": "AikidoCMU practitioners demonstrating a throw and pin sequence."
+        }
+      },
+      "relatedDojos": {
+        "thaiAikikai": {
+          "name": "Thai Aikikai",
+          "description": "The national governing body for aikido in Thailand, founded in 1975 under Motohiro Fukakusa Shihan. RenshinKan belt examinations are certified through this organisation.",
+          "location": "Bangkok, Thailand (national body)"
+        },
+        "aikidoCmu": {
+          "name": "Aikido Chiang Mai University Club",
+          "description": "A long-running university club open to students, international visitors, and community members at Chiang Mai University.",
+          "location": "Chiang Mai University, Suthep Road"
+        },
+        "aiDojo": {
+          "name": "Ai Dojo",
+          "description": "An aikido dojo in the Suthep district of Chiang Mai, part of the wider local Aikikai-affiliated community.",
+          "location": "Suthep, Chiang Mai"
+        },
+        "allDojo": {
+          "name": "All Dojo Chiang Mai",
+          "description": "A dojo in Saraphi, south of Chiang Mai city, connected to the same local aikido network and Aikikai affiliation.",
+          "location": "Saraphi, Chiang Mai"
+        },
+        "aikidoKids": {
+          "name": "Aikido Kids Chiangmai",
+          "description": "A child and family focused aikido programme based at AllGym Chiangmai, welcoming young students and families.",
+          "location": "Suthep, Chiang Mai"
+        }
+      }
+    }
   }
 }

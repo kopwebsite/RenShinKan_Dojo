@@ -2,10 +2,12 @@ import {
   AlertCircle,
   CheckCircle,
   ChevronDown,
+  FileText,
   ImagePlus,
   Lock,
   LogOut,
   Plus,
+  Presentation,
   RefreshCw,
   Save,
   Trash2,
@@ -21,11 +23,17 @@ import {
 import { emptyEditableContent, loadEditableContent } from "../lib/content";
 import type {
   BodyMediaPlacement,
+  DocumentMediaKind,
   EditableContent,
   MediaItem,
   PassedTestStudent,
   RecentEvent,
 } from "../types/editableContent";
+import {
+  documentKindLabel,
+  documentTitle,
+  formatFileSize,
+} from "../utils/documentMedia";
 import {
   defaultBodyMediaPlacement,
   normalizeBodyMediaPlacement,
@@ -33,10 +41,35 @@ import {
 } from "../utils/eventBody";
 import { isValidEmbedUrl, normalizeEmbedUrl } from "../utils/mediaEmbeds";
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_DOCUMENT_FILE_SIZE = 20 * 1024 * 1024;
 const MAX_FILES = 10;
 const MAX_EVENT_PHOTOS = 6;
+const UPLOAD_IMAGE_MAX_WIDTH = 1920;
+const UPLOAD_IMAGE_WEBP_QUALITY = 0.86;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const ALLOWED_DOCUMENT_TYPES = new Map([
+  ["application/pdf", "pdf"],
+  ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx"],
+  ["application/vnd.ms-powerpoint", "ppt"],
+  ["application/vnd.openxmlformats-officedocument.presentationml.presentation", "ppt"],
+] as const);
+const ALLOWED_DOCUMENT_EXTENSIONS = new Map([
+  [".pdf", "pdf"],
+  [".docx", "docx"],
+  [".ppt", "ppt"],
+  [".pptx", "ppt"],
+] as const);
+const DOCUMENT_ACCEPT = [
+  ".pdf",
+  ".docx",
+  ".ppt",
+  ".pptx",
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+].join(",");
 
 type AdminSectionId = "recentEvents" | "onTheMatMedia" | "historyMedia" | "passedTestStudents";
 
@@ -66,8 +99,131 @@ function validateImageFile(file: File): string | null {
     return "Images must be JPEG, PNG, or WebP.";
   }
 
-  if (file.size > MAX_FILE_SIZE) {
+  if (file.size > MAX_IMAGE_FILE_SIZE) {
     return "Images must be 5 MB or smaller.";
+  }
+
+  return null;
+}
+
+function imageUploadName(file: File) {
+  const safeBase = file.name
+    .replace(/\.[^.]+$/, "")
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase()
+    .slice(0, 80);
+
+  return `${safeBase || "image"}.webp`;
+}
+
+function imageAltFromFileName(file: File) {
+  return file.name.replace(/\.[^.]+$/, "");
+}
+
+function canvasToWebpBlob(canvas: HTMLCanvasElement) {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error("Image conversion to WebP failed."));
+          return;
+        }
+
+        resolve(blob);
+      },
+      "image/webp",
+      UPLOAD_IMAGE_WEBP_QUALITY,
+    );
+  });
+}
+
+async function loadImageBitmap(file: File) {
+  if ("createImageBitmap" in window) {
+    return createImageBitmap(file);
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const element = new Image();
+      element.onload = () => resolve(element);
+      element.onerror = () => reject(new Error("Image could not be loaded for conversion."));
+      element.src = objectUrl;
+    });
+
+    return image;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function convertImageFileToWebp(file: File) {
+  const image = await loadImageBitmap(file);
+  const sourceWidth = image instanceof HTMLImageElement ? image.naturalWidth : image.width;
+  const sourceHeight = image instanceof HTMLImageElement ? image.naturalHeight : image.height;
+  const scale = Math.min(1, UPLOAD_IMAGE_MAX_WIDTH / sourceWidth);
+  const width = Math.max(1, Math.round(sourceWidth * scale));
+  const height = Math.max(1, Math.round(sourceHeight * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    throw new Error("Image conversion is not supported in this browser.");
+  }
+
+  context.drawImage(image, 0, 0, width, height);
+
+  if ("close" in image && typeof image.close === "function") {
+    image.close();
+  }
+
+  const blob = await canvasToWebpBlob(canvas);
+
+  return new File([blob], imageUploadName(file), {
+    type: "image/webp",
+    lastModified: Date.now(),
+  });
+}
+
+async function prepareImageUpload(file: File): Promise<PendingUpload & { alt: string }> {
+  const convertedFile = await convertImageFileToWebp(file);
+
+  return {
+    id: `upload-${crypto.randomUUID()}`,
+    file: convertedFile,
+    previewUrl: URL.createObjectURL(convertedFile),
+    alt: imageAltFromFileName(file),
+  };
+}
+
+function fileExtension(name: string) {
+  return name.match(/\.[a-z0-9]+$/i)?.[0].toLowerCase() ?? "";
+}
+
+function documentKindForFile(file: File): DocumentMediaKind | null {
+  const byMime = ALLOWED_DOCUMENT_TYPES.get(file.type);
+  if (byMime) {
+    return byMime;
+  }
+
+  return ALLOWED_DOCUMENT_EXTENSIONS.get(fileExtension(file.name)) ?? null;
+}
+
+function validateDocumentFile(file: File): string | null {
+  const kind = documentKindForFile(file);
+
+  if (!kind) {
+    return "Documents must be PDF, DOCX, PPT, or PPTX files.";
+  }
+
+  if (file.size > MAX_DOCUMENT_FILE_SIZE) {
+    return "Documents must be 20 MB or smaller.";
   }
 
   return null;
@@ -202,6 +358,10 @@ function getEventMedia(event: RecentEvent) {
 
 function eventPhotoCount(event: RecentEvent) {
   return getEventMedia(event).filter((item) => item.type === "image").length;
+}
+
+function eventDocumentCount(event: RecentEvent) {
+  return getEventMedia(event).filter((item) => item.type === "document").length;
 }
 
 function bodyPositionLabel(position: number, paragraphCount: number) {
@@ -470,7 +630,7 @@ export function AdminPage() {
     });
   };
 
-  const addEventPhotos = (eventId: string, fileEvent: ChangeEvent<HTMLInputElement>) => {
+  const addEventPhotos = async (eventId: string, fileEvent: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(fileEvent.target.files ?? []);
     fileEvent.target.value = "";
 
@@ -505,16 +665,87 @@ export function AdminPage() {
       }
     }
 
+    setPublishStatus("saving");
+    setPublishMessage("Preparing images as WebP...");
+
+    let preparedUploads: Array<PendingUpload & { alt: string }> = [];
+
+    try {
+      for (const file of files) {
+        preparedUploads.push(await prepareImageUpload(file));
+      }
+    } catch (error) {
+      preparedUploads.forEach((upload) => URL.revokeObjectURL(upload.previewUrl));
+      setPublishStatus("error");
+      setPublishMessage(error instanceof Error ? error.message : "Image conversion failed.");
+      return;
+    }
+
+    const newUploads: PendingUpload[] = preparedUploads.map(({ id, file, previewUrl }) => ({ id, file, previewUrl }));
+    const newItems: MediaItem[] = preparedUploads.map((upload) => ({
+      id: `media-${crypto.randomUUID()}`,
+      src: `pending:${upload.id}`,
+      alt: upload.alt,
+      type: "image",
+      bodyPlacement: defaultBodyMediaPlacement(targetEvent.body),
+    }));
+
+    setPendingUploads((current) => [...current, ...newUploads]);
+    updateEvent(eventId, (current) => ({
+      ...current,
+      image: current.image ?? newItems[0],
+      media: [...getEventMedia(current), ...newItems],
+    }));
+    setPublishStatus("idle");
+    setPublishMessage("");
+  };
+
+  const addEventDocuments = (eventId: string, fileEvent: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(fileEvent.target.files ?? []);
+    fileEvent.target.value = "";
+
+    if (files.length === 0) {
+      return;
+    }
+
+    const targetEvent = draft.recentEvents.find((event) => event.id === eventId);
+    if (!targetEvent) {
+      return;
+    }
+
+    if (pendingUploads.length + files.length > MAX_FILES) {
+      setPublishStatus("error");
+      setPublishMessage(`You can upload at most ${MAX_FILES} files in one publish.`);
+      return;
+    }
+
+    for (const file of files) {
+      const error = validateDocumentFile(file);
+
+      if (error) {
+        setPublishStatus("error");
+        setPublishMessage(error);
+        return;
+      }
+    }
+
     const newUploads: PendingUpload[] = [];
     const newItems: MediaItem[] = files.map((file) => {
       const uploadId = `upload-${crypto.randomUUID()}`;
+      const title = file.name.replace(/\.[^.]+$/, "");
+      const documentKind = documentKindForFile(file)!;
       newUploads.push({ id: uploadId, file, previewUrl: URL.createObjectURL(file) });
 
       return {
         id: `media-${crypto.randomUUID()}`,
         src: `pending:${uploadId}`,
-        alt: file.name.replace(/\.[^.]+$/, ""),
-        type: "image",
+        alt: title,
+        type: "document",
+        title,
+        documentKind,
+        displayMode: "inline",
+        fileName: file.name,
+        fileSize: file.size,
         bodyPlacement: defaultBodyMediaPlacement(targetEvent.body),
       };
     });
@@ -522,7 +753,6 @@ export function AdminPage() {
     setPendingUploads((current) => [...current, ...newUploads]);
     updateEvent(eventId, (current) => ({
       ...current,
-      image: current.image ?? newItems[0],
       media: [...getEventMedia(current), ...newItems],
     }));
     setPublishStatus("idle");
@@ -637,7 +867,7 @@ export function AdminPage() {
     });
   };
 
-  const addGalleryPhotos = (key: "historyMedia" | "onTheMatMedia", fileEvent: ChangeEvent<HTMLInputElement>) => {
+  const addGalleryPhotos = async (key: "historyMedia" | "onTheMatMedia", fileEvent: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(fileEvent.target.files ?? []);
     fileEvent.target.value = "";
 
@@ -645,10 +875,17 @@ export function AdminPage() {
       return;
     }
 
-    const newUploads: PendingUpload[] = [];
-    const newItems: MediaItem[] = [];
+    const availableSlots = MAX_FILES - pendingUploads.length;
 
-    for (const file of files) {
+    if (availableSlots <= 0) {
+      setPublishStatus("error");
+      setPublishMessage(`You can add at most ${MAX_FILES} new photos per publish. Publish these first, then add more.`);
+      return;
+    }
+
+    const filesToPrepare = files.slice(0, availableSlots);
+
+    for (const file of filesToPrepare) {
       const error = validateImageFile(file);
 
       if (error) {
@@ -657,25 +894,37 @@ export function AdminPage() {
         return;
       }
 
-      if (pendingUploads.length + newUploads.length >= MAX_FILES) {
-        setPublishStatus("error");
-        setPublishMessage(`You can add at most ${MAX_FILES} new photos per publish. Publish these first, then add more.`);
-        break;
-      }
-
-      const uploadId = `upload-${crypto.randomUUID()}`;
-      newUploads.push({ id: uploadId, file, previewUrl: URL.createObjectURL(file) });
-      newItems.push({
-        id: `media-${crypto.randomUUID()}`,
-        src: `pending:${uploadId}`,
-        alt: file.name.replace(/\.[^.]+$/, ""),
-        type: "image",
-      });
     }
 
-    if (newItems.length === 0) {
+    setPublishStatus("saving");
+    setPublishMessage("Preparing images as WebP...");
+
+    let preparedUploads: Array<PendingUpload & { alt: string }> = [];
+
+    try {
+      preparedUploads = [];
+
+      for (const file of filesToPrepare) {
+        preparedUploads.push(await prepareImageUpload(file));
+      }
+    } catch (conversionError) {
+      preparedUploads.forEach((upload) => URL.revokeObjectURL(upload.previewUrl));
+      setPublishStatus("error");
+      setPublishMessage(conversionError instanceof Error ? conversionError.message : "Image conversion failed.");
       return;
     }
+
+    if (preparedUploads.length === 0) {
+      return;
+    }
+
+    const newUploads: PendingUpload[] = preparedUploads.map(({ id, file, previewUrl }) => ({ id, file, previewUrl }));
+    const newItems: MediaItem[] = preparedUploads.map((upload) => ({
+      id: `media-${crypto.randomUUID()}`,
+      src: `pending:${upload.id}`,
+      alt: upload.alt,
+      type: "image",
+    }));
 
     setPendingUploads((current) => [...current, ...newUploads]);
     setDraft((current) =>
@@ -687,6 +936,9 @@ export function AdminPage() {
     if (newItems.length === files.length) {
       setPublishStatus("idle");
       setPublishMessage("");
+    } else {
+      setPublishStatus("error");
+      setPublishMessage(`Added ${newItems.length} photo${newItems.length === 1 ? "" : "s"}. Publish these first, then add more.`);
     }
   };
 
@@ -704,7 +956,7 @@ export function AdminPage() {
     );
   };
 
-  const addPassedStudents = (fileEvent: ChangeEvent<HTMLInputElement>) => {
+  const addPassedStudents = async (fileEvent: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(fileEvent.target.files ?? []);
     fileEvent.target.value = "";
 
@@ -712,10 +964,17 @@ export function AdminPage() {
       return;
     }
 
-    const newUploads: PendingUpload[] = [];
-    const newStudents: PassedTestStudent[] = [];
+    const availableSlots = MAX_FILES - pendingUploads.length;
 
-    for (const file of files) {
+    if (availableSlots <= 0) {
+      setPublishStatus("error");
+      setPublishMessage(`You can add at most ${MAX_FILES} new photos per publish. Publish these first, then add more.`);
+      return;
+    }
+
+    const filesToPrepare = files.slice(0, availableSlots);
+
+    for (const file of filesToPrepare) {
       const error = validateImageFile(file);
 
       if (error) {
@@ -724,26 +983,38 @@ export function AdminPage() {
         return;
       }
 
-      if (pendingUploads.length + newUploads.length >= MAX_FILES) {
-        setPublishStatus("error");
-        setPublishMessage(`You can add at most ${MAX_FILES} new photos per publish. Publish these first, then add more.`);
-        break;
-      }
-
-      const uploadId = `upload-${crypto.randomUUID()}`;
-      newUploads.push({ id: uploadId, file, previewUrl: URL.createObjectURL(file) });
-      newStudents.push({
-        id: `student-${crypto.randomUUID()}`,
-        image: `pending:${uploadId}`,
-        alt: file.name.replace(/\.[^.]+$/, ""),
-        dateAdded: new Date().toISOString().slice(0, 10),
-        objectPosition: "center",
-      });
     }
 
-    if (newStudents.length === 0) {
+    setPublishStatus("saving");
+    setPublishMessage("Preparing images as WebP...");
+
+    let preparedUploads: Array<PendingUpload & { alt: string }> = [];
+
+    try {
+      preparedUploads = [];
+
+      for (const file of filesToPrepare) {
+        preparedUploads.push(await prepareImageUpload(file));
+      }
+    } catch (conversionError) {
+      preparedUploads.forEach((upload) => URL.revokeObjectURL(upload.previewUrl));
+      setPublishStatus("error");
+      setPublishMessage(conversionError instanceof Error ? conversionError.message : "Image conversion failed.");
       return;
     }
+
+    if (preparedUploads.length === 0) {
+      return;
+    }
+
+    const newUploads: PendingUpload[] = preparedUploads.map(({ id, file, previewUrl }) => ({ id, file, previewUrl }));
+    const newStudents: PassedTestStudent[] = preparedUploads.map((upload) => ({
+      id: `student-${crypto.randomUUID()}`,
+      image: `pending:${upload.id}`,
+      alt: upload.alt,
+      dateAdded: new Date().toISOString().slice(0, 10),
+      objectPosition: "center",
+    }));
 
     setPendingUploads((current) => [...current, ...newUploads]);
     setDraft((current) => ({ ...current, passedTestStudents: [...current.passedTestStudents, ...newStudents] }));
@@ -751,6 +1022,9 @@ export function AdminPage() {
     if (newStudents.length === files.length) {
       setPublishStatus("idle");
       setPublishMessage("");
+    } else {
+      setPublishStatus("error");
+      setPublishMessage(`Added ${newStudents.length} photo${newStudents.length === 1 ? "" : "s"}. Publish these first, then add more.`);
     }
   };
 
@@ -891,7 +1165,7 @@ export function AdminPage() {
 
         {items.length === 0 ? (
           <p className="rounded-[1.5rem] bg-paper/60 p-5 text-sm leading-6 text-charcoal/72 ring-1 ring-ink/10">
-            No photos yet. Use “Add photos” to upload.
+            No photos yet. Use "Add photos" to upload.
           </p>
         ) : (
           <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -994,6 +1268,7 @@ export function AdminPage() {
               const mediaPreview = previewMedia(event);
               const paragraphCount = splitEventBodyParagraphs(event.body).length;
               const photoCount = eventPhotoCount(event);
+              const documentCount = eventDocumentCount(event);
 
               return (
               <article key={event.id} className="rounded-[1.5rem] bg-paper/60 p-5 ring-1 ring-ink/10">
@@ -1010,10 +1285,10 @@ export function AdminPage() {
                         {event.title.trim() || "Untitled recent event"}
                       </span>
                       <span className="mt-2 block text-sm text-charcoal/65">
-                        {event.date || "No date"} · Newsletter status: {statusLabel(event)}
+                        {event.date || "No date"} - Newsletter status: {statusLabel(event)}
                       </span>
                       <span className="mt-1 block text-sm text-charcoal/55">
-                        {event.published ? "Published" : "Draft"} · {event.showInCommunityCalendar ? "Community calendar" : "Not on calendar"} · {mediaPreview.length} media item
+                        {event.published ? "Published" : "Draft"} - {event.showInCommunityCalendar ? "Community calendar" : "Not on calendar"} - {mediaPreview.length} media item
                         {mediaPreview.length === 1 ? "" : "s"}
                       </span>
                     </span>
@@ -1096,20 +1371,34 @@ export function AdminPage() {
                       <h4 className="text-base font-bold text-ink">Body media</h4>
                       <p className="mt-1 text-sm text-charcoal/70">
                         {photoCount}/{MAX_EVENT_PHOTOS} photos, {mediaPreview.filter((item) => item.type === "video").length} video
-                        {mediaPreview.filter((item) => item.type === "video").length === 1 ? "" : "s"}
+                        {mediaPreview.filter((item) => item.type === "video").length === 1 ? "" : "s"}, {documentCount} document
+                        {documentCount === 1 ? "" : "s"}
                       </p>
                     </div>
-                    <label className="btn-secondary cursor-pointer">
-                      <ImagePlus size={17} aria-hidden="true" />
-                      Add photos
-                      <input
-                        className="hidden"
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        multiple
-                        onChange={(inputEvent) => addEventPhotos(event.id, inputEvent)}
-                      />
-                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <label className="btn-secondary cursor-pointer">
+                        <ImagePlus size={17} aria-hidden="true" />
+                        Add photos
+                        <input
+                          className="hidden"
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          multiple
+                          onChange={(inputEvent) => addEventPhotos(event.id, inputEvent)}
+                        />
+                      </label>
+                      <label className="btn-secondary cursor-pointer">
+                        <FileText size={17} aria-hidden="true" />
+                        Add documents
+                        <input
+                          className="hidden"
+                          type="file"
+                          accept={DOCUMENT_ACCEPT}
+                          multiple
+                          onChange={(inputEvent) => addEventDocuments(event.id, inputEvent)}
+                        />
+                      </label>
+                    </div>
                   </div>
 
                   <div className="mt-4 flex flex-col gap-3 sm:flex-row">
@@ -1147,6 +1436,16 @@ export function AdminPage() {
                                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                                   allowFullScreen
                                 />
+                              ) : item.type === "document" ? (
+                                <div className="flex aspect-video flex-col items-center justify-center gap-2 p-4 text-center text-charcoal/75">
+                                  {item.documentKind === "ppt" ? (
+                                    <Presentation size={28} aria-hidden="true" />
+                                  ) : (
+                                    <FileText size={28} aria-hidden="true" />
+                                  )}
+                                  <span className="text-sm font-bold text-ink">{documentKindLabel(item.documentKind)}</span>
+                                  <span className="line-clamp-2 text-xs">{item.fileName || documentTitle(item)}</span>
+                                </div>
                               ) : (
                                 <img src={item.src} alt={item.alt || ""} className="aspect-video w-full object-cover" loading="lazy" />
                               )}
@@ -1155,16 +1454,18 @@ export function AdminPage() {
                             <div className="grid gap-3">
                               <div className="grid gap-3 sm:grid-cols-2">
                                 <label className="text-sm font-bold text-ink">
-                                  {item.type === "video" ? "Video title" : "Alt text"}
+                                  {item.type === "image" ? "Alt text" : "Title"}
                                   <input
                                     className="input-field"
-                                    value={item.type === "video" ? item.title ?? "" : item.alt ?? ""}
+                                    value={item.type === "image" ? item.alt ?? "" : item.title ?? ""}
                                     onChange={(inputEvent) =>
                                       updateEventMediaItem(event.id, item.id, (current) => ({
                                         ...current,
-                                        ...(current.type === "video"
-                                          ? { title: inputEvent.target.value }
-                                          : { alt: inputEvent.target.value }),
+                                        ...(current.type === "image"
+                                          ? { alt: inputEvent.target.value }
+                                          : current.type === "document"
+                                            ? { title: inputEvent.target.value, alt: inputEvent.target.value }
+                                            : { title: inputEvent.target.value }),
                                       }))
                                     }
                                   />
@@ -1183,6 +1484,33 @@ export function AdminPage() {
                                   />
                                 </label>
                               </div>
+
+                              {item.type === "document" ? (
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                  <label className="text-sm font-bold text-ink">
+                                    Display
+                                    <select
+                                      className="input-field"
+                                      value={item.displayMode ?? "inline"}
+                                      onChange={(inputEvent) =>
+                                        updateEventMediaItem(event.id, item.id, (current) => ({
+                                          ...current,
+                                          displayMode: inputEvent.target.value as "inline" | "link",
+                                        }))
+                                      }
+                                    >
+                                      <option value="inline">Inline viewer</option>
+                                      <option value="link">Link card</option>
+                                    </select>
+                                  </label>
+                                  <div className="text-sm font-bold text-ink">
+                                    File
+                                    <p className="input-field min-h-11 text-sm font-normal text-charcoal/75">
+                                      {[documentKindLabel(item.documentKind), formatFileSize(item.fileSize)].filter(Boolean).join(" - ")}
+                                    </p>
+                                  </div>
+                                </div>
+                              ) : null}
 
                               <div className="grid gap-3 sm:grid-cols-3">
                                 <label className="text-sm font-bold text-ink">
@@ -1335,13 +1663,13 @@ export function AdminPage() {
         {renderMediaGallery(
           "onTheMatMedia",
           "On the Mat",
-          "Add or remove photos in the “On the Mat” gallery shown on the Dojo page.",
+          "Add or remove photos in the \"On the Mat\" gallery shown on the Dojo page.",
         )}
 
         {renderMediaGallery(
           "historyMedia",
           "A Look at Our History",
-          "Add or remove photos in the “A Look at Our History” gallery shown on the Community page.",
+          "Add or remove photos in the \"A Look at Our History\" gallery shown on the Community page.",
         )}
 
         <CollapsibleEditorSection
@@ -1370,7 +1698,7 @@ export function AdminPage() {
 
           {draft.passedTestStudents.length === 0 ? (
             <p className="rounded-[1.5rem] bg-paper/60 p-5 text-sm leading-6 text-charcoal/72 ring-1 ring-ink/10">
-              No photos yet. Use “Add photos” to upload.
+              No photos yet. Use "Add photos" to upload.
             </p>
           ) : (
             <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">

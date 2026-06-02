@@ -1,18 +1,21 @@
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Play } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ExternalLink, FileText, Play } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "../i18n";
+import { documentKindLabel, documentTitle } from "../utils/documentMedia";
 import { normalizeEmbedUrl } from "../utils/mediaEmbeds";
 import { ResponsiveImage } from "./ResponsiveImage";
 
 type SliderMediaItem = {
   id: string;
-  type: "image" | "video";
+  type: "image" | "video" | "document";
   src: string;
   avif?: string;
   webp?: string;
   alt?: string;
   title?: string;
   caption?: string;
+  documentKind?: "pdf" | "docx" | "ppt";
+  fileName?: string;
   objectPosition?: string;
   width?: number;
   height?: number;
@@ -72,6 +75,23 @@ export function MediaSlider({
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
             />
+          ) : active.type === "document" ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-paper p-6 text-center">
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-bamboo/10 text-bamboo">
+                <FileText size={26} aria-hidden="true" />
+              </span>
+              <p className="max-w-md text-xl font-bold text-ink">{documentTitle(active)}</p>
+              <p className="text-sm text-charcoal/70">{documentKindLabel(active.documentKind)}</p>
+              <a
+                href={active.src}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-secondary mt-2"
+              >
+                Open file
+                <ExternalLink size={16} aria-hidden="true" />
+              </a>
+            </div>
           ) : (
             <ResponsiveImage
               key={active.src}
@@ -130,13 +150,13 @@ export function MediaSlider({
       {showIndexNavigation && media.length > 1 ? (
         <nav
           className="mt-5 flex flex-wrap items-center justify-center gap-2"
-          aria-label={`${label} slide navigation`}
+          aria-label={t("a11y.mediaSlideNavigation", { label })}
         >
           <button
             type="button"
             onClick={() => jumpIndexes(-indexJumpSize)}
             className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/10 bg-paper/70 text-ink transition hover:bg-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo"
-            aria-label={`Skip back ${indexJumpSize} ${label} items`}
+            aria-label={t("a11y.skipBackMediaItems", { count: indexJumpSize, label })}
           >
             <ChevronsLeft size={18} aria-hidden="true" />
           </button>
@@ -166,7 +186,7 @@ export function MediaSlider({
             type="button"
             onClick={() => jumpIndexes(indexJumpSize)}
             className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/10 bg-paper/70 text-ink transition hover:bg-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo"
-            aria-label={`Skip ahead ${indexJumpSize} ${label} items`}
+            aria-label={t("a11y.skipAheadMediaItems", { count: indexJumpSize, label })}
           >
             <ChevronsRight size={18} aria-hidden="true" />
           </button>

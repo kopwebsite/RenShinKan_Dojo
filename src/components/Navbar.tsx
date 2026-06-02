@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { siteInfo } from "../data/siteContent";
+import { siteInfo } from "../data/siteMeta";
 import { languageOptions, useTranslation, type Language, type TranslationKey } from "../i18n";
 import { BrushCircleLogo } from "./BrushCircleLogo";
 import styles from "./Navbar.module.css";

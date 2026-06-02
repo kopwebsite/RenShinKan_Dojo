@@ -54,7 +54,12 @@
     "openAddressInMaps": "Google マップで {{address}} を開く",
     "portraitPlaceholder": "{{name}} 縦向きのプレースホルダー",
     "beltProgressionChart": "合気道の級の進行表",
-    "beltRankLabel": "{{rank}} {{rankSub}} - {{days}} トレーニング日"
+    "beltRankLabel": "{{rank}} {{rankSub}} - {{days}} トレーニング日",
+    "skipBackPhotos": "{{count}}枚前の写真へ移動",
+    "skipAheadPhotos": "{{count}}枚先の写真へ移動",
+    "mediaSlideNavigation": "{{label}}のスライドナビゲーション",
+    "skipBackMediaItems": "{{label}}を{{count}}件前へ移動",
+    "skipAheadMediaItems": "{{label}}を{{count}}件先へ移動"
   },
   "language": {
     "en": "英語",
@@ -106,7 +111,8 @@
     "recent": {
       "eyebrow": "最近の出来事",
       "title": "最近の道場の最新情報が 1 か所にまとめられています。",
-      "copy": "錬心館での研修日、試験、セミナー、コミュニティの瞬間からの 3 つの最新情報。"
+      "copy": "錬心館での研修日、試験、セミナー、コミュニティの瞬間からの 3 つの最新情報。",
+      "newsletterSignupCta": "ニュースレターに登録"
     },
     "facilities": {
       "eyebrow": "私たちの道場",
@@ -122,9 +128,9 @@
       "eyebrow": "道場の写真",
       "title": "錬心館の中を覗いてみました。",
       "copy": "道場とここで修行する人々をご覧ください。",
-      "space": "宇宙",
-      "onMat": "マットの上で",
-      "onMatGallery": "マットギャラリーで"
+      "space": "道場の空間",
+      "onMat": "畳の上で",
+      "onMatGallery": "畳の上のギャラリー"
     },
     "journey": {
       "eyebrow": "道場の旅",
@@ -633,13 +639,13 @@
   },
   "seo": {
     "homeTitle": "錬心館道場 |タイ、チェンマイ、ハンドンの合気道",
-    "homeDescription": "RenshinKan Dojo は、タイのチェンマイのハンドンで合気道のクラスと武道のトレーニングを提供しています。初心者、お子様、合気道家の方も大歓迎です。",
-    "aikidoTitle": "合気道とは何ですか？ |錬心館道場 チェンマイ",
-    "aikidoDescription": "合気道の歴史、O先生、受け身、武器の使い方、そしてチェンマイのハンドンで錬心館道場がどのように合気道を教えているかを学びましょう。",
+    "homeDescription": "錬心館道場は、チェンマイ・ハンドンで合気道と日本武道の稽古を行っています。初心者向けで、子ども、大人、訪問中の合気道家を歓迎します。",
+    "aikidoTitle": "チェンマイの合気道 | 錬心館道場の日本武道",
+    "aikidoDescription": "合気道とは何か、日本の柔術と合気柔術の流れからどのように生まれたか、そして錬心館がハンドン・チェンマイで落ち着いた護身をどう教えるかを紹介します。",
     "instructorsTitle": "チェンマイの合気道のインストラクター |練心館道場",
     "instructorsDescription": "チェンマイのハンドンで初心者向けのクラス、子供、大人、訪問合気道家を指導する RenshinKan Dojo 合気道のインストラクターをご紹介します。",
     "classesTitle": "チェンマイ、ハンドンの合気道クラス |練心館道場",
-    "classesDescription": "チェンマイ、ハンドンの合気道教室情報。練習時間、初診ガイダンス、帯試験、初心者向けクラスの詳細をご覧ください。",
+    "classesDescription": "チェンマイ・ハンドンの合気道クラス情報。稽古時間、初回訪問案内、帯試験、子どもと大人のための武道クラスをご覧ください。",
     "workshopsTitle": "チェンマイでの合気道のワークショップ |練心館道場",
     "workshopsDescription": "チェンマイのハンドンにある錬心館道場で、初心者、子供、在校生を対象とした季節に合気道のワークショップを開催します。",
     "newsletterTitle": "道場の最新情報 |錬心館合気道チェンマイ",
@@ -649,11 +655,361 @@
     "supportTitle": "錬心館道場を応援 |合気道チェンマイ",
     "supportDescription": "学生の寄付や寄付を通じて、RenshinKan Dojo をサポートし、ハンドンとチェンマイで合気道のトレーニングが受けられるように支援してください。",
     "contactTitle": "お問い合わせ 練心館道場 |チェンマイ、ハンドンの合気道",
-    "contactDescription": "合気道のクラス、初心者の訪問、子供たちのトレーニング、合気道家の訪問練習について問い合わせるには、タイのチェンマイ、ハンドンにあるRenshinKan Dojoに問い合わせてください。",
+    "contactDescription": "チェンマイ・ハンドンの錬心館道場へ、合気道クラス、初回訪問、子どもの稽古、大人の稽古、訪問中の合気道家の参加についてお問い合わせください。",
     "visitTitle": "練心館道場を訪ねる |チェンマイ、ハンドンの合気道",
     "visitDescription": "タイのチェンマイ、ハンドンにある錬心館道場への最初の訪問を計画してください。初心者、保護者の方、合気道の見学に来られる方も大歓迎です。",
     "adminTitle": "管理者 |練心館道場",
     "adminDescription": "練心館道場のコンテンツ運営。",
-    "localBusinessDescription": "タイのチェンマイ、ハンドンにある錬心館道場での合気道のクラスと伝統武道のトレーニング。"
+    "localBusinessDescription": "チェンマイ・ハンドンの錬心館道場で行う、子どもと大人のための合気道、日本武道、実践的な護身の稽古。"
+  },
+  "data": {
+    "facilities": {
+      "previous": "前の設備",
+      "next": "次の設備",
+      "navigation": "設備ナビゲーション",
+      "goTo": "{{title}}を表示",
+      "changingRooms": {
+        "title": "更衣室",
+        "description": "男女別の更衣室があり、安心して来館できます。"
+      },
+      "bathrooms": {
+        "title": "トイレ・手洗い",
+        "description": "生徒と来訪者が使えるトイレと手洗い設備があります。"
+      },
+      "water": {
+        "title": "飲料水",
+        "description": "稽古中に水分補給できるウォータークーラーを用意しています。"
+      },
+      "weapons": {
+        "title": "稽古用武器",
+        "description": "木剣、杖、短刀の稽古用具を使用できます。"
+      },
+      "viewingDeck": {
+        "title": "保護者見学デッキ",
+        "description": "保護者や来訪者が座って稽古を見学できる場所です。"
+      }
+    },
+    "dojoPhotos": {
+      "koiPond": {
+        "title": "鯉の池",
+        "description": "庭の一角にある小さな鯉の池です。",
+        "alt": "錬心館道場の庭にある鯉の池。"
+      },
+      "garden": {
+        "title": "庭",
+        "description": "緑に囲まれた道場で、落ち着いた雰囲気があります。",
+        "alt": "ハンドンにある錬心館道場を囲む庭。"
+      },
+      "courtyard": {
+        "title": "中庭",
+        "description": "開放的な中庭が道場棟と敷地内の各場所をつないでいます。",
+        "alt": "錬心館道場の開放的な中庭。"
+      },
+      "trainingHall": {
+        "title": "稽古場",
+        "description": "畳、高い天井、ゆったり動ける広さを備えた主な稽古空間です。",
+        "alt": "錬心館道場の屋内稽古場。"
+      }
+    },
+    "instructors": {
+      "sombat": {
+        "role": "創設者・主任指導員",
+        "rank": "五段",
+        "trainingBackground": "1980年に米国コネチカット州ニューヘイブンで合気道を始め、1982年からバンコクのタイ合気道協会で Motohiro Fukakusa Shihan と Prapant Chittaputta Shihan に学びました。1986年にチェンマイ大学合気道部、2012年に錬心館道場を創設しました。",
+        "imageAlt": "錬心館道場で道着を着た Sombat Tapanya。"
+      },
+      "teerarat": {
+        "role": "主任指導員",
+        "rank": "三段",
+        "trainingBackground": "1986年にチェンマイ大学合気道部で合気道を始め、Motohiro Fukakusa Shihan と Prapant Chittaputta Shihan のもとで稽古しました。",
+        "imageAlt": "錬心館道場で道着を着た Teerarat Boripantakul。"
+      },
+      "kop": {
+        "role": "創設者・主任指導員",
+        "rank": "三段",
+        "trainingBackground": "Narumol (Kop) Thammapruksa はチェンマイ大学合気道部で合気道を始めました。2008年に東京の本部道場の Aikido Academy に入り、Koichi Toriumi Shihan と Yoshiaki Yokota Shihan のもとで二級を取得しました。2012年には大阪大学への交換留学中に Shosenji Dojo で Katsuyuki Shimamoto Shihan に学び、Tsuruzo Miyamoto Shihan のもと本部道場から初段を受けました。",
+        "imageAlt": "錬心館道場で道着を着た Kop Narumol。"
+      },
+      "kittisak": {
+        "role": "指導員",
+        "rank": "二段",
+        "trainingBackground": "2003年にチェンマイ大学合気道部で合気道を始め、Sombat Tapanya と Teerarat Boripantakul のもとで稽古しました。",
+        "imageAlt": "錬心館道場で道着を着た Major Kittisak Siriparp。"
+      },
+      "fuengwich": {
+        "role": "指導員",
+        "rank": "二段",
+        "trainingBackground": "2002年にチェンマイ大学合気道部で合気道を始め、Sombat Tapanya と Teerarat Boripantakul のもとで稽古しました。",
+        "imageAlt": "錬心館道場で道着を着た Fuengwich Maneekarn。"
+      },
+      "siriphorn": {
+        "role": "指導員",
+        "rank": "二段",
+        "trainingBackground": "2012年にチェンマイ大学合気道部で合気道を始め、Sombat Tapanya と Teerarat Boripantakul のもとで稽古しました。",
+        "imageAlt": "錬心館道場で道着を着た Siriphorn Manokeaw。"
+      }
+    },
+    "workshops": {
+      "beginningAikido": {
+        "title": "はじめての合気道",
+        "date": "毎月第1日曜日",
+        "time": "09:00-10:30",
+        "audience": "初めての大人とティーン",
+        "description": "礼、姿勢、足さばき、安全な受け身、協力的な相対稽古を落ち着いて体験します。"
+      },
+      "fallingConfidence": {
+        "title": "自信を育てる受け身",
+        "date": "家族向け日程は季節ごとに掲載",
+        "time": "週末の午前",
+        "audience": "子どもと保護者",
+        "description": "畳の上でも日常でも安全に動けるよう、遊びを通して転がり方と着地を学びます。"
+      },
+      "weaponsDistance": {
+        "title": "武器と間合い",
+        "date": "客員指導者に合わせて告知",
+        "time": "日程により実施",
+        "audience": "基本の受け身ができる生徒",
+        "description": "木剣、杖、短刀を通して、間合い、タイミング、落ち着いた注意を稽古します。"
+      }
+    },
+    "aikido": {
+      "instructorSourceLabel": "平和文化財団 指導員ページ",
+      "actionCaptions": {
+        "jo": "杖の相対稽古で、間合い、タイミング、落ち着いた動線を養います。",
+        "tanto": "短刀稽古では、危険な線を双方にとって安全な道へ変えます。"
+      },
+      "benefits": {
+        "discipline": {
+          "title": "規律",
+          "description": "礼をして稽古に入り、一つひとつの動きを丁寧に繰り返し、週ごとに続けることで、静かで安定した規律が自然に身につきます。"
+        },
+        "patience": {
+          "title": "忍耐",
+          "description": "技はゆっくり学び、何年もかけて磨かれるため、稽古は過程を信じ、着実な成長を大切にする心を育てます。"
+        },
+        "focus": {
+          "title": "集中",
+          "description": "相手の動きを読み、適切な瞬間に応じる稽古は、日常にも持ち帰れる明晰で今ここにある注意を育てます。"
+        },
+        "confidence": {
+          "title": "自信",
+          "description": "力まずに技が働き始めると、体格や力に頼らない、落ち着いた地に足のついた自信が育ちます。"
+        },
+        "posture": {
+          "title": "姿勢",
+          "description": "合気道はまっすぐで力みのない姿勢から稽古するため、良い姿勢と安定した土台が畳の上でも外でも自然になります。"
+        },
+        "coordination": {
+          "title": "協調性",
+          "description": "足さばき、呼吸、手の動きを一つの滑らかな動作に合わせることで、全身の協調性が磨かれます。"
+        },
+        "balance": {
+          "title": "バランス",
+          "description": "入り身、転換、相手が動く中で中心を保つ稽古により、崩されてもすぐに立て直す力が育ちます。"
+        },
+        "respect": {
+          "title": "尊重",
+          "description": "すべての技は礼で始まり礼で終わります。相手を守りながら稽古するため、尊重が道場全体の稽古に通っています。"
+        },
+        "awareness": {
+          "title": "周囲への気づき",
+          "description": "相手と近い距離で稽古することで、距離、タイミング、安全への感覚が育ち、周りの人への意識が高まります。"
+        }
+      },
+      "children": {
+        "speakUp": {
+          "title": "声を出す自信",
+          "description": "畳の上での小さな成功を一歩ずつ重ねることで、静かな子も道場や学校で少し背筋を伸ばせるようになります。"
+        },
+        "selfControl": {
+          "title": "聞く力と自制",
+          "description": "順番を待つ、号令に合わせる、相手とやさしく動く稽古を通して、子どもは聞く力と気持ちを整える力を学びます。"
+        },
+        "falling": {
+          "title": "安全で楽しい受け身",
+          "description": "転がる動きはまず遊びとして教えるため、子どもは怖がらずに転び、自分を守る方法を身につけます。"
+        }
+      },
+      "adults": {
+        "move": {
+          "title": "デスクワーク後に体を動かす",
+          "description": "やさしく流れる稽古が肩や腰のこわばりをほどき、自然で楽な動きを体に取り戻します。"
+        },
+        "mind": {
+          "title": "より穏やかで明晰な心",
+          "description": "相手と技に全神経を向けることで、一日の緊張を入口に置き、静かな90分を過ごせます。"
+        },
+        "community": {
+          "title": "あたたかなコミュニティ",
+          "description": "年齢や背景の異なる人たちが、忍耐をもって稽古し互いを気にかける輪に加わります。"
+        }
+      },
+      "timeline": {
+        "earlyLife": {
+          "title": "幼少期と修行",
+          "description": "植芝盛平は日本が近代化する中で和歌山に育ち、合気道が生まれる前に複数の古武術を学びました。"
+        },
+        "hokkaido": {
+          "title": "北海道と大東流",
+          "description": "開拓地での生活と武田惣角のもとでの濃密な学びが、のちに合気道へ変化する技術的土台となりました。"
+        },
+        "omoto": {
+          "title": "大本教と綾部",
+          "description": "出口王仁三郎と大本の修行は、浄化、奉仕、倫理的目的を備えた武の道へ植芝を導きました。"
+        },
+        "tokyo": {
+          "title": "東京と合気武道",
+          "description": "戦前の東京で、植芝は厳しい稽古で知られる皇武館道場において真剣な生徒に教えました。"
+        },
+        "iwama": {
+          "title": "岩間と戦後の再出発",
+          "description": "合気道の名称が採用され、合気神社が建立され、合気会を通じて戦後の稽古が再開しました。"
+        },
+        "hombu": {
+          "title": "本部道場と公開された合気道",
+          "description": "植芝吉祥丸は日々の稽古、公開演武、出版、現代合気会の姿を整える役割を担いました。"
+        },
+        "international": {
+          "title": "国際的な広がり",
+          "description": "合気道の教師と組織は日本の外へ技を伝え、世界的な稽古文化を築きました。"
+        },
+        "thailand": {
+          "title": "合気道がタイへ",
+          "description": "合気道は1961年に Nobuyoshi Tamura Shihan によりタイへ紹介され、東京の合気道本部から技術的支援を受けました。"
+        },
+        "renbukan": {
+          "title": "バンコクの練武館道場",
+          "description": "1970年にバンコクで練武館道場が創設され、Motohiro Fukakusa Shihan のもとタイ合気道協会の本部となりました。"
+        },
+        "thaiNetwork": {
+          "title": "タイ合気道ネットワーク",
+          "description": "Motohiro Fukakusa Shihan や Prapant Chittaputta Shihan などバンコクの教師たちは、合気道を大学や地方へ広げる世代を育てました。"
+        },
+        "chiangMai": {
+          "title": "チェンマイと錬心館",
+          "description": "タイ北部の稽古はチェンマイ大学合気道部と地域道場を通して育ち、錬心館の地域に根ざした稽古文化へつながりました。"
+        }
+      }
+    },
+    "community": {
+      "values": {
+        "respect": {
+          "title": "相互尊重",
+          "description": "稽古は、目の前の人に耳を傾け大切にすることから始まります。"
+        },
+        "safety": {
+          "title": "地域の安全",
+          "description": "道場の文化は、聞く姿勢、穏やかな境界、着実な成長を支えます。"
+        },
+        "peace": {
+          "title": "平和の文化",
+          "description": "合気道は、攻撃性を使わずに対立と向き合う実践的な言葉を与えます。"
+        },
+        "growth": {
+          "title": "共に育つ",
+          "description": "初心者、保護者、子ども、来訪者の一人ひとりが、あたたかな稽古空間を作ります。"
+        }
+      },
+      "foundation": {
+        "aikidoConnection": "合気道は、反応する前に聞く、目の前の人を守る、攻撃性なしに圧力を導く、相手と責任をもって稽古するという日々の習慣を通じて、その文化を支えます。",
+        "groomingPrevention": "財団のグルーミング防止の取り組みは、地域が危険なパターンを言葉にし、境界を強め、大人と若者が操作に気づき対応するための明確な道具を得る助けになります。",
+        "pillars": {
+          "relationships": "尊重ある関係",
+          "boundaries": "同意と健全な境界",
+          "awareness": "グルーミングのパターンへの気づき",
+          "education": "教育を通じた地域の安全"
+        }
+      },
+      "pcfPhotos": {
+        "liblab": {
+          "title": "LibLab: 地域へ本を",
+          "caption": "財団の LibLab プログラムは、本を必要とする地域へ届けます。",
+          "alt": "平和文化財団の LibLab 地域識字プログラムの本の山。"
+        },
+        "learning": {
+          "title": "あらゆる場所で学ぶ",
+          "caption": "平和の文化は、教室、道場、地域の中での教育を通して築かれます。",
+          "alt": "自然に囲まれたテーブルの上に開かれた本。"
+        },
+        "safety": {
+          "title": "子どもの安全教育",
+          "caption": "危険なパターンを認識し、周りの若者を守る方法を地域に伝えます。",
+          "alt": "平和文化財団の子どもの安全教育啓発グラフィック。"
+        },
+        "sombat": {
+          "title": "Dr. Sombat Tapanya",
+          "caption": "平和文化財団の創設者であり、その使命と錬心館道場の両方を支える人物です。",
+          "alt": "平和文化財団創設者 Sombat Tapanya 博士。"
+        }
+      },
+      "cmu": {
+        "practice": {
+          "days": "月曜日・水曜日・金曜日",
+          "time": "公開情報では18:00-20:00",
+          "location": "AikidoCMU の記事では学生会館1階で稽古すると説明されています。歴史ページには、ステープ通りの体育館棟にチェンマイ大学合気道部があるとも記載されています。",
+          "note": "これらの公開日程は古い情報です。訪問前に現在の部屋と開始時間を AikidoCMU に確認してください。"
+        },
+        "address": "チェンマイ大学合気道部、体育館棟、チェンマイ大学、ステープ通り、チェンマイ、タイ",
+        "links": {
+          "history": "AikidoCMU の歴史",
+          "practice": "稽古記事",
+          "logo": "CMU ロゴ出典"
+        }
+      },
+      "cmuPhotos": {
+        "practice": {
+          "title": "CMUでの稽古",
+          "caption": "相対稽古と円の動きを示す AikidoCMU 公開ニュースレター画像。",
+          "alt": "チェンマイで白いマット上で稽古する AikidoCMU の人々。"
+        },
+        "history": {
+          "title": "タイ北部の合気道",
+          "caption": "タイ北部の合気道史を伝える Aikido Chiang Mai Unite の出典画像。",
+          "alt": "Aikido Chiang Mai Unite ページの AikidoCMU 歴史画像。"
+        },
+        "roots": {
+          "title": "学生クラブの根",
+          "caption": "大学クラブ初期の地域ストーリーにつながる AikidoCMU の公開画像。",
+          "alt": "一緒に稽古する AikidoCMU クラブメンバー。"
+        },
+        "falling": {
+          "title": "安全な受け身",
+          "caption": "合気道と平和づくりに関する AikidoCMU 記事の相対稽古画像。",
+          "alt": "相対稽古で安全に受け身を取る AikidoCMU の学生。"
+        },
+        "blend": {
+          "title": "合わせて導く",
+          "caption": "受けと取りの協力的な役割を示す稽古画像。",
+          "alt": "投げと抑えの流れを示す AikidoCMU の稽古者。"
+        }
+      },
+      "relatedDojos": {
+        "thaiAikikai": {
+          "name": "Thai Aikikai",
+          "description": "1975年に深草元博師範のもとで設立されたタイ国内の合気道統括団体。錬心館の帯審査はこの組織を通じて認定されます。",
+          "location": "バンコク、タイ（全国団体）"
+        },
+        "aikidoCmu": {
+          "name": "Aikido Chiang Mai University Club",
+          "description": "チェンマイ大学で長く続く大学クラブで、学生、海外からの訪問者、地域の人々に開かれています。",
+          "location": "チェンマイ大学、ステープ通り"
+        },
+        "aiDojo": {
+          "name": "Ai Dojo",
+          "description": "チェンマイのステープ地区にある合気道道場で、地域の合気会系コミュニティの一部です。",
+          "location": "ステープ、チェンマイ"
+        },
+        "allDojo": {
+          "name": "All Dojo Chiang Mai",
+          "description": "チェンマイ市街の南、サラピーにある道場で、同じ地域合気道ネットワークと合気会系のつながりがあります。",
+          "location": "サラピー、チェンマイ"
+        },
+        "aikidoKids": {
+          "name": "Aikido Kids Chiangmai",
+          "description": "AllGym Chiangmai を拠点とする子どもと家族向けの合気道プログラムで、若い生徒と家族を歓迎しています。",
+          "location": "ステープ、チェンマイ"
+        }
+      }
+    }
   }
 }

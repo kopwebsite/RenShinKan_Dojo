@@ -1,9 +1,16 @@
 import { aikidoTimeline } from "../data/siteContent";
+import { useTranslation } from "../i18n";
+import { aikidoTimelineKeys, translateTimelineItem } from "../utils/siteContentTranslations";
 
 export function Timeline() {
+  const { t } = useTranslation();
+  const localizedTimeline = aikidoTimeline.map((item, index) =>
+    translateTimelineItem(t, item, aikidoTimelineKeys[index]),
+  );
+
   return (
     <ol className="relative grid gap-3 border-l border-ink/15 pl-5">
-      {aikidoTimeline.map((item) => (
+      {localizedTimeline.map((item) => (
         <li key={`${item.year}-${item.title}`} className="relative">
           <span
             className="absolute -left-[26px] top-5 h-3 w-3 rounded-full bg-bamboo/45 ring-4 ring-paper"

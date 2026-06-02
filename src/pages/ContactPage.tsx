@@ -1,7 +1,7 @@
 import { Facebook, Mail } from "lucide-react";
 import { LocationCard } from "../components/LocationCard";
 import { MotionSection } from "../components/MotionSection";
-import { siteInfo } from "../data/siteContent";
+import { siteInfo } from "../data/siteMeta";
 import { useTranslation, type TranslationKey } from "../i18n";
 
 export function ContactPage() {

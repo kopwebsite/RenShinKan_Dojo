@@ -166,7 +166,7 @@ export function ClassesPage() {
         <BeltProgressionChart />
 
         {/* Belt exam graduation gallery */}
-        <div className="mt-14">
+        <div id="gallery" className="mt-14 scroll-mt-28">
           <p className="eyebrow mb-2">{t("classes.beltExams.graduationEyebrow")}</p>
           <h3 className="section-title mb-8">{t("classes.beltExams.graduationTitle")}</h3>
           <BeltCarousel students={activePassedStudents} />

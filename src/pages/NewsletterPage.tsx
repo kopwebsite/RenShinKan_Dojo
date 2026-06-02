@@ -4,7 +4,6 @@ import { useLocation } from "react-router-dom";
 import { EventBodyRenderer } from "../components/EventBodyRenderer";
 import { NewsletterSignup } from "../components/NewsletterSignup";
 import { MotionSection } from "../components/MotionSection";
-import { newsletters } from "../data/siteContent";
 import { useTranslation, type Language } from "../i18n";
 import { getPublishedRecentEvents, useEditableContent } from "../lib/content";
 
@@ -91,7 +90,7 @@ export function NewsletterPage() {
     }, 90);
 
     return () => window.clearTimeout(timer);
-  }, [location.hash]);
+  }, [location.hash, activeEvent?.slug]);
 
   useEffect(() => {
     if (activeEventIndex >= dojoUpdates.length) {
@@ -175,27 +174,6 @@ export function NewsletterPage() {
 
       <MotionSection id="newsletter-signup" className="container-shell scroll-mt-28 pb-20">
         <NewsletterSignup idPrefix="main-newsletter" />
-      </MotionSection>
-
-      <MotionSection className="container-shell pb-20">
-        <div className="mb-8 max-w-3xl">
-          <p className="eyebrow">{t("newsletter.notes.eyebrow")}</p>
-          <h2 className="section-title">{t("newsletter.notes.title")}</h2>
-        </div>
-        <div className="grid gap-5 md:grid-cols-3">
-          {newsletters.map((item) => (
-            <article key={item.title} className="surface card-hover rounded-[2rem] p-6">
-              <p className="text-sm font-bold text-bamboo">{item.date}</p>
-              <h3 className="mt-4 text-3xl leading-tight text-ink">{item.title}</h3>
-              <p className="mt-4 text-sm text-charcoal/75">{item.summary}</p>
-              <NewsletterTranslateButton
-                title={item.title}
-                text={[item.date, item.title, item.summary].join("\n\n")}
-                className="mt-5"
-              />
-            </article>
-          ))}
-        </div>
       </MotionSection>
     </>
   );

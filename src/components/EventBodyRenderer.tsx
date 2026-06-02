@@ -1,5 +1,13 @@
 import { Fragment } from "react";
+import { ExternalLink, FileText, Presentation } from "lucide-react";
 import type { MediaItem } from "../types/editableContent";
+import {
+  canUseRemoteDocumentViewer,
+  documentKindLabel,
+  documentTitle,
+  formatFileSize,
+  officeDocumentEmbedUrl,
+} from "../utils/documentMedia";
 import { normalizeBodyMediaPlacement, splitEventBodyParagraphs } from "../utils/eventBody";
 import { normalizeEmbedUrl } from "../utils/mediaEmbeds";
 import { ResponsiveImage } from "./ResponsiveImage";
@@ -13,13 +21,92 @@ type EventBodyRendererProps = {
 
 function figureStyle(item: MediaItem, paragraphCount: number) {
   const placement = normalizeBodyMediaPlacement(item.bodyPlacement, paragraphCount);
-  const align = placement.align;
 
   return {
     width: `min(100%, ${placement.widthPercent}%)`,
-    marginLeft: align === "left" ? 0 : "auto",
-    marginRight: align === "right" ? 0 : "auto",
   };
+}
+
+function figureClassName(item: MediaItem, paragraphCount: number) {
+  const placement = normalizeBodyMediaPlacement(item.bodyPlacement, paragraphCount);
+
+  if (placement.align === "left") {
+    return "my-4 sm:float-left sm:mb-3 sm:mr-6 sm:mt-2";
+  }
+
+  if (placement.align === "right") {
+    return "my-4 sm:float-right sm:mb-3 sm:ml-6 sm:mt-2";
+  }
+
+  return "clear-both my-6 mx-auto";
+}
+
+function DocumentIcon({ item }: { item: MediaItem }) {
+  if (item.documentKind === "ppt") {
+    return <Presentation size={20} aria-hidden="true" />;
+  }
+
+  return <FileText size={20} aria-hidden="true" />;
+}
+
+function DocumentCard({ item }: { item: MediaItem }) {
+  const size = formatFileSize(item.fileSize);
+
+  return (
+    <div className="rounded-lg border border-ink/10 bg-paper/70 p-4">
+      <div className="flex items-start gap-3">
+        <span className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-bamboo/10 text-bamboo">
+          <DocumentIcon item={item} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-base font-bold leading-snug text-ink">{documentTitle(item)}</p>
+          <p className="mt-1 text-sm text-charcoal/70">
+            {[documentKindLabel(item.documentKind), size].filter(Boolean).join(" - ")}
+          </p>
+          <a
+            href={item.src}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-vermilion underline-offset-4 hover:underline"
+          >
+            Open file
+            <ExternalLink size={14} aria-hidden="true" />
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DocumentViewer({ item }: { item: MediaItem }) {
+  const title = documentTitle(item);
+
+  if (item.displayMode === "link") {
+    return <DocumentCard item={item} />;
+  }
+
+  if (item.documentKind === "pdf") {
+    return (
+      <div className="overflow-hidden rounded-lg border border-ink/10 bg-white">
+        <iframe src={item.src} title={title} className="h-[520px] w-full" loading="lazy" />
+      </div>
+    );
+  }
+
+  if (!canUseRemoteDocumentViewer(item.src)) {
+    return <DocumentCard item={item} />;
+  }
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-ink/10 bg-white">
+      <iframe
+        src={officeDocumentEmbedUrl(item.src)}
+        title={title}
+        className={item.documentKind === "ppt" ? "aspect-video w-full" : "h-[520px] w-full"}
+        loading="lazy"
+      />
+    </div>
+  );
 }
 
 function EventMediaFigure({
@@ -31,11 +118,11 @@ function EventMediaFigure({
   paragraphCount: number;
   fallbackTitle?: string;
 }) {
-  const caption = item.caption || item.title;
+  const caption = item.type === "document" && item.displayMode === "link" ? item.caption : item.caption || item.title;
   const title = item.title || item.caption || fallbackTitle || "Event media";
 
   return (
-    <figure className="my-6" style={figureStyle(item, paragraphCount)}>
+    <figure className={figureClassName(item, paragraphCount)} style={figureStyle(item, paragraphCount)}>
       {item.type === "video" ? (
         <div className="aspect-video overflow-hidden rounded-lg border border-ink/10 bg-ink">
           <iframe
@@ -48,6 +135,8 @@ function EventMediaFigure({
             allowFullScreen
           />
         </div>
+      ) : item.type === "document" ? (
+        <DocumentViewer item={item} />
       ) : (
         <ResponsiveImage
           src={item.src}
@@ -103,7 +192,7 @@ export function EventBodyRenderer({ body, media = [], fallbackTitle, className =
     ));
 
   return (
-    <div className={className}>
+    <div className={`flow-root ${className}`}>
       {renderMediaAt(0)}
       {paragraphs.map((paragraph, index) => (
         <Fragment key={`${paragraph}-${index}`}>
@@ -111,6 +200,7 @@ export function EventBodyRenderer({ body, media = [], fallbackTitle, className =
           {renderMediaAt(index + 1)}
         </Fragment>
       ))}
+      <div className="clear-both" />
     </div>
   );
 }

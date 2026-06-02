@@ -39,12 +39,21 @@ export type UploadedMedia = {
 };
 
 const CONTENT_KEY = "site:editable-content";
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_DOCUMENT_FILE_SIZE = 20 * 1024 * 1024;
 const allowedMimeTypes = new Map([
-  ["image/jpeg", [".jpg", ".jpeg"]],
-  ["image/png", [".png"]],
   ["image/webp", [".webp"]],
+  ["application/pdf", [".pdf"]],
+  ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", [".docx"]],
+  ["application/vnd.ms-powerpoint", [".ppt"]],
+  ["application/vnd.openxmlformats-officedocument.presentationml.presentation", [".pptx"]],
 ]);
+const mimeTypeByExtension = new Map(
+  Array.from(allowedMimeTypes.entries()).flatMap(([mimeType, extensions]) =>
+    extensions.map((extension) => [extension, mimeType] as const),
+  ),
+);
+const imageMimeTypes = new Set(["image/webp"]);
 
 export function emptyContent(): EditableContent {
   return {
@@ -103,6 +112,14 @@ function extensionFor(name: string) {
   return match ? match[0].toLowerCase() : "";
 }
 
+function mimeTypeForFile(file: File) {
+  if (allowedMimeTypes.has(file.type)) {
+    return file.type;
+  }
+
+  return mimeTypeByExtension.get(extensionFor(file.name)) ?? file.type;
+}
+
 function sanitizeFileName(name: string, mimeType: string) {
   const allowedExtensions = allowedMimeTypes.get(mimeType);
 
@@ -124,7 +141,7 @@ function sanitizeFileName(name: string, mimeType: string) {
     .replace(/[^a-zA-Z0-9_-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .toLowerCase()
-    .slice(0, 80) || "image";
+    .slice(0, 80) || (imageMimeTypes.has(mimeType) ? "image" : "document");
 
   return `${Date.now()}-${crypto.randomUUID()}-${safeBase}${allowedExtensions[0]}`;
 }
@@ -133,17 +150,9 @@ function hasPrefix(bytes: Uint8Array, signature: number[]) {
   return signature.every((byte, index) => bytes[index] === byte);
 }
 
-function assertImageSignature(file: File, bytes: Uint8Array) {
-  if (file.type === "image/jpeg" && hasPrefix(bytes, [0xff, 0xd8, 0xff])) {
-    return;
-  }
-
-  if (file.type === "image/png" && hasPrefix(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) {
-    return;
-  }
-
+function assertImageSignature(file: File, mimeType: string, bytes: Uint8Array) {
   if (
-    file.type === "image/webp" &&
+    mimeType === "image/webp" &&
     hasPrefix(bytes, [0x52, 0x49, 0x46, 0x46]) &&
     bytes[8] === 0x57 &&
     bytes[9] === 0x45 &&
@@ -154,6 +163,51 @@ function assertImageSignature(file: File, bytes: Uint8Array) {
   }
 
   throw new Error(`${file.name} does not match its declared image type`);
+}
+
+function assertDocumentSignature(file: File, mimeType: string, bytes: Uint8Array) {
+  if (mimeType === "application/pdf" && hasPrefix(bytes, [0x25, 0x50, 0x44, 0x46])) {
+    return;
+  }
+
+  const isZipOfficeFile =
+    mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    mimeType === "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+
+  if (
+    isZipOfficeFile &&
+    (hasPrefix(bytes, [0x50, 0x4b, 0x03, 0x04]) ||
+      hasPrefix(bytes, [0x50, 0x4b, 0x05, 0x06]) ||
+      hasPrefix(bytes, [0x50, 0x4b, 0x07, 0x08]))
+  ) {
+    return;
+  }
+
+  if (
+    mimeType === "application/vnd.ms-powerpoint" &&
+    hasPrefix(bytes, [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])
+  ) {
+    return;
+  }
+
+  throw new Error(`${file.name} does not match its declared document type`);
+}
+
+function assertFileSignature(file: File, mimeType: string, bytes: Uint8Array) {
+  if (imageMimeTypes.has(mimeType)) {
+    assertImageSignature(file, mimeType, bytes);
+    return;
+  }
+
+  assertDocumentSignature(file, mimeType, bytes);
+}
+
+function maxFileSizeFor(mimeType: string) {
+  return imageMimeTypes.has(mimeType) ? MAX_IMAGE_FILE_SIZE : MAX_DOCUMENT_FILE_SIZE;
+}
+
+function fileSizeLabelFor(mimeType: string) {
+  return imageMimeTypes.has(mimeType) ? "5 MB" : "20 MB";
 }
 
 export async function uploadFilesToR2(env: StorageEnv, files: File[]) {
@@ -169,25 +223,27 @@ export async function uploadFilesToR2(env: StorageEnv, files: File[]) {
   const uploaded: UploadedMedia[] = [];
 
   for (const file of files) {
-    if (!allowedMimeTypes.has(file.type)) {
-      throw new Error(`Unsupported file type: ${file.type || "unknown"}`);
+    const mimeType = mimeTypeForFile(file);
+
+    if (!allowedMimeTypes.has(mimeType)) {
+      throw new Error(`Unsupported file type: ${file.type || extensionFor(file.name) || "unknown"}`);
     }
 
-    if (file.size > MAX_FILE_SIZE) {
-      throw new Error(`${file.name} is larger than 5 MB`);
+    if (file.size > maxFileSizeFor(mimeType)) {
+      throw new Error(`${file.name} is larger than ${fileSizeLabelFor(mimeType)}`);
     }
 
     const bytes = new Uint8Array(await file.arrayBuffer());
-    assertImageSignature(file, bytes);
+    assertFileSignature(file, mimeType, bytes);
 
     const uploadId = extractUploadId(file.name);
-    const safeName = sanitizeFileName(file.name, file.type);
+    const safeName = sanitizeFileName(file.name, mimeType);
     const key = `admin/${year}/${month}/${safeName}`;
     const publicUrl = `/uploads/${key}`;
 
     await env.MEDIA_BUCKET!.put(key, bytes, {
       httpMetadata: {
-        contentType: file.type,
+        contentType: mimeType,
         cacheControl: "public, max-age=31536000, immutable",
       },
       customMetadata: {
@@ -204,7 +260,7 @@ export async function uploadFilesToR2(env: StorageEnv, files: File[]) {
     uploaded.push({
       key,
       url: publicUrl,
-      contentType: file.type,
+      contentType: mimeType,
       size: file.size,
     });
   }

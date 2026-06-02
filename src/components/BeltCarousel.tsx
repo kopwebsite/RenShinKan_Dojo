@@ -121,7 +121,7 @@ export function BeltCarousel({ students = passedTestStudents }: BeltCarouselProp
             type="button"
             onClick={() => jumpBy(-indexJumpSize)}
             className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/10 bg-paper/70 text-ink transition hover:bg-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo"
-            aria-label={`Skip back ${indexJumpSize} photos`}
+            aria-label={t("a11y.skipBackPhotos", { count: indexJumpSize })}
           >
             <ChevronsLeft size={18} aria-hidden="true" />
           </button>
@@ -151,7 +151,7 @@ export function BeltCarousel({ students = passedTestStudents }: BeltCarouselProp
             type="button"
             onClick={() => jumpBy(indexJumpSize)}
             className="flex h-10 w-10 items-center justify-center rounded-full border border-ink/10 bg-paper/70 text-ink transition hover:bg-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo"
-            aria-label={`Skip ahead ${indexJumpSize} photos`}
+            aria-label={t("a11y.skipAheadPhotos", { count: indexJumpSize })}
           >
             <ChevronsRight size={18} aria-hidden="true" />
           </button>

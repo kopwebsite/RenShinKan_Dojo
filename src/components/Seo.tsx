@@ -1,24 +1,37 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { googleMapsUrl, schedule, siteInfo } from "../data/siteContent";
+import { classSchedule, googleMapsUrl, siteInfo } from "../data/siteMeta";
 import { htmlLangMap, useTranslation, type Language, type TranslationKey } from "../i18n";
 
 const SITE_URL = (import.meta.env.VITE_SITE_URL || "https://renshinkan-dojo.pages.dev").replace(/\/+$/, "");
-const DEFAULT_IMAGE = `${SITE_URL}/dojo-photos/aikido-hero-new.png`;
+const DEFAULT_IMAGE = `${SITE_URL}/dojo-photos/new-hero-poster.webp`;
 const LOGO_IMAGE = `${SITE_URL}/renshinkan-logo.png`;
-const SEO_KEYWORDS = [
+const SEO_TOPICS = [
   "aikido",
-  "aikido thailand",
-  "aikido chiang mai",
-  "aikido chaing mai",
-  "aikido hang dong",
-  "aikido dojo chiang mai",
-  "aikido classes chiang mai",
-  "martial arts chiang mai",
-  "martial arts hang dong",
+  "Japanese martial arts",
+  "self defense",
+  "kids martial arts",
+  "adult martial arts",
+  "aiki-jujutsu history",
+  "Japanese jujutsu roots",
+  "dojo in Chiang Mai",
+  "dojo in Hang Dong",
   "RenshinKan Dojo",
   "RenshinKan Aikido",
-].join(", ");
+];
+
+const CLASS_FAQS = [
+  "experience",
+  "age",
+  "childrenSafety",
+  "parentsWatch",
+  "beginnerClothes",
+  "competition",
+  "falling",
+  "busySchedule",
+  "monthlyFee",
+  "firstVisit",
+] as const;
 
 type SeoConfig = {
   titleKey: TranslationKey;
@@ -116,7 +129,14 @@ function upsertLink(rel: string, href: string) {
   element.href = href;
 }
 
-function updateStructuredData(url: string, title: string, description: string, language: Language) {
+function updateStructuredData(
+  url: string,
+  title: string,
+  description: string,
+  language: Language,
+  pathname: string,
+  t: (key: TranslationKey) => string,
+) {
   const id = "renshinkan-structured-data-schema";
   let script = document.getElementById(id) as HTMLScriptElement | null;
 
@@ -127,109 +147,117 @@ function updateStructuredData(url: string, title: string, description: string, l
     document.head.appendChild(script);
   }
 
+  const graph: Record<string, unknown>[] = [
+    {
+      "@type": "WebSite",
+      "@id": `${SITE_URL}/#website`,
+      name: siteInfo.name,
+      alternateName: ["RenshinKan Aikido", "Aikido Chiang Mai - RenshinKan Dojo"],
+      url: SITE_URL,
+      inLanguage: htmlLangMap[language],
+      publisher: {
+        "@id": `${SITE_URL}/#dojo`,
+      },
+    },
+    {
+      "@type": "WebPage",
+      "@id": `${url}#webpage`,
+      url,
+      name: title,
+      description,
+      inLanguage: htmlLangMap[language],
+      isPartOf: {
+        "@id": `${SITE_URL}/#website`,
+      },
+      about: {
+        "@id": `${SITE_URL}/#dojo`,
+      },
+      primaryImageOfPage: {
+        "@type": "ImageObject",
+        url: DEFAULT_IMAGE,
+        caption: "Aikido training at RenshinKan Dojo in Hang Dong, Chiang Mai.",
+      },
+    },
+    {
+      "@type": ["Organization", "LocalBusiness", "SportsActivityLocation", "ExerciseGym"],
+      "@id": `${SITE_URL}/#dojo`,
+      name: siteInfo.name,
+      alternateName: [
+        "RenshinKan Aikido",
+        "Renshinkan Dojo Chiang Mai",
+        "Aikido Chiang Mai - RenshinKan Dojo",
+      ],
+      url: SITE_URL,
+      logo: LOGO_IMAGE,
+      image: [DEFAULT_IMAGE, LOGO_IMAGE],
+      description,
+      knowsAbout: SEO_TOPICS,
+      hasMap: googleMapsUrl,
+      address: {
+        "@type": "PostalAddress",
+        streetAddress: "155 Soi 6, Suan Luang Village, T. Baan Waen",
+        addressLocality: "Hang Dong",
+        addressRegion: "Chiang Mai",
+        postalCode: "50230",
+        addressCountry: "TH",
+      },
+      areaServed: [
+        "Hang Dong",
+        "Chiang Mai",
+        "Chiang Mai Province",
+        "Northern Thailand",
+        "Thailand",
+      ],
+      amenityFeature: [
+        { "@type": "LocationFeatureSpecification", name: "Parent viewing deck", value: true },
+        { "@type": "LocationFeatureSpecification", name: "Changing rooms", value: true },
+        { "@type": "LocationFeatureSpecification", name: "Drinking water", value: true },
+        { "@type": "LocationFeatureSpecification", name: "Aikido weapons practice", value: true },
+      ],
+      openingHoursSpecification: classSchedule.map((classTime) => ({
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: classTime.day,
+        opens: classTime.opens,
+        closes: classTime.closes,
+      })),
+      makesOffer: [
+        {
+          "@type": "Offer",
+          itemOffered: {
+            "@type": "Service",
+            name: "Aikido classes in Hang Dong, Chiang Mai",
+            serviceType: "Aikido, Japanese martial arts, and practical self-defense training",
+            areaServed: "Hang Dong, Chiang Mai, Thailand",
+            audience: [
+              { "@type": "PeopleAudience", name: "Children" },
+              { "@type": "PeopleAudience", name: "Adults" },
+              { "@type": "PeopleAudience", name: "Beginners" },
+            ],
+          },
+        },
+      ],
+      sameAs: [siteInfo.facebookUrl, siteInfo.foundationUrl],
+    },
+  ];
+
+  if (pathname === "/classes") {
+    graph.push({
+      "@type": "FAQPage",
+      "@id": `${url}#faq`,
+      mainEntity: CLASS_FAQS.map((item) => ({
+        "@type": "Question",
+        name: t(`classes.faq.items.${item}.question` as TranslationKey),
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: t(`classes.faq.items.${item}.answer` as TranslationKey),
+        },
+      })),
+    });
+  }
+
   script.textContent = JSON.stringify({
     "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "WebSite",
-        "@id": `${SITE_URL}/#website`,
-        name: siteInfo.name,
-        alternateName: ["RenshinKan Aikido", "Aikido Chiang Mai - RenshinKan Dojo"],
-        url: SITE_URL,
-        inLanguage: htmlLangMap[language],
-        publisher: {
-          "@id": `${SITE_URL}/#dojo`,
-        },
-      },
-      {
-        "@type": "WebPage",
-        "@id": `${url}#webpage`,
-        url,
-        name: title,
-        description,
-        inLanguage: htmlLangMap[language],
-        isPartOf: {
-          "@id": `${SITE_URL}/#website`,
-        },
-        about: {
-          "@id": `${SITE_URL}/#dojo`,
-        },
-        primaryImageOfPage: {
-          "@type": "ImageObject",
-          url: DEFAULT_IMAGE,
-          caption: "Aikido training at RenshinKan Dojo in Hang Dong, Chiang Mai.",
-        },
-      },
-      {
-        "@type": ["LocalBusiness", "SportsActivityLocation", "ExerciseGym"],
-        "@id": `${SITE_URL}/#dojo`,
-        name: siteInfo.name,
-        alternateName: [
-          "RenshinKan Aikido",
-          "Renshinkan Dojo Chiang Mai",
-          "Aikido Chiang Mai - RenshinKan Dojo",
-        ],
-        url: SITE_URL,
-        logo: LOGO_IMAGE,
-        image: [DEFAULT_IMAGE, LOGO_IMAGE],
-        description,
-        keywords: SEO_KEYWORDS,
-        knowsAbout: [
-          "Aikido",
-          "Aikido classes",
-          "Martial arts",
-          "Ukemi",
-          "Bokken",
-          "Jo",
-          "Aikido in Thailand",
-          "Aikido in Chiang Mai",
-        ],
-        hasMap: googleMapsUrl,
-        address: {
-          "@type": "PostalAddress",
-          streetAddress: "155 Soi 6, Suan Luang Village, T. Baan Waen",
-          addressLocality: "Hang Dong",
-          addressRegion: "Chiang Mai",
-          postalCode: "50230",
-          addressCountry: "TH",
-        },
-        areaServed: [
-          "Hang Dong",
-          "Chiang Mai",
-          "Chiang Mai Province",
-          "Northern Thailand",
-          "Thailand",
-        ],
-        amenityFeature: [
-          { "@type": "LocationFeatureSpecification", name: "Parent viewing deck", value: true },
-          { "@type": "LocationFeatureSpecification", name: "Changing rooms", value: true },
-          { "@type": "LocationFeatureSpecification", name: "Drinking water", value: true },
-          { "@type": "LocationFeatureSpecification", name: "Aikido weapons practice", value: true },
-        ],
-        openingHoursSpecification: schedule.map((classTime) => {
-          const [opens, closes] = classTime.time.split(/\s+.\s+/);
-
-          return {
-            "@type": "OpeningHoursSpecification",
-            dayOfWeek: classTime.day,
-            opens,
-            closes,
-          };
-        }),
-        makesOffer: [
-          {
-            "@type": "Offer",
-            itemOffered: {
-              "@type": "Service",
-              name: "Aikido classes in Hang Dong, Chiang Mai",
-              serviceType: "Aikido and martial arts training",
-              areaServed: "Hang Dong, Chiang Mai, Thailand",
-            },
-          },
-        ],
-        sameAs: [siteInfo.facebookUrl, siteInfo.foundationUrl],
-      },
-    ],
+    "@graph": graph,
   });
 }
 
@@ -248,7 +276,6 @@ export function Seo() {
     document.documentElement.lang = htmlLangMap[language];
 
     upsertMeta('meta[name="description"]', { name: "description", content: description });
-    upsertMeta('meta[name="keywords"]', { name: "keywords", content: SEO_KEYWORDS });
     upsertMeta('meta[name="robots"]', { name: "robots", content: config.robots ?? "index,follow" });
     upsertMeta('meta[name="geo.region"]', { name: "geo.region", content: "TH-50" });
     upsertMeta('meta[name="geo.placename"]', { name: "geo.placename", content: "Hang Dong, Chiang Mai, Thailand" });
@@ -258,6 +285,7 @@ export function Seo() {
     upsertMeta('meta[property="og:type"]', { property: "og:type", content: "website" });
     upsertMeta('meta[property="og:url"]', { property: "og:url", content: canonical });
     upsertMeta('meta[property="og:image"]', { property: "og:image", content: DEFAULT_IMAGE });
+    upsertMeta('meta[property="og:image:type"]', { property: "og:image:type", content: "image/webp" });
     upsertMeta('meta[property="og:image:alt"]', { property: "og:image:alt", content: "Aikido training at RenshinKan Dojo in Hang Dong, Chiang Mai." });
     upsertMeta('meta[property="og:locale"]', { property: "og:locale", content: ogLocaleByLanguage[language] });
     upsertMeta('meta[name="twitter:card"]', { name: "twitter:card", content: "summary_large_image" });
@@ -271,7 +299,7 @@ export function Seo() {
       document.getElementById("renshinkan-local-business-schema")?.remove();
       document.getElementById("renshinkan-structured-data-schema")?.remove();
     } else {
-      updateStructuredData(canonical, title, t("seo.localBusinessDescription"), language);
+      updateStructuredData(canonical, title, t("seo.localBusinessDescription"), language, config.path, t);
     }
   }, [language, location.pathname, t]);
 

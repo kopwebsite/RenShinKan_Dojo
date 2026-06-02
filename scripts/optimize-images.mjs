@@ -18,6 +18,11 @@ const scanRoots = [
     label: "uploads",
   },
   {
+    source: path.join(publicDir, "backgrounds"),
+    output: path.join(publicDir, "optimized", "backgrounds"),
+    label: "backgrounds",
+  },
+  {
     source: path.join(publicDir, "dojo-photos"),
     output: path.join(publicDir, "optimized", "dojo-photos"),
     label: "dojo-photos",
@@ -105,6 +110,10 @@ function outputBaseFor(sourcePath, root) {
 
 function maxWidthFor(sourcePath) {
   const lower = sourcePath.toLowerCase();
+
+  if (lower.includes("backgrounds")) {
+    return lower.includes("mobile") ? 900 : 1600;
+  }
 
   if (lower.includes("renshinkan-gallery")) {
     return 1920;

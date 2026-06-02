@@ -19,12 +19,19 @@ import {
   aikidoHistoricalPhotos,
   aikidoHistorySections,
   aikidoHistorySources,
-  instructorSource,
   instructors,
   pcfAikidoImages,
 } from "../data/siteContent";
 import { useTranslation } from "../i18n";
 import { assetPath } from "../utils/assetPath";
+import {
+  aikidoAdultKeys,
+  aikidoBenefitKeys,
+  aikidoChildKeys,
+  instructorKeys,
+  translateInstructor,
+  translateTitleDescription,
+} from "../utils/siteContentTranslations";
 
 function HistoricalFigure({
   photo,
@@ -81,6 +88,18 @@ function HistoricalFigure({
 
 export function AikidoPage() {
   const { t } = useTranslation();
+  const localizedBenefits = aikidoBenefits.map((benefit, index) =>
+    translateTitleDescription(t, benefit, aikidoBenefitKeys[index]),
+  );
+  const localizedChildItems = aikidoForChildren.map((item, index) =>
+    translateTitleDescription(t, item, aikidoChildKeys[index]),
+  );
+  const localizedAdultItems = aikidoForAdults.map((item, index) =>
+    translateTitleDescription(t, item, aikidoAdultKeys[index]),
+  );
+  const localizedInstructors = instructors.map((instructor, index) =>
+    translateInstructor(t, instructor, instructorKeys[index]),
+  );
   const historicalPhotoById = new Map(
     aikidoHistoricalPhotos.map((photo) => [photo.id, photo]),
   );
@@ -228,11 +247,11 @@ export function AikidoPage() {
             {[
               {
                 image: aikidoActionImages.joTraining,
-                caption: "Paired jo practice",
+                caption: t("data.aikido.actionCaptions.jo"),
               },
               {
                 image: aikidoActionImages.tantoTechnique,
-                caption: "Tanto disarm and throw",
+                caption: t("data.aikido.actionCaptions.tanto"),
               },
             ].map((item) => (
               <figure
@@ -270,7 +289,7 @@ export function AikidoPage() {
             {t("aikido.why.benefitsLabel")}
           </p>
           <div className="mt-4 grid gap-3 min-[420px]:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {aikidoBenefits.map((benefit) => (
+            {localizedBenefits.map((benefit) => (
               <div
                 key={benefit.title}
                 className="rounded-2xl border border-ink/10 bg-bamboo/10 p-5"
@@ -336,12 +355,12 @@ export function AikidoPage() {
             {
               title: t("aikido.who.childrenTitle"),
               icon: Sparkles,
-              items: aikidoForChildren,
+              items: localizedChildItems,
             },
             {
               title: t("aikido.who.adultsTitle"),
               icon: UsersRound,
-              items: aikidoForAdults,
+              items: localizedAdultItems,
             },
           ].map((group) => {
             const Icon = group.icon;
@@ -386,7 +405,7 @@ export function AikidoPage() {
           </Link>
         </div>
         <div className="grid grid-cols-2 gap-3 min-[420px]:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {instructors.map((instructor) => (
+          {localizedInstructors.map((instructor) => (
             <article
               key={instructor.name}
               className="surface card-hover flex flex-col items-start gap-3 rounded-[1.35rem] p-3.5 min-[420px]:p-4 sm:flex-row sm:items-center sm:gap-4 sm:rounded-[1.75rem]"
@@ -412,7 +431,7 @@ export function AikidoPage() {
           ))}
         </div>
         <p className="mt-5 text-xs font-semibold uppercase tracking-[0.16em] text-charcoal/55">
-          {t("common.source")}: {instructorSource.label}
+          {t("common.source")}: {t("data.aikido.instructorSourceLabel")}
         </p>
       </MotionSection>
 

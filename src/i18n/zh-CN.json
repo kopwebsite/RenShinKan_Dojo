@@ -54,7 +54,12 @@
     "openAddressInMaps": "在 Google 地图中打开 {{address}}",
     "portraitPlaceholder": "{{name}} 肖像占位符",
     "beltProgressionChart": "合气道级进阶图",
-    "beltRankLabel": "{{rank}} {{rankSub}} - {{days}} 培训天数"
+    "beltRankLabel": "{{rank}} {{rankSub}} - {{days}} 培训天数",
+    "skipBackPhotos": "向前跳过 {{count}} 张照片",
+    "skipAheadPhotos": "向后跳过 {{count}} 张照片",
+    "mediaSlideNavigation": "{{label}}幻灯片导航",
+    "skipBackMediaItems": "向前跳过 {{count}} 个{{label}}项目",
+    "skipAheadMediaItems": "向后跳过 {{count}} 个{{label}}项目"
   },
   "language": {
     "en": "英语",
@@ -106,7 +111,8 @@
     "recent": {
       "eyebrow": "近期活动",
       "title": "最近的道场更新，聚集在一处。",
-      "copy": "RenshinKan 培训日、考试、研讨会和社区时刻的三项最新更新。"
+      "copy": "RenshinKan 培训日、考试、研讨会和社区时刻的三项最新更新。",
+      "newsletterSignupCta": "订阅新闻通讯"
     },
     "facilities": {
       "eyebrow": "我们的道场",
@@ -122,9 +128,9 @@
       "eyebrow": "道场照片",
       "title": "仁心馆内部一览。",
       "copy": "看看道场和在这里训练的人们。",
-      "space": "空间",
-      "onMat": "在垫子上",
-      "onMatGallery": "在垫画廊上"
+      "space": "道场空间",
+      "onMat": "在垫上",
+      "onMatGallery": "垫上照片集"
     },
     "journey": {
       "eyebrow": "道场之旅",
@@ -633,13 +639,13 @@
   },
   "seo": {
     "homeTitle": "炼心馆道场 |泰国清迈杭东的合气道",
-    "homeDescription": "RenshinKan Dojo 在泰国清迈杭东提供合气道课程和武术训练。欢迎初学者、儿童和参观合气道。",
-    "aikidoTitle": "什么是合气道？ |清迈仁心馆道场",
-    "aikidoDescription": "了解合气道历史、O Sensei、ukemi、武器使用，以及清迈杭东的 RenshinKan 道场如何教授合气道。",
+    "homeDescription": "RenshinKan Dojo 在清迈杭东提供合气道和日本武道训练。适合初学者，欢迎儿童、成人和来访的合气道练习者。",
+    "aikidoTitle": "清迈合气道 | RenshinKan Dojo 的日本武道",
+    "aikidoDescription": "了解合气道是什么，它如何源自日本柔术和合气柔术传统，以及 RenshinKan 如何在清迈杭东教授平和的自我防卫。",
     "instructorsTitle": "清迈合气道教练| 清迈合气道教练炼心馆道场",
     "instructorsDescription": "与 RenshinKan Dojo 合气道教练见面，他们教授初学者友好课程、儿童、成人，并在清迈杭东参观合气道。",
     "classesTitle": "清迈杭东合气道课程|炼心馆道场",
-    "classesDescription": "清迈杭东的合气道课程信息。查看练习时间、首次访问指导、腰带考试和适合初学者的课程详细信息。",
+    "classesDescription": "清迈杭东的合气道课程信息。查看练习时间、首次访问指导、腰带考试，以及适合儿童和成人的武道课程。",
     "workshopsTitle": "清迈合气道工作坊|炼心馆道场",
     "workshopsDescription": "清迈杭东的 RenshinKan 道场为初学者、儿童和在校学生举办季节性合气道研讨会。",
     "newsletterTitle": "道场更新 |清迈仁心馆合气道",
@@ -649,11 +655,361 @@
     "supportTitle": "支持仁心馆道场 |清迈合气道",
     "supportDescription": "支持 RenshinKan 道场，并通过学生捐款和捐款帮助杭东和清迈保持合气道培训的可及性。",
     "contactTitle": "联络仁心馆道场 |清迈杭东的合气道",
-    "contactDescription": "请联系泰国清迈杭东的 RenshinKan 道场，询问合气道课程、初学者参观、儿童培训和参观合气道练习。",
+    "contactDescription": "联系清迈杭东的 RenshinKan Dojo，询问合气道课程、首次参观、儿童训练、成人练习和来访合气道练习者参加事宜。",
     "visitTitle": "参观炼心馆道场 |清迈杭东的合气道",
     "visitDescription": "计划第一次参观泰国清迈杭东的仁心馆道场。欢迎初学者、家长和参观合气道。",
     "adminTitle": "管理员 |炼心馆道场",
     "adminDescription": "RenshinKan 道场内容管理。",
-    "localBusinessDescription": "泰国清迈杭东的仁心馆道场合气道课程和传统武术训练。"
+    "localBusinessDescription": "RenshinKan Dojo 在清迈杭东为儿童和成人提供合气道、日本武道和实用自我防卫训练。"
+  },
+  "data": {
+    "facilities": {
+      "previous": "上一项设施",
+      "next": "下一项设施",
+      "navigation": "设施导航",
+      "goTo": "显示{{title}}",
+      "changingRooms": {
+        "title": "更衣室",
+        "description": "男女分开的更衣室，让来访和练习更舒适。"
+      },
+      "bathrooms": {
+        "title": "卫生间与洗手区",
+        "description": "为学生和访客提供卫生间及洗手设施。"
+      },
+      "water": {
+        "title": "饮用水",
+        "description": "设有饮水机，学生可在练习期间补充水分。"
+      },
+      "weapons": {
+        "title": "练习用武器",
+        "description": "可用于木剑、杖和短刀练习的合气道训练器具。"
+      },
+      "viewingDeck": {
+        "title": "家长观摩区",
+        "description": "设有座位的观摩区，方便家长和访客观看课程。"
+      }
+    },
+    "dojoPhotos": {
+      "koiPond": {
+        "title": "锦鲤池",
+        "description": "藏在庭园中的小锦鲤池。",
+        "alt": "RenshinKan Dojo 庭园中的锦鲤池。"
+      },
+      "garden": {
+        "title": "庭园",
+        "description": "绿意环绕道场，让空间显得安定而宁静。",
+        "alt": "杭东 RenshinKan Dojo 周围的庭园。"
+      },
+      "courtyard": {
+        "title": "庭院",
+        "description": "开放庭院连接主道场建筑与场地其他部分。",
+        "alt": "RenshinKan Dojo 的开放庭院。"
+      },
+      "trainingHall": {
+        "title": "练习大厅",
+        "description": "主要练习空间设有榻榻米、高天花板，并有充足活动空间。",
+        "alt": "RenshinKan Dojo 室内练习大厅。"
+      }
+    },
+    "instructors": {
+      "sombat": {
+        "role": "创办人 / 高级指导员",
+        "rank": "五段",
+        "trainingBackground": "1980年在美国康涅狄格州纽黑文开始练习合气道，1982年起在曼谷的泰国合气道协会跟随 Motohiro Fukakusa Shihan 和 Prapant Chittaputta Shihan 训练。1986年创办清迈大学合气道社，2012年创办 Renshinkan Dojo。",
+        "imageAlt": "Sombat Tapanya 在 RenshinKan Dojo 身穿合气道道服。"
+      },
+      "teerarat": {
+        "role": "高级指导员",
+        "rank": "三段",
+        "trainingBackground": "1986年在清迈大学合气道社开始练习合气道，并跟随 Motohiro Fukakusa Shihan 和 Prapant Chittaputta Shihan 训练。",
+        "imageAlt": "Teerarat Boripantakul 在 RenshinKan Dojo 身穿合气道道服。"
+      },
+      "kop": {
+        "role": "创办人 / 高级指导员",
+        "rank": "三段",
+        "trainingBackground": "Narumol (Kop) Thammapruksa 在清迈大学合气道社开始合气道。2008年，她进入东京 Hombu Dojo 的 Aikido Academy，在 Koichi Toriumi Shihan 和 Yoshiaki Yokota Shihan 指导下取得二级。2012年，她作为大阪大学交换生，在 Shosenji Dojo 跟随 Katsuyuki Shimamoto Shihan 练习，并在 Tsuruzo Miyamoto Shihan 指导下由 Hombu Dojo 获得初段。",
+        "imageAlt": "Kop Narumol 在 RenshinKan Dojo 身穿合气道道服。"
+      },
+      "kittisak": {
+        "role": "指导员",
+        "rank": "二段",
+        "trainingBackground": "2003年在清迈大学合气道社开始练习，并跟随 Sombat Tapanya 和 Teerarat Boripantakul 训练。",
+        "imageAlt": "Major Kittisak Siriparp 在 RenshinKan Dojo 身穿合气道道服。"
+      },
+      "fuengwich": {
+        "role": "指导员",
+        "rank": "二段",
+        "trainingBackground": "2002年在清迈大学合气道社开始练习，并跟随 Sombat Tapanya 和 Teerarat Boripantakul 训练。",
+        "imageAlt": "Fuengwich Maneekarn 在 RenshinKan Dojo 身穿合气道道服。"
+      },
+      "siriphorn": {
+        "role": "指导员",
+        "rank": "二段",
+        "trainingBackground": "2012年在清迈大学合气道社开始练习，并跟随 Sombat Tapanya 和 Teerarat Boripantakul 训练。",
+        "imageAlt": "Siriphorn Manokeaw 在 RenshinKan Dojo 身穿合气道道服。"
+      }
+    },
+    "workshops": {
+      "beginningAikido": {
+        "title": "合气道入门",
+        "date": "每月第一个星期日",
+        "time": "09:00-10:30",
+        "audience": "新来的成人和青少年",
+        "description": "平静地学习行礼、姿势、步法、安全受身，以及合作式伙伴练习。"
+      },
+      "fallingConfidence": {
+        "title": "自信地受身",
+        "date": "家庭工作坊日期按季公布",
+        "time": "周末上午",
+        "audience": "儿童与家长",
+        "description": "通过有趣的滚动和落地练习，帮助孩子在垫上和日常中安全移动。"
+      },
+      "weaponsDistance": {
+        "title": "武器与距离",
+        "date": "配合来访老师公布",
+        "time": "按日程安排",
+        "audience": "具备基本受身的学生",
+        "description": "通过木剑、杖和短刀练习距离、时机与平静专注。"
+      }
+    },
+    "aikido": {
+      "instructorSourceLabel": "和平文化基金会指导员页面",
+      "actionCaptions": {
+        "jo": "成对杖练习训练距离、时机和平静的移动路线。",
+        "tanto": "短刀练习把威胁性的路线转化为双方都安全的路径。"
+      },
+      "benefits": {
+        "discipline": {
+          "title": "纪律",
+          "description": "入场行礼、用心重复每个动作，并一周又一周回到练习中，会慢慢形成安静而稳定的纪律。"
+        },
+        "patience": {
+          "title": "耐心",
+          "description": "技术需要缓慢学习并多年打磨，因此练习会温和地教你信任过程，珍惜稳定进步。"
+        },
+        "focus": {
+          "title": "专注",
+          "description": "读取伙伴的动作，并在恰当时刻回应，会训练清晰、当下的注意力，也能带回日常生活。"
+        },
+        "confidence": {
+          "title": "信心",
+          "description": "当技术不靠蛮力也能发挥作用时，学生会建立一种平静、扎实、不依赖体格或力量的信心。"
+        },
+        "posture": {
+          "title": "姿势",
+          "description": "合气道从直立而放松的姿势中练习，良好姿势和稳定基础会在垫上垫下成为自然。"
+        },
+        "coordination": {
+          "title": "协调",
+          "description": "把步法、呼吸和手部动作融合成一个流畅动作，会在每次重复中提高全身协调。"
+        },
+        "balance": {
+          "title": "平衡",
+          "description": "进入、转身，并在伙伴移动时保持中心，会训练你保持平衡，并在被考验时快速恢复。"
+        },
+        "respect": {
+          "title": "尊重",
+          "description": "每个技术都以行礼开始和结束，伙伴彼此照顾，因此尊重贯穿整个道场的练习方式。"
+        },
+        "awareness": {
+          "title": "对他人的觉察",
+          "description": "与伙伴近距离练习，会建立对距离、时机和安全的真实感觉，让你更留意周围的人。"
+        }
+      },
+      "children": {
+        "speakUp": {
+          "title": "表达自己的信心",
+          "description": "垫上一点一滴的小成功，会帮助安静的孩子在道场和学校都站得更稳。"
+        },
+        "selfControl": {
+          "title": "倾听与自控",
+          "description": "等待轮到自己、跟随口令、温和地与伙伴合作，会教孩子倾听并安定自己的能量。"
+        },
+        "falling": {
+          "title": "安全又好玩的受身",
+          "description": "滚动和翻滚先以游戏方式教授，让孩子不害怕摔倒，并学会在任何地方照顾自己。"
+        }
+      },
+      "adults": {
+        "move": {
+          "title": "在久坐一天后活动身体",
+          "description": "温和流动的练习能放松僵硬的肩和髋，让身体重新找回自然轻松的动作。"
+        },
+        "mind": {
+          "title": "更平静清晰的心",
+          "description": "把全部注意力放在伙伴和技术上，会让一天的压力留在门外，换来九十分钟的安静。"
+        },
+        "community": {
+          "title": "友好的社群",
+          "description": "你会加入一个由不同年龄和背景的人组成的友善圈子，大家耐心练习并互相照看。"
+        }
+      },
+      "timeline": {
+        "earlyLife": {
+          "title": "早年生活与训练",
+          "description": "植芝盛平在日本现代化时期于和歌山成长，在合气道出现以前学习了多种传统武术。"
+        },
+        "hokkaido": {
+          "title": "北海道与大东流",
+          "description": "边地生活和跟随武田惣角的密集学习，为后来转化成合气道的技术打下基础。"
+        },
+        "omoto": {
+          "title": "大本教与绫部",
+          "description": "出口王仁三郎和大本的精神实践，把植芝带向一条带有净化、服务和伦理目的的武道道路。"
+        },
+        "tokyo": {
+          "title": "东京与合气武道",
+          "description": "在战前东京，植芝向认真学生教授严格的技艺，皇武馆道场也因严厉练习而闻名。"
+        },
+        "iwama": {
+          "title": "岩间与战后更新",
+          "description": "合气道名称被采用，合气神社建立，战后练习通过合气会重新开始。"
+        },
+        "hombu": {
+          "title": "本部道场与公开合气道",
+          "description": "植芝吉祥丸帮助组织日常训练、公开演武、出版，以及现代合气会的身份。"
+        },
+        "international": {
+          "title": "国际传播",
+          "description": "合气道教师和组织把这门艺术带出日本，建立了世界性的练习文化。"
+        },
+        "thailand": {
+          "title": "合气道传入泰国",
+          "description": "1961年，Nobuyoshi Tamura Shihan 将合气道介绍到泰国，并得到东京合气道本部的技术支持。"
+        },
+        "renbukan": {
+          "title": "曼谷 Renbukan Dojo",
+          "description": "Renbukan Dojo 于1970年在曼谷成立，并在 Motohiro Fukakusa Shihan 领导下成为泰国合气道协会总部。"
+        },
+        "thaiNetwork": {
+          "title": "泰国合气道网络",
+          "description": "Motohiro Fukakusa Shihan 和 Prapant Chittaputta Shihan 等曼谷老师培养了一代人，把合气道带到大学和首都以外的府县。"
+        },
+        "chiangMai": {
+          "title": "清迈与 RenshinKan",
+          "description": "泰北的练习通过清迈大学合气道社和各地道场社群成长，并形成 RenshinKan 的本地训练文化。"
+        }
+      }
+    },
+    "community": {
+      "values": {
+        "respect": {
+          "title": "相互尊重",
+          "description": "练习从倾听并照顾眼前的人开始。"
+        },
+        "safety": {
+          "title": "社区安全",
+          "description": "道场文化支持倾听、平静边界和稳定的个人成长。"
+        },
+        "peace": {
+          "title": "和平文化",
+          "description": "合气道提供一种实用语言，在不攻击的情况下面对冲突。"
+        },
+        "growth": {
+          "title": "共同成长",
+          "description": "初学者、家长、儿童和访客都为友善的练习空间作出贡献。"
+        }
+      },
+      "foundation": {
+        "aikidoConnection": "合气道通过实际习惯支持这种文化：先倾听再反应，保护眼前的人，不带攻击性地引导压力，并与伙伴一起练习责任。",
+        "groomingPrevention": "基金会的诱导操控预防工作帮助社区说出不安全模式，加强边界，并为成年人和年轻人提供更清晰的工具来识别和回应操控。",
+        "pillars": {
+          "relationships": "尊重的关系",
+          "boundaries": "同意与健康边界",
+          "awareness": "识别诱导操控模式",
+          "education": "通过教育实现社区安全"
+        }
+      },
+      "pcfPhotos": {
+        "liblab": {
+          "title": "LibLab：把书带给社区",
+          "caption": "基金会的 LibLab 项目把书带到需要它们的社区。",
+          "alt": "和平文化基金会 LibLab 社区识字项目书堆。"
+        },
+        "learning": {
+          "title": "每个环境中的学习",
+          "caption": "和平文化通过教育建立，在教室、道场和社区中都一样。",
+          "alt": "一本打开的书放在自然环境中的桌上。"
+        },
+        "safety": {
+          "title": "儿童安全教育",
+          "caption": "教社区识别不安全模式，并保护身边的年轻人。",
+          "alt": "和平文化基金会儿童安全教育意识图。"
+        },
+        "sombat": {
+          "title": "Dr. Sombat Tapanya",
+          "caption": "和平文化基金会的创办人，也是其使命和 RenshinKan 道场背后的重要人物。",
+          "alt": "和平文化基金会创办人 Sombat Tapanya 博士。"
+        }
+      },
+      "cmu": {
+        "practice": {
+          "days": "星期一、星期三、星期五",
+          "time": "公开列为晚上 6:00-8:00",
+          "location": "AikidoCMU 文章描述练习地点在学生会大楼一楼。历史页面也列出清迈大学合气道社位于素贴路的体育馆大楼。",
+          "note": "这些公开日程说明较早。访客前往前应向 AikidoCMU 确认当前房间和开始时间。"
+        },
+        "address": "清迈大学合气道社，体育馆大楼，清迈大学，素贴路，清迈，泰国",
+        "links": {
+          "history": "AikidoCMU 历史",
+          "practice": "练习文章",
+          "logo": "CMU 标志来源"
+        }
+      },
+      "cmuPhotos": {
+        "practice": {
+          "title": "在 CMU 练习",
+          "caption": "AikidoCMU 公开通讯图片，展示伙伴练习和圆形动作。",
+          "alt": "AikidoCMU 练习者在清迈白色垫上训练。"
+        },
+        "history": {
+          "title": "泰北合气道",
+          "caption": "来自 Aikido Chiang Mai Unite 泰北合气道历史的来源图片。",
+          "alt": "Aikido Chiang Mai Unite 页面中的 AikidoCMU 历史图片。"
+        },
+        "roots": {
+          "title": "学生社团根源",
+          "caption": "AikidoCMU 公开图片，与大学社团早期社区故事相关。",
+          "alt": "AikidoCMU 社团成员一起练习。"
+        },
+        "falling": {
+          "title": "安全受身",
+          "caption": "来自 AikidoCMU 关于合气道与和平营造文章的伙伴练习图片。",
+          "alt": "AikidoCMU 学生在伙伴练习中安全受身。"
+        },
+        "blend": {
+          "title": "融合并引导",
+          "caption": "练习图片展示 uke 与 nage 的合作角色。",
+          "alt": "AikidoCMU 练习者演示投技与压制流程。"
+        }
+      },
+      "relatedDojos": {
+        "thaiAikikai": {
+          "name": "Thai Aikikai",
+          "description": "泰国全国合气道管理组织，由 Motohiro Fukakusa Shihan 于 1975 年创立。RenshinKan 的腰带考试通过该组织认证。",
+          "location": "泰国曼谷（全国组织）"
+        },
+        "aikidoCmu": {
+          "name": "Aikido Chiang Mai University Club",
+          "description": "清迈大学长期运行的大学社团，向学生、国际访客和社区成员开放。",
+          "location": "清迈大学，Suthep Road"
+        },
+        "aiDojo": {
+          "name": "Ai Dojo",
+          "description": "位于清迈 Suthep 区的合气道道场，是当地 Aikikai 系社区的一部分。",
+          "location": "Suthep, Chiang Mai"
+        },
+        "allDojo": {
+          "name": "All Dojo Chiang Mai",
+          "description": "位于清迈市南部 Saraphi 的道场，与当地合气道网络和 Aikikai 体系相连。",
+          "location": "Saraphi, Chiang Mai"
+        },
+        "aikidoKids": {
+          "name": "Aikido Kids Chiangmai",
+          "description": "以 AllGym Chiangmai 为基地、面向儿童和家庭的合气道项目，欢迎年轻学生和家庭。",
+          "location": "Suthep, Chiang Mai"
+        }
+      }
+    }
   }
 }

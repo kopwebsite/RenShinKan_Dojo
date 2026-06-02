@@ -2,6 +2,7 @@ import { CalendarDays, Filter } from "lucide-react";
 import { useState } from "react";
 import { workshops } from "../data/siteContent";
 import { useTranslation, type TranslationKey } from "../i18n";
+import { translateWorkshop, workshopKeys } from "../utils/siteContentTranslations";
 
 const filterOptions = ["All", "Beginner", "Children", "Weapons"] as const;
 type WorkshopFilter = (typeof filterOptions)[number];
@@ -16,7 +17,10 @@ const filterLabelKeys: Record<WorkshopFilter, TranslationKey> = {
 export function WorkshopCards() {
   const { t } = useTranslation();
   const [filter, setFilter] = useState<WorkshopFilter>("All");
-  const visibleWorkshops = workshops.filter(
+  const localizedWorkshops = workshops.map((workshop, index) =>
+    translateWorkshop(t, workshop, workshopKeys[index]),
+  );
+  const visibleWorkshops = localizedWorkshops.filter(
     (workshop) => filter === "All" || workshop.category === filter,
   );
 
@@ -50,7 +54,7 @@ export function WorkshopCards() {
             >
               <div className="flex items-center gap-3">
                 <span className="rounded-full bg-vermilion/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-vermilion">
-                  {workshop.category}
+                  {t(filterLabelKeys[workshop.category])}
                 </span>
               </div>
               <h3 className="mt-6 text-3xl leading-tight text-ink">{workshop.title}</h3>
@@ -60,7 +64,7 @@ export function WorkshopCards() {
                   <CalendarDays className="mt-0.5 h-4 w-4 text-bamboo" aria-hidden="true" />
                   <div>
                     <dt className="sr-only">{t("common.dateAndTime")}</dt>
-                    <dd>{workshop.date} · {workshop.time}</dd>
+                    <dd>{workshop.date} - {workshop.time}</dd>
                   </div>
                 </div>
                 <div>

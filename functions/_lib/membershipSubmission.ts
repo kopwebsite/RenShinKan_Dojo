@@ -1,6 +1,5 @@
 export type MembershipEnv = {
   TURNSTILE_SECRET_KEY?: string;
-  VITE_TURNSTILE_SECRET_KEY?: string;
   GOOGLE_FORM_URL?: string;
   PARENT_NAME_ENTRY_ID?: string;
   STUDENT_NAME_ENTRY_ID?: string;
@@ -88,10 +87,10 @@ function normalizeOrigin(value: string) {
 
 function getRequiredEnv(env: MembershipEnv) {
   const missing: string[] = REQUIRED_ENV_KEYS.filter((key) => !env[key]);
-  const turnstileSecretKey = env.TURNSTILE_SECRET_KEY || env.VITE_TURNSTILE_SECRET_KEY;
+  const turnstileSecretKey = env.TURNSTILE_SECRET_KEY;
 
   if (!turnstileSecretKey) {
-    missing.unshift("TURNSTILE_SECRET_KEY or VITE_TURNSTILE_SECRET_KEY");
+    missing.unshift("TURNSTILE_SECRET_KEY");
   }
 
   if (missing.length > 0) {

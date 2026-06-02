@@ -133,6 +133,22 @@ function videoWatchUrl(value: string) {
   }
 }
 
+function documentKindLabel(kind: NonNullable<RecentEvent["media"]>[number]["documentKind"]) {
+  if (kind === "pdf") {
+    return "PDF";
+  }
+
+  if (kind === "docx") {
+    return "DOCX";
+  }
+
+  if (kind === "ppt") {
+    return "PowerPoint";
+  }
+
+  return "Document";
+}
+
 function renderParagraphRow(text: string) {
   const paragraphHtml = escapeHtml(text).replace(/\n/g, "<br />");
 
@@ -160,6 +176,27 @@ function renderMediaRow(base: string, item: NonNullable<RecentEvent["media"]>[nu
                   <td class="sans" style="padding:16px; font-size:15px; line-height:23px; color:#3d362c;">
                     <div style="font-weight:700; color:#1f1b16;">${title}</div>
                     <div style="margin-top:8px;"><a href="${href}" style="color:#b22a22; text-decoration:underline;">Watch video</a></div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>`;
+  }
+
+  if (item.type === "document") {
+    const href = escapeHtml(absoluteUrl(base, item.src));
+    const title = escapeHtml(item.title || item.caption || item.fileName || documentKindLabel(item.documentKind));
+    const label = escapeHtml(documentKindLabel(item.documentKind));
+
+    return `
+          <tr>
+            <td class="pad" align="${placement.align}" style="padding:20px 48px 0 48px;">
+              <table role="presentation" width="${maxWidth}" cellpadding="0" cellspacing="0" border="0" style="width:100%; max-width:${maxWidth}px; border:1px solid #e3d8c1; background-color:#fffaf2;">
+                <tr>
+                  <td class="sans" style="padding:16px; font-size:15px; line-height:23px; color:#3d362c;">
+                    <div style="font-size:12px; line-height:18px; letter-spacing:2px; text-transform:uppercase; color:#7a6f60;">${label}</div>
+                    <div style="margin-top:4px; font-weight:700; color:#1f1b16;">${title}</div>
+                    <div style="margin-top:8px;"><a href="${href}" style="color:#b22a22; text-decoration:underline;">Open file</a></div>
                   </td>
                 </tr>
               </table>

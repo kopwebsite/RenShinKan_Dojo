@@ -4,8 +4,6 @@ import { Footer } from "./components/Footer";
 import { Navbar } from "./components/Navbar";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { Seo } from "./components/Seo";
-import { DojoPage } from "./pages/DojoPage";
-import { SupportPage } from "./pages/SupportPage";
 import { useTranslation } from "./i18n";
 
 const AikidoPage = lazy(() => import("./pages/AikidoPage").then((module) => ({ default: module.AikidoPage })));
@@ -13,8 +11,10 @@ const AdminPage = lazy(() => import("./pages/AdminPage").then((module) => ({ def
 const ClassesPage = lazy(() => import("./pages/ClassesPage").then((module) => ({ default: module.ClassesPage })));
 const CommunityPage = lazy(() => import("./pages/CommunityPage").then((module) => ({ default: module.CommunityPage })));
 const ContactPage = lazy(() => import("./pages/ContactPage").then((module) => ({ default: module.ContactPage })));
+const DojoPage = lazy(() => import("./pages/DojoPage").then((module) => ({ default: module.DojoPage })));
 const InstructorsPage = lazy(() => import("./pages/InstructorsPage").then((module) => ({ default: module.InstructorsPage })));
 const NewsletterPage = lazy(() => import("./pages/NewsletterPage").then((module) => ({ default: module.NewsletterPage })));
+const SupportPage = lazy(() => import("./pages/SupportPage").then((module) => ({ default: module.SupportPage })));
 const WorkshopsPage = lazy(() => import("./pages/WorkshopsPage").then((module) => ({ default: module.WorkshopsPage })));
 
 export default function App() {
@@ -42,7 +42,7 @@ export default function App() {
             <Route path="/community" element={<CommunityPage />} />
             <Route path="/support" element={<SupportPage />} />
             <Route path="/contact" element={<ContactPage />} />
-            <Route path="/visit" element={<ContactPage />} />
+            <Route path="/visit" element={<Navigate to="/contact" replace />} />
             <Route path="/admin" element={<AdminPage />} />
           </Routes>
         </Suspense>

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import type {
   BodyMediaPlacement,
+  DocumentDisplayMode,
+  DocumentMediaKind,
   EditableContent,
   ExamAnnouncement,
   MediaItem,
@@ -63,6 +65,14 @@ function normalizeNewsletterStatus(value: unknown): NewsletterStatus {
   return value === "pending" || value === "sent" || value === "failed" ? value : "not_sent";
 }
 
+function normalizeDocumentKind(value: unknown): DocumentMediaKind | undefined {
+  return value === "pdf" || value === "docx" || value === "ppt" ? value : undefined;
+}
+
+function normalizeDocumentDisplayMode(value: unknown): DocumentDisplayMode | undefined {
+  return value === "inline" || value === "link" ? value : undefined;
+}
+
 function normalizeMediaItem(value: unknown): MediaItem | null {
   if (!isRecord(value)) {
     return null;
@@ -70,13 +80,19 @@ function normalizeMediaItem(value: unknown): MediaItem | null {
 
   const id = asString(value.id);
   const src = asString(value.src);
-  const type = value.type === "video" ? "video" : "image";
+  const type = value.type === "video" || value.type === "document" ? value.type : "image";
 
   if (!id || !src) {
     return null;
   }
 
   if (type === "video" && !isValidEmbedUrl(src)) {
+    return null;
+  }
+
+  const documentKind = type === "document" ? normalizeDocumentKind(value.documentKind) : undefined;
+
+  if (type === "document" && !documentKind) {
     return null;
   }
 
@@ -89,6 +105,10 @@ function normalizeMediaItem(value: unknown): MediaItem | null {
     caption: asOptionalString(value.caption),
     type,
     title: asOptionalString(value.title),
+    documentKind,
+    displayMode: type === "document" ? normalizeDocumentDisplayMode(value.displayMode) : undefined,
+    fileName: type === "document" ? asOptionalString(value.fileName) : undefined,
+    fileSize: type === "document" ? asOptionalNumber(value.fileSize) : undefined,
     objectPosition: asOptionalString(value.objectPosition),
     width: asOptionalNumber(value.width),
     height: asOptionalNumber(value.height),

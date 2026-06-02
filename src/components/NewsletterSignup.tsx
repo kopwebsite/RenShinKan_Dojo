@@ -8,13 +8,21 @@ type NewsletterSignupProps = {
 };
 
 // Fallback height used until (or unless) the Brevo form reports its own height.
-// Tuned to hug the Brevo form content (email + captcha + button) with a small
-// buffer. Mobile stacks taller, so the listener below grows it when needed.
-const DEFAULT_FRAME_HEIGHT = 470;
+// The iframe is cropped to hide Brevo's extra heading/confirmation band while
+// keeping the email field, Turnstile challenge, and Subscribe button visible.
+const DEFAULT_FRAME_HEIGHT = 820;
 const BREVO_FORM_MAX_WIDTH = 540;
 const BREVO_FRAME_OVERSCAN_X = 24;
-const BREVO_FRAME_CROP_TOP = 40;
-const BREVO_FRAME_CROP_BOTTOM = 102;
+const BREVO_FRAME_CROP_TOP = 206;
+const BREVO_FRAME_CROP_TOP_NARROW = 206;
+const BREVO_FRAME_CROP_TOP_VERY_NARROW = 266;
+const BREVO_FRAME_CROP_BOTTOM = 12;
+const BREVO_VISIBLE_HEIGHT_MIN = 255;
+const BREVO_VISIBLE_HEIGHT_MAX = 315;
+const BREVO_VISIBLE_HEIGHT_MIN_NARROW = 245;
+const BREVO_VISIBLE_HEIGHT_MAX_NARROW = 300;
+const BREVO_VISIBLE_HEIGHT_MIN_VERY_NARROW = 220;
+const BREVO_VISIBLE_HEIGHT_MAX_VERY_NARROW = 235;
 
 const benefits = [
   {
@@ -82,6 +90,28 @@ export function NewsletterSignup({ compact = false, idPrefix = "newsletter" }: N
   const canEmbed = signupUrl.includes("sibforms.com");
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [frameHeight, setFrameHeight] = useState(DEFAULT_FRAME_HEIGHT);
+  const [isNarrowFrame, setIsNarrowFrame] = useState(false);
+  const [isVeryNarrowFrame, setIsVeryNarrowFrame] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(max-width: 640px)");
+    const veryNarrowMediaQuery = window.matchMedia("(max-width: 460px)");
+    const updateFrameMode = () => setIsNarrowFrame(mediaQuery.matches);
+    const updateVeryNarrowFrameMode = () => setIsVeryNarrowFrame(veryNarrowMediaQuery.matches);
+    updateFrameMode();
+    updateVeryNarrowFrameMode();
+    mediaQuery.addEventListener("change", updateFrameMode);
+    veryNarrowMediaQuery.addEventListener("change", updateVeryNarrowFrameMode);
+
+    return () => {
+      mediaQuery.removeEventListener("change", updateFrameMode);
+      veryNarrowMediaQuery.removeEventListener("change", updateVeryNarrowFrameMode);
+    };
+  }, []);
 
   useEffect(() => {
     if (!canEmbed) {
@@ -105,12 +135,33 @@ export function NewsletterSignup({ compact = false, idPrefix = "newsletter" }: N
     return () => window.removeEventListener("message", onMessage);
   }, [canEmbed]);
 
+  const cropTop = isVeryNarrowFrame
+    ? BREVO_FRAME_CROP_TOP_VERY_NARROW
+    : isNarrowFrame
+      ? BREVO_FRAME_CROP_TOP_NARROW
+      : BREVO_FRAME_CROP_TOP;
+  const minVisibleHeight = isVeryNarrowFrame
+    ? BREVO_VISIBLE_HEIGHT_MIN_VERY_NARROW
+    : isNarrowFrame
+      ? BREVO_VISIBLE_HEIGHT_MIN_NARROW
+      : BREVO_VISIBLE_HEIGHT_MIN;
+  const maxVisibleHeight = isVeryNarrowFrame
+    ? BREVO_VISIBLE_HEIGHT_MAX_VERY_NARROW
+    : isNarrowFrame
+      ? BREVO_VISIBLE_HEIGHT_MAX_NARROW
+      : BREVO_VISIBLE_HEIGHT_MAX;
+  const visibleFrameHeight = Math.min(
+    Math.max(frameHeight - cropTop - BREVO_FRAME_CROP_BOTTOM, minVisibleHeight),
+    maxVisibleHeight,
+  );
+  const effectiveFrameHeight = Math.max(frameHeight, visibleFrameHeight + cropTop + BREVO_FRAME_CROP_BOTTOM);
+
   const formColumn = signupUrl ? (
     canEmbed ? (
       <div
-        className="mx-auto w-full overflow-hidden rounded-[0.5rem] border border-ink/10 bg-paper shadow-line transition-[height] duration-300"
+        className="relative mx-auto w-full overflow-hidden rounded-[0.5rem] border border-ink/10 bg-paper shadow-line transition-[height] duration-300"
         style={{
-          height: Math.max(frameHeight - BREVO_FRAME_CROP_TOP - BREVO_FRAME_CROP_BOTTOM, 320),
+          height: visibleFrameHeight,
           maxWidth: BREVO_FORM_MAX_WIDTH,
         }}
       >
@@ -121,12 +172,16 @@ export function NewsletterSignup({ compact = false, idPrefix = "newsletter" }: N
           src={signupUrl}
           scrolling="no"
           style={{
-            height: frameHeight,
+            height: effectiveFrameHeight,
             width: `calc(100% + ${BREVO_FRAME_OVERSCAN_X * 2}px)`,
-            transform: `translate(-${BREVO_FRAME_OVERSCAN_X}px, -${BREVO_FRAME_CROP_TOP}px)`,
+            transform: `translate(-${BREVO_FRAME_OVERSCAN_X}px, -${cropTop}px)`,
           }}
           className="block max-w-none border-0 bg-paper transition-[height] duration-300"
           loading="eager"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-paper min-[480px]:h-24 sm:h-40"
         />
       </div>
     ) : (

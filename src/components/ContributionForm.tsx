@@ -84,7 +84,8 @@ const MEMBERSHIP_WORKER_URL = (import.meta.env.VITE_MEMBERSHIP_WORKER_URL || "/a
 const DEFAULT_TURNSTILE_SITE_KEY = "0x4AAAAAADcmYNIJ1UWKrE_LQz1KjHBMs-o";
 const CONFIGURED_TURNSTILE_SITE_KEY = (import.meta.env.VITE_TURNSTILE_SITE_KEY || "").trim();
 const TURNSTILE_SITE_KEY = resolveTurnstileSiteKey(CONFIGURED_TURNSTILE_SITE_KEY);
-const TURNSTILE_SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+const TURNSTILE_ONLOAD_CALLBACK = "__renshinkanTurnstileLoaded";
+const TURNSTILE_SCRIPT_SRC = `https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=${TURNSTILE_ONLOAD_CALLBACK}`;
 
 type TurnstileOptions = {
   sitekey: string;
@@ -105,6 +106,7 @@ type TurnstileApi = {
 declare global {
   interface Window {
     turnstile?: TurnstileApi;
+    __renshinkanTurnstileLoaded?: () => void;
   }
 }
 
@@ -134,23 +136,36 @@ function loadTurnstileScript() {
         'script[src^="https://challenges.cloudflare.com/turnstile/v0/api.js"]',
       );
 
-      if (existingScript) {
-        existingScript.addEventListener("load", () => resolve(), { once: true });
-        existingScript.addEventListener("error", () => reject(new Error("Unable to load Cloudflare Turnstile.")), {
-          once: true,
-        });
-        return;
-      }
+      existingScript?.remove();
+
+      const timeoutId = window.setTimeout(() => {
+        reject(new Error("Cloudflare Turnstile did not become ready."));
+      }, 15_000);
+
+      window.__renshinkanTurnstileLoaded = () => {
+        window.clearTimeout(timeoutId);
+        if (window.turnstile) {
+          resolve();
+          return;
+        }
+
+        reject(new Error("Cloudflare Turnstile API was not available after load."));
+      };
 
       const script = document.createElement("script");
       script.src = TURNSTILE_SCRIPT_SRC;
       script.async = true;
       script.defer = true;
-      script.addEventListener("load", () => resolve(), { once: true });
-      script.addEventListener("error", () => reject(new Error("Unable to load Cloudflare Turnstile.")), {
+      script.addEventListener("error", () => {
+        window.clearTimeout(timeoutId);
+        reject(new Error("Unable to load Cloudflare Turnstile."));
+      }, {
         once: true,
       });
       document.head.appendChild(script);
+    }).catch((error) => {
+      turnstileScriptPromise = null;
+      throw error;
     });
   }
 
@@ -677,7 +692,7 @@ function TurnstileWidget({
           widgetIdRef.current = window.turnstile?.render(containerRef.current, {
             sitekey: siteKey,
             theme: "light",
-            size: "flexible",
+            size: "normal",
             callback: onVerify,
             "expired-callback": onExpire,
             "error-callback": onError,

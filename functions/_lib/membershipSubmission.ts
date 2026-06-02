@@ -1,5 +1,6 @@
 export type MembershipEnv = {
   TURNSTILE_SECRET_KEY?: string;
+  VITE_TURNSTILE_SECRET_KEY?: string;
   GOOGLE_FORM_URL?: string;
   PARENT_NAME_ENTRY_ID?: string;
   STUDENT_NAME_ENTRY_ID?: string;
@@ -26,7 +27,6 @@ type MembershipPayload = {
 };
 
 const REQUIRED_ENV_KEYS = [
-  "TURNSTILE_SECRET_KEY",
   "GOOGLE_FORM_URL",
   "PARENT_NAME_ENTRY_ID",
   "STUDENT_NAME_ENTRY_ID",
@@ -87,14 +87,19 @@ function normalizeOrigin(value: string) {
 }
 
 function getRequiredEnv(env: MembershipEnv) {
-  const missing = REQUIRED_ENV_KEYS.filter((key) => !env[key]);
+  const missing: string[] = REQUIRED_ENV_KEYS.filter((key) => !env[key]);
+  const turnstileSecretKey = env.TURNSTILE_SECRET_KEY || env.VITE_TURNSTILE_SECRET_KEY;
+
+  if (!turnstileSecretKey) {
+    missing.unshift("TURNSTILE_SECRET_KEY or VITE_TURNSTILE_SECRET_KEY");
+  }
 
   if (missing.length > 0) {
     throw new Error(`Missing Worker configuration: ${missing.join(", ")}`);
   }
 
   return {
-    turnstileSecretKey: env.TURNSTILE_SECRET_KEY!,
+    turnstileSecretKey,
     googleFormUrl: env.GOOGLE_FORM_URL!,
     parentNameEntryId: env.PARENT_NAME_ENTRY_ID!,
     studentNameEntryId: env.STUDENT_NAME_ENTRY_ID!,

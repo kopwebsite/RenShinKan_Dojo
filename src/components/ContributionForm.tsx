@@ -81,14 +81,16 @@ type PaymentMethodId = (typeof PAYMENT_METHODS)[number]["id"];
 const SUBMISSION_FAILED_ERROR = "CONTRIBUTION_SUBMIT_FAILED";
 
 const MEMBERSHIP_WORKER_URL = (import.meta.env.VITE_MEMBERSHIP_WORKER_URL || "/api/membership").trim();
-const TURNSTILE_SITE_KEY = (import.meta.env.VITE_TURNSTILE_SITE_KEY || "").trim();
+const DEFAULT_TURNSTILE_SITE_KEY = "0x4AAAAAADcmYNIJ1UWKrE_LQz1KjHBMs-o";
+const CONFIGURED_TURNSTILE_SITE_KEY = (import.meta.env.VITE_TURNSTILE_SITE_KEY || "").trim();
+const TURNSTILE_SITE_KEY = resolveTurnstileSiteKey(CONFIGURED_TURNSTILE_SITE_KEY);
 const TURNSTILE_SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 
 type TurnstileOptions = {
   sitekey: string;
   callback: (token: string) => void;
   "expired-callback": () => void;
-  "error-callback": () => void;
+  "error-callback": (errorCode?: string) => void;
   theme?: "auto" | "light" | "dark";
   size?: "normal" | "compact" | "flexible";
 };
@@ -107,6 +109,20 @@ declare global {
 }
 
 let turnstileScriptPromise: Promise<void> | null = null;
+
+function resolveTurnstileSiteKey(configuredSiteKey: string) {
+  if (!configuredSiteKey || configuredSiteKey.includes("PLACEHOLDER")) {
+    return DEFAULT_TURNSTILE_SITE_KEY;
+  }
+
+  // A real 0x Turnstile key is longer than the public test keys. If the
+  // deployment variable is truncated, prefer the known public key for this site.
+  if (configuredSiteKey.startsWith("0x") && configuredSiteKey.length < DEFAULT_TURNSTILE_SITE_KEY.length) {
+    return DEFAULT_TURNSTILE_SITE_KEY;
+  }
+
+  return configuredSiteKey;
+}
 
 function loadTurnstileScript() {
   if (typeof window === "undefined") return Promise.resolve();
@@ -305,7 +321,11 @@ export function ContributionForm() {
     }));
   }, [t]);
 
-  const handleTurnstileError = useCallback(() => {
+  const handleTurnstileError = useCallback((errorCode?: string) => {
+    if (errorCode) {
+      console.warn(`Cloudflare Turnstile error: ${errorCode}`);
+    }
+
     setTurnstileToken("");
     setErrors((current) => ({
       ...current,
@@ -638,7 +658,7 @@ function TurnstileWidget({
   resetSignal: number;
   onVerify: (token: string) => void;
   onExpire: () => void;
-  onError: () => void;
+  onError: (errorCode?: string) => void;
 }) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);

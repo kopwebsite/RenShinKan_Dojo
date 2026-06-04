@@ -49,6 +49,7 @@ Add these secrets:
 ```bash
 npx wrangler pages secret put ADMIN_PASSWORD_HASH --project-name renshinkan-dojo
 npx wrangler pages secret put SESSION_SECRET --project-name renshinkan-dojo
+npx wrangler pages secret put TURNSTILE_SECRET_KEY --project-name renshinkan-dojo
 npx wrangler pages secret put BREVO_API_KEY --project-name renshinkan-dojo
 ```
 
@@ -57,13 +58,14 @@ Add these Pages environment variables:
 ```bash
 SITE_URL=https://YOUR_DOMAIN
 VITE_SITE_URL=https://YOUR_DOMAIN
+VITE_TURNSTILE_SITE_KEY=PLACEHOLDER_CLOUDFLARE_TURNSTILE_SITE_KEY
 BREVO_LIST_ID=PLACEHOLDER_BREVO_LIST_ID
 BREVO_SENDER_EMAIL=PLACEHOLDER_VERIFIED_SENDER_EMAIL
 BREVO_SENDER_NAME=RenshinKan Dojo
 VITE_BREVO_SIGNUP_FORM_URL=PLACEHOLDER_BREVO_SIGNUP_FORM_URL
 ```
 
-Only the `VITE_*` values are exposed to browser JavaScript. Keep `ADMIN_PASSWORD_HASH`, `SESSION_SECRET`, and `BREVO_API_KEY` as secrets.
+Only the `VITE_*` values are exposed to browser JavaScript. Keep `ADMIN_PASSWORD_HASH`, `SESSION_SECRET`, `TURNSTILE_SECRET_KEY`, and `BREVO_API_KEY` as secrets.
 
 ## Cloudflare Git Deployment
 

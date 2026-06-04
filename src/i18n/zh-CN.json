@@ -505,6 +505,7 @@
       "optional": "可选",
       "paymentLegend": "您想如何贡献？",
       "comingSoon": "即将推出",
+      "preferred": "推荐",
       "notesPlaceholder": "任何你想让老师知道的事情。",
       "consent": "我了解每月的捐款应在每月 1 日到期，以帮助确保道场顺利运营。",
       "submitting": "正在提交...",
@@ -520,7 +521,7 @@
         },
         "scheduled": {
           "label": "设置预定付款",
-          "note": "此选项尚未准备好。我们仍在设置中。"
+          "note": "提交表单后，您将被转到 Stripe 以设置每月付款。"
         }
       },
       "errors": {

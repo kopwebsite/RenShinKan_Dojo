@@ -505,6 +505,7 @@
       "optional": "Optional",
       "paymentLegend": "How would you like to contribute?",
       "comingSoon": "Coming soon",
+      "preferred": "preferred",
       "notesPlaceholder": "Anything you would like Sensei to know.",
       "consent": "I understand that monthly contributions are due on the 1st of every month to help ensure the dojo can operate smoothly.",
       "submitting": "Submitting...",
@@ -520,7 +521,7 @@
         },
         "scheduled": {
           "label": "Set up scheduled payment",
-          "note": "This option is not ready yet. We are still setting it up."
+          "note": "After the form is submitted, you will be taken to Stripe to set up monthly payments."
         }
       },
       "errors": {

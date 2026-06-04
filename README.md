@@ -81,6 +81,8 @@ Required Cloudflare configuration:
 - `ADMIN_PASSWORD_HASH` secret
 - `SESSION_SECRET` secret
 - `SITE_URL` Pages Function variable or secret
+- `VITE_TURNSTILE_SITE_KEY` Pages build variable for the public `/support` Turnstile widget
+- `TURNSTILE_SECRET_KEY` Pages Function secret matching that Turnstile widget
 - optional Brevo secrets if newsletter sending is enabled
 - `VITE_SITE_URL` and `VITE_BREVO_SIGNUP_FORM_URL` Pages build variables
 

@@ -12,8 +12,9 @@ import { assetPath } from "../utils/assetPath";
  *
  *   1. The parent fills in their details, chooses how they would like to
  *      contribute, and agrees to the consent note.
- *   2. After they submit, they see a warm confirmation that matches the
- *      contribution method they picked.
+ *   2. After they submit, they either see a warm confirmation that matches
+ *      the contribution method they picked or, for scheduled payments, they
+ *      continue to Stripe.
  *
  * The payment choice is part of the form itself, so if you connect this to a
  * Google Form or Google Sheet you will be able to see exactly which method
@@ -37,6 +38,9 @@ import { assetPath } from "../utils/assetPath";
 // Cropped PromptPay QR asset used by the monthly contribution confirmation.
 const PROMPTPAY_QR_IMAGE = "/images/promptpay-qr.png";
 
+// Creates the recurring monthly dojo dues subscription through Stripe after the support form is submitted.
+const STRIPE_MONTHLY_DUES_PAYMENT_LINK = "https://buy.stripe.com/4gM4gzawbfAZ59U2K45kk00";
+
 // Bank and PromptPay details shown when a parent chooses to transfer directly.
 // Edit these to keep them current.
 const BANK_DETAILS = {
@@ -46,15 +50,7 @@ const BANK_DETAILS = {
 };
 
 // The contribution methods shown on the first page. The parent picks one.
-// To turn the scheduled payment on later, set its "disabled" value to false.
 const PAYMENT_METHODS = [
-  {
-    id: "inPerson",
-    backendLabel: "Pay in person",
-    labelKey: "support.contribution.methods.inPerson.label",
-    noteKey: "support.contribution.methods.inPerson.note",
-    disabled: false,
-  },
   {
     id: "qr",
     backendLabel: "Pay with PromptPay QR code",
@@ -67,7 +63,8 @@ const PAYMENT_METHODS = [
     backendLabel: "Set up scheduled payment",
     labelKey: "support.contribution.methods.scheduled.label",
     noteKey: "support.contribution.methods.scheduled.note",
-    disabled: true, // greyed out for now
+    disabled: false,
+    preferred: true,
   },
 ] as const satisfies readonly {
   id: string;
@@ -75,17 +72,19 @@ const PAYMENT_METHODS = [
   labelKey: TranslationKey;
   noteKey: TranslationKey;
   disabled: boolean;
+  preferred?: boolean;
 }[];
 
 type PaymentMethodId = (typeof PAYMENT_METHODS)[number]["id"];
+const SCHEDULED_PAYMENT_METHOD_ID = "scheduled" satisfies PaymentMethodId;
 const SUBMISSION_FAILED_ERROR = "CONTRIBUTION_SUBMIT_FAILED";
 
 const MEMBERSHIP_WORKER_URL = (import.meta.env.VITE_MEMBERSHIP_WORKER_URL || "/api/membership").trim();
-const DEFAULT_TURNSTILE_SITE_KEY = "0x4AAAAAADcmYNIJ1UWKrE_LQz1KjHBMs-o";
+const LOCAL_TURNSTILE_SITE_KEY = "1x00000000000000000000AA";
 const CONFIGURED_TURNSTILE_SITE_KEY = (import.meta.env.VITE_TURNSTILE_SITE_KEY || "").trim();
 const TURNSTILE_SITE_KEY = resolveTurnstileSiteKey(CONFIGURED_TURNSTILE_SITE_KEY);
-const TURNSTILE_ONLOAD_CALLBACK = "__renshinkanTurnstileLoaded";
-const TURNSTILE_SCRIPT_SRC = `https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=${TURNSTILE_ONLOAD_CALLBACK}`;
+const TURNSTILE_SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+const TURNSTILE_SCRIPT_SELECTOR = 'script[src^="https://challenges.cloudflare.com/turnstile/v0/api.js"]';
 
 type TurnstileOptions = {
   sitekey: string;
@@ -106,59 +105,78 @@ type TurnstileApi = {
 declare global {
   interface Window {
     turnstile?: TurnstileApi;
-    __renshinkanTurnstileLoaded?: () => void;
   }
 }
 
-let turnstileScriptPromise: Promise<void> | null = null;
+let turnstileScriptPromise: Promise<TurnstileApi> | null = null;
 
 function resolveTurnstileSiteKey(configuredSiteKey: string) {
   if (!configuredSiteKey || configuredSiteKey.includes("PLACEHOLDER")) {
-    return DEFAULT_TURNSTILE_SITE_KEY;
-  }
-
-  // A real 0x Turnstile key is longer than the public test keys. If the
-  // deployment variable is truncated, prefer the known public key for this site.
-  if (configuredSiteKey.startsWith("0x") && configuredSiteKey.length < DEFAULT_TURNSTILE_SITE_KEY.length) {
-    return DEFAULT_TURNSTILE_SITE_KEY;
+    return isLocalTurnstileHost() ? LOCAL_TURNSTILE_SITE_KEY : "";
   }
 
   return configuredSiteKey;
 }
 
+function isLocalTurnstileHost() {
+  if (typeof window === "undefined") return false;
+  return ["localhost", "127.0.0.1", "0.0.0.0", "::1"].includes(window.location.hostname);
+}
+
 function loadTurnstileScript() {
-  if (typeof window === "undefined") return Promise.resolve();
-  if (window.turnstile) return Promise.resolve();
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("Cloudflare Turnstile requires a browser."));
+  }
+
+  if (window.turnstile) return Promise.resolve(window.turnstile);
 
   if (!turnstileScriptPromise) {
     turnstileScriptPromise = new Promise((resolve, reject) => {
-      const existingScript = document.querySelector<HTMLScriptElement>(
-        'script[src^="https://challenges.cloudflare.com/turnstile/v0/api.js"]',
-      );
-
-      existingScript?.remove();
+      let settled = false;
 
       const timeoutId = window.setTimeout(() => {
-        reject(new Error("Cloudflare Turnstile did not become ready."));
+        fail(new Error("Cloudflare Turnstile did not become ready."));
       }, 15_000);
 
-      window.__renshinkanTurnstileLoaded = () => {
+      function fail(error: Error) {
+        if (settled) return;
+        settled = true;
         window.clearTimeout(timeoutId);
-        if (window.turnstile) {
-          resolve();
-          return;
+        reject(error);
+      }
+
+      function resolveWhenAvailable() {
+        const startedAt = window.performance.now();
+
+        function checkApi() {
+          if (settled) return;
+
+          if (window.turnstile) {
+            settled = true;
+            window.clearTimeout(timeoutId);
+            resolve(window.turnstile);
+            return;
+          }
+
+          if (window.performance.now() - startedAt > 3_000) {
+            fail(new Error("Cloudflare Turnstile API was not available after load."));
+            return;
+          }
+
+          window.setTimeout(checkApi, 50);
         }
 
-        reject(new Error("Cloudflare Turnstile API was not available after load."));
-      };
+        checkApi();
+      }
+
+      document.querySelector<HTMLScriptElement>(TURNSTILE_SCRIPT_SELECTOR)?.remove();
 
       const script = document.createElement("script");
       script.src = TURNSTILE_SCRIPT_SRC;
       script.async = true;
-      script.defer = true;
+      script.addEventListener("load", resolveWhenAvailable, { once: true });
       script.addEventListener("error", () => {
-        window.clearTimeout(timeoutId);
-        reject(new Error("Unable to load Cloudflare Turnstile."));
+        fail(new Error("Unable to load Cloudflare Turnstile."));
       }, {
         once: true,
       });
@@ -278,6 +296,7 @@ export function ContributionForm() {
   const [submitted, setSubmitted] = useState(false);
   const [submittedDetails, setSubmittedDetails] = useState<ContributionDetails | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const submittingRef = useRef(false);
 
   // Update a single field and clear any error already showing for it.
   function updateField<K extends keyof ContributionDetails>(field: K, value: ContributionDetails[K]) {
@@ -350,6 +369,11 @@ export function ContributionForm() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (submittingRef.current) {
+      return;
+    }
+
     setSubmitError("");
     const found = validate(details, turnstileToken);
     setErrors(found);
@@ -363,10 +387,22 @@ export function ContributionForm() {
       return;
     }
 
+    const submittedContributionDetails = details;
+    const isScheduledPayment = submittedContributionDetails.paymentMethod === SCHEDULED_PAYMENT_METHOD_ID;
+    let redirectingToStripe = false;
+
+    submittingRef.current = true;
     setSubmitting(true);
     try {
-      await submitContribution(details, turnstileToken);
-      setSubmittedDetails(details);
+      await submitContribution(submittedContributionDetails, turnstileToken);
+
+      if (isScheduledPayment) {
+        redirectingToStripe = true;
+        window.location.href = STRIPE_MONTHLY_DUES_PAYMENT_LINK;
+        return;
+      }
+
+      setSubmittedDetails(submittedContributionDetails);
       setDetails(emptyDetails);
       setTurnstileToken("");
       setSubmitted(true);
@@ -379,7 +415,10 @@ export function ContributionForm() {
       setTurnstileToken("");
       setTurnstileResetSignal((signal) => signal + 1);
     } finally {
-      setSubmitting(false);
+      if (!redirectingToStripe) {
+        submittingRef.current = false;
+        setSubmitting(false);
+      }
     }
   }
 
@@ -506,6 +545,11 @@ export function ContributionForm() {
                       <span>
                         <span className="block text-sm font-semibold text-ink">
                           {t(method.labelKey)}
+                          {method.preferred && (
+                            <span className="ml-2 rounded-full bg-bamboo/15 px-2 py-0.5 text-[0.65rem] font-bold text-bamboo">
+                              {t("support.contribution.preferred")}
+                            </span>
+                          )}
                           {method.disabled && (
                             <span className="ml-2 rounded-full bg-ink/10 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-charcoal/60">
                               {t("support.contribution.comingSoon")}
@@ -590,14 +634,6 @@ export function ContributionForm() {
       {/* ---- STAGE 2: the confirmation that matches the chosen method ---- */}
       {submitted && (
         <div className="mt-5">
-          {/* PAY IN PERSON confirmation */}
-          {confirmationDetails.paymentMethod === "inPerson" && (
-            <>
-              <h3 className="text-3xl text-ink">{t("support.contribution.confirm.title")}</h3>
-              <ConfirmationNote>{t("support.contribution.confirm.inPerson")}</ConfirmationNote>
-            </>
-          )}
-
           {/* PAY WITH QR CODE confirmation, with the direct bank transfer option */}
           {confirmationDetails.paymentMethod === "qr" && (
             <>
@@ -644,7 +680,7 @@ export function ContributionForm() {
           )}
 
           {/* Safety net: if somehow no method was set, show a gentle thank you. */}
-          {confirmationDetails.paymentMethod !== "inPerson" && confirmationDetails.paymentMethod !== "qr" && (
+          {confirmationDetails.paymentMethod !== "qr" && (
             <>
               <h3 className="text-3xl text-ink">{t("support.contribution.confirm.fallbackTitle")}</h3>
               <ConfirmationNote>{t("support.contribution.confirm.fallback")}</ConfirmationNote>
@@ -685,19 +721,17 @@ function TurnstileWidget({
     let mounted = true;
 
     loadTurnstileScript()
-      .then(() => {
-        window.turnstile?.ready(() => {
-          if (!mounted || !containerRef.current || widgetIdRef.current) return;
+      .then((turnstile) => {
+        if (!mounted || !containerRef.current || widgetIdRef.current) return;
 
-          widgetIdRef.current = window.turnstile?.render(containerRef.current, {
-            sitekey: siteKey,
-            theme: "light",
-            size: "normal",
-            callback: onVerify,
-            "expired-callback": onExpire,
-            "error-callback": onError,
-          }) ?? null;
-        });
+        widgetIdRef.current = turnstile.render(containerRef.current, {
+          sitekey: siteKey,
+          theme: "light",
+          size: "normal",
+          callback: onVerify,
+          "expired-callback": onExpire,
+          "error-callback": onError,
+        }) ?? null;
       })
       .catch(() => {
         if (mounted) onError();

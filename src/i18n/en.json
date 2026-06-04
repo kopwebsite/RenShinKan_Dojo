@@ -380,7 +380,6 @@
     },
     "otherDojos": {
       "eyebrow": "Other Dojos",
-      "title": "Part of a wider Chiang Mai aikido network.",
       "copy": "RenshinKan is one part of a broader aikido community in Chiang Mai and Thailand. Below are the key organisations and bodies that connect the dojo to the wider practice world.",
       "know": "Know of another connected dojo or organisation?",
       "knowCopy": "Get in touch and we'll add it here."
@@ -709,6 +708,97 @@
         "title": "Training Hall",
         "description": "The main training space with tatami mats, high ceilings, and plenty of room to move.",
         "alt": "RenshinKan Dojo interior training hall."
+      }
+    },
+    "dojoJourneyPhotos": {
+      "sourceName": "Peace Culture Foundation RenshinKan Dojo build gallery",
+      "credit": "Peace Culture Foundation; photographer not listed.",
+      "rightsNote": "Shared here for educational and historical context. Source gallery cited above.",
+      "photos": {
+        "siteLayout": {
+          "title": "Laying Out The Site",
+          "date": "December 25, 2011",
+          "caption": "The early build gallery shows the dojo site being marked out before the main foundation work began.",
+          "alt": "Marked ground and posts on the RenshinKan Dojo site before construction."
+        },
+        "foundationFormwork": {
+          "title": "Foundation Work",
+          "date": "January 20, 2012",
+          "caption": "The foundation and formwork begin to show the footprint of the future practice hall.",
+          "alt": "Wood formwork and early concrete foundation work for RenshinKan Dojo."
+        },
+        "earlyColumns": {
+          "title": "First Columns",
+          "date": "February 24, 2012",
+          "caption": "Vertical supports appear on the site, beginning the shift from ground work to building frame.",
+          "alt": "Early concrete columns rising from the RenshinKan Dojo construction site."
+        },
+        "roofFrame": {
+          "title": "Roof Frame",
+          "date": "May 3, 2012",
+          "caption": "The steel roof structure and stored materials show the dojo taking on its final outline.",
+          "alt": "Steel roof frame and construction materials at RenshinKan Dojo."
+        },
+        "gardenView": {
+          "title": "Garden Setting",
+          "date": "May 3, 2012",
+          "caption": "The source gallery pairs the construction progress with the quiet garden setting around the dojo.",
+          "alt": "Garden and pond view near RenshinKan Dojo during construction."
+        },
+        "finishedWoodFloor": {
+          "title": "Finished Wood Floor",
+          "date": "November 2012",
+          "caption": "Before the tatami arrived, the empty hall already showed the calm proportions of the practice space.",
+          "alt": "Completed wooden floor inside RenshinKan Dojo before mats were installed."
+        },
+        "nightExterior": {
+          "title": "Night Exterior",
+          "date": "November 2012",
+          "caption": "A night view from the build gallery shows the completed shell lit from within.",
+          "alt": "RenshinKan Dojo exterior lit at night during late construction."
+        },
+        "sunlitEmptyDojo": {
+          "title": "Ready For The Mat",
+          "date": "January 2013",
+          "caption": "The empty room shows the warm wood, high windows, and open floor before regular training began.",
+          "alt": "Sunlit empty RenshinKan Dojo interior with wood floor and kamiza wall."
+        },
+        "kamizaVisit": {
+          "title": "Kamiza Visit",
+          "date": "January 2013",
+          "caption": "The source gallery includes a visit in front of the kamiza wall as the interior neared completion.",
+          "alt": "Two visitors standing in front of the kamiza wall at RenshinKan Dojo."
+        },
+        "tatamiStacked": {
+          "title": "Tatami Arrives",
+          "date": "April 6, 2013",
+          "caption": "The mats arrive at the dojo, turning the completed hall into a working aikido space.",
+          "alt": "Stacks of green and yellow tatami mats outside RenshinKan Dojo."
+        },
+        "tatamiInstallation": {
+          "title": "Installing The Mat",
+          "date": "April 6, 2013",
+          "caption": "Students and supporters help place the mats, one of the last visible steps before practice.",
+          "alt": "People installing yellow tatami mats inside RenshinKan Dojo."
+        },
+        "firstUkemi": {
+          "title": "First Ukemi",
+          "date": "April 6, 2013",
+          "caption": "The first movement on the new mat captures the moment the building becomes a dojo.",
+          "alt": "A practitioner taking ukemi on the new RenshinKan Dojo mats."
+        },
+        "openingPractice": {
+          "title": "Opening Practice",
+          "date": "April 8, 2013",
+          "caption": "The build sequence ends naturally with a room full of movement, partners, and shared practice.",
+          "alt": "Aikido students practicing together at RenshinKan Dojo after opening."
+        },
+        "interclubCommunity": {
+          "title": "Community After Practice",
+          "date": "August 18, 2013",
+          "caption": "The same interclub panel includes a shared meal, a useful reminder that dojo life extends beyond the mat.",
+          "alt": "RenshinKan Dojo community members eating together after practice."
+        }
       }
     },
     "instructors": {

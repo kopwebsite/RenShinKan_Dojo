@@ -380,7 +380,6 @@
     },
     "otherDojos": {
       "eyebrow": "其他道场",
-      "title": "更广泛的清迈合气道网络的一部分。",
       "copy": "RenshinKan 是清迈和泰国更广泛的合气道社区的一部分。以下是将道场与更广泛的实践世界联系起来的主要组织和机构。",
       "know": "知道另一个相连的道场或组织吗？",
       "knowCopy": "联系我们，我们会将其添加到此处。"
@@ -709,6 +708,97 @@
         "title": "练习大厅",
         "description": "主要练习空间设有榻榻米、高天花板，并有充足活动空间。",
         "alt": "RenshinKan Dojo 室内练习大厅。"
+      }
+    },
+    "dojoJourneyPhotos": {
+      "sourceName": "和平文化基金会 RenshinKan Dojo 建设图库",
+      "credit": "和平文化基金会；摄影者未列出。",
+      "rightsNote": "为教育和历史背景在此分享；上方已注明来源图库。",
+      "photos": {
+        "siteLayout": {
+          "title": "场地放样",
+          "date": "2011年12月25日",
+          "caption": "早期建设图库显示，在主要基础工程开始前，道场场地已经完成标记。",
+          "alt": "施工前 RenshinKan Dojo 场地上已标记的地面和立柱。"
+        },
+        "foundationFormwork": {
+          "title": "基础工程",
+          "date": "2012年1月20日",
+          "caption": "基础和模板开始显出未来练习大厅的轮廓。",
+          "alt": "RenshinKan Dojo 早期木模板和混凝土基础工程。"
+        },
+        "earlyColumns": {
+          "title": "第一批立柱",
+          "date": "2012年2月24日",
+          "caption": "垂直支撑出现在场地上，施工从地面作业转向建筑框架。",
+          "alt": "RenshinKan Dojo 施工现场升起的早期混凝土立柱。"
+        },
+        "roofFrame": {
+          "title": "屋架",
+          "date": "2012年5月3日",
+          "caption": "钢制屋架和堆放的材料让道场的最终轮廓逐渐清晰。",
+          "alt": "RenshinKan Dojo 的钢制屋架和建筑材料。"
+        },
+        "gardenView": {
+          "title": "庭园环境",
+          "date": "2012年5月3日",
+          "caption": "来源图库把施工进展与道场周围安静的庭园环境放在一起呈现。",
+          "alt": "施工期间 RenshinKan Dojo 附近的花园和池塘景观。"
+        },
+        "finishedWoodFloor": {
+          "title": "木地板完工",
+          "date": "2012年11月",
+          "caption": "榻榻米到来之前，空大厅已经展现出练习空间沉静的比例。",
+          "alt": "RenshinKan Dojo 内部已完工的木地板，尚未铺设垫子。"
+        },
+        "nightExterior": {
+          "title": "夜间外观",
+          "date": "2012年11月",
+          "caption": "建设图库中的夜景显示，完成的建筑外壳从内部透出灯光。",
+          "alt": "施工后期夜间亮灯的 RenshinKan Dojo 外观。"
+        },
+        "sunlitEmptyDojo": {
+          "title": "准备铺垫",
+          "date": "2013年1月",
+          "caption": "空房间呈现温暖木色、高窗和开阔地面，那是在定期训练开始之前。",
+          "alt": "阳光照进空置的 RenshinKan Dojo，室内有木地板和神座墙。"
+        },
+        "kamizaVisit": {
+          "title": "神座前来访",
+          "date": "2013年1月",
+          "caption": "来源图库包含一张在神座墙前来访的照片，当时室内已接近完成。",
+          "alt": "两名访客站在 RenshinKan Dojo 的神座墙前。"
+        },
+        "tatamiStacked": {
+          "title": "榻榻米到达",
+          "date": "2013年4月6日",
+          "caption": "垫子抵达道场，把已经完工的大厅变成真正的合气道练习空间。",
+          "alt": "RenshinKan Dojo 外堆放着绿色和黄色榻榻米垫。"
+        },
+        "tatamiInstallation": {
+          "title": "铺设垫子",
+          "date": "2013年4月6日",
+          "caption": "学生和支持者一起铺设垫子，这是正式练习前最后几个可见步骤之一。",
+          "alt": "人们正在 RenshinKan Dojo 内铺设黄色榻榻米垫。"
+        },
+        "firstUkemi": {
+          "title": "第一次受身",
+          "date": "2013年4月6日",
+          "caption": "新垫子上的第一个动作记录了建筑成为道场的那一刻。",
+          "alt": "一名练习者在 RenshinKan Dojo 新垫子上做受身。"
+        },
+        "openingPractice": {
+          "title": "开馆练习",
+          "date": "2013年4月8日",
+          "caption": "建设过程自然结束于一个充满动作、伙伴和共同练习的房间。",
+          "alt": "开馆后合气道学生在 RenshinKan Dojo 一起练习。"
+        },
+        "interclubCommunity": {
+          "title": "练习后的社区时光",
+          "date": "2013年8月18日",
+          "caption": "同一组跨社团照片中包括一次共同用餐，提醒人们道场生活延伸到垫子之外。",
+          "alt": "RenshinKan Dojo 社区成员练习后一起用餐。"
+        }
       }
     },
     "instructors": {

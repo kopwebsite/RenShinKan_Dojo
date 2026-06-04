@@ -25,6 +25,23 @@ export const dojoPhotoKeys = [
   "data.dojoPhotos.trainingHall",
 ];
 
+export const dojoJourneyPhotoKeys = [
+  "data.dojoJourneyPhotos.photos.siteLayout",
+  "data.dojoJourneyPhotos.photos.foundationFormwork",
+  "data.dojoJourneyPhotos.photos.earlyColumns",
+  "data.dojoJourneyPhotos.photos.roofFrame",
+  "data.dojoJourneyPhotos.photos.gardenView",
+  "data.dojoJourneyPhotos.photos.finishedWoodFloor",
+  "data.dojoJourneyPhotos.photos.nightExterior",
+  "data.dojoJourneyPhotos.photos.sunlitEmptyDojo",
+  "data.dojoJourneyPhotos.photos.kamizaVisit",
+  "data.dojoJourneyPhotos.photos.tatamiStacked",
+  "data.dojoJourneyPhotos.photos.tatamiInstallation",
+  "data.dojoJourneyPhotos.photos.firstUkemi",
+  "data.dojoJourneyPhotos.photos.openingPractice",
+  "data.dojoJourneyPhotos.photos.interclubCommunity",
+];
+
 export const instructorKeys = [
   "data.instructors.sombat",
   "data.instructors.teerarat",
@@ -143,6 +160,31 @@ export function translateDojoPhoto<T extends { title: string; description: strin
     title: text(t, baseKey, "title"),
     description: text(t, baseKey, "description"),
     alt: text(t, baseKey, "alt"),
+  };
+}
+
+export function translateDojoJourneyPhoto<T extends {
+  alt: string;
+  title: string;
+  date: string;
+  caption: string;
+  sourceName: string;
+  credit: string;
+  rightsNote: string;
+}>(
+  t: Translator,
+  item: T,
+  baseKey: string,
+) {
+  return {
+    ...item,
+    alt: text(t, baseKey, "alt"),
+    title: text(t, baseKey, "title"),
+    date: text(t, baseKey, "date"),
+    caption: text(t, baseKey, "caption"),
+    sourceName: t("data.dojoJourneyPhotos.sourceName"),
+    credit: t("data.dojoJourneyPhotos.credit"),
+    rightsNote: t("data.dojoJourneyPhotos.rightsNote"),
   };
 }
 

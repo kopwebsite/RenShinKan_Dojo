@@ -76,7 +76,6 @@ const dropdownNavItems: DropdownNavItem[] = [
       { labelKey: "nav.pastEvents", to: "/community#past-events" },
       { labelKey: "nav.peaceCultureFoundation", to: "/community#peace-culture" },
       { labelKey: "nav.chiangMaiCmu", to: "/community#cmu-aikido" },
-      { labelKey: "nav.otherDojos", to: "/community#other-dojos" },
     ],
   },
 ];

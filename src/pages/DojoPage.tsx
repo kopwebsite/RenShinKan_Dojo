@@ -16,7 +16,12 @@ import { siteInfo } from "../data/siteMeta";
 import { useTranslation } from "../i18n";
 import { getPublishedRecentEvents, useEditableContent } from "../lib/content";
 import { assetPath } from "../utils/assetPath";
-import { dojoPhotoKeys, translateDojoPhoto } from "../utils/siteContentTranslations";
+import {
+  dojoJourneyPhotoKeys,
+  dojoPhotoKeys,
+  translateDojoJourneyPhoto,
+  translateDojoPhoto,
+} from "../utils/siteContentTranslations";
 
 export function DojoPage() {
   const { t } = useTranslation();
@@ -24,6 +29,9 @@ export function DojoPage() {
   const recentUpdates = getPublishedRecentEvents(content, 3);
   const matMedia = content.onTheMatMedia.length ? content.onTheMatMedia : onTheMatMedia;
   const localizedDojoPhotos = dojoPhotos.map((photo, index) => translateDojoPhoto(t, photo, dojoPhotoKeys[index]));
+  const localizedDojoJourneyPhotos = renshinkanBuildPhotos.map((photo, index) =>
+    translateDojoJourneyPhoto(t, photo, dojoJourneyPhotoKeys[index]),
+  );
   const [activeSpacePhotoIndex, setActiveSpacePhotoIndex] = useState(0);
   const activeSpacePhoto = localizedDojoPhotos[activeSpacePhotoIndex];
   const spacePhotoOptions = localizedDojoPhotos.filter((_, index) => index !== activeSpacePhotoIndex);
@@ -343,7 +351,7 @@ export function DojoPage() {
             <ExternalLink size={17} aria-hidden="true" />
           </a>
         </div>
-        <DojoJourney photos={renshinkanBuildPhotos} />
+        <DojoJourney photos={localizedDojoJourneyPhotos} />
       </MotionSection>
 
       <MotionSection id="location" className="container-shell scroll-mt-28 pb-20">

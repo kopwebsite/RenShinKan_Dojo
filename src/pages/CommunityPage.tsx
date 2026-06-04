@@ -18,7 +18,6 @@ import {
   communityValues,
   pcfDojoPhotos,
   peaceCultureFoundation,
-  relatedDojos,
 } from "../data/siteContent";
 import { useTranslation } from "../i18n";
 import { getCommunityCalendarEvents, useEditableContent } from "../lib/content";
@@ -27,8 +26,6 @@ import {
   cmuPhotoKeys,
   communityValueKeys,
   pcfPhotoKeys,
-  relatedDojoKeys,
-  translateRelatedDojo,
   translateTitleCaption,
   translateTitleDescription,
 } from "../utils/siteContentTranslations";
@@ -45,9 +42,6 @@ export function CommunityPage() {
   );
   const localizedCmuPhotos = cmuAikidoClub.photos.map((photo, index) =>
     translateTitleCaption(t, photo, cmuPhotoKeys[index]),
-  );
-  const localizedRelatedDojos = relatedDojos.map((dojo, index) =>
-    translateRelatedDojo(t, dojo, relatedDojoKeys[index]),
   );
   const cmuLinkLabels = [
     t("data.community.cmu.links.history"),
@@ -465,57 +459,6 @@ export function CommunityPage() {
         </div>
       </MotionSection>
 
-      <MotionSection id="other-dojos" className="container-shell scroll-mt-28 pb-20">
-        <div className="mb-8 max-w-3xl">
-          <p className="eyebrow">{t("community.otherDojos.eyebrow")}</p>
-          <h2 className="section-title">{t("community.otherDojos.title")}</h2>
-          <p className="section-copy">
-            {t("community.otherDojos.copy")}
-          </p>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {localizedRelatedDojos.map((dojo) => (
-            <article key={dojo.name} className="surface flex flex-col rounded-[1.75rem] p-6">
-              {dojo.logo ? (
-                <div className="mb-5 flex h-16 w-fit max-w-full items-center rounded-xl bg-white px-4 py-2">
-                  <img src={dojo.logo} alt="" className="max-h-12 w-auto object-contain" loading="lazy" />
-                </div>
-              ) : null}
-              <h3 className="text-2xl leading-tight text-ink">{dojo.name}</h3>
-              <p className="mt-3 flex items-start gap-2 text-sm font-bold text-bamboo">
-                <MapPin size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
-                {dojo.location}
-              </p>
-              <p className="mt-4 text-sm leading-6 text-charcoal/75">{dojo.description}</p>
-              <div className="mt-auto flex flex-wrap gap-2 pt-5">
-                {dojo.url ? (
-                  <a href={dojo.url} target="_blank" rel="noreferrer" className="btn-secondary">
-                    Website
-                    <ArrowUpRight size={15} aria-hidden="true" />
-                  </a>
-                ) : null}
-                {dojo.facebook ? (
-                  <a href={dojo.facebook} target="_blank" rel="noreferrer" className="btn-secondary">
-                    Facebook
-                    <ArrowUpRight size={15} aria-hidden="true" />
-                  </a>
-                ) : null}
-              </div>
-            </article>
-          ))}
-
-          <article className="rounded-[1.75rem] border border-dashed border-bamboo/35 bg-bamboo/10 p-6">
-            <h3 className="text-2xl leading-tight text-ink">{t("community.otherDojos.know")}</h3>
-            <p className="mt-3 text-sm leading-6 text-charcoal/75">
-              {t("community.otherDojos.knowCopy")}
-            </p>
-            <Link to="/contact" className="btn-primary mt-5">
-              {t("common.getInTouch")}
-            </Link>
-          </article>
-        </div>
-      </MotionSection>
     </>
   );
 }

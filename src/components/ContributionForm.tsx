@@ -60,7 +60,7 @@ const PAYMENT_METHODS = [
   },
   {
     id: "scheduled",
-    backendLabel: "Set up scheduled payment",
+    backendLabel: "Scheduled payment via Stripe",
     labelKey: "support.contribution.methods.scheduled.label",
     noteKey: "support.contribution.methods.scheduled.note",
     disabled: false,
@@ -226,9 +226,8 @@ type FieldErrors = Partial<Record<keyof ContributionDetails | "turnstile", strin
  * Called when the parent submits the form.
  *
  * The submitted details include `paymentMethod`, so whichever backend you use
- * will know which contribution method the parent chose. Right now it simply
- * logs the details so you can see them in the browser console. Replace the body
- * with whichever backend you prefer:
+ * will know which contribution method the parent chose. The current production
+ * path posts the verified submission to the configured membership worker.
  *
  *   • GOOGLE FORM
  *     Map each field (including paymentMethod) to a Google Form entry id and
@@ -355,11 +354,7 @@ export function ContributionForm() {
     }));
   }, [t]);
 
-  const handleTurnstileError = useCallback((errorCode?: string) => {
-    if (errorCode) {
-      console.warn(`Cloudflare Turnstile error: ${errorCode}`);
-    }
-
+  const handleTurnstileError = useCallback(() => {
     setTurnstileToken("");
     setErrors((current) => ({
       ...current,
@@ -425,7 +420,7 @@ export function ContributionForm() {
   const confirmationDetails = submittedDetails ?? details;
 
   return (
-    <article className="surface rounded-[2rem] p-6 sm:p-8 lg:p-10">
+    <article className="surface rounded-[2rem] p-4 min-[380px]:p-6 sm:p-8 lg:p-10">
       <div className="flex h-14 w-14 items-center justify-center rounded-full bg-bamboo/15 text-bamboo">
         <HandCoins size={26} aria-hidden="true" />
       </div>
@@ -438,7 +433,7 @@ export function ContributionForm() {
             {t("support.contribution.copy")}
           </p>
 
-          <form ref={formRef} onSubmit={handleSubmit} noValidate className="mt-7 grid gap-5">
+          <form ref={formRef} onSubmit={handleSubmit} noValidate className="mt-7 grid min-w-0 gap-5">
             <Field label={t("support.contribution.fields.parentName")} htmlFor="parentName" required error={errors.parentName}>
               <input
                 id="parentName"
@@ -557,7 +552,7 @@ export function ContributionForm() {
                           )}
                         </span>
                         <span className="mt-0.5 block text-xs leading-5 text-charcoal/65">
-                          {t(method.noteKey)}
+                          {renderRichText(t(method.noteKey))}
                         </span>
                       </span>
                     </label>
@@ -565,7 +560,7 @@ export function ContributionForm() {
                 })}
               </div>
               {errors.paymentMethod && (
-                <p className="mt-1.5 text-xs font-semibold text-vermilion">{errors.paymentMethod}</p>
+                <p role="alert" className="mt-1.5 text-xs font-semibold text-vermilion">{errors.paymentMethod}</p>
               )}
             </fieldset>
 
@@ -600,7 +595,7 @@ export function ContributionForm() {
                 <span className="text-sm leading-6 text-charcoal/80">{t("support.contribution.consent")}</span>
               </label>
               {errors.consent && (
-                <p className="mt-1.5 text-xs font-semibold text-vermilion">{errors.consent}</p>
+                <p role="alert" className="mt-1.5 text-xs font-semibold text-vermilion">{errors.consent}</p>
               )}
             </div>
 
@@ -614,7 +609,7 @@ export function ContributionForm() {
             />
 
             {submitError && (
-              <p className="rounded-2xl border border-vermilion/25 bg-vermilion/5 px-4 py-3 text-sm font-semibold text-vermilion">
+              <p role="alert" className="rounded-2xl border border-vermilion/25 bg-vermilion/5 px-4 py-3 text-sm font-semibold text-vermilion">
                 {submitError}
               </p>
             )}
@@ -638,7 +633,7 @@ export function ContributionForm() {
           {confirmationDetails.paymentMethod === "qr" && (
             <>
               <h3 className="text-3xl text-ink">{t("support.contribution.confirm.title")}</h3>
-              <ConfirmationNote>{t("support.contribution.confirm.qr")}</ConfirmationNote>
+              <ConfirmationNote text={t("support.contribution.confirm.qr")} />
 
               <div className="mt-6 grid gap-6 sm:grid-cols-[auto_1fr] sm:items-start">
                 {/* QR code. */}
@@ -683,7 +678,7 @@ export function ContributionForm() {
           {confirmationDetails.paymentMethod !== "qr" && (
             <>
               <h3 className="text-3xl text-ink">{t("support.contribution.confirm.fallbackTitle")}</h3>
-              <ConfirmationNote>{t("support.contribution.confirm.fallback")}</ConfirmationNote>
+              <ConfirmationNote text={t("support.contribution.confirm.fallback")} />
             </>
           )}
         </div>
@@ -727,7 +722,7 @@ function TurnstileWidget({
         widgetIdRef.current = turnstile.render(containerRef.current, {
           sitekey: siteKey,
           theme: "light",
-          size: "normal",
+          size: "flexible",
           callback: onVerify,
           "expired-callback": onExpire,
           "error-callback": onError,
@@ -772,11 +767,11 @@ function TurnstileWidget({
     <div
       data-turnstile-block
       tabIndex={-1}
-      className="rounded-2xl border border-ink/15 bg-paper/60 px-4 py-4 outline-none"
+      className="min-w-0 overflow-hidden rounded-2xl border border-ink/15 bg-paper/60 px-2 py-4 outline-none min-[380px]:px-4"
     >
       <p className="mb-3 text-sm font-semibold text-ink">{t("support.contribution.turnstile.title")}</p>
-      <div ref={containerRef} />
-      {error && <p className="mt-2 text-xs font-semibold text-vermilion">{error}</p>}
+      <div ref={containerRef} className="max-w-full" />
+      {error && <p role="alert" className="mt-2 text-xs font-semibold text-vermilion">{error}</p>}
     </div>
   );
 }
@@ -810,7 +805,7 @@ function Field({
         )}
       </label>
       {children}
-      {error && <p className="mt-1.5 text-xs font-semibold text-vermilion">{error}</p>}
+      {error && <p role="alert" className="mt-1.5 text-xs font-semibold text-vermilion">{error}</p>}
     </div>
   );
 }
@@ -825,12 +820,41 @@ function BankRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-// The warm confirmation message shown after submitting.
-function ConfirmationNote({ children }: { children: React.ReactNode }) {
+// Renders **bold** markers from a translation string as <strong> while leaving
+// everything else as plain text. Strings without markers (for example the other
+// language translations) simply render unchanged.
+function renderRichText(text: string) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((segment, index) => {
+    const bold = /^\*\*([^*]+)\*\*$/.exec(segment);
+    return bold ? (
+      <strong key={index} className="font-semibold text-ink">
+        {bold[1]}
+      </strong>
+    ) : (
+      segment
+    );
+  });
+}
+
+// The warm confirmation message shown after submitting. A blank line in the
+// translation string (\n\n) splits the message into separate paragraphs, and
+// **bold** markers are emphasised.
+function ConfirmationNote({ text }: { text: string }) {
+  const paragraphs = text
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+
   return (
     <div className="mt-4 flex items-start gap-3 rounded-2xl bg-bamboo/10 px-4 py-3 ring-1 ring-bamboo/20">
       <CheckCircle size={18} className="mt-0.5 shrink-0 text-bamboo" aria-hidden="true" />
-      <p className="text-sm leading-6 text-charcoal/80">{children}</p>
+      <div className="space-y-3">
+        {paragraphs.map((paragraph, index) => (
+          <p key={index} className="text-sm leading-6 text-charcoal/80">
+            {renderRichText(paragraph)}
+          </p>
+        ))}
+      </div>
     </div>
   );
 }

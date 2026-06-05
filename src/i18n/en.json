@@ -67,6 +67,13 @@
     "zhCN": "Chinese",
     "ja": "Japanese"
   },
+  "notFound": {
+    "eyebrow": "Page Not Found",
+    "title": "This page is not on the mat.",
+    "copy": "The link may have moved, or the page may no longer exist. You can return to the dojo home page or contact us if you need help finding something.",
+    "homeCta": "Go Home",
+    "contactCta": "Contact Us"
+  },
   "nav": {
     "ourDojo": "Our Dojo",
     "home": "Home",
@@ -101,28 +108,34 @@
     "tagline": "Aikido and martial arts training in Hang Dong, Chiang Mai.",
     "explore": "Explore",
     "stayConnected": "Stay Connected",
-    "stayConnectedCopy": "Receive class notes, first-visit guidance, and workshop announcements.",
+    "stayConnectedCopy": "A few class notes, first visit tips, and workshop news now and then.",
     "updatesCta": "Dojo Updates"
   },
   "home": {
     "hero": {
-      "subtitle": "Aikido classes and traditional martial arts training in Hang Dong, Chiang Mai, Thailand. Beginner friendly practice, children welcome, and visiting aikidoka invited."
+      "subtitle": "Aikido and traditional martial arts in Hang Dong, Chiang Mai, Thailand. Beginners are welcome, children too, and visiting aikidoka are always glad to find a mat here."
     },
     "recent": {
       "eyebrow": "Recent Events",
-      "title": "Recent dojo updates, gathered in one place.",
-      "copy": "The three newest updates from training days, examinations, seminars, and community moments at RenshinKan.",
+      "title": "A look at what has been happening around the dojo.",
+      "copy": "Our three most recent updates, from training days and belt exams to seminars and quiet moments together at RenshinKan.",
       "newsletterSignupCta": "Sign up for the newsletter"
+    },
+    "support": {
+      "eyebrow": "Support RenshinKan",
+      "title": "Need to set up a monthly contribution for you or your child's aikido membership?",
+      "copy": "A small monthly contribution keeps your place on the mat and helps the dojo stay open for everyone.",
+      "cta": "Set up monthly contribution"
     },
     "facilities": {
       "eyebrow": "Our Dojo",
       "title": "A welcoming practice space for students of all ages in Hang Dong.",
-      "copy": "RenshinKan was built in {{year}} on a quiet property in Hang Dong. The space is designed for comfortable, focused practice for students of all ages."
+      "copy": "RenshinKan was built in {{year}} on a quiet piece of land in Hang Dong. It is a calm, comfortable place to train, whoever you are and whatever your age."
     },
     "instructors": {
       "eyebrow": "Who Teaches Here",
       "title": "People who genuinely love what they teach.",
-      "copy": "Our instructors have been practicing for decades and they care about the people they teach. You will find them patient, encouraging, and consistent at every level."
+      "copy": "Our instructors have practiced for decades, and they care about the people they teach. You will find them patient, encouraging, and steady at every level."
     },
     "photos": {
       "eyebrow": "Dojo Photos",
@@ -135,17 +148,17 @@
     "journey": {
       "eyebrow": "Dojo Journey",
       "title": "From open ground to a working mat.",
-      "copy": "Photos from the Peace Culture Foundation build gallery, following RenshinKan from an empty plot of land all the way to opening practice on the mat."
+      "copy": "Photos from the Peace Culture Foundation build gallery, following RenshinKan from an empty plot of land all the way to our first practice on the mat."
     },
     "location": {
       "eyebrow": "Getting Here",
       "title": "Find the dojo before your first visit.",
-      "copy": "RenshinKan Dojo is in Baan Waen, Hang Dong. Parents and visitors can use the map to plan arrival, then message ahead so the dojo can confirm the best class time and where to observe."
+      "copy": "RenshinKan Dojo is in Baan Waen, Hang Dong. Parents and visitors can use the map to plan their arrival, then message us ahead so we can confirm the best class time and a good place to sit and watch."
     },
     "visiting": {
       "eyebrow": "Visiting RenshinKan",
-      "title": "Drop-ins are always welcome.",
-      "copy": "If you're new, feel free to come along. Just turn up at class time. If you're a visiting aikidoka, we'd love a quick message ahead so we can make sure the timing works and someone can greet you properly."
+      "title": "Visitors are always welcome.",
+      "copy": "If you are new, please feel free to come along. Just turn up at class time. If you are a visiting aikidoka, we would love a quick message ahead so we can make sure the timing works and someone is there to greet you."
     }
   },
   "classes": {
@@ -166,7 +179,7 @@
     "schedule": {
       "eyebrow": "Weekly Schedule",
       "title": "Four sessions a week, every week.",
-      "copy": "Tuesday and Thursday evenings, Saturday and Sunday mornings. Each class runs for 90 minutes and follows the same two-part structure: beginners first, then all levels.",
+      "copy": "Tuesday and Thursday evenings, Saturday and Sunday mornings. Each class runs for 90 minutes and follows the same two part shape: beginners first, then everyone together.",
       "imageAlt": "Weekly class schedule: Tuesday and Thursday 17:30-19:00, Saturday and Sunday 9:00-10:30"
     },
     "firstVisit": {
@@ -174,12 +187,12 @@
       "title": "A calm first class starts with a few simple steps.",
       "copy": "This guide is for beginners, parents, and visiting aikidoka. Message ahead so we can confirm the right class time and whether to observe or join in.",
       "beforeTitle": "Before you arrive",
-      "item1": "Drop-ins are welcome, just come along at class time",
+      "item1": "You are welcome to drop in, just come along at class time",
       "item2": "Message ahead to confirm class time and what to expect",
       "item3": "Arrive at least 30 minutes early to help with preparing the dojo",
-      "item4": "Wear loose trousers and a t-shirt. A keikogi is only needed once you feel ready",
+      "item4": "Wear loose trousers and a comfortable shirt. A keikogi is only needed once you feel ready",
       "item5": "Remove shoes before stepping onto the mat, and wash your feet",
-      "item6": "Let the instructor or a senior student guide you through the bow-in"
+      "item6": "Let the instructor or a senior student guide you through the bow in"
     },
     "beltExams": {
       "eyebrow": "Belt Exams",
@@ -209,7 +222,7 @@
         },
         "beginnerClothes": {
           "question": "What should beginners wear?",
-          "answer": "Comfortable, loose trousers and a T-shirt are perfectly fine for a first visit. There is no need to buy a keikogi right away. Students are only expected to get one when they feel ready and settled in. If you are interested in getting a keikogi, the dojo can help point you in the right direction."
+          "answer": "Comfortable, loose trousers and a simple shirt are perfectly fine for a first visit. There is no need to buy a keikogi right away. Students are only expected to get one when they feel ready and settled in. If you are interested in getting a keikogi, the dojo can help point you in the right direction."
         },
         "competition": {
           "question": "Does aikido involve competition?",
@@ -238,12 +251,12 @@
     "intro": {
       "eyebrow": "Location & Contact",
       "title": "Plan a first visit to RenshinKan Dojo.",
-      "copy": "The dojo is located at {{address}}. Drop-ins are welcome for parents, beginners, experienced aikidoka, and visitors. No booking is needed, though you are welcome to message ahead if you prefer."
+      "copy": "The dojo is at {{address}}. You are welcome to drop in, whether you are a parent, a beginner, an experienced aikidoka, or simply passing through. No booking is needed, though you are always welcome to message ahead if you prefer."
     },
     "message": {
       "eyebrow": "Get in Touch",
       "title": "Two easy ways to reach us.",
-      "copy": "Reach out any time — message us on Facebook or email us at contact@renshinkandojo.org. We're happy to answer any questions about classes, schedules, or your first visit.",
+      "copy": "Reach out any time. You can message us on Facebook or email us at contact@renshinkandojo.org. We are happy to answer any questions about classes, schedules, or your first visit.",
       "emailCta": "Email contact@renshinkandojo.org"
     },
     "before": {
@@ -294,7 +307,7 @@
     "who": {
       "eyebrow": "Everyone Is Welcome",
       "title": "Who Can Practice?",
-      "intro": "Aikido can be practiced by adults, children, complete beginners, and experienced martial artists alike. You do not need to be strong, athletic, flexible, or experienced to begin. Even very senior practitioners, well into older age, are warmly welcome and can keep training at their own pace — it is a wonderful way to stay active, mobile, and flexible as the years go on. Progress comes through steady practice, attention, and learning correct movement rather than relying on physical strength alone.",
+      "intro": "Aikido can be practiced by adults, children, complete beginners, and experienced martial artists alike. You do not need to be strong, athletic, flexible, or experienced to begin. Even very senior practitioners, well into older age, are warmly welcome and can keep training at their own pace. It is a wonderful way to stay active, mobile, and flexible as the years go on. Progress comes through steady practice, attention, and learning correct movement rather than relying on physical strength alone.",
       "childrenTitle": "For Children",
       "adultsTitle": "For Adults",
       "visitorsTitle": "Visiting Aikidoka",
@@ -303,7 +316,7 @@
     "about": {
       "eyebrow": "About Aikido",
       "title": "Peace through movement, not force.",
-      "copy": "Aikido is a Japanese martial art founded in the early 20th century by Morihei Ueshiba. It grew from classical traditions including jujutsu, judo, and the sword arts, but took a different direction. Instead of striking or overpowering, aikido teaches you to blend with incoming energy, redirect it, and resolve conflict without causing injury. There is no competition, no aggression. The practice is about composure, self-discipline, and learning to stay calm under pressure.",
+      "copy": "Aikido is a Japanese martial art founded in the early 20th century by Morihei Ueshiba. It grew from classical traditions including jujutsu, judo, and the sword arts, but took a different direction. Instead of striking or overpowering, aikido teaches you to blend with incoming energy, redirect it, and resolve conflict without causing injury. There is no competition, no aggression. The practice is about composure, self discipline, and learning to stay calm under pressure.",
       "point1Title": "Rooted in Japan",
       "point1Body": "Founded by Morihei Ueshiba from classical jujutsu and aiki sword traditions.",
       "point2Title": "Nonviolent",
@@ -343,7 +356,7 @@
       "title": "Community calendar.",
       "copy": "Confirmed dates for seminars, open mat days, volunteer activities, and dojo gatherings will be posted here as they're set.",
       "emptyTitle": "Nothing on the calendar right now.",
-      "emptyCopy": "There are no events scheduled at the moment. The mat is quiet for now — check back soon, and any seminars, open mat days, or gatherings will appear here as they're confirmed.",
+      "emptyCopy": "There are no events scheduled at the moment. The mat is quiet for now, so please check back soon. Any seminars, open mat days, or gatherings will appear here as they are confirmed.",
       "emptyCta": "See recent dojo updates"
     },
     "past": {
@@ -389,7 +402,7 @@
     "intro": {
       "eyebrow": "Support RenshinKan",
       "title": "Keep the dojo open. Keep practice accessible.",
-      "copy": "Two ways to help: a regular community contribution for those who train here, and a one-off donation for anyone who wants to support aikido and martial arts training in Chiang Mai.",
+      "copy": "There are two ways to help. There is a regular contribution from those of us who train here, and a single donation for anyone who simply wants to support aikido and martial arts in Chiang Mai.",
       "imageAlt": "RenshinKan Dojo community in Chiang Mai."
     },
     "monthly": {
@@ -413,7 +426,7 @@
     "donations": {
       "eyebrow": "Donations",
       "title": "Want to support aikido in Chiang Mai?",
-      "copy": "You do not have to train here to support the dojo. If you believe in what aikido builds, a one-off donation is a direct way to keep practice accessible in Hang Dong and Chiang Mai.",
+      "copy": "You do not have to train here to support the dojo. If you believe in what aikido builds, a single donation is a direct way to help keep practice within reach for people in Hang Dong and Chiang Mai.",
       "qrTitle": "PromptPay QR Code",
       "qrCopy": "Message us directly to donate via PromptPay.",
       "qrNote": "Request the current QR code before sending funds.",
@@ -425,7 +438,7 @@
         "workshops": "Workshops and guest instructor visits",
         "equipment": "Training equipment and mat maintenance",
         "exams": "Belt examination events and materials",
-        "outreach": "Community outreach and open-day costs",
+        "outreach": "Community outreach and open day costs",
         "access": "Keeping practice affordable for students with less flexibility"
       }
     },
@@ -448,7 +461,7 @@
       },
       "safety": {
         "label": "Safety & First Aid",
-        "note": "Basic first-aid supplies and safety items for children, beginners, and regular classes."
+        "note": "Basic first aid supplies and safety items for children, beginners, and regular classes."
       },
       "events": {
         "label": "Event & Seminar Costs",
@@ -460,7 +473,7 @@
       },
       "welfare": {
         "label": "Student Welfare",
-        "note": "Drinking water, post-class refreshments, and small comforts that make the dojo welcoming."
+        "note": "Drinking water, a little something to share after class, and small comforts that make the dojo welcoming."
       },
       "admin": {
         "label": "Admin & Records",
@@ -520,8 +533,8 @@
           "note": "Scan and pay from your banking app, or transfer directly to the dojo bank account."
         },
         "scheduled": {
-          "label": "Set up scheduled payment",
-          "note": "After the form is submitted, you will be taken to Stripe to set up monthly payments."
+          "label": "Set up automatic monthly payments",
+          "note": "Use your credit or debit card to set up an **automatic monthly contribution** through Stripe, so you don't have to track it each month. You can **pause or cancel anytime** by letting a sensei know."
         }
       },
       "errors": {
@@ -540,9 +553,9 @@
         "submitFailed": "Unable to submit your contribution details. Please try again."
       },
       "confirm": {
-        "title": "Thank you - one more step",
+        "title": "Thank you, one more step",
         "inPerson": "You are not quite done yet. Your details have been received and the senseis have been notified, so they will be expecting your contribution in person at the dojo. Please hand it to Sensei at your next class. To help us keep accurate records, please continue to make your future monthly payments this same way, through this form, so every contribution is tracked in our system. Monthly contributions are due on the 1st of every month to help ensure the dojo can operate smoothly.",
-        "qr": "You are not quite done yet. The senseis have been notified and will be on the lookout for your payment. When you scan the QR code or transfer to the dojo account, please include your student's name in the notes of the transaction or transfer so we can match it to you. Please also continue to make your future monthly payments through this form so we can keep track of every contribution. Monthly contributions are due on the 1st of every month to help ensure the dojo can operate smoothly.",
+        "qr": "**You are not quite done yet.** The **senseis have been notified** and will be on the lookout for your payment. When you **scan the QR code or transfer to the dojo account**, please **include your student's name in the notes of the transaction or transfer** so we can **match it to you**.\n\nPlease also continue to make your **future monthly payments through this form** so we can keep track of every contribution. Monthly contributions are **due on the 1st of every month** to help ensure the dojo can operate smoothly.",
         "fallbackTitle": "Thank you",
         "fallback": "Thank you for supporting RenshinKan Dojo. Monthly contributions are due on the 1st of every month to help ensure the dojo can operate smoothly."
       },
@@ -555,6 +568,33 @@
         "missingCopy": "Add VITE_TURNSTILE_SITE_KEY to the site environment so this form can accept submissions.",
         "title": "Cloudflare verification"
       }
+    },
+    "paymentReturn": {
+      "success": {
+        "eyebrow": "Scheduled payment",
+        "title": "Your monthly contribution is set up.",
+        "copy": "Thank you for setting up your recurring contribution through Stripe. Your support helps keep the dojo steady for students, families, and visitors.",
+        "note": "If anything looks wrong on your Stripe receipt, send the dojo a message and we will help check it.",
+        "nextTitle": "What happens next",
+        "nextItem1": "Stripe will send a payment confirmation or receipt to the email used at checkout.",
+        "nextItem2": "The senseis will match the Stripe setup with the contribution details you submitted.",
+        "nextItem3": "Your contribution will renew monthly until you ask to pause or cancel."
+      },
+      "incomplete": {
+        "eyebrow": "Payment not completed",
+        "title": "Your scheduled payment was not completed.",
+        "copy": "No problem. You can return to the contribution form and try again, or choose PromptPay QR code if that is easier.",
+        "note": "If Stripe showed an error or you are not sure whether a payment went through, contact the dojo before trying multiple times.",
+        "nextTitle": "What you can do",
+        "nextItem1": "Go back to the monthly contribution form and submit your details again.",
+        "nextItem2": "Choose PromptPay QR code if you prefer to transfer directly from your bank app.",
+        "nextItem3": "Message the dojo if you need help checking your payment status."
+      },
+      "helpTitle": "Need help?",
+      "emailCta": "Email the dojo",
+      "facebookCta": "Message on Facebook",
+      "formCta": "Return to contribution form",
+      "supportCta": "Back to support"
     }
   },
   "newsletter": {
@@ -585,7 +625,7 @@
       "benefits": {
         "workshops": {
           "title": "Upcoming workshops",
-          "copy": "Seminar dates and visiting-instructor events before they fill up."
+          "copy": "Seminar dates and visiting instructor events before they fill up."
         },
         "classes": {
           "title": "New class details",
@@ -639,9 +679,9 @@
   },
   "seo": {
     "homeTitle": "RenshinKan Dojo | Aikido in Hang Dong, Chiang Mai, Thailand",
-    "homeDescription": "RenshinKan Dojo offers aikido and Japanese martial arts training in Hang Dong, Chiang Mai. Beginner-friendly classes welcome children, adults, and visiting aikidoka.",
+    "homeDescription": "RenshinKan Dojo offers aikido and Japanese martial arts training in Hang Dong, Chiang Mai. Beginner friendly classes welcome children, adults, and visiting aikidoka.",
     "aikidoTitle": "Aikido in Chiang Mai | Japanese Martial Arts at RenshinKan Dojo",
-    "aikidoDescription": "Learn what aikido is, how it grew from Japanese jujutsu and aiki-jujutsu roots, and how RenshinKan teaches calm self-defense in Hang Dong, Chiang Mai.",
+    "aikidoDescription": "Learn what aikido is, how it grew from Japanese jujutsu and aiki-jujutsu roots, and how RenshinKan teaches calm self defense in Hang Dong, Chiang Mai.",
     "instructorsTitle": "Aikido Instructors in Chiang Mai | RenshinKan Dojo",
     "instructorsDescription": "Meet the RenshinKan Dojo aikido instructors teaching beginner friendly classes, children, adults, and visiting aikidoka in Hang Dong, Chiang Mai.",
     "classesTitle": "Aikido Classes in Hang Dong, Chiang Mai | RenshinKan Dojo",
@@ -654,13 +694,19 @@
     "communityDescription": "RenshinKan Dojo is part of the Chiang Mai aikido community, connected with Peace Culture Foundation, AikidoCMU, and local martial arts practice.",
     "supportTitle": "Support RenshinKan Dojo | Aikido Chiang Mai",
     "supportDescription": "Support RenshinKan Dojo and help keep aikido training accessible in Hang Dong and Chiang Mai through student contributions and donations.",
+    "paymentSuccessTitle": "Scheduled Payment Set Up | RenshinKan Dojo",
+    "paymentSuccessDescription": "Confirmation page for RenshinKan Dojo scheduled monthly contribution setup.",
+    "paymentIncompleteTitle": "Payment Not Completed | RenshinKan Dojo",
+    "paymentIncompleteDescription": "Recovery page for RenshinKan Dojo scheduled contribution payments that were not completed.",
     "contactTitle": "Contact RenshinKan Dojo | Aikido in Hang Dong, Chiang Mai",
     "contactDescription": "Contact RenshinKan Dojo in Hang Dong, Chiang Mai, Thailand to ask about aikido classes, beginner visits, kids training, adult practice, and visiting aikidoka.",
     "visitTitle": "Visit RenshinKan Dojo | Aikido in Hang Dong, Chiang Mai",
     "visitDescription": "Plan a first visit to RenshinKan Dojo in Hang Dong, Chiang Mai, Thailand. Beginners, parents, and visiting aikidoka are welcome.",
+    "notFoundTitle": "Page Not Found | RenshinKan Dojo",
+    "notFoundDescription": "The requested RenshinKan Dojo page could not be found. Return to the home page or contact the dojo for help.",
     "adminTitle": "Admin | RenshinKan Dojo",
     "adminDescription": "RenshinKan Dojo content administration.",
-    "localBusinessDescription": "Aikido classes, Japanese martial arts, and practical self-defense training for children and adults at RenshinKan Dojo in Hang Dong, Chiang Mai."
+    "localBusinessDescription": "Aikido classes, Japanese martial arts, and practical self defense training for children and adults at RenshinKan Dojo in Hang Dong, Chiang Mai."
   },
   "data": {
     "facilities": {
@@ -980,6 +1026,134 @@
           "title": "Chiang Mai and RenshinKan",
           "description": "Northern Thailand practice grows through the Chiang Mai University Aikido Club and dojo communities, leading to RenshinKan's local training culture."
         }
+      },
+      "historySources": {
+        "aikikaiHistory": "Aikikai Foundation history and biographies",
+        "aikikaiWhat": "Aikikai Foundation: What is Aikido?",
+        "daitoRyu": "Daito-ryu Aikijujutsu Hombu history",
+        "pcf": "Peace Culture Foundation: What is aikido?",
+        "cmuUnite": "Aikido Chiang Mai Unite / Nippon Kan source article"
+      },
+      "historicalPhotos": {
+        "ueshiba1918": {
+          "title": "Morihei Ueshiba Around 1918",
+          "date": "1918",
+          "caption": "A young Morihei Ueshiba during the Hokkaido period, before the public name aikido existed.",
+          "sourceName": "Wikimedia Commons; source listed as Aikido Journal",
+          "credit": "Unknown photographer.",
+          "rightsNote": "Marked public domain on Wikimedia Commons under PD-Japan-oldphoto and public domain in the United States.",
+          "alt": "Young Morihei Ueshiba in a formal portrait around 1918."
+        },
+        "takeda1888": {
+          "title": "Sokaku Takeda",
+          "date": "c. 1888",
+          "caption": "Takeda Sokaku, the Daito-ryu aiki-jujutsu teacher whose art strongly shaped Ueshiba's technical foundation.",
+          "sourceName": "Wikimedia Commons; source listed as Aiki News and Aikido FAQ",
+          "credit": "Unknown author.",
+          "rightsNote": "Marked public domain on Wikimedia Commons under PD-Japan-oldphoto and public domain in the United States.",
+          "alt": "Sokaku Takeda in a historical full-length portrait from around 1888."
+        },
+        "ueshiba1939": {
+          "title": "Morihei Ueshiba in 1939",
+          "date": "1939",
+          "caption": "A portrait from the Kobukan and aiki-budo years, when Ueshiba was teaching in Tokyo before the postwar Aikikai era.",
+          "sourceName": "Wikimedia Commons; source listed as Aikido Journal",
+          "credit": "Unknown photographer.",
+          "rightsNote": "Marked public domain on Wikimedia Commons under PD-Japan-oldphoto and public domain in the United States.",
+          "alt": "Morihei Ueshiba in a formal portrait from 1939."
+        },
+        "calligraphy1969": {
+          "title": "Calligraphy At Hombu Dojo",
+          "date": "January 3, 1969",
+          "caption": "O Sensei practicing calligraphy on the second floor of Hombu Dojo, months before his death.",
+          "sourceName": "Aikido Chiang Mai Unite translation of a Nippon Kan / Gaku Homma article",
+          "credit": "Source page credits the article and images to Gaku Homma Sensei / Nippon Kan.",
+          "rightsNote": "Shared here for educational and historical context. Source page cited above.",
+          "alt": "Morihei Ueshiba practicing calligraphy at Hombu Dojo in January 1969."
+        },
+        "morningPrayer1969": {
+          "title": "Morning Prayer",
+          "date": "February 12, 1969",
+          "caption": "A rooftop prayer moment at Hombu Dojo, showing how spiritual discipline remained woven into late life practice.",
+          "sourceName": "Aikido Chiang Mai Unite translation of a Nippon Kan / Gaku Homma article",
+          "credit": "Photo credited to Gaku Homma on the source page.",
+          "rightsNote": "Shared here for educational and historical context. Source page cited above.",
+          "alt": "Morihei Ueshiba praying on the rooftop of Hombu Dojo in February 1969."
+        },
+        "steadyWalking1968": {
+          "title": "Steady Walking",
+          "date": "1968",
+          "caption": "A photograph from behind that highlights Ueshiba's strong walking posture. The source notes that many images were taken from behind out of respect.",
+          "sourceName": "Aikido Chiang Mai Unite translation of a Nippon Kan / Gaku Homma article",
+          "credit": "Photo credited to Gaku Homma on the source page.",
+          "rightsNote": "Shared here for educational and historical context. Source page cited above.",
+          "alt": "Morihei Ueshiba walking with steady posture, photographed from behind."
+        },
+        "aikiShrine1968": {
+          "title": "Toward Aiki Shrine",
+          "date": "May 1968",
+          "caption": "O Sensei walking to the Aiki Shrine in Iwama for morning ceremony, connecting the martial art to daily ritual practice.",
+          "sourceName": "Aikido Chiang Mai Unite translation of a Nippon Kan / Gaku Homma article",
+          "credit": "Photo credited to Gaku Homma on the source page.",
+          "rightsNote": "Shared here for educational and historical context. Source page cited above.",
+          "alt": "Morihei Ueshiba walking toward the Aiki Shrine for morning ceremony."
+        },
+        "train1968": {
+          "title": "Between Iwama And Tokyo",
+          "date": "Early March 1968",
+          "caption": "Ueshiba traveling from Iwama to Hombu Dojo, a quiet image of the founder moving between shrine, countryside dojo, and Tokyo headquarters.",
+          "sourceName": "Aikido Chiang Mai Unite translation of a Nippon Kan / Gaku Homma article",
+          "credit": "Photo credited to Gaku Homma on the source page.",
+          "rightsNote": "Shared here for educational and historical context. Source page cited above.",
+          "alt": "Morihei Ueshiba traveling by train between Iwama and Tokyo."
+        }
+      },
+      "historySections": {
+        "earlyLife": {
+          "eyebrow": "Early Life",
+          "title": "A founder formed during a rapidly changing Japan.",
+          "body": "Morihei Ueshiba was born on December 14, 1883, in what is now Tanabe, Wakayama Prefecture. He came of age as Japan was moving through the late Meiji period: railways, industry, new schools, military service, and Western pressure were changing daily life, while older martial traditions were being reinterpreted for a modern nation.\n\nThe Aikikai chronology records that Ueshiba began studying several traditional martial arts in the 1890s and later received a license in Goto Ha-Yagyu Ryu jujutsu. For parents and beginners, the important point is that aikido did not appear from nowhere. It grew out of older training in posture, timing, balance, weapons awareness, and close partner control."
+        },
+        "daitoRyu": {
+          "eyebrow": "Technical Roots",
+          "title": "Daito-ryu gave Ueshiba a demanding grammar of control.",
+          "body": "In 1912 Ueshiba led settlers from Wakayama to Shirataki in Hokkaido. Life there was hard, physical, and exposed to frontier discipline. During that period he met Sokaku Takeda, the formidable teacher of Daito-ryu aiki-jujutsu. Daito-ryu Hombu describes Ueshiba as one of Takeda's best students and says the origins of aikido clearly lie in Daito-ryu.\n\nThose roots matter because aikido still studies entering, turning, taking balance, pins, throws, and the careful use of the whole body rather than isolated muscle. What changed over time was the purpose and tone. Ueshiba kept refining severe older methods into a practice that could protect both people rather than simply defeat one of them."
+        },
+        "omotoKyo": {
+          "eyebrow": "Spiritual Influence",
+          "title": "Ayabe changed the question from winning to what training is for.",
+          "body": "In 1919, while returning home because his father was critically ill, Ueshiba encountered Onisaburo Deguchi of the Omoto religious movement in Ayabe, Kyoto. He moved into that community, opened the Ueshiba-juku dojo in 1920, and combined physical training with ascetic and spiritual practice. The Aikikai timeline notes that by 1922 he was addressing Aiki as the essence of martial arts through both mind development and spiritual practice.\n\nThis is where aikido begins to sound different from a contest art. The aim was not merely to produce a stronger fighter. Ueshiba increasingly spoke about harmony, purification, and service. A modern dojo does not need to reproduce every religious idea around early aikido to preserve the practical ethical direction: train seriously, protect the partner, and learn to meet force without feeding conflict."
+        },
+        "aikiBudo": {
+          "eyebrow": "Prewar Development",
+          "title": "Before the name aikido, the art passed through aiki-budo.",
+          "body": "Ueshiba moved to Tokyo in 1927 and established the Kobukan Dojo in 1931. This was the prewar Showa period, when budo was often tied to national discipline, police training, military institutions, and elite networks. The techniques of this era could be severe, and the dojo's reputation reflected that intensity.\n\nNames shifted as the art developed: Ueshiba-ryu, aiki-jujutsu, aiki-budo, and eventually aikido. For students today, this history explains why aikido can look gentle from the outside but still asks for precision. The circular movement, footwork, and pins are not decorative. They are ways of organizing the body so power can be received, redirected, and resolved."
+        },
+        "postwarAikido": {
+          "eyebrow": "Postwar Renewal",
+          "title": "The postwar years gave aikido its modern public shape.",
+          "body": "In 1942 the name aikido was adopted, Kisshomaru Ueshiba was named director of the headquarters, and Morihei Ueshiba's center of gravity moved strongly toward Iwama. The Aiki Shrine was erected in 1943, and the Ibaraki Dojo was constructed in 1945. These dates sit inside the difficult years of war and defeat, when Japan's public martial culture was being reconsidered.\n\nAfter the war, aikido had to be presented as something more than a fighting system. The Aikikai Foundation was officially recognized in 1948, and a daily schedule of practice resumed at Hombu Dojo in 1949. The art's noncompetitive format, partner care, and language of harmony helped it survive as education, discipline, and cultural practice."
+        },
+        "hombuGrowth": {
+          "eyebrow": "Hombu Dojo",
+          "title": "Kisshomaru Ueshiba organized the bridge from founder to public art.",
+          "body": "Modern aikido owes much to the founder's son, Kisshomaru Ueshiba. He helped restart daily training, wrote for a wider public, supported demonstrations, and gave the art a clearer organizational path after the founder's passing. The first public aikido demonstration was held in 1955, the Aikido newspaper began in 1959, and the newly built Hombu Dojo was completed in 1968.\n\nMorihei Ueshiba remained the spiritual and technical center until his death on April 26, 1969. Late photographs show an elderly teacher praying, traveling, writing, and moving between Iwama and Tokyo. Those quiet images help visitors see that aikido history is not only a list of techniques; it is also a daily practice of attention."
+        },
+        "internationalSpread": {
+          "eyebrow": "International Spread",
+          "title": "Aikido became global through teachers, dojos, and patient repetition.",
+          "body": "Aikido began spreading overseas in the 1950s. Hombu instructors and students carried the art to Europe, the Americas, Southeast Asia, and beyond. The International Aikido Federation was established in 1976, and Aikikai now describes aikido as established in more than 140 countries and regions.\n\nAs aikido traveled, it also diversified. Some lineages emphasized weapons, some emphasized crisp prewar technique, some emphasized flowing movement, and some built programs for children, families, and community safety. The best dojos stay honest about that variety while keeping the shared center: train with respect, receive safely, and refine conflict into connection."
+        },
+        "thailand": {
+          "eyebrow": "Thailand",
+          "title": "Thai aikido grew through Hombu links and long-term teachers.",
+          "body": "The Peace Culture Foundation's aikido history notes that aikido was introduced to Thailand in 1961 by Nobuyoshi Tamura Shihan, with technical support from Aikido World Headquarters in Tokyo. It also notes that Renbukan Dojo in Bangkok was founded in 1970 and became the headquarters of the Aikido Association of Thailand under Motohiro Fukakusa Shihan.\n\nThat national story matters for Chiang Mai because local practice is part of a wider Thai aikido network, not an isolated activity. Rank, seminars, visiting teachers, and friendships across dojos give students continuity beyond a single room."
+        },
+        "renshinkanPractice": {
+          "eyebrow": "Local Practice",
+          "title": "At a local dojo, history becomes visible in ordinary habits.",
+          "body": "In Chiang Mai, aikido practice grew through university and community roots. Ajarn Sombat Tapanya began aikido training in 1980, helped found the Chiang Mai University Aikido Club in 1986, and later built the RenshinKan training space in Hang Dong. The dojo continues that line through beginner classes, family observation, weapons practice, and visiting aikidoka.\n\nFor a first time visitor, the history becomes practical very quickly. Bowing teaches attention. Ukemi teaches how to receive pressure. Partner practice teaches how to protect another person while staying centered yourself. That is the living thread from O Sensei's story to the mat today."
+        }
       }
     },
     "community": {
@@ -1003,7 +1177,7 @@
       },
       "foundation": {
         "aikidoConnection": "Aikido supports that culture through lived habits: listening before reacting, protecting the person in front of you, redirecting pressure without aggression, and practicing responsibility with a partner.",
-        "groomingPrevention": "The foundation's grooming-prevention work helps communities name unsafe patterns, strengthen boundaries, and give adults and young people clearer tools for recognizing and responding to manipulation.",
+        "groomingPrevention": "The foundation's grooming prevention work helps communities name unsafe patterns, strengthen boundaries, and give adults and young people clearer tools for recognizing and responding to manipulation.",
         "pillars": {
           "relationships": "Respectful relationships",
           "boundaries": "Consent and healthy boundaries",
@@ -1065,7 +1239,7 @@
         },
         "falling": {
           "title": "Safe Falling",
-          "caption": "Partner practice imagery from an AikidoCMU article on aikido and peace-making.",
+          "caption": "Partner practice imagery from an AikidoCMU article on aikido and peacemaking.",
           "alt": "AikidoCMU student falling safely during partner practice."
         },
         "blend": {
@@ -1082,12 +1256,12 @@
         },
         "aikidoCmu": {
           "name": "Aikido Chiang Mai University Club",
-          "description": "A long-running university club open to students, international visitors, and community members at Chiang Mai University.",
+          "description": "A long running university club open to students, international visitors, and community members at Chiang Mai University.",
           "location": "Chiang Mai University, Suthep Road"
         },
         "aiDojo": {
           "name": "Ai Dojo",
-          "description": "An aikido dojo in the Suthep district of Chiang Mai, part of the wider local Aikikai-affiliated community.",
+          "description": "An aikido dojo in the Suthep district of Chiang Mai, part of the wider local Aikikai affiliated community.",
           "location": "Suthep, Chiang Mai"
         },
         "allDojo": {

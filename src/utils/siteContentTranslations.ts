@@ -125,6 +125,41 @@ export const relatedDojoKeys = [
   "data.community.relatedDojos.aikidoKids",
 ];
 
+// The long-form aikido history article (shown after the "Historical Story"
+// heading) used to render straight from siteContent.ts in English only. These
+// keys connect each history section, photo, and source link to the translation
+// files so the whole article follows the selected language.
+export const aikidoHistorySourceKeys = [
+  "data.aikido.historySources.aikikaiHistory",
+  "data.aikido.historySources.aikikaiWhat",
+  "data.aikido.historySources.daitoRyu",
+  "data.aikido.historySources.pcf",
+  "data.aikido.historySources.cmuUnite",
+];
+
+export const aikidoHistoricalPhotoKeys = [
+  "data.aikido.historicalPhotos.ueshiba1918",
+  "data.aikido.historicalPhotos.takeda1888",
+  "data.aikido.historicalPhotos.ueshiba1939",
+  "data.aikido.historicalPhotos.calligraphy1969",
+  "data.aikido.historicalPhotos.morningPrayer1969",
+  "data.aikido.historicalPhotos.steadyWalking1968",
+  "data.aikido.historicalPhotos.aikiShrine1968",
+  "data.aikido.historicalPhotos.train1968",
+];
+
+export const aikidoHistorySectionKeys = [
+  "data.aikido.historySections.earlyLife",
+  "data.aikido.historySections.daitoRyu",
+  "data.aikido.historySections.omotoKyo",
+  "data.aikido.historySections.aikiBudo",
+  "data.aikido.historySections.postwarAikido",
+  "data.aikido.historySections.hombuGrowth",
+  "data.aikido.historySections.internationalSpread",
+  "data.aikido.historySections.thailand",
+  "data.aikido.historySections.renshinkanPractice",
+];
+
 export function translateTitleDescription<T extends { title: string; description: string }>(
   t: Translator,
   item: T,
@@ -250,5 +285,44 @@ export function translateRelatedDojo<T extends { name: string; description: stri
     name: text(t, baseKey, "name"),
     description: text(t, baseKey, "description"),
     location: text(t, baseKey, "location"),
+  };
+}
+
+export function translateHistoricalPhoto<T extends {
+  title: string;
+  date: string;
+  caption: string;
+  sourceName: string;
+  credit: string;
+  rightsNote: string;
+  alt: string;
+}>(
+  t: Translator,
+  item: T,
+  baseKey: string,
+) {
+  return {
+    ...item,
+    title: text(t, baseKey, "title"),
+    date: text(t, baseKey, "date"),
+    caption: text(t, baseKey, "caption"),
+    sourceName: text(t, baseKey, "sourceName"),
+    credit: text(t, baseKey, "credit"),
+    rightsNote: text(t, baseKey, "rightsNote"),
+    alt: text(t, baseKey, "alt"),
+  };
+}
+
+export function translateHistorySection<T extends { eyebrow: string; title: string; paragraphs: string[] }>(
+  t: Translator,
+  item: T,
+  baseKey: string,
+) {
+  const body = text(t, baseKey, "body");
+  return {
+    ...item,
+    eyebrow: text(t, baseKey, "eyebrow"),
+    title: text(t, baseKey, "title"),
+    paragraphs: body.split(/\n{2,}/).map((paragraph) => paragraph.trim()).filter(Boolean),
   };
 }

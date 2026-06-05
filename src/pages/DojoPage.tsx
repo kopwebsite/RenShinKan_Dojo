@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpen, ChevronLeft, ChevronRight, ExternalLink, GraduationCap, MessageCircle } from "lucide-react";
+import { ArrowRight, BookOpen, ChevronLeft, ChevronRight, ExternalLink, GraduationCap, HandCoins, MessageCircle } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -227,6 +227,22 @@ export function DojoPage() {
               )}
             </div>
           </div>
+        </div>
+      </MotionSection>
+
+      <MotionSection className="container-shell pb-20">
+        <div className="rounded-[2rem] bg-bamboo/10 p-6 shadow-line ring-1 ring-bamboo/20 sm:p-10">
+          <p className="eyebrow">{t("home.support.eyebrow")}</p>
+          <h2 className="mt-4 max-w-3xl text-3xl leading-tight text-ink sm:text-5xl">
+            {t("home.support.title")}
+          </h2>
+          <p className="mt-5 max-w-2xl text-charcoal/78">
+            {t("home.support.copy")}
+          </p>
+          <Link to="/support#monthly-contribution" className="btn-primary mt-7">
+            <HandCoins size={18} aria-hidden="true" />
+            {t("home.support.cta")}
+          </Link>
         </div>
       </MotionSection>
 

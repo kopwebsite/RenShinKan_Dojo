@@ -529,7 +529,7 @@ export function Navbar({ currentPath }: NavbarProps) {
               </button>
             </div>
 
-            <nav className={styles.mobileNav} aria-label={t("a11y.mainNavigation")}>
+            <nav className={styles.mobileNav} aria-label={t("a11y.mobileNavigation")}>
               {navItems.map((item) => {
                 const itemLabel = t(item.labelKey);
 

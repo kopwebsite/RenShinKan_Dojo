@@ -88,6 +88,18 @@ const seoByPath: Record<string, SeoConfig> = {
     descriptionKey: "seo.supportDescription",
     path: "/support",
   },
+  "/support/payment-success": {
+    titleKey: "seo.paymentSuccessTitle",
+    descriptionKey: "seo.paymentSuccessDescription",
+    path: "/support/payment-success",
+    robots: "noindex,nofollow",
+  },
+  "/support/payment-incomplete": {
+    titleKey: "seo.paymentIncompleteTitle",
+    descriptionKey: "seo.paymentIncompleteDescription",
+    path: "/support/payment-incomplete",
+    robots: "noindex,nofollow",
+  },
   "/contact": {
     titleKey: "seo.contactTitle",
     descriptionKey: "seo.contactDescription",
@@ -104,6 +116,13 @@ const seoByPath: Record<string, SeoConfig> = {
     path: "/admin",
     robots: "noindex,nofollow",
   },
+};
+
+const notFoundSeo: SeoConfig = {
+  titleKey: "seo.notFoundTitle",
+  descriptionKey: "seo.notFoundDescription",
+  path: "/404",
+  robots: "noindex,follow",
 };
 
 function upsertMeta(selector: string, attrs: Record<string, string>) {
@@ -267,7 +286,7 @@ export function Seo() {
 
   useEffect(() => {
     const pathname = location.pathname === "/dojo" ? "/" : location.pathname;
-    const config = seoByPath[pathname] ?? seoByPath["/"];
+    const config = seoByPath[pathname] ?? notFoundSeo;
     const canonical = `${SITE_URL}${config.path === "/" ? "/" : config.path}`;
     const title = t(config.titleKey);
     const description = t(config.descriptionKey);

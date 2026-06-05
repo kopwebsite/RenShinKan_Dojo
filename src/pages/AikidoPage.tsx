@@ -28,7 +28,12 @@ import {
   aikidoAdultKeys,
   aikidoBenefitKeys,
   aikidoChildKeys,
+  aikidoHistoricalPhotoKeys,
+  aikidoHistorySectionKeys,
+  aikidoHistorySourceKeys,
   instructorKeys,
+  translateHistoricalPhoto,
+  translateHistorySection,
   translateInstructor,
   translateTitleDescription,
 } from "../utils/siteContentTranslations";
@@ -100,8 +105,14 @@ export function AikidoPage() {
   const localizedInstructors = instructors.map((instructor, index) =>
     translateInstructor(t, instructor, instructorKeys[index]),
   );
+  const localizedHistoricalPhotos = aikidoHistoricalPhotos.map((photo, index) =>
+    translateHistoricalPhoto(t, photo, aikidoHistoricalPhotoKeys[index]),
+  );
   const historicalPhotoById = new Map(
-    aikidoHistoricalPhotos.map((photo) => [photo.id, photo]),
+    localizedHistoricalPhotos.map((photo) => [photo.id, photo]),
+  );
+  const localizedHistorySections = aikidoHistorySections.map((section, index) =>
+    translateHistorySection(t, section, aikidoHistorySectionKeys[index]),
   );
 
   return (
@@ -448,7 +459,7 @@ export function AikidoPage() {
                 {t("aikido.history.primarySources")}
               </p>
               <div className="mt-3 grid gap-2">
-                {aikidoHistorySources.map((source) => (
+                {aikidoHistorySources.map((source, index) => (
                   <a
                     key={source.url}
                     href={source.url}
@@ -456,7 +467,7 @@ export function AikidoPage() {
                     rel="noreferrer"
                     className="inline-flex items-center gap-2 text-sm font-semibold text-charcoal transition hover:text-vermilion"
                   >
-                    {source.label}
+                    {t(aikidoHistorySourceKeys[index])}
                     <ArrowUpRight size={14} aria-hidden="true" />
                   </a>
                 ))}
@@ -479,7 +490,7 @@ export function AikidoPage() {
         </div>
 
         <div className="divide-y divide-ink/10">
-          {aikidoHistorySections.map((section) => {
+          {localizedHistorySections.map((section) => {
             const photo = section.imageId
               ? historicalPhotoById.get(section.imageId)
               : undefined;

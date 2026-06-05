@@ -248,8 +248,17 @@ async function fetchEditableContent(url: string) {
   return normalizeEditableContent(await response.json());
 }
 
+function isViteLocalHost() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return ["5173", "4173"].includes(window.location.port);
+}
+
 export async function loadEditableContent() {
-  const urls = ["/api/content", assetPath("/content/editableContent.json")];
+  const staticContentUrl = assetPath("/content/editableContent.json");
+  const urls = isViteLocalHost() ? [staticContentUrl] : ["/api/content", staticContentUrl];
 
   for (const url of urls) {
     try {

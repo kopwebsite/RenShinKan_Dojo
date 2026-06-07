@@ -52,7 +52,7 @@ export const historyMedia: EditableMedia[] = createNumberedMedia(
   "history-photo",
   "/past-events/misc-gallery",
   "history-photo",
-  "RenShinKan dojo history photo",
+  "RenShinKan Dojo history photo",
 ).filter((item) => item.id !== "history-photo-001");
 
 export const onTheMatMedia: EditableMedia[] = createNumberedMedia(

@@ -1,6 +1,6 @@
 {
   "common": {
-    "brand": "练心馆道场",
+    "brand": "RenShinKan Dojo",
     "readMore": "了解更多",
     "viewUpdate": "查看更新",
     "visitClass": "参观班级",
@@ -26,7 +26,7 @@
     "contactUs": "联系我们",
     "visitWebsite": "访问网站",
     "facebookPage": "脸书页面",
-    "emailAikidoCmu": "电子邮件合气道CMU"
+    "emailAikidoCmu": "电子邮件 AikidoCMU"
   },
   "a11y": {
     "skipToContent": "跳至内容",
@@ -91,12 +91,12 @@
     "aikido": "合气道",
     "whatIsAikido": "什么是合气道",
     "historyOfAikido": "合气道的历史",
-    "oSensei": "大老师",
+    "oSensei": "O Sensei",
     "community": "社区",
     "upcomingEvents": "即将举行的活动",
     "pastEvents": "过去的活动",
-    "peaceCultureFoundation": "和平文化基金会",
-    "chiangMaiCmu": "清迈卡耐基梅隆大学",
+    "peaceCultureFoundation": "Peace Culture Foundation",
+    "chiangMaiCmu": "Chiang Mai University",
     "otherDojos": "其他道场",
     "support": "支持",
     "monthlyContribution": "每月供款",
@@ -105,7 +105,7 @@
     "contact": "联系我们"
   },
   "footer": {
-    "tagline": "清迈杭东的合气道和武术训练。",
+    "tagline": "Hang Dong, Chiang Mai 的合气道和武术训练。",
     "explore": "探索",
     "stayConnected": "保持联系",
     "stayConnectedCopy": "偶尔给您捎来一些课堂随记、第一次来访的小提示，还有讲习会的消息。",
@@ -113,24 +113,24 @@
   },
   "home": {
     "hero": {
-      "subtitle": "清迈杭东的合气道。"
+      "subtitle": "Hang Dong, Chiang Mai 的合气道。"
     },
     "recent": {
       "eyebrow": "近期活动",
       "title": "看看最近道场里发生的事。",
-      "copy": "我们的最新消息，包括练习日、腰带考试，以及练心馆道场的讲习会。",
+      "copy": "我们的最新消息，包括练习日、腰带考试，以及 RenShinKan Dojo 的讲习会。",
       "newsletterSignupCta": "订阅新闻通讯"
     },
     "support": {
-      "eyebrow": "支持仁心馆",
+      "eyebrow": "支持 RenShinKan Dojo",
       "title": "想为您自己或孩子的合气道练习设立每月捐助吗？",
       "copy": "每月一点小小的捐助，为您留住垫上的位置，也让道场能继续为大家敞开大门。",
       "cta": "设立每月捐助"
     },
     "facilities": {
       "eyebrow": "我们的道场",
-      "title": "在杭东，一个让各个年龄的学员都感到温暖的练习空间。",
-      "copy": "仁心馆建于{{year}}年，坐落在杭东一处安静的土地上。无论您是谁、年纪多大，这里都是一个安静舒适的练习之地。"
+      "title": "在 Hang Dong，一个让各个年龄的学员都感到温暖的练习空间。",
+      "copy": "RenShinKan Dojo 建于{{year}}年，坐落在 Hang Dong 一处安静的土地上。无论您是谁、年纪多大，这里都是一个安静舒适的练习之地。"
     },
     "instructors": {
       "eyebrow": "在这里授课的人",
@@ -139,7 +139,7 @@
     },
     "photos": {
       "eyebrow": "道场照片",
-      "title": "走进仁心馆看看。",
+      "title": "走进 RenShinKan Dojo 看看。",
       "copy": "看看道场，也看看在这里练习的人们。",
       "space": "练习空间",
       "onMat": "在垫上",
@@ -148,15 +148,15 @@
     "journey": {
       "eyebrow": "道场的历程",
       "title": "从一片空地，到能真正练习的垫子。",
-      "copy": "这些照片记录了练心馆从一片空地，成为用于练习与和平的社区空间的过程。"
+      "copy": "这些照片记录了 RenShinKan Dojo 从一片空地，成为用于练习与和平的社区空间的过程。"
     },
     "location": {
       "eyebrow": "如何到达",
       "title": "第一次来之前，先找到道场。",
-      "copy": "练心馆道场位于杭东 Baan Waen。您可以按上课时间直接来，也可以提前通过 Facebook 留言确认时间。"
+      "copy": "RenShinKan Dojo 位于 Baan Waen, Hang Dong。您可以按上课时间直接来，也可以提前通过 Facebook 留言确认时间。"
     },
     "visiting": {
-      "eyebrow": "来访仁心馆",
+      "eyebrow": "来访 RenShinKan Dojo",
       "title": "随时欢迎您来。",
       "copy": "如果您是新朋友，欢迎随时过来，按上课时间来就好。如果您是路过的合气道同好，希望您能提前给我们捎个信，好让我们安排好时间，也有人能好好迎接您。"
     }
@@ -165,7 +165,7 @@
     "intro": {
       "eyebrow": "课程与家长指南",
       "title": "一个适合开始、成长，也让你愿意一直来的地方。",
-      "copy": "课程欢迎完全初学者、孩子、有经验的合气道练习者，以及路过清迈的访客。每节课分为两个时段：前 1 小时面向初学者和孩子，后 30 分钟面向中级学员、成人和武器练习。您可以随时来，也可以先联系我们询问。",
+      "copy": "课程欢迎完全初学者、孩子、有经验的合气道练习者，以及路过 Chiang Mai 的访客。每节课分为两个时段：前 1 小时面向初学者和孩子，后 30 分钟面向中级学员、成人和武器练习。您可以随时来，也可以先联系我们询问。",
       "imageAlt": "身穿白色道服的学员在垫子上围成一圈，中间放着绿带。"
     },
     "halves": {
@@ -215,7 +215,7 @@
         },
         "age": {
           "question": "欢迎哪些年龄的人？",
-          "answer": "仁心馆欢迎各个年龄的人。我们有给儿童、青少年、成人，以及上了年纪的学员的课程。如果您不确定哪个课程适合自己，就先过来看看。"
+          "answer": "RenShinKan Dojo 欢迎各个年龄的人。我们有给儿童、青少年、成人，以及上了年纪的学员的课程。如果您不确定哪个课程适合自己，就先过来看看。"
         },
         "childrenSafety": {
           "question": "合气道对孩子安全吗？",
@@ -255,25 +255,23 @@
   "contact": {
     "intro": {
       "eyebrow": "地点与联系方式",
-      "title": "为第一次到访仁心馆道场做点准备。",
+      "title": "为第一次到访 RenShinKan Dojo 做点准备。",
       "copy": "道场位于 {{address}}。无论您是家长、初学者、经验丰富的合气道同好，还是只是路过，都欢迎随时过来。不需要预约，当然，您也可以提前给我们捎个信。"
     },
     "message": {
       "eyebrow": "联系我们",
-      "title": "联系我们的两个简单方式。",
-      "copy": "请随时联系我们。您可以在 Facebook 上给我们留言，或发送电子邮件至 contact@renshinkandojo.org。关于课程、时间安排或第一次来访的任何问题，我们都很乐意解答。",
-      "emailCta": "邮件至 contact@renshinkandojo.org"
+      "title": "请在 Facebook 上给我们留言。",
+      "copy": "欢迎随时通过 Facebook 联系我们。关于课程、时间安排或第一次来访的任何问题，我们都很乐意解答。"
     },
     "before": {
       "eyebrow": "在您来之前",
       "title": "欢迎您随时过来。",
-      "copy": "您可以直接来旁听课程，不用提前发消息。如果您想先打个招呼，也可以在来之前通过 Facebook 或邮件 contact@renshinkandojo.org 联系我们。",
+      "copy": "您可以不提前留言，直接来旁听课程。如果想先打个招呼，请在来访前通过 Facebook 联系我们。",
       "item1": "穿方便活动的舒适衣服。",
       "item2": "早一点到，我们好有人迎接您。",
       "item3": "道场有停车位，也欢迎家长在一旁观看学员练习。",
       "item4": "来访的合气道同好，欢迎告诉我们您的段位和所属道场。",
-      "cta": "在 Facebook 上给我们留言",
-      "emailCta": "给道场发邮件"
+      "cta": "在 Facebook 上给我们留言"
     }
   },
   "aikido": {
@@ -284,7 +282,7 @@
     "overview": {
       "eyebrow": "了解合气道",
       "title": "什么是合气道？",
-      "intro1": "合气道是一种现代日本武术，由学生称为大老师的植芝盛平于二十世纪初创立。合气道不是以武力对抗，而是教你如何融入攻击、重新引导能量并控制平衡，以便在不依靠蛮力的情况下解决冲突。",
+      "intro1": "合气道是一种现代日本武术，由学生称为 O Sensei 的 Morihei Ueshiba 于二十世纪初创立。合气道不是以武力对抗，而是教你如何融入攻击、重新引导能量并控制平衡，以便在不依靠蛮力的情况下解决冲突。",
       "intro2": "合气道源自日本古老的武术传统，包括柔术和古典武器艺术。它还与柔道等艺术具有共同的品质，特别是在注重平衡、投掷和安全坠落练习方面。其结果是一种重视训练伙伴的冷静、控制和真诚关怀的做法，而不是赢得或压倒对手。",
       "weaponsTitle": "空手武器训练",
       "weaponsIntro": "武器练习与空手合气道是分不开的。使用传统木制武器进行训练可以教授距离、时机、姿势、中心线、意识和清晰的身体动作。许多空手技术与武器工作中发现的相同原理和运动模式相呼应，尤其是剑的技术。",
@@ -316,14 +314,14 @@
       "childrenTitle": "给孩子",
       "adultsTitle": "给成人",
       "visitorsTitle": "来访的合气道同好",
-      "visitorsDesc": "路过清迈的合气道同好，随时欢迎上垫一起练。来之前请先发条简短消息，好让我们确认时间，并安排专人迎接您。"
+      "visitorsDesc": "路过 Chiang Mai 的合气道同好，随时欢迎上垫一起练。来之前请先发条简短消息，好让我们确认时间，并安排专人迎接您。"
     },
     "about": {
       "eyebrow": "关于合气道",
       "title": "和平来自动作，而不是武力。",
-      "copy": "合气道是由植芝盛平于20世纪初创立的日本武术。它源自柔术、柔道和剑术等古典传统，却走了另一条路。合气道不靠攻击或压制，而是教你顺着对方的力，改变它的方向，在不造成伤害的情况下化解冲突。没有比赛，也没有侵犯。它在意的是从容、自律，以及学会在压力下仍保持平静。",
-      "point1Title": "根植于日本",
-      "point1Body": "由植芝盛平在古典柔术与合气剑传统的基础上创立。",
+      "copy": "合气道是由 Morihei Ueshiba 于20世纪初创立的日本武术。它源自柔术、柔道和剑术等古典传统，却走了另一条路。合气道不靠攻击或压制，而是教你顺着对方的力，改变它的方向，在不造成伤害的情况下化解冲突。没有比赛，也没有侵犯。它在意的是从容、自律，以及学会在压力下仍保持平静。",
+      "point1Title": "根植于 Japan",
+      "point1Body": "由 Morihei Ueshiba 在古典柔术与合气剑传统的基础上创立。",
       "point2Title": "非暴力",
       "point2Body": "顺势引导、化解对方的力，而不是硬碰。不打击，也不比赛。",
       "point3Title": "内在的修养",
@@ -334,9 +332,9 @@
       "spaceCopy": "上座（kamiza）是每一间道场里凝聚心神的地方。它体现了合气道对真诚、敬意，以及沉静开阔之心的看重。"
     },
     "instructors": {
-      "eyebrow": "仁心馆的老师",
-      "title": "一条根植于清迈的练习脉络。",
-      "copy": "练心馆 的老师在日本、曼谷和清迈习练多年，逐渐形成一条如今欢迎各个年龄、各种背景学员的传承。",
+      "eyebrow": "RenShinKan Dojo 的老师",
+      "title": "一条根植于 Chiang Mai 的练习脉络。",
+      "copy": "RenShinKan Dojo 的老师在 Japan、Bangkok 和 Chiang Mai 习练多年，逐渐形成一条如今欢迎各个年龄、各种背景学员的传承。",
       "cta": "完整的老师介绍"
     },
     "history": {
@@ -345,7 +343,7 @@
       "copy": "每个条目都对应下面这段完整历史中的一个时期。",
       "primarySources": "主要来源",
       "storyEyebrow": "历史故事",
-      "storyTitle": "翁先生、合气道，以及从武力到和谐的道路。",
+      "storyTitle": "O Sensei、合气道，以及从武力到和谐的道路。",
       "storyCopy": "合气道的意思是“和谐精神之道”，这个名字反映了其融合而不是冲突的创始理念。它的历史并不是从暴力到温柔的直线。这是一个关于古老武术、精神探索、战时压力、战后重建以及普通人学习尊重练习的分层故事。"
     }
   },
@@ -365,54 +363,54 @@
       "sliderLabel": "回顾我们历程的影像"
     },
     "foundation": {
-      "eyebrow": "和平文化基金会",
-      "title": "练心馆 道场和社区使命背后的组织。",
-      "copy": "和平文化基金会于 2013 年建立了 练心馆，并持续把道场的练习文化，与整个清迈在儿童安全、防范针对儿童的诱骗（grooming），以及和平化解冲突等方面更广泛的工作联系在一起。",
+      "eyebrow": "Peace Culture Foundation",
+      "title": "RenShinKan Dojo 和社区使命背后的组织。",
+      "copy": "Peace Culture Foundation 于 2013 年建立了 RenShinKan Dojo，并持续把道场的练习文化，与整个 Chiang Mai 在儿童安全、防范针对儿童的诱骗（grooming），以及和平化解冲突等方面更广泛的工作联系在一起。",
       "visit": "参观基金会",
       "advocacy": "倡导工作",
       "groomingEyebrow": "防范儿童诱骗",
       "groomingTitle": "防范，从语言、界限，以及可信赖的大人开始。",
       "groomingCta": "儿童防诱骗页面",
-      "photoEyebrow": "来自和平文化基金会",
+      "photoEyebrow": "来自 Peace Culture Foundation",
       "founder": "创始人"
     },
     "cmu": {
-      "eyebrow": "清迈大学合气道俱乐部",
-      "heroEyebrow": "清迈大学",
+      "eyebrow": "Chiang Mai University Aikido Club",
+      "heroEyebrow": "Chiang Mai University",
       "heroTitle": "AikidoCMU：自 1986 年左右开始在 CMU 开展合气道。",
       "publicDays": "公众日",
       "community": "社区",
       "studentsGuests": "学生及嘉宾",
       "roots": "根源",
       "since": "大约从1986年开始",
-      "title": "仁心馆的血统开始的地方。",
-      "copy1": "练心馆 的创始人 Ajarn Sombat Tapanya 和 Ajarn Teerarat Boripantakul 都曾在合气道 CMU 接受过训练，然后于 2013 年建立 练心馆 道场。该大学俱乐部自 20 世纪 80 年代中期以来一直是清迈合气道社区的一部分，首先与 CMU 柔道俱乐部共享空间，然后发展成为自己的练习团体。",
-      "copy2": "合气道 CMU 一直欢迎清迈大学的学生、国际学生和社区成员，大家有规律地、彼此尊重地一起练习。他们的公开练习对任何认真练习的人都开放，来之前请先留言确认当前的时间和地点。",
+      "title": "RenShinKan Dojo 的血统开始的地方。",
+      "copy1": "RenShinKan Dojo 的创始人 Ajarn Sombat Tapanya 和 Ajarn Teerarat Boripantakul 都曾在 AikidoCMU 接受过训练，然后于 2013 年建立 RenShinKan Dojo。该大学俱乐部自 20 世纪 80 年代中期以来一直是 Chiang Mai 合气道社区的一部分，首先与 CMU 柔道俱乐部共享空间，然后发展成为自己的练习团体。",
+      "copy2": "AikidoCMU 一直欢迎 Chiang Mai University 的学生、国际学生和社区成员，大家有规律地、彼此尊重地一起练习。他们的公开练习对任何认真练习的人都开放，来之前请先留言确认当前的时间和地点。",
       "publicPractice": "公开练习"
     },
     "otherDojos": {
       "eyebrow": "其他道场",
-      "copy": "练心馆 是清迈和泰国更广泛的合气道社区的一部分。以下是将道场与更广泛的实践世界联系起来的主要组织和机构。",
+      "copy": "RenShinKan Dojo 是 Chiang Mai 和 Thailand 更广泛的合气道社区的一部分。以下是将道场与更广泛的实践世界联系起来的主要组织和机构。",
       "know": "知道另一个相连的道场或组织吗？",
       "knowCopy": "联系我们，我们会将其添加到此处。"
     }
   },
   "support": {
     "intro": {
-      "eyebrow": "支持仁心馆",
+      "eyebrow": "支持 RenShinKan Dojo",
       "title": "保持道场开放。保持练习可及性。",
-      "copy": "有两种提供帮助的方式：为在这里训练的人提供定期社区捐款，以及为任何想要支持清迈合气道和武术训练的人提供一次性捐款。",
-      "imageAlt": "清迈的 练心馆 道场社区。"
+      "copy": "有两种提供帮助的方式：为在这里训练的人提供定期社区捐款，以及为任何想要支持 Chiang Mai 合气道和武术训练的人提供一次性捐款。",
+      "imageAlt": "Chiang Mai 的 RenShinKan Dojo 社区。"
     },
     "monthly": {
       "eyebrow": "社区维护",
       "title": "这个道场的存在是因为它的学生们照顾它。",
-      "copy1": "每个在 练心馆 定期接受培训的学生都需要贡献 {{amount}}。这不是会员费。这是一项共同的责任。灯光、水、垫子、维修、空间本身：所有这些都是由使用它的人支撑的。",
+      "copy1": "每个在 RenShinKan Dojo 定期接受培训的学生都需要贡献 {{amount}}。这不是会员费。这是一项共同的责任。灯光、水、垫子、维修、空间本身：所有这些都是由使用它的人支撑的。",
       "amount": "每月 1,500 泰铢",
-      "copy2": "当在这里训练的每个人都做出贡献时，道场对于当前的学生、新初学者和更广泛的清迈社区来说就会保持强大。",
+      "copy2": "当在这里训练的每个人都做出贡献时，道场对于当前的学生、新初学者和更广泛的 Chiang Mai 社区来说就会保持强大。",
       "noteStrong": "教师不会从捐款中获得任何报酬。",
       "note": "每泰铢都会直接回到你训练的空间。",
-      "supportImageAlt": "学生们在杭东仁心馆道场练习合气道。",
+      "supportImageAlt": "学生们在 Hang Dong 的 RenShinKan Dojo 练习合气道。",
       "arrangeTitle": "如何安排捐款",
       "arrangeCopy": "该静态网站不处理付款或收集付款详细信息。请直接与道场安排捐款。",
       "coversTitle": "您的贡献涵盖哪些内容",
@@ -424,15 +422,15 @@
     },
     "donations": {
       "eyebrow": "捐款",
-      "title": "想支持清迈的合气道吗？",
-      "copy": "你不必在这里训练来支持道场。如果您相信合气道的宗旨，一次性捐款是让杭东和清迈继续练习合气道的直接方式。",
+      "title": "想支持 Chiang Mai 的合气道吗？",
+      "copy": "你不必在这里训练来支持道场。如果您相信合气道的宗旨，一次性捐款是让 Hang Dong 和 Chiang Mai 继续练习合气道的直接方式。",
       "qrTitle": "即时支付二维码",
       "qrCopy": "直接给我们留言通过 PromptPay 捐款。",
       "qrNote": "在发送资金之前请求当前的二维码。",
       "whereTitle": "它去哪里",
       "noSalary": "您的捐款不会支付任何人的工资或个人收入。这是一个社区道场，由热爱练习的人经营。",
       "transfer": "想要直接转账？",
-      "promptPayQrAlt": "PromptPay 仁心馆道场捐款二维码",
+      "promptPayQrAlt": "PromptPay RenShinKan Dojo 捐款二维码",
       "uses": {
         "workshops": "研讨会和客座讲师访问",
         "equipment": "训练设备和垫子维护",
@@ -556,10 +554,10 @@
         "inPerson": "你还没有完全完成。您的详细信息已收到，导师也已收到通知，因此他们将期待您亲自到道场做出贡献。请下次上课时交给老师。为了帮助我们保持准确的记录，请继续以同样的方式通过此表格支付您未来的每月付款，以便我们的系统中跟踪每笔捐款。每月捐款应于每月 1 日缴纳，以确保道场顺利运营。",
         "qr": "还差最后一点点。老师们已经收到通知，会留意您的付款。当您扫描二维码或转账到道场账户时，请在交易或转账的备注里写上学生的名字，这样我们就能把这笔款对上您。\n\n之后每个月的付款，也请继续通过这个表单来完成，好让我们把每一笔心意都记录下来。每月捐助以每月 1 日为准，帮助道场顺顺当当地运转下去。",
         "fallbackTitle": "谢谢你",
-        "fallback": "感谢您对仁心馆道场的支持。每月捐款应于每月 1 日缴纳，以确保道场顺利运营。"
+        "fallback": "感谢您对 RenShinKan Dojo 的支持。每月捐款应于每月 1 日缴纳，以确保道场顺利运营。"
       },
       "qrTitle": "即时支付二维码",
-      "qrAlt": "PromptPay 仁心馆道场二维码",
+      "qrAlt": "PromptPay RenShinKan Dojo 二维码",
       "bankTitle": "直接转账至银行",
       "bankCopy": "也欢迎您将您的贡献直接转入道场帐户。",
       "turnstile": {
@@ -593,7 +591,6 @@
         "nextItem3": "如果需要帮忙查看付款状态，给道场留言即可。"
       },
       "helpTitle": "需要帮忙吗？",
-      "emailCta": "给道场发邮件",
       "facebookCta": "在 Facebook 上留言",
       "formCta": "返回捐助表单",
       "supportCta": "返回支持页面"
@@ -617,7 +614,7 @@
     },
     "signup": {
       "eyebrow": "道场更新",
-      "title": "关注仁心馆更新。",
+      "title": "关注 RenShinKan Dojo 更新。",
       "copy": "添加安全电子邮件提供商后将连接时事通讯注册。目前，请在 Facebook 上关注道场或向道场发送消息，以获取课堂笔记、活动更新和研讨会公告。",
       "frameTitle": "{{brand}} 新闻通讯注册",
       "openForm": "打开注册表单",
@@ -673,42 +670,42 @@
   },
   "instructorsPage": {
     "eyebrow": "导师",
-    "title": "与仁心馆道场的合气道教练见面。",
+    "title": "与 RenShinKan Dojo 的合气道教练见面。",
     "copy": "结识指导课堂练习、向初学者介绍合气道的老师，帮助学生建立平静的动作、尊重的伙伴训练以及在垫子上坚定的信心。"
   },
   "locationCard": {
     "eyebrow": "地点"
   },
   "seo": {
-    "homeTitle": "仁心馆道场 |泰国清迈杭东的合气道",
-    "homeDescription": "练心馆道场 在清迈杭东提供合气道和日本武道训练。适合初学者，欢迎儿童、成人和来访的合气道练习者。",
-    "aikidoTitle": "清迈合气道 | 练心馆道场 的日本武道",
-    "aikidoDescription": "了解合气道是什么，它如何源自日本柔术和合气柔术传统，以及 练心馆 如何在清迈杭东教授平和的自我防卫。",
-    "instructorsTitle": "清迈合气道老师 | 仁心馆道场",
-    "instructorsDescription": "与 练心馆道场 合气道教练见面，他们教授初学者友好课程、儿童、成人，并在清迈杭东参观合气道。",
-    "classesTitle": "清迈杭东合气道课程|仁心馆道场",
-    "classesDescription": "清迈杭东的合气道课程信息。查看练习时间、首次访问指导、腰带考试，以及适合儿童和成人的武道课程。",
-    "workshopsTitle": "清迈合气道工作坊|仁心馆道场",
-    "workshopsDescription": "清迈杭东的 练心馆 道场为初学者、儿童和在校学生举办季节性合气道研讨会。",
-    "newsletterTitle": "道场更新 |清迈仁心馆合气道",
-    "newsletterDescription": "最近的 练心馆 道场更新、学生新闻、活动、照片以及杭东和清迈的合气道社区笔记。",
-    "communityTitle": "清迈合气道社区|仁心馆道场",
-    "communityDescription": "练心馆 道场是清迈合气道社区的一部分，与和平文化基金会、合气道 CMU 和当地武术练习机构有联系。",
-    "supportTitle": "支持仁心馆道场 |清迈合气道",
-    "supportDescription": "支持 练心馆 道场，并通过学生捐款和捐款帮助杭东和清迈保持合气道培训的可及性。",
-    "paymentSuccessTitle": "每月付款已设置 | 仁心馆道场",
-    "paymentSuccessDescription": "仁心馆道场每月捐助设置的确认页面。",
-    "paymentIncompleteTitle": "付款未完成 | 仁心馆道场",
-    "paymentIncompleteDescription": "仁心馆道场每月捐助付款未完成时的处理页面。",
-    "contactTitle": "联络仁心馆道场 |清迈杭东的合气道",
-    "contactDescription": "联系清迈杭东的 练心馆道场，询问合气道课程、首次参观、儿童训练、成人练习和来访合气道练习者参加事宜。",
-    "visitTitle": "参观仁心馆道场 |清迈杭东的合气道",
-    "visitDescription": "计划第一次参观泰国清迈杭东的仁心馆道场。欢迎初学者、家长和参观合气道。",
-    "notFoundTitle": "页面未找到 | 仁心馆道场",
-    "notFoundDescription": "找不到您请求的仁心馆道场页面。请返回首页，或联系道场寻求帮助。",
-    "adminTitle": "管理员 |仁心馆道场",
-    "adminDescription": "练心馆 道场内容管理。",
-    "localBusinessDescription": "练心馆道场 在清迈杭东为儿童和成人提供合气道、日本武道和实用自我防卫训练。"
+    "homeTitle": "RenShinKan Dojo | Hang Dong, Chiang Mai, Thailand 的合气道",
+    "homeDescription": "RenShinKan Dojo 在 Hang Dong, Chiang Mai 提供合气道和日本武道训练。适合初学者，欢迎儿童、成人和来访的合气道练习者。",
+    "aikidoTitle": "Chiang Mai 合气道 | RenShinKan Dojo 的日本武道",
+    "aikidoDescription": "了解合气道是什么，它如何源自日本柔术和合气柔术传统，以及 RenShinKan Dojo 如何在 Hang Dong, Chiang Mai 教授平和的自我防卫。",
+    "instructorsTitle": "Chiang Mai 合气道老师 | RenShinKan Dojo",
+    "instructorsDescription": "与 RenShinKan Dojo 合气道教练见面，他们教授初学者友好课程、儿童、成人，并在 Hang Dong, Chiang Mai 参观合气道。",
+    "classesTitle": "Hang Dong, Chiang Mai 合气道课程 | RenShinKan Dojo",
+    "classesDescription": "Hang Dong, Chiang Mai 的合气道课程信息。查看练习时间、首次访问指导、腰带考试，以及适合儿童和成人的武道课程。",
+    "workshopsTitle": "Chiang Mai 合气道工作坊 | RenShinKan Dojo",
+    "workshopsDescription": "Hang Dong, Chiang Mai 的 RenShinKan Dojo 为初学者、儿童和在校学生举办季节性合气道研讨会。",
+    "newsletterTitle": "道场更新 | RenShinKan Dojo 合气道 Chiang Mai",
+    "newsletterDescription": "最近的 RenShinKan Dojo 更新、学生新闻、活动、照片以及 Hang Dong 和 Chiang Mai 的合气道社区笔记。",
+    "communityTitle": "Chiang Mai 合气道社区 | RenShinKan Dojo",
+    "communityDescription": "RenShinKan Dojo 是 Chiang Mai 合气道社区的一部分，与 Peace Culture Foundation、AikidoCMU 和当地武术练习机构有联系。",
+    "supportTitle": "支持 RenShinKan Dojo | Chiang Mai 合气道",
+    "supportDescription": "支持 RenShinKan Dojo，并通过学生捐款和捐款帮助 Hang Dong 和 Chiang Mai 保持合气道培训的可及性。",
+    "paymentSuccessTitle": "每月付款已设置 | RenShinKan Dojo",
+    "paymentSuccessDescription": "RenShinKan Dojo 每月捐助设置的确认页面。",
+    "paymentIncompleteTitle": "付款未完成 | RenShinKan Dojo",
+    "paymentIncompleteDescription": "RenShinKan Dojo 每月捐助付款未完成时的处理页面。",
+    "contactTitle": "联络 RenShinKan Dojo | Hang Dong, Chiang Mai 的合气道",
+    "contactDescription": "联系 Hang Dong, Chiang Mai 的 RenShinKan Dojo，询问合气道课程、首次参观、儿童训练、成人练习和来访合气道练习者参加事宜。",
+    "visitTitle": "参观 RenShinKan Dojo | Hang Dong, Chiang Mai 的合气道",
+    "visitDescription": "计划第一次参观 Hang Dong, Chiang Mai, Thailand 的 RenShinKan Dojo。欢迎初学者、家长和参观合气道。",
+    "notFoundTitle": "页面未找到 | RenShinKan Dojo",
+    "notFoundDescription": "找不到您请求的 RenShinKan Dojo 页面。请返回首页，或联系道场寻求帮助。",
+    "adminTitle": "管理员 | RenShinKan Dojo",
+    "adminDescription": "RenShinKan Dojo 内容管理。",
+    "localBusinessDescription": "RenShinKan Dojo 在 Hang Dong, Chiang Mai 为儿童和成人提供合气道、日本武道和实用自我防卫训练。"
   },
   "data": {
     "facilities": {
@@ -741,112 +738,112 @@
       "koiPond": {
         "title": "锦鲤池",
         "description": "藏在庭园中的小锦鲤池。",
-        "alt": "练心馆道场 庭园中的锦鲤池。"
+        "alt": "RenShinKan Dojo 庭园中的锦鲤池。"
       },
       "garden": {
         "title": "庭园",
         "description": "绿意环绕道场，让空间显得安定而宁静。",
-        "alt": "杭东 练心馆道场 周围的庭园。"
+        "alt": "Hang Dong RenShinKan Dojo 周围的庭园。"
       },
       "courtyard": {
         "title": "庭院",
         "description": "开放庭院连接主道场建筑与场地其他部分。",
-        "alt": "练心馆道场 的开放庭院。"
+        "alt": "RenShinKan Dojo 的开放庭院。"
       },
       "trainingHall": {
         "title": "练习大厅",
         "description": "主要练习空间设有榻榻米、高天花板，并有充足活动空间。",
-        "alt": "练心馆道场 室内练习大厅。"
+        "alt": "RenShinKan Dojo 室内练习大厅。"
       }
     },
     "dojoJourneyPhotos": {
-      "sourceName": "和平文化基金会 练心馆道场 建设图库",
-      "credit": "和平文化基金会；摄影者未列出。",
+      "sourceName": "Peace Culture Foundation RenShinKan Dojo 建设图库",
+      "credit": "Peace Culture Foundation；摄影者未列出。",
       "rightsNote": "为教育和历史背景在此分享；上方已注明来源图库。",
       "photos": {
         "siteLayout": {
           "title": "场地放样",
           "date": "2011年12月25日",
           "caption": "早期建设图库显示，在主要基础工程开始前，道场场地已经完成标记。",
-          "alt": "施工前 练心馆道场 场地上已标记的地面和立柱。"
+          "alt": "施工前 RenShinKan Dojo 场地上已标记的地面和立柱。"
         },
         "foundationFormwork": {
           "title": "基础工程",
           "date": "2012年1月20日",
           "caption": "基础和模板开始显出未来练习大厅的轮廓。",
-          "alt": "练心馆道场 早期木模板和混凝土基础工程。"
+          "alt": "RenShinKan Dojo 早期木模板和混凝土基础工程。"
         },
         "earlyColumns": {
           "title": "第一批立柱",
           "date": "2012年2月24日",
           "caption": "垂直支撑出现在场地上，施工从地面作业转向建筑框架。",
-          "alt": "练心馆道场 施工现场升起的早期混凝土立柱。"
+          "alt": "RenShinKan Dojo 施工现场升起的早期混凝土立柱。"
         },
         "roofFrame": {
           "title": "屋架",
           "date": "2012年5月3日",
           "caption": "钢制屋架和堆放的材料让道场的最终轮廓逐渐清晰。",
-          "alt": "练心馆道场 的钢制屋架和建筑材料。"
+          "alt": "RenShinKan Dojo 的钢制屋架和建筑材料。"
         },
         "gardenView": {
           "title": "庭园环境",
           "date": "2012年5月3日",
           "caption": "来源图库把施工进展与道场周围安静的庭园环境放在一起呈现。",
-          "alt": "施工期间 练心馆道场 附近的花园和池塘景观。"
+          "alt": "施工期间 RenShinKan Dojo 附近的花园和池塘景观。"
         },
         "finishedWoodFloor": {
           "title": "木地板完工",
           "date": "2012年11月",
           "caption": "榻榻米到来之前，空大厅已经展现出练习空间沉静的比例。",
-          "alt": "练心馆道场 内部已完工的木地板，尚未铺设垫子。"
+          "alt": "RenShinKan Dojo 内部已完工的木地板，尚未铺设垫子。"
         },
         "nightExterior": {
           "title": "夜间外观",
           "date": "2012年11月",
           "caption": "建设图库中的夜景显示，完成的建筑外壳从内部透出灯光。",
-          "alt": "施工后期夜间亮灯的 练心馆道场 外观。"
+          "alt": "施工后期夜间亮灯的 RenShinKan Dojo 外观。"
         },
         "sunlitEmptyDojo": {
           "title": "准备铺垫",
           "date": "2013年1月",
           "caption": "空房间呈现温暖木色、高窗和开阔地面，那是在定期训练开始之前。",
-          "alt": "阳光照进空置的 练心馆道场，室内有木地板和神座墙。"
+          "alt": "阳光照进空置的 RenShinKan Dojo，室内有木地板和神座墙。"
         },
         "kamizaVisit": {
           "title": "神座前来访",
           "date": "2013年1月",
           "caption": "来源图库包含一张在神座墙前来访的照片，当时室内已接近完成。",
-          "alt": "两名访客站在 练心馆道场 的神座墙前。"
+          "alt": "两名访客站在 RenShinKan Dojo 的神座墙前。"
         },
         "tatamiStacked": {
           "title": "榻榻米到达",
           "date": "2013年4月6日",
           "caption": "垫子抵达道场，把已经完工的大厅变成真正的合气道练习空间。",
-          "alt": "练心馆道场 外堆放着绿色和黄色榻榻米垫。"
+          "alt": "RenShinKan Dojo 外堆放着绿色和黄色榻榻米垫。"
         },
         "tatamiInstallation": {
           "title": "铺设垫子",
           "date": "2013年4月6日",
           "caption": "学生和支持者一起铺设垫子，这是正式练习前最后几个可见步骤之一。",
-          "alt": "人们正在 练心馆道场 内铺设黄色榻榻米垫。"
+          "alt": "人们正在 RenShinKan Dojo 内铺设黄色榻榻米垫。"
         },
         "firstUkemi": {
           "title": "第一次受身",
           "date": "2013年4月6日",
           "caption": "新垫子上的第一个动作记录了建筑成为道场的那一刻。",
-          "alt": "一名练习者在 练心馆道场 新垫子上做受身。"
+          "alt": "一名练习者在 RenShinKan Dojo 新垫子上做受身。"
         },
         "openingPractice": {
           "title": "开馆练习",
           "date": "2013年4月8日",
           "caption": "建设过程自然结束于一个充满动作、伙伴和共同练习的房间。",
-          "alt": "开馆后合气道学生在 练心馆道场 一起练习。"
+          "alt": "开馆后合气道学生在 RenShinKan Dojo 一起练习。"
         },
         "interclubCommunity": {
           "title": "练习后的社区时光",
           "date": "2013年8月18日",
           "caption": "同一组跨社团照片中包括一次共同用餐，提醒人们道场生活延伸到垫子之外。",
-          "alt": "练心馆道场 社区成员练习后一起用餐。"
+          "alt": "RenShinKan Dojo 社区成员练习后一起用餐。"
         }
       }
     },
@@ -854,38 +851,38 @@
       "sombat": {
         "role": "创办人 / 高级指导员",
         "rank": "五段",
-        "trainingBackground": "1980年在美国康涅狄格州纽黑文开始练习合气道，1982年起在曼谷的泰国合气道协会跟随 Motohiro Fukakusa Shihan 和 Prapant Chittaputta Shihan 训练。1986年创办清迈大学合气道社，2012年创办 练心馆道场。",
-        "imageAlt": "Sombat Tapanya 在 练心馆道场 身穿合气道道服。"
+        "trainingBackground": "1980年在 New Haven, Connecticut, United States 开始练习合气道，1982年起在 Bangkok 的 Aikido Association of Thailand 跟随 Motohiro Fukakusa Shihan 和 Prapant Chittaputta Shihan 训练。1986年创办 Chiang Mai University Aikido Club，2012年创办 RenShinKan Dojo。",
+        "imageAlt": "Sombat Tapanya 在 RenShinKan Dojo 身穿合气道道服。"
       },
       "teerarat": {
         "role": "高级指导员",
         "rank": "三段",
-        "trainingBackground": "1986年在清迈大学合气道社开始练习合气道，并跟随 Motohiro Fukakusa Shihan 和 Prapant Chittaputta Shihan 训练。",
-        "imageAlt": "Teerarat Boripantakul 在 练心馆道场 身穿合气道道服。"
+        "trainingBackground": "1986年在 Chiang Mai University Aikido Club 开始练习合气道，并跟随 Motohiro Fukakusa Shihan 和 Prapant Chittaputta Shihan 训练。",
+        "imageAlt": "Teerarat Boripantakul 在 RenShinKan Dojo 身穿合气道道服。"
       },
       "kop": {
         "role": "创办人 / 高级指导员",
         "rank": "三段",
-        "trainingBackground": "Narumol (Kop) Thammapruksa 在清迈大学合气道社开始合气道。2008年，她进入东京 Hombu Dojo 的 Aikido Academy，在 Koichi Toriumi Shihan 和 Yoshiaki Yokota Shihan 指导下取得二级。2012年，她作为大阪大学交换生，在 Shosenji Dojo 跟随 Katsuyuki Shimamoto Shihan 练习，并在 Tsuruzo Miyamoto Shihan 指导下由 Hombu Dojo 获得初段。",
-        "imageAlt": "Kop Narumol 在 练心馆道场 身穿合气道道服。"
+        "trainingBackground": "Narumol (Kop) Thammapruksa 在 Chiang Mai University Aikido Club 开始合气道。2008年，她进入 Tokyo Hombu Dojo 的 Aikido Academy，在 Koichi Toriumi Shihan 和 Yoshiaki Yokota Shihan 指导下取得二级。2012年，她作为 Osaka University 交换生，在 Shosenji Dojo 跟随 Katsuyuki Shimamoto Shihan 练习，并在 Tsuruzo Miyamoto Shihan 指导下由 Hombu Dojo 获得初段。",
+        "imageAlt": "Kop Narumol 在 RenShinKan Dojo 身穿合气道道服。"
       },
       "kittisak": {
         "role": "指导员",
         "rank": "二段",
-        "trainingBackground": "2003年在清迈大学合气道社开始练习，并跟随 Sombat Tapanya 和 Teerarat Boripantakul 训练。",
-        "imageAlt": "Major Kittisak Siriparp 在 练心馆道场 身穿合气道道服。"
+        "trainingBackground": "2003年在 Chiang Mai University Aikido Club 开始练习，并跟随 Sombat Tapanya 和 Teerarat Boripantakul 训练。",
+        "imageAlt": "Major Kittisak Siriparp 在 RenShinKan Dojo 身穿合气道道服。"
       },
       "fuengwich": {
         "role": "指导员",
         "rank": "二段",
-        "trainingBackground": "2002年在清迈大学合气道社开始练习，并跟随 Sombat Tapanya 和 Teerarat Boripantakul 训练。",
-        "imageAlt": "Fuengwich Maneekarn 在 练心馆道场 身穿合气道道服。"
+        "trainingBackground": "2002年在 Chiang Mai University Aikido Club 开始练习，并跟随 Sombat Tapanya 和 Teerarat Boripantakul 训练。",
+        "imageAlt": "Fuengwich Maneekarn 在 RenShinKan Dojo 身穿合气道道服。"
       },
       "siriphorn": {
         "role": "指导员",
         "rank": "二段",
-        "trainingBackground": "2012年在清迈大学合气道社开始练习，并跟随 Sombat Tapanya 和 Teerarat Boripantakul 训练。",
-        "imageAlt": "Siriphorn Manokeaw 在 练心馆道场 身穿合气道道服。"
+        "trainingBackground": "2012年在 Chiang Mai University Aikido Club 开始练习，并跟随 Sombat Tapanya 和 Teerarat Boripantakul 训练。",
+        "imageAlt": "Siriphorn Manokeaw 在 RenShinKan Dojo 身穿合气道道服。"
       }
     },
     "workshops": {
@@ -912,7 +909,7 @@
       }
     },
     "aikido": {
-      "instructorSourceLabel": "和平文化基金会指导员页面",
+      "instructorSourceLabel": "Peace Culture Foundation 指导员页面",
       "actionCaptions": {
         "jo": "成对杖练习训练距离、时机和平静的移动路线。",
         "tanto": "短刀练习把威胁性的路线转化为双方都安全的路径。"
@@ -986,175 +983,175 @@
       "timeline": {
         "earlyLife": {
           "title": "早年生活与训练",
-          "description": "植芝盛平在日本现代化时期于和歌山成长，在合气道出现以前学习了多种传统武术。"
+          "description": "Morihei Ueshiba 在 Japan 现代化时期于 Wakayama 成长，在合气道出现以前学习了多种传统武术。"
         },
         "hokkaido": {
-          "title": "北海道与大东流",
-          "description": "边地生活和跟随武田惣角的密集学习，为后来转化成合气道的技术打下基础。"
+          "title": "Hokkaido 与 Daito-ryu",
+          "description": "边地生活和跟随 Sokaku Takeda 的密集学习，为后来转化成合气道的技术打下基础。"
         },
         "omoto": {
-          "title": "大本教与绫部",
-          "description": "出口王仁三郎和大本的精神实践，把植芝带向一条带有净化、服务和伦理目的的武道道路。"
+          "title": "Omoto 与 Ayabe",
+          "description": "Onisaburo Deguchi 和 Omoto 的精神实践，把 Ueshiba 带向一条带有净化、服务和伦理目的的武道道路。"
         },
         "tokyo": {
-          "title": "东京与合气武道",
-          "description": "在战前东京，植芝向认真学生教授严格的技艺，皇武馆道场也因严厉练习而闻名。"
+          "title": "Tokyo 与合气武道",
+          "description": "在战前 Tokyo，Ueshiba 向认真学生教授严格的技艺，Kobukan Dojo 也因严厉练习而闻名。"
         },
         "iwama": {
-          "title": "岩间与战后更新",
-          "description": "合气道名称被采用，合气神社建立，战后练习通过合气会重新开始。"
+          "title": "Iwama 与战后更新",
+          "description": "合气道名称被采用，Aiki Shrine 建立，战后练习通过 Aikikai 重新开始。"
         },
         "hombu": {
-          "title": "本部道场与公开合气道",
-          "description": "植芝吉祥丸帮助组织日常训练、公开演武、出版，以及现代合气会的身份。"
+          "title": "Hombu Dojo 与公开合气道",
+          "description": "Kisshomaru Ueshiba 帮助组织日常训练、公开演武、出版，以及现代 Aikikai 的身份。"
         },
         "international": {
           "title": "国际传播",
-          "description": "合气道教师和组织把这门艺术带出日本，建立了世界性的练习文化。"
+          "description": "合气道教师和组织把这门艺术带出 Japan，建立了世界性的练习文化。"
         },
         "thailand": {
-          "title": "合气道传入泰国",
-          "description": "1961年，Nobuyoshi Tamura Shihan 将合气道介绍到泰国，并得到东京合气道本部的技术支持。"
+          "title": "合气道传入 Thailand",
+          "description": "1961年，Nobuyoshi Tamura Shihan 将合气道介绍到 Thailand，并得到 Aikido World Headquarters 的技术支持。"
         },
         "renbukan": {
-          "title": "曼谷 Renbukan Dojo",
-          "description": "Renbukan Dojo 于1970年在曼谷成立，并在 Motohiro Fukakusa Shihan 领导下成为泰国合气道协会总部。"
+          "title": "Bangkok Renbukan Dojo",
+          "description": "Renbukan Dojo 于1970年在 Bangkok 成立，并在 Motohiro Fukakusa Shihan 领导下成为 Aikido Association of Thailand 总部。"
         },
         "thaiNetwork": {
-          "title": "泰国合气道网络",
-          "description": "Motohiro Fukakusa Shihan 和 Prapant Chittaputta Shihan 等曼谷老师培养了一代人，把合气道带到大学和首都以外的府县。"
+          "title": "Thailand 合气道网络",
+          "description": "Motohiro Fukakusa Shihan 和 Prapant Chittaputta Shihan 等 Bangkok 老师培养了一代人，把合气道带到大学和首都以外的府县。"
         },
         "chiangMai": {
-          "title": "清迈与 练心馆",
-          "description": "泰北的练习通过清迈大学合气道社和各地道场社群成长，并形成 练心馆 的本地训练文化。"
+          "title": "Chiang Mai 与 RenShinKan Dojo",
+          "description": "Northern Thailand 的练习通过 Chiang Mai University Aikido Club 和各地道场社群成长，并形成 RenShinKan Dojo 的本地训练文化。"
         }
       },
       "historySources": {
-        "aikikaiHistory": "合气会 历史与人物",
-        "aikikaiWhat": "合气会：什么是合气道",
-        "daitoRyu": "大东流合气柔术本部 历史",
-        "pcf": "和平文化基金会：什么是合气道",
-        "cmuUnite": "Aikido Chiang Mai Unite / 日本馆 来源文章"
+        "aikikaiHistory": "Aikikai 历史与人物",
+        "aikikaiWhat": "Aikikai：什么是合气道",
+        "daitoRyu": "Daito-ryu Aikijujutsu Hombu 历史",
+        "pcf": "Peace Culture Foundation：什么是合气道",
+        "cmuUnite": "Aikido Chiang Mai Unite / Nippon Kan 来源文章"
       },
       "historicalPhotos": {
         "ueshiba1918": {
-          "title": "约1918年的植芝盛平",
+          "title": "约1918年的 Morihei Ueshiba",
           "date": "1918年",
-          "caption": "北海道时期年轻的植芝盛平，那时合气道这个名字还未为公众所知。",
+          "caption": "Hokkaido 时期年轻的 Morihei Ueshiba，那时合气道这个名字还未为公众所知。",
           "sourceName": "Wikimedia Commons（来源标注为 Aikido Journal）",
           "credit": "摄影者不详。",
-          "rightsNote": "在 Wikimedia Commons 上以 PD-Japan-oldphoto 标注为公有领域，在美国亦属公有领域。",
-          "alt": "约1918年年轻植芝盛平的正式肖像。"
+          "rightsNote": "在 Wikimedia Commons 上以 PD-Japan-oldphoto 标注为公有领域，在 United States 亦属公有领域。",
+          "alt": "约1918年年轻 Morihei Ueshiba 的正式肖像。"
         },
         "takeda1888": {
-          "title": "武田惣角",
+          "title": "Sokaku Takeda",
           "date": "约1888年",
-          "caption": "大东流合气柔术的师父武田惣角，其武艺深深塑造了植芝的技术根基。",
+          "caption": "Daito-ryu Aikijujutsu 的师父 Sokaku Takeda，其武艺深深塑造了 Ueshiba 的技术根基。",
           "sourceName": "Wikimedia Commons（来源标注为 Aiki News 与 Aikido FAQ）",
           "credit": "作者不详。",
-          "rightsNote": "在 Wikimedia Commons 上以 PD-Japan-oldphoto 标注为公有领域，在美国亦属公有领域。",
-          "alt": "约1888年武田惣角的全身历史肖像。"
+          "rightsNote": "在 Wikimedia Commons 上以 PD-Japan-oldphoto 标注为公有领域，在 United States 亦属公有领域。",
+          "alt": "约1888年 Sokaku Takeda 的全身历史肖像。"
         },
         "ueshiba1939": {
-          "title": "1939年的植芝盛平",
+          "title": "1939年的 Morihei Ueshiba",
           "date": "1939年",
-          "caption": "皇武馆与合气武道时期的肖像，那时植芝在东京授课，尚在战后合气会时代之前。",
+          "caption": "皇武馆与合气武道时期的肖像，那时 Ueshiba 在 Tokyo 授课，尚在战后 Aikikai 时代之前。",
           "sourceName": "Wikimedia Commons（来源标注为 Aikido Journal）",
           "credit": "摄影者不详。",
-          "rightsNote": "在 Wikimedia Commons 上以 PD-Japan-oldphoto 标注为公有领域，在美国亦属公有领域。",
-          "alt": "1939年植芝盛平的正式肖像。"
+          "rightsNote": "在 Wikimedia Commons 上以 PD-Japan-oldphoto 标注为公有领域，在 United States 亦属公有领域。",
+          "alt": "1939年 Morihei Ueshiba 的正式肖像。"
         },
         "calligraphy1969": {
-          "title": "本部道场里的书法",
+          "title": "Hombu Dojo 里的书法",
           "date": "1969年1月3日",
-          "caption": "翁先生在本部道场二楼挥毫，那是他离世前几个月。",
-          "sourceName": "Aikido Chiang Mai Unite 对 日本馆 / Gaku Homma 一篇文章的翻译",
-          "credit": "来源页面将文章与图片归于 Gaku Homma 先生 / 日本馆。",
+          "caption": "O Sensei 在 Hombu Dojo 二楼挥毫，那是他离世前几个月。",
+          "sourceName": "Aikido Chiang Mai Unite 对 Nippon Kan / Gaku Homma 一篇文章的翻译",
+          "credit": "来源页面将文章与图片归于 Gaku Homma 先生 / Nippon Kan。",
           "rightsNote": "在此用于教育与历史背景之分享，来源已于上方注明。",
-          "alt": "1969年1月，植芝盛平在本部道场练习书法。"
+          "alt": "1969年1月，Morihei Ueshiba 在 Hombu Dojo 练习书法。"
         },
         "morningPrayer1969": {
           "title": "清晨的祈祷",
           "date": "1969年2月12日",
-          "caption": "本部道场屋顶上的祈祷时刻，显示精神修持如何始终融入晚年的练习之中。",
-          "sourceName": "Aikido Chiang Mai Unite 对 日本馆 / Gaku Homma 一篇文章的翻译",
+          "caption": "Hombu Dojo 屋顶上的祈祷时刻，显示精神修持如何始终融入晚年的练习之中。",
+          "sourceName": "Aikido Chiang Mai Unite 对 Nippon Kan / Gaku Homma 一篇文章的翻译",
           "credit": "来源页面将照片归于 Gaku Homma。",
           "rightsNote": "在此用于教育与历史背景之分享，来源已于上方注明。",
-          "alt": "1969年2月，植芝盛平在本部道场屋顶祈祷。"
+          "alt": "1969年2月，Morihei Ueshiba 在 Hombu Dojo 屋顶祈祷。"
         },
         "steadyWalking1968": {
           "title": "稳健的步伐",
           "date": "1968年",
-          "caption": "一张从背后拍摄的照片，凸显植芝稳健的行走姿态；来源指出，出于敬意，许多照片都从背后拍摄。",
-          "sourceName": "Aikido Chiang Mai Unite 对 日本馆 / Gaku Homma 一篇文章的翻译",
+          "caption": "一张从背后拍摄的照片，凸显 Ueshiba 稳健的行走姿态；来源指出，出于敬意，许多照片都从背后拍摄。",
+          "sourceName": "Aikido Chiang Mai Unite 对 Nippon Kan / Gaku Homma 一篇文章的翻译",
           "credit": "来源页面将照片归于 Gaku Homma。",
           "rightsNote": "在此用于教育与历史背景之分享，来源已于上方注明。",
-          "alt": "从背后拍摄的植芝盛平，步伐稳健。"
+          "alt": "从背后拍摄的 Morihei Ueshiba，步伐稳健。"
         },
         "aikiShrine1968": {
-          "title": "走向合气神社",
+          "title": "走向 Aiki Shrine",
           "date": "1968年5月",
-          "caption": "翁先生走向岩间的合气神社参加晨间仪式，将这门武艺与日常的礼敬连在一起。",
-          "sourceName": "Aikido Chiang Mai Unite 对 日本馆 / Gaku Homma 一篇文章的翻译",
+          "caption": "O Sensei 走向 Iwama 的 Aiki Shrine 参加晨间仪式，将这门武艺与日常的礼敬连在一起。",
+          "sourceName": "Aikido Chiang Mai Unite 对 Nippon Kan / Gaku Homma 一篇文章的翻译",
           "credit": "来源页面将照片归于 Gaku Homma。",
           "rightsNote": "在此用于教育与历史背景之分享，来源已于上方注明。",
-          "alt": "植芝盛平走向合气神社参加晨间仪式。"
+          "alt": "Morihei Ueshiba 走向 Aiki Shrine 参加晨间仪式。"
         },
         "train1968": {
-          "title": "在岩间与东京之间",
+          "title": "在 Iwama 与 Tokyo 之间",
           "date": "1968年3月初",
-          "caption": "植芝从岩间前往本部道场，一张安静的照片，记录这位开祖在神社、乡间道场与东京本部之间的往返。",
-          "sourceName": "Aikido Chiang Mai Unite 对 日本馆 / Gaku Homma 一篇文章的翻译",
+          "caption": "Ueshiba 从 Iwama 前往 Hombu Dojo，一张安静的照片，记录这位开祖在神社、乡间道场与 Tokyo 本部之间的往返。",
+          "sourceName": "Aikido Chiang Mai Unite 对 Nippon Kan / Gaku Homma 一篇文章的翻译",
           "credit": "来源页面将照片归于 Gaku Homma。",
           "rightsNote": "在此用于教育与历史背景之分享，来源已于上方注明。",
-          "alt": "植芝盛平乘火车往返于岩间与东京之间。"
+          "alt": "Morihei Ueshiba 乘火车往返于 Iwama 与 Tokyo 之间。"
         }
       },
       "historySections": {
         "earlyLife": {
           "eyebrow": "早年生活",
-          "title": "在急速变化的日本中成长起来的开祖。",
-          "body": "植芝盛平于1883年12月14日出生在今天的和歌山县田边市。他在明治后期长大，那时铁路、工业、新式学校、兵役与来自西方的压力正改变着日常生活，古老的武术传统也在为一个现代国家被重新诠释。\n\n合气会的年表记载，植芝在1890年代开始学习多门传统武术，后来取得后藤派柳生流柔术的免许。对于家长和初学者来说，重要的一点是：合气道并非凭空出现，而是从更古老的训练中生长出来，包括身姿、时机、平衡、对武器的觉察，以及与同伴近身的相互控制。"
+          "title": "在急速变化的 Japan 中成长起来的开祖。",
+          "body": "Morihei Ueshiba 于1883年12月14日出生在今天的 Tanabe, Wakayama Prefecture。他在明治后期长大，那时铁路、工业、新式学校、兵役与来自西方的压力正改变着日常生活，古老的武术传统也在为一个现代国家被重新诠释。\n\nAikikai 的年表记载，Ueshiba 在1890年代开始学习多门传统武术，后来取得后藤派柳生流柔术的免许。对于家长和初学者来说，重要的一点是：合气道并非凭空出现，而是从更古老的训练中生长出来，包括身姿、时机、平衡、对武器的觉察，以及与同伴近身的相互控制。"
         },
         "daitoRyu": {
           "eyebrow": "技术根源",
-          "title": "大东流给了植芝一套严谨的控制语法。",
-          "body": "1912年，植芝带领来自和歌山的移居者前往北海道的白泷。那里的生活艰苦、需要体力，也置身于拓荒地的纪律之中。在那段时期，他遇见了大东流合气柔术令人敬畏的师父武田惣角。大东流本部称植芝是武田最优秀的弟子之一，并指出合气道的源头清楚地在于大东流。\n\n这些根源之所以重要，是因为合气道至今仍在研习入身、转身、破势、压制、摔投，以及谨慎地运用全身而非孤立的肌肉。随时间改变的是它的目的与气质。植芝不断打磨严苛的古法，使之成为一种能保护双方、而不只是击败其中一方的练习。"
+          "title": "Daito-ryu 给了 Ueshiba 一套严谨的控制语法。",
+          "body": "1912年，Ueshiba 带领来自 Wakayama 的移居者前往 Hokkaido 的 Shirataki。那里的生活艰苦、需要体力，也置身于拓荒地的纪律之中。在那段时期，他遇见了 Daito-ryu Aikijujutsu 令人敬畏的师父 Sokaku Takeda。Daito-ryu Hombu 称 Ueshiba 是 Takeda 最优秀的弟子之一，并指出合气道的源头清楚地在于 Daito-ryu。\n\n这些根源之所以重要，是因为合气道至今仍在研习入身、转身、破势、压制、摔投，以及谨慎地运用全身而非孤立的肌肉。随时间改变的是它的目的与气质。Ueshiba 不断打磨严苛的古法，使之成为一种能保护双方、而不只是击败其中一方的练习。"
         },
         "omotoKyo": {
           "eyebrow": "精神层面的影响",
-          "title": "绫部把问题从如何取胜，转向了练习究竟为了什么。",
-          "body": "1919年，植芝因父亲病危而返乡，途中在京都绫部遇见了大本教的出口王仁三郎。他迁入那个社群，于1920年开设植芝塾道场，并把身体的训练与苦行和精神修持结合起来。合气会的年表指出，到1922年，他已在通过心性的开展与精神的修行，阐述合气是武术的精髓。\n\n正是从这里开始，合气道听起来与一门竞技之术有所不同。其目标不只是造就更强的斗士。植芝越来越多地谈到和合、净化与奉献。今天的道场不必照搬早期合气道周围的每一种宗教观念，也能守住那个切实可行的伦理方向：认真练习、保护同伴，学会在不助长冲突的情况下承接力量。"
+          "title": "Ayabe 把问题从如何取胜，转向了练习究竟为了什么。",
+          "body": "1919年，Ueshiba 因父亲病危而返乡，途中在 Ayabe, Kyoto 遇见了 Omoto 的 Onisaburo Deguchi。他迁入那个社群，于1920年开设 Ueshiba-juku Dojo，并把身体的训练与苦行和精神修持结合起来。Aikikai 的年表指出，到1922年，他已在通过心性的开展与精神的修行，阐述合气是武术的精髓。\n\n正是从这里开始，合气道听起来与一门竞技之术有所不同。其目标不只是造就更强的斗士。Ueshiba 越来越多地谈到和合、净化与奉献。今天的道场不必照搬早期合气道周围的每一种宗教观念，也能守住那个切实可行的伦理方向：认真练习、保护同伴，学会在不助长冲突的情况下承接力量。"
         },
         "aikiBudo": {
           "eyebrow": "战前的发展",
           "title": "在合气道这个名字之前，这门武艺经过了合气武道。",
-          "body": "植芝于1927年迁往东京，并在1931年创立皇武馆道场。那是战前的昭和时期，武道常与国家纪律、警察训练、军事机构以及上层人脉相连。这一时期的技法可能十分严苛，道场的名声也反映出那份强度。\n\n随着这门武艺的发展，名称也几度更替：植芝流、合气柔术、合气武道，最终成为合气道。对今天的学员而言，这段历史解释了为何合气道从外表看来柔和，却仍要求精准。圆转的动作、步法与压制并非装饰，而是组织身体的方式，好让力量得以被承接、引导与化解。"
+          "body": "Ueshiba 于1927年迁往 Tokyo，并在1931年创立 Kobukan Dojo。那是战前的昭和时期，武道常与国家纪律、警察训练、军事机构以及上层人脉相连。这一时期的技法可能十分严苛，道场的名声也反映出那份强度。\n\n随着这门武艺的发展，名称也几度更替：Ueshiba 流、合气柔术、合气武道，最终成为合气道。对今天的学员而言，这段历史解释了为何合气道从外表看来柔和，却仍要求精准。圆转的动作、步法与压制并非装饰，而是组织身体的方式，好让力量得以被承接、引导与化解。"
         },
         "postwarAikido": {
           "eyebrow": "战后的重生",
           "title": "战后的岁月赋予合气道现代而公开的样貌。",
-          "body": "1942年，合气道这一名称被正式采用，植芝吉祥丸被任命为本部的理事长，而植芝盛平的重心也明显移向岩间。合气神社于1943年建成，茨城道场于1945年建造。这些年份正处在战争与战败的艰难时期，那时日本公开的武术文化正被重新审视。\n\n战后，合气道必须被呈现为不只是一套格斗系统。合气会于1948年获得正式承认，本部道场于1949年恢复每日练习的安排。它不竞争的形式、对同伴的照顾，以及和合的语言，帮助它作为教育、纪律与文化而存续下来。"
+          "body": "1942年，合气道这一名称被正式采用，Kisshomaru Ueshiba 被任命为本部的理事长，而 Morihei Ueshiba 的重心也明显移向 Iwama。Aiki Shrine 于1943年建成，Ibaraki Dojo 于1945年建造。这些年份正处在战争与战败的艰难时期，那时 Japan 公开的武术文化正被重新审视。\n\n战后，合气道必须被呈现为不只是一套格斗系统。Aikikai 于1948年获得正式承认，Hombu Dojo 于1949年恢复每日练习的安排。它不竞争的形式、对同伴的照顾，以及和合的语言，帮助它作为教育、纪律与文化而存续下来。"
         },
         "hombuGrowth": {
-          "eyebrow": "本部道场",
-          "title": "植芝吉祥丸架起了从开祖到公众武艺的桥梁。",
-          "body": "现代合气道在很大程度上得益于开祖之子植芝吉祥丸。他帮助重启每日练习，为更广大的读者撰文，支持演武，并在开祖辞世后为这门武艺指出更清晰的组织道路。首次面向公众的合气道演武于1955年举行，《合气道》报于1959年创刊，新建的本部道场于1968年落成。\n\n植芝盛平直到1969年4月26日辞世，始终是精神与技术的中心。晚年的照片里，是一位年长的师父在祈祷、远行、写字，往返于岩间与东京之间。那些安静的影像，帮助来访者看到合气道的历史不只是技法的清单，更是一种日复一日的专注修持。"
+          "eyebrow": "Hombu Dojo",
+          "title": "Kisshomaru Ueshiba 架起了从开祖到公众武艺的桥梁。",
+          "body": "现代合气道在很大程度上得益于开祖之子 Kisshomaru Ueshiba。他帮助重启每日练习，为更广大的读者撰文，支持演武，并在开祖辞世后为这门武艺指出更清晰的组织道路。首次面向公众的合气道演武于1955年举行，《合气道》报于1959年创刊，新建的 Hombu Dojo 于1968年落成。\n\nMorihei Ueshiba 直到1969年4月26日辞世，始终是精神与技术的中心。晚年的照片里，是一位年长的师父在祈祷、远行、写字，往返于 Iwama 与 Tokyo 之间。那些安静的影像，帮助来访者看到合气道的历史不只是技法的清单，更是一种日复一日的专注修持。"
         },
         "internationalSpread": {
           "eyebrow": "走向世界",
           "title": "合气道借由师者、道场与耐心的反复练习走向世界。",
-          "body": "合气道在1950年代开始走出国门。本部的师范与学员把这门武艺带到欧洲、美洲、东南亚以及更远的地方。国际合气道联盟于1976年成立，合气会如今称合气道已在140多个国家和地区扎根。\n\n在传播的过程中，合气道也变得多样。有的传承侧重武器，有的侧重战前利落的技法，有的侧重流动的动作，也有的为儿童、家庭与社区安全建立课程。好的道场会诚实面对这份多样，同时守住共同的核心：以敬意练习、安全地承接，并把冲突化为连结。"
+          "body": "合气道在1950年代开始走出国门。Hombu Dojo 的师范与学员把这门武艺带到 Europe、the Americas、Southeast Asia 以及更远的地方。International Aikido Federation 于1976年成立，Aikikai 如今称合气道已在140多个国家和地区扎根。\n\n在传播的过程中，合气道也变得多样。有的传承侧重武器，有的侧重战前利落的技法，有的侧重流动的动作，也有的为儿童、家庭与社区安全建立课程。好的道场会诚实面对这份多样，同时守住共同的核心：以敬意练习、安全地承接，并把冲突化为连结。"
         },
         "thailand": {
-          "eyebrow": "泰国",
-          "title": "泰国的合气道借由与本部的联系和长期的师者而成长。",
-          "body": "和平文化基金会的合气道史记载，合气道于1961年由田村信喜师范引入泰国，并得到东京合气道世界本部的技术支持。文中还记载，曼谷的炼武馆道场于1970年成立，并在藤草元宏师范的带领下成为泰国合气道协会的总部。\n\n这段全国性的故事对清迈很重要，因为本地的练习是更广阔的泰国合气道网络的一部分，而非孤立的活动。段位、讲习会、来访的老师，以及跨道场的友谊，都让学员获得超越单一练习室的延续。"
+          "eyebrow": "Thailand",
+          "title": "Thailand 的合气道借由与本部的联系和长期的师者而成长。",
+          "body": "Peace Culture Foundation 的合气道史记载，合气道于1961年由 Nobuyoshi Tamura Shihan 引入 Thailand，并得到 Aikido World Headquarters in Tokyo 的技术支持。文中还记载，Bangkok 的 Renbukan Dojo 于1970年成立，并在 Motohiro Fukakusa Shihan 的带领下成为 Aikido Association of Thailand 的总部。\n\n这段全国性的故事对 Chiang Mai 很重要，因为本地的练习是更广阔的 Thailand 合气道网络的一部分，而非孤立的活动。段位、讲习会、来访的老师，以及跨道场的友谊，都让学员获得超越单一练习室的延续。"
         },
         "renshinkanPractice": {
           "eyebrow": "本地的练习",
           "title": "在一间本地道场里，历史会在平常的习惯中显现。",
-          "body": "在清迈，合气道的练习从大学与社区的根脉中成长起来。Sombat Tapanya 老师于1980年开始习练合气道，1986年参与创立清迈大学合气道社，后来在杭东建起仁心馆的练习场地。道场至今仍通过初学者课程、家人的观摩、武器练习以及来访的合气道同好，延续着这条脉络。\n\n对第一次来访的人来说，历史很快就变得切身。行礼教人专注，受身教人如何承接力量，与同伴的练习教人如何在保持自身中心的同时保护另一个人。那正是从翁先生的故事一直延伸到今天垫上的一条活生生的线。"
+          "body": "在 Chiang Mai，合气道的练习从大学与社区的根脉中成长起来。Sombat Tapanya 老师于1980年开始习练合气道，1986年参与创立 Chiang Mai University Aikido Club，后来在 Hang Dong 建起 RenShinKan Dojo 的练习场地。道场至今仍通过初学者课程、家人的观摩、武器练习以及来访的合气道同好，延续着这条脉络。\n\n对第一次来访的人来说，历史很快就变得切身。行礼教人专注，受身教人如何承接力量，与同伴的练习教人如何在保持自身中心的同时保护另一个人。那正是从 O Sensei 的故事一直延伸到今天垫上的一条活生生的线。"
         }
       }
     },
@@ -1173,7 +1170,7 @@
         "liblab": {
           "title": "LibLab：把书带给社区",
           "caption": "基金会的 LibLab 项目把书带到需要它们的社区。",
-          "alt": "和平文化基金会 LibLab 社区识字项目书堆。"
+          "alt": "Peace Culture Foundation LibLab 社区识字项目书堆。"
         },
         "learning": {
           "title": "每个环境中的学习",
@@ -1183,22 +1180,22 @@
         "safety": {
           "title": "儿童安全教育",
           "caption": "教社区识别不安全模式，并保护身边的年轻人。",
-          "alt": "和平文化基金会儿童安全教育意识图。"
+          "alt": "Peace Culture Foundation 儿童安全教育意识图。"
         },
         "sombat": {
           "title": "Dr. Sombat Tapanya",
-          "caption": "和平文化基金会的创办人，也是其使命和 练心馆 道场背后的重要人物。",
-          "alt": "和平文化基金会创办人 Sombat Tapanya 博士。"
+          "caption": "Peace Culture Foundation 的创办人，也是其使命和 RenShinKan Dojo 背后的重要人物。",
+          "alt": "Peace Culture Foundation 创办人 Sombat Tapanya 博士。"
         }
       },
       "cmu": {
         "practice": {
           "days": "星期一、星期三、星期五",
           "time": "公开列为晚上 6:00-8:00",
-          "location": "AikidoCMU 文章描述练习地点在学生会大楼一楼。历史页面也列出清迈大学合气道社位于素贴路的体育馆大楼。",
+          "location": "AikidoCMU 文章描述练习地点在学生会大楼一楼。历史页面也列出 Chiang Mai University Aikido Club 位于 Suthep Road 的体育馆大楼。",
           "note": "这些公开日程说明较早。访客前往前应向 AikidoCMU 确认当前房间和开始时间。"
         },
-        "address": "清迈大学合气道社，体育馆大楼，清迈大学，素贴路，清迈，泰国",
+        "address": "Chiang Mai University Aikido Club，体育馆大楼，Chiang Mai University，Suthep Road，Chiang Mai，Thailand",
         "links": {
           "history": "AikidoCMU 历史",
           "practice": "练习文章",
@@ -1209,11 +1206,11 @@
         "practice": {
           "title": "在 CMU 练习",
           "caption": "AikidoCMU 公开通讯图片，展示伙伴练习和圆形动作。",
-          "alt": "AikidoCMU 练习者在清迈白色垫上训练。"
+          "alt": "AikidoCMU 练习者在 Chiang Mai 白色垫上训练。"
         },
         "history": {
-          "title": "泰北合气道",
-          "caption": "来自 Aikido Chiang Mai Unite 泰北合气道历史的来源图片。",
+          "title": "Northern Thailand 合气道",
+          "caption": "来自 Aikido Chiang Mai Unite Northern Thailand 合气道历史的来源图片。",
           "alt": "Aikido Chiang Mai Unite 页面中的 AikidoCMU 历史图片。"
         },
         "roots": {
@@ -1235,22 +1232,22 @@
       "relatedDojos": {
         "thaiAikikai": {
           "name": "Thai Aikikai",
-          "description": "泰国的全国性合气道组织，由 Motohiro Fukakusa Shihan 于 1975 年创立。它通过训练、研讨会和更广泛的全国练习网络，连接泰国的合气道练习者。",
-          "location": "泰国曼谷（全国组织）"
+          "description": "Thailand 的全国性合气道组织，由 Motohiro Fukakusa Shihan 于 1975 年创立。它通过训练、研讨会和更广泛的全国练习网络，连接 Thailand 的合气道练习者。",
+          "location": "Bangkok, Thailand（全国组织）"
         },
         "aikidoCmu": {
           "name": "Aikido Chiang Mai University Club",
-          "description": "清迈大学长期运行的大学社团，向学生、国际访客和社区成员开放。",
-          "location": "清迈大学，Suthep Road"
+          "description": "Chiang Mai University 长期运行的大学社团，向学生、国际访客和社区成员开放。",
+          "location": "Chiang Mai University，Suthep Road"
         },
         "aiDojo": {
           "name": "Ai Dojo",
-          "description": "位于清迈 Suthep 区的合气道道场，是当地合气道社区的一部分。",
+          "description": "位于 Chiang Mai Suthep 区的合气道道场，是当地合气道社区的一部分。",
           "location": "Suthep, Chiang Mai"
         },
         "allDojo": {
           "name": "All Dojo Chiang Mai",
-          "description": "位于清迈市南部 Saraphi 的道场，与当地合气道网络相连。",
+          "description": "位于 Chiang Mai 市南部 Saraphi 的道场，与当地合气道网络相连。",
           "location": "Saraphi, Chiang Mai"
         },
         "aikidoKids": {

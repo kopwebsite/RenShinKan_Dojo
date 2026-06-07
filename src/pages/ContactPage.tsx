@@ -1,4 +1,4 @@
-import { Facebook, Mail } from "lucide-react";
+import { Facebook } from "lucide-react";
 import { LocationCard } from "../components/LocationCard";
 import { MotionSection } from "../components/MotionSection";
 import { siteInfo } from "../data/siteMeta";
@@ -43,10 +43,6 @@ export function ContactPage() {
                   <Facebook size={18} aria-hidden="true" />
                   {t("common.messageUsFacebook")}
                 </a>
-                <a href={`mailto:${siteInfo.email}`} className="btn-secondary inline-flex">
-                  <Mail size={18} aria-hidden="true" />
-                  {t("contact.message.emailCta")}
-                </a>
               </div>
             </article>
 
@@ -73,10 +69,6 @@ export function ContactPage() {
                 >
                   <Facebook size={18} aria-hidden="true" />
                   {t("contact.before.cta")}
-                </a>
-                <a href={`mailto:${siteInfo.email}`} className="btn-secondary inline-flex">
-                  <Mail size={18} aria-hidden="true" />
-                  {t("contact.before.emailCta")}
                 </a>
               </div>
             </article>

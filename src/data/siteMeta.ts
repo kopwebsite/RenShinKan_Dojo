@@ -4,7 +4,6 @@ export const siteInfo = {
   address:
     "155 Soi 6, Suan Luang Village, T. Baan Waen, A. Hang Dong, Chiang Mai 50230",
   facebookUrl: "https://www.facebook.com/RenShinKanChiangMai/",
-  email: "contact@renshinkandojo.org",
   foundationUrl: "https://www.peaceculturefoundation.org/renshinkan-dojo",
   builtYear: "2013",
 };

@@ -141,6 +141,26 @@ body::before {
   }
 }
 
+/*
+ * Thai marks extend above and below the main glyph body, so the compact
+ * line-height values used for Latin display type can make adjacent lines
+ * appear to collide.
+ */
+html:lang(th) h1,
+html:lang(th) h2,
+html:lang(th) h3,
+html:lang(th) h4 {
+  line-height: 1.4;
+}
+
+html:lang(th) :is(.font-bold, .font-semibold):is(.leading-none, .leading-tight, .leading-snug) {
+  line-height: 1.5;
+}
+
+html:lang(th) :is(strong, b) {
+  line-height: 1.6;
+}
+
 @layer components {
   .skip-link {
     @apply fixed left-4 top-4 z-[100] -translate-y-24 rounded-full bg-ink px-5 py-3 text-sm font-semibold text-paper transition-transform focus:translate-y-0;

@@ -390,8 +390,6 @@ ${bodyRows}
                     <div style="margin-top:14px;">
                       <a href="https://www.facebook.com/RenShinKanChiangMai/" style="color:#e2d8c4; text-decoration:underline;">Facebook</a>
                       &nbsp;&middot;&nbsp;
-                      <a href="mailto:contact@renshinkandojo.org" style="color:#e2d8c4; text-decoration:underline;">contact@renshinkandojo.org</a>
-                      &nbsp;&middot;&nbsp;
                       <a href="${base}/" style="color:#e2d8c4; text-decoration:underline;">Website</a>
                     </div>
                     <div style="margin-top:16px; padding-top:16px; border-top:1px solid #43382b; font-size:12px; line-height:19px; color:#9a8d76;">

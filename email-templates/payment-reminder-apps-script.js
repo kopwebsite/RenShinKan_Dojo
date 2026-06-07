@@ -141,7 +141,7 @@ function renderPaymentReminderEmail(details) {
     '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" class="sans" style="font-size:13px; line-height:21px; color:#b7a98f;">',
     '<div class="serif" style="font-size:17px; color:#f3ece0; margin-bottom:6px;">RenShinKan Dojo</div>',
     '<a href="https://www.google.com/maps/search/?api=1&amp;query=RenShinKan%20Dojo%2C%20155%20Soi%206%2C%20Suan%20Luang%20Village%2C%20T.%20Baan%20Waen%2C%20A.%20Hang%20Dong%2C%20Chiang%20Mai%2050230" style="color:#b7a98f; text-decoration:none;">155 Soi 6, Suan Luang Village, Baan Waen,<br>Hang Dong, Chiang Mai 50230</a>',
-    '<div style="margin-top:14px;"><a href="https://www.facebook.com/RenShinKanChiangMai/" style="color:#e2d8c4; text-decoration:underline;">Facebook</a>&nbsp;&middot;&nbsp;<a href="mailto:contact@renshinkandojo.org" style="color:#e2d8c4; text-decoration:underline;">contact@renshinkandojo.org</a>&nbsp;&middot;&nbsp;<a href="https://renshinkandojo.org/" style="color:#e2d8c4; text-decoration:underline;">Website</a></div>',
+    '<div style="margin-top:14px;"><a href="https://www.facebook.com/RenShinKanChiangMai/" style="color:#e2d8c4; text-decoration:underline;">Facebook</a>&nbsp;&middot;&nbsp;<a href="https://renshinkandojo.org/" style="color:#e2d8c4; text-decoration:underline;">Website</a></div>',
     '<div style="margin-top:16px; padding-top:16px; border-top:1px solid #43382b; font-size:12px; line-height:19px; color:#9a8d76;">This reminder was sent to ' + emailAddress + ' because this address is listed for RenShinKan monthly contribution records.</div>',
     '</td></tr></table>',
     '</td></tr>',

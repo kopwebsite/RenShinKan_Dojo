@@ -260,20 +260,18 @@
     },
     "message": {
       "eyebrow": "Get in Touch",
-      "title": "Two easy ways to reach us.",
-      "copy": "Reach out any time. You can message us on Facebook or email us at contact@renshinkandojo.org. We are happy to answer any questions about classes, schedules, or your first visit.",
-      "emailCta": "Email contact@renshinkandojo.org"
+      "title": "Message us on Facebook.",
+      "copy": "Reach out any time through Facebook. We are happy to answer any questions about classes, schedules, or your first visit."
     },
     "before": {
       "eyebrow": "Before You Visit",
       "title": "Feel free to just drop in.",
-      "copy": "You're welcome to drop in to a class without messaging ahead. If you'd like to say hello first, you can connect with us on Facebook or by email at contact@renshinkandojo.org before you come.",
+      "copy": "You're welcome to drop in to a class without messaging ahead. If you'd like to say hello first, you can connect with us on Facebook before you come.",
       "item1": "Wear comfortable clothes that allow movement.",
       "item2": "Arrive a little early so someone can welcome you.",
       "item3": "Parking is available, and parents are welcome to watch students practice.",
       "item4": "Visiting aikidoka are welcome to mention rank and home dojo.",
-      "cta": "Message us on Facebook",
-      "emailCta": "Email the dojo"
+      "cta": "Message us on Facebook"
     }
   },
   "aikido": {
@@ -593,7 +591,6 @@
         "nextItem3": "Message the dojo if you need help checking your payment status."
       },
       "helpTitle": "Need help?",
-      "emailCta": "Email the dojo",
       "facebookCta": "Message on Facebook",
       "formCta": "Return to contribution form",
       "supportCta": "Back to support"

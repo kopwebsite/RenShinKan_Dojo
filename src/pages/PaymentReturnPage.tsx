@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Mail, RotateCcw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, RotateCcw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { MotionSection } from "../components/MotionSection";
 import { siteInfo, socialLinks } from "../data/siteMeta";
@@ -103,19 +103,12 @@ function PaymentReturnPage({ content }: { content: PaymentReturnContent }) {
               <p className="mt-3 text-sm leading-6 text-paper/85">
                 {t(content.noteKey)}
               </p>
-              <div className="mt-5 grid gap-3">
-                <a
-                  href={`mailto:${siteInfo.email}`}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-paper px-5 py-2.5 text-sm font-bold text-ink transition hover:bg-mist"
-                >
-                  <Mail size={17} aria-hidden="true" />
-                  {t("support.paymentReturn.emailCta")}
-                </a>
+              <div className="mt-5">
                 <a
                   href={facebookLink}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-paper/30 px-5 py-2.5 text-sm font-bold text-paper transition hover:bg-paper/10"
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-paper px-5 py-2.5 text-sm font-bold text-ink transition hover:bg-mist"
                 >
                   {t("support.paymentReturn.facebookCta")}
                 </a>

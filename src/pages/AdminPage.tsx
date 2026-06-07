@@ -1109,7 +1109,7 @@ export function AdminPage() {
             <Lock size={24} aria-hidden="true" />
           </div>
           <p className="eyebrow mt-7">Admin</p>
-          <h1 className="mt-3 text-3xl leading-tight text-ink sm:text-4xl">RenshinKan publishing</h1>
+          <h1 className="mt-3 text-3xl leading-tight text-ink sm:text-4xl">RenShinKan publishing</h1>
           <p className="mt-4 text-sm leading-6 text-charcoal/72">
             Sign in to edit site content and save it through the Cloudflare admin API.
           </p>

@@ -3,7 +3,6 @@ import {
   Bath,
   BookOpen,
   CircleDot,
-  Droplets,
   Eye,
   Footprints,
   GlassWater,
@@ -340,9 +339,9 @@ export const aikidoTimeline: AikidoTimelineItem[] = [
   },
   {
     year: "1986-present",
-    title: "Chiang Mai and RenshinKan",
+    title: "Chiang Mai and RenShinKan",
     description:
-      "Northern Thailand practice grows through the Chiang Mai University Aikido Club and dojo communities, leading to RenshinKan's local training culture.",
+      "Northern Thailand practice grows through the Chiang Mai University Aikido Club and dojo communities, leading to RenShinKan's local training culture.",
     sectionId: "renshinkan-practice",
   },
 ];
@@ -656,7 +655,7 @@ export const aikidoHistorySections: AikidoHistorySection[] = [
     imageId: "steady-walking-1968",
     imagePosition: "left",
     paragraphs: [
-      "In Chiang Mai, aikido practice grew through university and community roots. Ajarn Sombat Tapanya began aikido training in 1980, helped found the Chiang Mai University Aikido Club in 1986, and later built the RenshinKan training space in Hang Dong. The dojo continues that line through beginner classes, family observation, weapons practice, and visiting aikidoka.",
+      "In Chiang Mai, aikido practice grew through university and community roots. Ajarn Sombat Tapanya began aikido training in 1980, helped found the Chiang Mai University Aikido Club in 1986, and later built the RenShinKan training space in Hang Dong. The dojo continues that line through beginner classes, family observation, weapons practice, and visiting aikidoka.",
       "For a first-time visitor, the history becomes practical very quickly. Bowing teaches attention. Ukemi teaches how to receive pressure. Partner practice teaches how to protect another person while staying centered yourself. That is the living thread from O Sensei's story to the mat today.",
     ],
   },
@@ -695,7 +694,7 @@ export const pcfAikidoImages = {
   sourceUrl: "https://www.peaceculturefoundation.org/aikido",
   classPractice: {
     src: assetPath("/pcf-aikido/aikido-class.jpg"),
-    alt: "Aikido students seated in seiza before the kamiza wall at RenshinKan Dojo.",
+    alt: "Aikido students seated in seiza before the kamiza wall at RenShinKan Dojo.",
   },
   schedule: {
     src: assetPath("/pcf-aikido/class-schedule.png"),
@@ -703,11 +702,11 @@ export const pcfAikidoImages = {
   },
   dojoSign: {
     src: assetPath("/pcf-aikido/dojo-sign.jpg"),
-    alt: "RenshinKan Dojo sign outside the dojo.",
+    alt: "RenShinKan Dojo sign outside the dojo.",
   },
   kamiza: {
     src: assetPath("/pcf-aikido/kamiza.jpg"),
-    alt: "Kamiza area inside RenshinKan Dojo.",
+    alt: "Kamiza area inside RenShinKan Dojo.",
   },
   joBokken: {
     src: assetPath("/pcf-aikido/jo-bokken.jpg"),
@@ -715,18 +714,18 @@ export const pcfAikidoImages = {
   },
   bokkenRack: {
     src: assetPath("/pcf-aikido/bokken-rack.jpg"),
-    alt: "A rack of wooden bokken training weapons at RenshinKan Dojo.",
+    alt: "A rack of wooden bokken training weapons at RenShinKan Dojo.",
   },
   dojoExterior: {
     src: assetPath("/pcf-aikido/dojo-exterior.jpg"),
-    alt: "Exterior view of RenshinKan Dojo in Hang Dong, Chiang Mai.",
+    alt: "Exterior view of RenShinKan Dojo in Hang Dong, Chiang Mai.",
   },
 };
 
 export const aikidoActionImages = {
   technique: {
     src: assetPath("/dojo-photos/aikido-wristlock.webp"),
-    alt: "A RenshinKan student calmly applying a controlled wrist technique on a partner inside the dojo, with a wooden weapons rack on the wall behind.",
+    alt: "A RenShinKan student calmly applying a controlled wrist technique on a partner inside the dojo, with a wooden weapons rack on the wall behind.",
   },
   joTraining: {
     src: assetPath("/dojo-photos/aikido-jo-training.webp"),
@@ -750,7 +749,7 @@ export const aikidoActionImages = {
   },
   trainingPin: {
     src: assetPath("/dojo-photos/aikido-training-pin-2x.webp"),
-    alt: "A RenshinKan student applying a calm, controlled pin on a partner during aikido training on the tatami mat.",
+    alt: "A RenShinKan student applying a calm, controlled pin on a partner during aikido training on the tatami mat.",
   },
 };
 
@@ -758,25 +757,25 @@ export const dojoPhotos = [
   {
     title: "Koi Pond",
     description: "A small koi pond tucked into the garden grounds.",
-    alt: "Koi pond in the RenshinKan Dojo garden.",
+    alt: "Koi pond in the RenShinKan Dojo garden.",
     src: assetPath("/dojo-photos/renshinkan-koi-pond-upscaled.webp"),
   },
   {
     title: "The Garden",
     description: "Greenery surrounds the dojo and gives the space a calm, settled feel.",
-    alt: "Garden surrounding RenshinKan Dojo in Hang Dong.",
+    alt: "Garden surrounding RenShinKan Dojo in Hang Dong.",
     src: assetPath("/dojo-photos/workshop-location-garden.webp"),
   },
   {
     title: "Courtyard",
     description: "The open courtyard connects the main dojo building to the rest of the grounds.",
-    alt: "Open courtyard at RenshinKan Dojo.",
+    alt: "Open courtyard at RenShinKan Dojo.",
     src: assetPath("/dojo-photos/workshop-location-courtyard.webp"),
   },
   {
     title: "Training Hall",
     description: "The main training space with tatami mats, high ceilings, and plenty of room to move.",
-    alt: "RenshinKan Dojo interior training hall.",
+    alt: "RenShinKan Dojo interior training hall.",
     src: assetPath("/dojo-photos/workshop-location-dojo.webp"),
   },
 ];
@@ -785,8 +784,8 @@ export const dojoJourney = [
   {
     title: "Wide Class Group",
     description:
-      "A full class portrait inside the RenshinKan training hall.",
-    alt: "Large class group seated on the RenshinKan Dojo mat.",
+      "A full class portrait inside the RenShinKan training hall.",
+    alt: "Large class group seated on the RenShinKan Dojo mat.",
     imageSrc: assetPath("/renshinkan-gallery/class-photos/class_group_dojo_wide_01.jpg"),
     variant: "tatami",
   },
@@ -802,7 +801,7 @@ export const dojoJourney = [
     title: "Close Class Portrait",
     description:
       "A closer class photo with students and instructors together.",
-    alt: "Close class group portrait inside RenshinKan Dojo.",
+    alt: "Close class group portrait inside RenShinKan Dojo.",
     imageSrc: assetPath("/renshinkan-gallery/class-photos/class_group_dojo_closeup_01.jpg"),
     variant: "tatami",
   },
@@ -810,7 +809,7 @@ export const dojoJourney = [
     title: "Front Wall Class",
     description:
       "A class group photo facing the kamiza wall.",
-    alt: "Class group seated in front of the RenshinKan Dojo front wall.",
+    alt: "Class group seated in front of the RenShinKan Dojo front wall.",
     imageSrc: assetPath("/renshinkan-gallery/class-photos/class_group_dojo_front_wall_01.jpg"),
     variant: "tatami",
   },
@@ -818,7 +817,7 @@ export const dojoJourney = [
     title: "Second Wide Group",
     description:
       "Another wide class portrait from the dojo floor.",
-    alt: "Wide aikido class group portrait inside RenshinKan Dojo.",
+    alt: "Wide aikido class group portrait inside RenShinKan Dojo.",
     imageSrc: assetPath("/renshinkan-gallery/class-photos/class_group_dojo_wide_02.jpg"),
     variant: "tatami",
   },
@@ -826,15 +825,15 @@ export const dojoJourney = [
     title: "On The Mat",
     description:
       "Students and instructors gathered on the mat after practice.",
-    alt: "RenshinKan students on the mat.",
+    alt: "RenShinKan students on the mat.",
     imageSrc: assetPath("/renshinkan-gallery/class-photos/on_the_mat_01.jpg"),
     variant: "tatami",
   },
   {
     title: "Mat Practice",
     description:
-      "A moment captured during training at RenshinKan.",
-    alt: "Aikido training on the mat at RenshinKan Dojo.",
+      "A moment captured during training at RenShinKan.",
+    alt: "Aikido training on the mat at RenShinKan Dojo.",
     imageSrc: assetPath("/renshinkan-gallery/class-photos/on_the_mat_02.jpg"),
     variant: "tatami",
   },
@@ -843,8 +842,8 @@ export const dojoJourney = [
 export const classCarouselPhotos = [
   {
     title: "Wide Class Group",
-    caption: "A full class portrait inside the RenshinKan training hall.",
-    alt: "Large class group seated on the RenshinKan Dojo mat.",
+    caption: "A full class portrait inside the RenShinKan training hall.",
+    alt: "Large class group seated on the RenShinKan Dojo mat.",
     src: assetPath("/renshinkan-gallery/class-photos/class_group_dojo_wide_01.jpg"),
   },
   {
@@ -856,19 +855,19 @@ export const classCarouselPhotos = [
   {
     title: "Close Class Portrait",
     caption: "A closer class photo with students and instructors together.",
-    alt: "Close class group portrait inside RenshinKan Dojo.",
+    alt: "Close class group portrait inside RenShinKan Dojo.",
     src: assetPath("/renshinkan-gallery/class-photos/class_group_dojo_closeup_01.jpg"),
   },
   {
     title: "Front Wall Class",
     caption: "A class group photo facing the kamiza wall.",
-    alt: "Class group seated in front of the RenshinKan Dojo front wall.",
+    alt: "Class group seated in front of the RenShinKan Dojo front wall.",
     src: assetPath("/renshinkan-gallery/class-photos/class_group_dojo_front_wall_01.jpg"),
   },
   {
     title: "Second Wide Group",
     caption: "Another wide class portrait from the dojo floor.",
-    alt: "Wide aikido class group portrait inside RenshinKan Dojo.",
+    alt: "Wide aikido class group portrait inside RenShinKan Dojo.",
     src: assetPath("/renshinkan-gallery/class-photos/class_group_dojo_wide_02.jpg"),
   },
 ];
@@ -907,7 +906,7 @@ export const beltExamCarouselPhotos = [
   {
     title: "Certificate Pair",
     caption: "A paired student certificate photo from the graduation set.",
-    alt: "Two students with certificates during a RenshinKan belt graduation.",
+    alt: "Two students with certificates during a RenShinKan belt graduation.",
     src: assetPath("/renshinkan-gallery/belt-graduation/belt_graduation_certificate_two_students_03.jpg"),
   },
   {
@@ -929,12 +928,12 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
   {
     id: "site-layout-december-2011",
     src: assetPath("/renshinkan-build/crops/site-layout-december-2011.jpg"),
-    alt: "Marked ground and posts on the RenshinKan Dojo site before construction.",
+    alt: "Marked ground and posts on the RenShinKan Dojo site before construction.",
     title: "Laying Out The Site",
     date: "December 25, 2011",
     caption:
       "The early build gallery shows the dojo site being marked out before the main foundation work began.",
-    sourceName: "Peace Culture Foundation RenshinKan Dojo build gallery",
+    sourceName: "Peace Culture Foundation RenShinKan Dojo build gallery",
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_02.png",
     credit: "Peace Culture Foundation; photographer not listed.",
@@ -943,12 +942,12 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
   {
     id: "foundation-formwork-january-2012",
     src: assetPath("/renshinkan-build/crops/foundation-formwork-january-2012.jpg"),
-    alt: "Wood formwork and early concrete foundation work for RenshinKan Dojo.",
+    alt: "Wood formwork and early concrete foundation work for RenShinKan Dojo.",
     title: "Foundation Work",
     date: "January 20, 2012",
     caption:
       "The foundation and formwork begin to show the footprint of the future practice hall.",
-    sourceName: "Peace Culture Foundation RenshinKan Dojo build gallery",
+    sourceName: "Peace Culture Foundation RenShinKan Dojo build gallery",
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_02.png",
     credit: "Peace Culture Foundation; photographer not listed.",
@@ -957,12 +956,12 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
   {
     id: "early-columns-february-2012",
     src: assetPath("/renshinkan-build/crops/early-columns-february-2012.jpg"),
-    alt: "Early concrete columns rising from the RenshinKan Dojo construction site.",
+    alt: "Early concrete columns rising from the RenShinKan Dojo construction site.",
     title: "First Columns",
     date: "February 24, 2012",
     caption:
       "Vertical supports appear on the site, beginning the shift from ground work to building frame.",
-    sourceName: "Peace Culture Foundation RenshinKan Dojo build gallery",
+    sourceName: "Peace Culture Foundation RenShinKan Dojo build gallery",
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_02.png",
     credit: "Peace Culture Foundation; photographer not listed.",
@@ -971,12 +970,12 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
   {
     id: "roof-frame-may-2012",
     src: assetPath("/renshinkan-build/crops/roof-frame-may-2012.jpg"),
-    alt: "Steel roof frame and construction materials at RenshinKan Dojo.",
+    alt: "Steel roof frame and construction materials at RenShinKan Dojo.",
     title: "Roof Frame",
     date: "May 3, 2012",
     caption:
       "The steel roof structure and stored materials show the dojo taking on its final outline.",
-    sourceName: "Peace Culture Foundation RenshinKan Dojo build gallery",
+    sourceName: "Peace Culture Foundation RenShinKan Dojo build gallery",
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_03.png",
     credit: "Peace Culture Foundation; photographer not listed.",
@@ -985,12 +984,12 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
   {
     id: "garden-view-may-2012",
     src: assetPath("/renshinkan-build/crops/garden-view-may-2012.jpg"),
-    alt: "Garden and pond view near RenshinKan Dojo during construction.",
+    alt: "Garden and pond view near RenShinKan Dojo during construction.",
     title: "Garden Setting",
     date: "May 3, 2012",
     caption:
       "The source gallery pairs the construction progress with the quiet garden setting around the dojo.",
-    sourceName: "Peace Culture Foundation RenshinKan Dojo build gallery",
+    sourceName: "Peace Culture Foundation RenShinKan Dojo build gallery",
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_03.png",
     credit: "Peace Culture Foundation; photographer not listed.",
@@ -999,12 +998,12 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
   {
     id: "finished-wood-floor-november-2012",
     src: assetPath("/renshinkan-build/crops/finished-wood-floor-november-2012.jpg"),
-    alt: "Completed wooden floor inside RenshinKan Dojo before mats were installed.",
+    alt: "Completed wooden floor inside RenShinKan Dojo before mats were installed.",
     title: "Finished Wood Floor",
     date: "November 2012",
     caption:
       "Before the tatami arrived, the empty hall already showed the calm proportions of the practice space.",
-    sourceName: "Peace Culture Foundation RenshinKan Dojo build gallery",
+    sourceName: "Peace Culture Foundation RenShinKan Dojo build gallery",
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_04.png",
     credit: "Peace Culture Foundation; photographer not listed.",
@@ -1013,12 +1012,12 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
   {
     id: "night-exterior-november-2012",
     src: assetPath("/renshinkan-build/crops/night-exterior-november-2012.jpg"),
-    alt: "RenshinKan Dojo exterior lit at night during late construction.",
+    alt: "RenShinKan Dojo exterior lit at night during late construction.",
     title: "Night Exterior",
     date: "November 2012",
     caption:
       "A night view from the build gallery shows the completed shell lit from within.",
-    sourceName: "Peace Culture Foundation RenshinKan Dojo build gallery",
+    sourceName: "Peace Culture Foundation RenShinKan Dojo build gallery",
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_04.png",
     credit: "Peace Culture Foundation; photographer not listed.",
@@ -1028,12 +1027,12 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
     id: "sunlit-empty-dojo-january-2013",
     dateDark: true,
     src: assetPath("/renshinkan-build/crops/sunlit-empty-dojo-january-2013.jpg"),
-    alt: "Sunlit empty RenshinKan Dojo interior with wood floor and kamiza wall.",
+    alt: "Sunlit empty RenShinKan Dojo interior with wood floor and kamiza wall.",
     title: "Ready For The Mat",
     date: "January 2013",
     caption:
       "The empty room shows the warm wood, high windows, and open floor before regular training began.",
-    sourceName: "Peace Culture Foundation RenshinKan Dojo build gallery",
+    sourceName: "Peace Culture Foundation RenShinKan Dojo build gallery",
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_05.png",
     credit: "Peace Culture Foundation; photographer not listed.",
@@ -1043,12 +1042,12 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
     id: "kamiza-visit-january-2013",
     dateDark: true,
     src: assetPath("/renshinkan-build/crops/kamiza-visit-january-2013.jpg"),
-    alt: "Two visitors standing in front of the kamiza wall at RenshinKan Dojo.",
+    alt: "Two visitors standing in front of the kamiza wall at RenShinKan Dojo.",
     title: "Kamiza Visit",
     date: "January 2013",
     caption:
       "The source gallery includes a visit in front of the kamiza wall as the interior neared completion.",
-    sourceName: "Peace Culture Foundation RenshinKan Dojo build gallery",
+    sourceName: "Peace Culture Foundation RenShinKan Dojo build gallery",
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_05.png",
     credit: "Peace Culture Foundation; photographer not listed.",
@@ -1057,12 +1056,12 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
   {
     id: "tatami-stacked-april-2013",
     src: assetPath("/renshinkan-build/crops/tatami-stacked-april-2013.jpg"),
-    alt: "Stacks of green and yellow tatami mats outside RenshinKan Dojo.",
+    alt: "Stacks of green and yellow tatami mats outside RenShinKan Dojo.",
     title: "Tatami Arrives",
     date: "April 6, 2013",
     caption:
       "The mats arrive at the dojo, turning the completed hall into a working aikido space.",
-    sourceName: "Peace Culture Foundation RenshinKan Dojo build gallery",
+    sourceName: "Peace Culture Foundation RenShinKan Dojo build gallery",
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_06.png",
     credit: "Peace Culture Foundation; photographer not listed.",
@@ -1071,12 +1070,12 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
   {
     id: "tatami-installation-april-2013",
     src: assetPath("/renshinkan-build/crops/tatami-installation-april-2013.jpg"),
-    alt: "People installing yellow tatami mats inside RenshinKan Dojo.",
+    alt: "People installing yellow tatami mats inside RenShinKan Dojo.",
     title: "Installing The Mat",
     date: "April 6, 2013",
     caption:
       "Students and supporters help place the mats, one of the last visible steps before practice.",
-    sourceName: "Peace Culture Foundation RenshinKan Dojo build gallery",
+    sourceName: "Peace Culture Foundation RenShinKan Dojo build gallery",
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_06.png",
     credit: "Peace Culture Foundation; photographer not listed.",
@@ -1085,12 +1084,12 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
   {
     id: "first-ukemi-april-2013",
     src: assetPath("/renshinkan-build/crops/first-ukemi-april-2013.jpg"),
-    alt: "A practitioner taking ukemi on the new RenshinKan Dojo mats.",
+    alt: "A practitioner taking ukemi on the new RenShinKan Dojo mats.",
     title: "First Ukemi",
     date: "April 6, 2013",
     caption:
       "The first movement on the new mat captures the moment the building becomes a dojo.",
-    sourceName: "Peace Culture Foundation RenshinKan Dojo build gallery",
+    sourceName: "Peace Culture Foundation RenShinKan Dojo build gallery",
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_06.png",
     credit: "Peace Culture Foundation; photographer not listed.",
@@ -1099,12 +1098,12 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
   {
     id: "opening-practice-april-2013",
     src: assetPath("/renshinkan-build/crops/opening-practice-april-2013.jpg"),
-    alt: "Aikido students practicing together at RenshinKan Dojo after opening.",
+    alt: "Aikido students practicing together at RenShinKan Dojo after opening.",
     title: "Opening Practice",
     date: "April 8, 2013",
     caption:
       "The build sequence ends naturally with a room full of movement, partners, and shared practice.",
-    sourceName: "Peace Culture Foundation RenshinKan Dojo build gallery",
+    sourceName: "Peace Culture Foundation RenShinKan Dojo build gallery",
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_07.png",
     credit: "Peace Culture Foundation; photographer not listed.",
@@ -1113,12 +1112,12 @@ export const renshinkanBuildPhotos: DojoBuildPhoto[] = [
   {
     id: "interclub-community-august-2013",
     src: assetPath("/renshinkan-build/crops/interclub-community-august-2013.jpg"),
-    alt: "RenshinKan Dojo community members eating together after practice.",
+    alt: "RenShinKan Dojo community members eating together after practice.",
     title: "Community After Practice",
     date: "August 18, 2013",
     caption:
       "The same interclub panel includes a shared meal, a useful reminder that dojo life extends beyond the mat.",
-    sourceName: "Peace Culture Foundation RenshinKan Dojo build gallery",
+    sourceName: "Peace Culture Foundation RenShinKan Dojo build gallery",
     sourceUrl: siteInfo.foundationUrl,
     sourceFile: "Build_09.png",
     credit: "Peace Culture Foundation; photographer not listed.",
@@ -1139,9 +1138,9 @@ export const instructors: Instructor[] = [
     name: "Sombat Tapanya",
     rank: "5th dan",
     trainingBackground:
-      "Began aikido training in New Haven, Connecticut, in 1980, then trained at the Thai Aikido Association in Bangkok from 1982 under Motohiro Fukakusa Shihan and Prapant Chittaputta Shihan. Founded the Chiang Mai University Aikido Club in 1986 and Renshinkan Dojo in 2012.",
+      "Began aikido training in New Haven, Connecticut, in 1980, then trained at the Thai Aikido Association in Bangkok from 1982 under Motohiro Fukakusa Shihan and Prapant Chittaputta Shihan. Founded the Chiang Mai University Aikido Club in 1986 and RenShinKan Dojo in 2012.",
     imageSrc: assetPath("/instructors/sombat-tapanya.jpg"),
-    imageAlt: "Sombat Tapanya in aikido uniform at RenshinKan Dojo.",
+    imageAlt: "Sombat Tapanya in aikido uniform at RenShinKan Dojo.",
   },
   {
     role: "Senior Instructor",
@@ -1150,7 +1149,7 @@ export const instructors: Instructor[] = [
     trainingBackground:
       "Started aikido at the Chiang Mai University Aikido Club in 1986 and trained under Motohiro Fukakusa Shihan and Prapant Chittaputta Shihan.",
     imageSrc: assetPath("/instructors/teerarat-boripantakul.jpg"),
-    imageAlt: "Teerarat Boripantakul in aikido uniform at RenshinKan Dojo.",
+    imageAlt: "Teerarat Boripantakul in aikido uniform at RenShinKan Dojo.",
   },
   {
     role: "Founder / Senior Instructor",
@@ -1159,7 +1158,7 @@ export const instructors: Instructor[] = [
     trainingBackground:
       "Narumol (Kop) Thammapruksa began aikido at the Chiang Mai University Aikido Club. In 2008, she enrolled at the Aikido Academy at Hombu Dojo, Tokyo, and received 2nd kyu under Koichi Toriumi Shihan and Yoshiaki Yokota Shihan. In 2012, while an exchange student at Osaka University, she practiced at Shosenji Dojo under Katsuyuki Shimamoto Shihan and received shodan from Hombu Dojo under Tsuruzo Miyamoto Shihan.",
     imageSrc: assetPath("/instructors/kop-narumol.jpg"),
-    imageAlt: "Kop Narumol in aikido uniform at RenshinKan Dojo.",
+    imageAlt: "Kop Narumol in aikido uniform at RenShinKan Dojo.",
   },
   {
     role: "Instructor",
@@ -1168,7 +1167,7 @@ export const instructors: Instructor[] = [
     trainingBackground:
       "Started aikido at the Chiang Mai University Aikido Club in 2003 and trained under Sombat Tapanya and Teerarat Boripantakul.",
     imageSrc: assetPath("/instructors/major-kittisak-siriparp-current.png"),
-    imageAlt: "Major Kittisak Siriparp in aikido uniform at RenshinKan Dojo.",
+    imageAlt: "Major Kittisak Siriparp in aikido uniform at RenShinKan Dojo.",
   },
   {
     role: "Instructor",
@@ -1177,7 +1176,7 @@ export const instructors: Instructor[] = [
     trainingBackground:
       "Started aikido at the Chiang Mai University Aikido Club in 2002 and trained under Sombat Tapanya and Teerarat Boripantakul.",
     imageSrc: assetPath("/instructors/major-kittisak-siriparp.png"),
-    imageAlt: "Fuengwich Maneekarn in aikido uniform at RenshinKan Dojo.",
+    imageAlt: "Fuengwich Maneekarn in aikido uniform at RenShinKan Dojo.",
   },
   {
     role: "Instructor",
@@ -1186,7 +1185,7 @@ export const instructors: Instructor[] = [
     trainingBackground:
       "Started aikido at the Chiang Mai University Aikido Club in 2012 and trained under Sombat Tapanya and Teerarat Boripantakul.",
     imageSrc: assetPath("/instructors/siriphorn-manokeaw-current.png"),
-    imageAlt: "Siriphorn Manokeaw in aikido uniform at RenshinKan Dojo.",
+    imageAlt: "Siriphorn Manokeaw in aikido uniform at RenShinKan Dojo.",
   },
 ];
 
@@ -1337,47 +1336,12 @@ export const newsletters = [
   },
 ];
 
-export const facebookTimeline = {
-  pageName: "Aikido Chiang Mai - Renshinkan Dojo",
-  pageUrl: siteInfo.facebookUrl,
-  title: "Aikido Chiang Mai - Renshinkan Dojo Facebook posts",
-  description:
-    "Live public posts from the dojo's Facebook page. Scroll inside the frame to browse the available timeline.",
-};
-
 export const firstVisitChecklist = [
   "Message ahead",
   "Wear comfortable clothing",
   "Arrive 10 minutes early",
   "Bring water",
   "Parents may observe",
-];
-
-export const communityValues: IconContent[] = [
-  {
-    title: "Respectful Practice",
-    description:
-      "Students learn that tone, attention, and care matter as much as technique.",
-    icon: HeartHandshake,
-  },
-  {
-    title: "Community Safety",
-    description:
-      "The dojo’s culture supports listening, calm boundaries, and steady personal growth.",
-    icon: ShieldCheck,
-  },
-  {
-    title: "Peace Culture",
-    description:
-      "Aikido offers a practical language for meeting conflict without aggression.",
-    icon: Leaf,
-  },
-  {
-    title: "Shared Growth",
-    description:
-      "Beginners, parents, children, and visitors all contribute to a welcoming training space.",
-    icon: Droplets,
-  },
 ];
 
 export const peaceCultureFoundation = {
@@ -1417,7 +1381,7 @@ export const cmuAikidoClub = {
     alt: "Chiang Mai University official sub-logo signature.",
   },
   intro:
-    "RenshinKan belongs to a wider northern Thailand aikido community. AikidoCMU is the long-running Chiang Mai University club, a practice group connected to the same culture of cooperative training, calm movement, and peaceful conflict resolution.",
+    "RenShinKan belongs to a wider northern Thailand aikido community. AikidoCMU is the long-running Chiang Mai University club, a practice group connected to the same culture of cooperative training, calm movement, and peaceful conflict resolution.",
   background: [
     "The public AikidoCMU history describes Ajarn Sombat Tapanya continuing aikido after moving to Chiang Mai University in the mid-1980s, first sharing practice space with the judo club.",
     "The club is described as forming around 1986, with Ajarn Teerarat Boripantakul helping sustain the group and senior Thai aikido teachers supporting its development.",
@@ -1503,7 +1467,7 @@ export const pcfDojoPhotos = [
     src: "https://images.squarespace-cdn.com/content/v1/5ef17fec6947fc50b4ef6d98/1599217309955-OT5DYFE5SY5LMYRCHE9L/115881800_718580105643534_3910442649120489109_n.jpg",
     alt: "Dr. Sombat Tapanya, founder of the Peace Culture Foundation.",
     title: "Dr. Sombat Tapanya",
-    caption: "Founder of the Peace Culture Foundation and the person behind both its mission and RenshinKan Dojo.",
+    caption: "Founder of the Peace Culture Foundation and the person behind both its mission and RenShinKan Dojo.",
     featured: true,
   },
 ];
@@ -1512,7 +1476,7 @@ export const relatedDojos = [
   {
     name: "Thai Aikikai",
     description:
-      "The national governing body for Aikido in Thailand, founded 1975 under Motohiro Fukakusa Shihan (8th Dan Aikikai). Affiliated with the Aikikai Foundation in Tokyo. All belt examinations at RenshinKan are certified through this organisation.",
+      "A national aikido organisation in Thailand, founded in 1975 under Motohiro Fukakusa Shihan. It connects Thai aikido practitioners through training, seminars, and a broader national practice network.",
     url: "https://thaiaikikairenbuka.wixsite.com/renbukandojo" as string | null,
     facebook: "https://www.facebook.com/AAT.renbukan/" as string | null,
     logo: "https://static.wixstatic.com/media/15845a_3353925468b240e29081a6c2e5a18a76~mv2.png" as string | null,
@@ -1530,7 +1494,7 @@ export const relatedDojos = [
   {
     name: "Ai Dojo",
     description:
-      "An Aikido dojo in the Suthep district of Chiang Mai, part of the wider local aikido community sharing the same Aikikai affiliation.",
+      "An Aikido dojo in the Suthep district of Chiang Mai, part of the wider local aikido community.",
     url: null as string | null,
     facebook: "https://www.facebook.com/Ai-Dojo-421619891270261/" as string | null,
     logo: null as string | null,
@@ -1539,7 +1503,7 @@ export const relatedDojos = [
   {
     name: "All Dojo Chiang Mai",
     description:
-      "A dojo in the Saraphi district south of Chiang Mai city. Part of the local aikido network with the same Aikikai affiliation. No active online presence. Contact them directly to visit or enquire.",
+      "A dojo in the Saraphi district south of Chiang Mai city. Part of the local aikido network. No active online presence. Contact them directly to visit or enquire.",
     url: null as string | null,
     facebook: null as string | null,
     logo: null as string | null,

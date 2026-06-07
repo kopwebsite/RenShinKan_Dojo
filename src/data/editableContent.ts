@@ -52,7 +52,7 @@ export const historyMedia: EditableMedia[] = createNumberedMedia(
   "history-photo",
   "/past-events/misc-gallery",
   "history-photo",
-  "RenshinKan dojo history photo",
+  "RenShinKan dojo history photo",
 ).filter((item) => item.id !== "history-photo-001");
 
 export const onTheMatMedia: EditableMedia[] = createNumberedMedia(
@@ -60,7 +60,7 @@ export const onTheMatMedia: EditableMedia[] = createNumberedMedia(
   "group-photo",
   "/renshinkan-gallery/group-photos",
   "group-photo",
-  "RenshinKan group photo on the mat",
+  "RenShinKan group photo on the mat",
 );
 
 export const examAnnouncement: ExamAnnouncement = {

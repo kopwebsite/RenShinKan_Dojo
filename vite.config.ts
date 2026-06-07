@@ -28,7 +28,15 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          return id.includes("node_modules") ? "vendor" : undefined;
+          if (/[\\/]node_modules[\\/](framer-motion|motion-dom|motion-utils)[\\/]/.test(id)) {
+            return "motion";
+          }
+
+          if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) {
+            return "react-vendor";
+          }
+
+          return undefined;
         },
       },
     },

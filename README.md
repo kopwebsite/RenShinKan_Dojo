@@ -1,6 +1,6 @@
-# RenshinKan Dojo Website
+# RenShinKan Dojo Website
 
-React + TypeScript + Vite website for RenshinKan Dojo in Hang Dong, Chiang Mai.
+React + TypeScript + Vite website for RenShinKan Dojo in Hang Dong, Chiang Mai.
 
 ## Run Locally
 

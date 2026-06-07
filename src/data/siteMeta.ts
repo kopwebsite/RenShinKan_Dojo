@@ -1,5 +1,5 @@
 export const siteInfo = {
-  name: "RenshinKan Dojo",
+  name: "RenShinKan Dojo",
   location: "Hang Dong, Chiang Mai",
   address:
     "155 Soi 6, Suan Luang Village, T. Baan Waen, A. Hang Dong, Chiang Mai 50230",

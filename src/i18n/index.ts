@@ -9,9 +9,6 @@ import {
   type ReactNode,
 } from "react";
 import en from "./en.json";
-import ja from "./ja.json";
-import th from "./th.json";
-import zhCN from "./zh-CN.json";
 
 export type Language = "en" | "th" | "zh-CN" | "ja";
 
@@ -66,11 +63,14 @@ export const htmlLangMap: Record<Language, string> = {
   ja: "ja",
 };
 
-const dictionaries: Record<Language, Dictionary | PartialDictionary> = {
+const loadedDictionaries: Partial<Record<Language, Dictionary | PartialDictionary>> = {
   en,
-  th,
-  "zh-CN": zhCN,
-  ja,
+};
+
+const dictionaryLoaders: Record<Exclude<Language, "en">, () => Promise<Dictionary | PartialDictionary>> = {
+  th: () => import("./th.json").then((module) => module.default),
+  "zh-CN": () => import("./zh-CN.json").then((module) => module.default),
+  ja: () => import("./ja.json").then((module) => module.default),
 };
 
 type LanguageContextType = {
@@ -117,6 +117,20 @@ function getValue(dictionary: Dictionary | PartialDictionary, key: TranslationKe
     }, dictionary);
 }
 
+async function loadDictionary(language: Language) {
+  if (loadedDictionaries[language]) {
+    return loadedDictionaries[language];
+  }
+
+  if (language === "en") {
+    return en;
+  }
+
+  const dictionary = await dictionaryLoaders[language]();
+  loadedDictionaries[language] = dictionary;
+  return dictionary;
+}
+
 function formatTranslation(value: string, params?: TranslationParams) {
   if (!params) {
     return value;
@@ -128,7 +142,8 @@ function formatTranslation(value: string, params?: TranslationParams) {
 }
 
 export function translate(language: Language, key: TranslationKey, params?: TranslationParams) {
-  const localized = getValue(dictionaries[language], key);
+  const localizedDictionary = loadedDictionaries[language] ?? en;
+  const localized = getValue(localizedDictionary, key);
   const fallback = getValue(en, key);
   const value = typeof localized === "string" ? localized : typeof fallback === "string" ? fallback : key;
 
@@ -137,9 +152,11 @@ export function translate(language: Language, key: TranslationKey, params?: Tran
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>(getSavedLanguage);
+  const [dictionaryVersion, setDictionaryVersion] = useState(0);
 
   const setLanguage = useCallback((lang: Language) => {
     setLanguageState(lang);
+    void loadDictionary(lang).then(() => setDictionaryVersion((version) => version + 1));
 
     try {
       localStorage.setItem("rsk-lang", lang);
@@ -149,13 +166,31 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    let ignore = false;
+
+    loadDictionary(language)
+      .then(() => {
+        if (!ignore) {
+          setDictionaryVersion((version) => version + 1);
+        }
+      })
+      .catch(() => {
+        // The English dictionary stays available as a safe fallback.
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [language]);
+
+  useEffect(() => {
     document.documentElement.lang = htmlLangMap[language];
     document.documentElement.dataset.language = language;
   }, [language]);
 
   const t = useCallback(
     (key: TranslationKey, params?: TranslationParams) => translate(language, key, params),
-    [language],
+    [language, dictionaryVersion],
   );
 
   const value = useMemo(

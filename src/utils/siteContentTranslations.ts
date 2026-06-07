@@ -95,13 +95,6 @@ export const aikidoTimelineKeys = [
   "data.aikido.timeline.chiangMai",
 ];
 
-export const communityValueKeys = [
-  "data.community.values.respect",
-  "data.community.values.safety",
-  "data.community.values.peace",
-  "data.community.values.growth",
-];
-
 export const pcfPhotoKeys = [
   "data.community.pcfPhotos.liblab",
   "data.community.pcfPhotos.learning",

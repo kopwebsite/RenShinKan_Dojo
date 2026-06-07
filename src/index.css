@@ -75,6 +75,12 @@ body::before {
   background-image:
     linear-gradient(rgb(255 248 225 / 0.24), rgb(255 248 225 / 0.24)),
     url("/optimized/backgrounds/manuscript-desktop.webp");
+  background-image:
+    linear-gradient(rgb(255 248 225 / 0.24), rgb(255 248 225 / 0.24)),
+    image-set(
+      url("/optimized/backgrounds/manuscript-desktop.avif") type("image/avif"),
+      url("/optimized/backgrounds/manuscript-desktop.webp") type("image/webp")
+    );
   background-position: center center;
   background-size: 100% 100%, cover;
   background-repeat: no-repeat, no-repeat;
@@ -333,6 +339,12 @@ body::before {
     background-image:
       linear-gradient(rgb(255 248 225 / 0.3), rgb(255 248 225 / 0.3)),
       url("/optimized/backgrounds/manuscript-mobile.webp");
+    background-image:
+      linear-gradient(rgb(255 248 225 / 0.3), rgb(255 248 225 / 0.3)),
+      image-set(
+        url("/optimized/backgrounds/manuscript-mobile.avif") type("image/avif"),
+        url("/optimized/backgrounds/manuscript-mobile.webp") type("image/webp")
+      );
     background-position: center center;
     background-size: 100% 100%, cover;
   }

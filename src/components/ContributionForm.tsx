@@ -5,7 +5,7 @@ import { assetPath } from "../utils/assetPath";
 
 /*
  * ============================================================================
- * RenshinKan Dojo — Monthly Contribution Form
+ * RenShinKan Dojo — Monthly Contribution Form
  * ============================================================================
  * This is the warm, parent friendly contribution form shown on the Support
  * page. It has two stages:
@@ -707,29 +707,71 @@ function TurnstileWidget({
   onError: (errorCode?: string) => void;
 }) {
   const { t } = useTranslation();
+  const blockRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
+  const [shouldLoad, setShouldLoad] = useState(false);
+  const [loadState, setLoadState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+
+  const requestLoad = useCallback(() => {
+    if (siteKey) {
+      setShouldLoad(true);
+    }
+  }, [siteKey]);
 
   useEffect(() => {
-    if (!siteKey || !containerRef.current) return;
+    if (!siteKey || shouldLoad || !blockRef.current) return;
+
+    if (!("IntersectionObserver" in window)) {
+      setShouldLoad(true);
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShouldLoad(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "420px 0px" },
+    );
+
+    observer.observe(blockRef.current);
+
+    return () => observer.disconnect();
+  }, [siteKey, shouldLoad]);
+
+  useEffect(() => {
+    if (!siteKey || !shouldLoad || !containerRef.current) return;
 
     let mounted = true;
+    setLoadState("loading");
 
     loadTurnstileScript()
       .then((turnstile) => {
         if (!mounted || !containerRef.current || widgetIdRef.current) return;
 
-        widgetIdRef.current = turnstile.render(containerRef.current, {
-          sitekey: siteKey,
-          theme: "light",
-          size: "flexible",
-          callback: onVerify,
-          "expired-callback": onExpire,
-          "error-callback": onError,
-        }) ?? null;
+        try {
+          widgetIdRef.current = turnstile.render(containerRef.current, {
+            sitekey: siteKey,
+            theme: "light",
+            size: "flexible",
+            callback: onVerify,
+            "expired-callback": onExpire,
+            "error-callback": onError,
+          }) ?? null;
+          setLoadState("ready");
+        } catch {
+          setLoadState("error");
+          onError();
+        }
       })
       .catch(() => {
-        if (mounted) onError();
+        if (mounted) {
+          setLoadState("error");
+          onError();
+        }
       });
 
     return () => {
@@ -740,12 +782,17 @@ function TurnstileWidget({
         widgetIdRef.current = null;
       }
     };
-  }, [siteKey, onVerify, onExpire, onError]);
+  }, [siteKey, shouldLoad, onVerify, onExpire, onError]);
 
   useEffect(() => {
-    if (resetSignal > 0 && widgetIdRef.current) {
+    if (resetSignal <= 0) return;
+
+    if (widgetIdRef.current) {
       window.turnstile?.reset(widgetIdRef.current);
+      return;
     }
+
+    setShouldLoad(true);
   }, [resetSignal]);
 
   if (!siteKey) {
@@ -765,13 +812,48 @@ function TurnstileWidget({
 
   return (
     <div
+      ref={blockRef}
       data-turnstile-block
       tabIndex={-1}
       className="min-w-0 overflow-hidden rounded-2xl border border-ink/15 bg-paper/60 px-2 py-4 outline-none min-[380px]:px-4"
+      aria-busy={loadState === "loading"}
+      onFocus={requestLoad}
+      onPointerEnter={requestLoad}
     >
       <p className="mb-3 text-sm font-semibold text-ink">{t("support.contribution.turnstile.title")}</p>
-      <div ref={containerRef} className="max-w-full" />
-      {error && <p role="alert" className="mt-2 text-xs font-semibold text-vermilion">{error}</p>}
+      <div className="min-h-[82px]">
+        <div ref={containerRef} className="max-w-full" />
+        {loadState !== "ready" && (
+          <div className="grid min-h-[82px] place-items-center rounded-xl border border-dashed border-ink/15 bg-paper/45 px-4 text-center">
+            <div>
+              <div className="mx-auto mb-2 h-7 w-7 animate-pulse rounded-full border border-bamboo/30 bg-bamboo/10" />
+              <p className="text-xs font-semibold text-charcoal/65">
+                {loadState === "error"
+                  ? t("support.contribution.errors.turnstileLoad")
+                  : loadState === "loading"
+                    ? t("support.contribution.turnstile.loading")
+                    : t("support.contribution.turnstile.idle")}
+              </p>
+              {loadState === "error" && (
+                <button
+                  type="button"
+                  className="mt-3 text-xs font-bold text-vermilion underline-offset-4 hover:underline"
+                  onClick={() => {
+                    setLoadState("idle");
+                    setShouldLoad(false);
+                    window.requestAnimationFrame(() => setShouldLoad(true));
+                  }}
+                >
+                  {t("support.contribution.turnstile.retry")}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+      {error && loadState !== "error" && (
+        <p role="alert" className="mt-2 text-xs font-semibold text-vermilion">{error}</p>
+      )}
     </div>
   );
 }

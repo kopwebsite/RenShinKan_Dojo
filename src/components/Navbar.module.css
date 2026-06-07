@@ -168,6 +168,7 @@
   z-index: 30;
   width: 248px;
   transform-origin: top right;
+  animation: menuFadeIn 160ms ease-out both;
 }
 
 .languageMenuPanel {
@@ -380,6 +381,7 @@
   z-index: 120;
   width: 240px;
   padding-top: 29px;
+  animation: menuFadeIn 150ms ease-out both;
 }
 
 .dropdownPanel {
@@ -481,6 +483,7 @@
   backdrop-filter: blur(12px);
   color: var(--color-text-primary);
   overscroll-behavior: contain;
+  animation: mobileOverlayIn 250ms ease-out both;
 }
 
 .mobileOverlayTop {
@@ -582,6 +585,7 @@
 
 .mobileSubnav {
   overflow: hidden;
+  animation: subnavFadeIn 180ms ease-out both;
 }
 
 .mobileSubnavInner {
@@ -741,5 +745,39 @@
 @media (max-width: 350px) {
   .wordmark {
     max-width: 150px;
+  }
+}
+
+@keyframes menuFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes mobileOverlayIn {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes subnavFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

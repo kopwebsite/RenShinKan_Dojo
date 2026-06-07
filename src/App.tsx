@@ -5,13 +5,13 @@ import { Navbar } from "./components/Navbar";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { Seo } from "./components/Seo";
 import { useTranslation } from "./i18n";
+import { DojoPage } from "./pages/DojoPage";
 
 const AikidoPage = lazy(() => import("./pages/AikidoPage").then((module) => ({ default: module.AikidoPage })));
 const AdminPage = lazy(() => import("./pages/AdminPage").then((module) => ({ default: module.AdminPage })));
 const ClassesPage = lazy(() => import("./pages/ClassesPage").then((module) => ({ default: module.ClassesPage })));
 const CommunityPage = lazy(() => import("./pages/CommunityPage").then((module) => ({ default: module.CommunityPage })));
 const ContactPage = lazy(() => import("./pages/ContactPage").then((module) => ({ default: module.ContactPage })));
-const DojoPage = lazy(() => import("./pages/DojoPage").then((module) => ({ default: module.DojoPage })));
 const InstructorsPage = lazy(() => import("./pages/InstructorsPage").then((module) => ({ default: module.InstructorsPage })));
 const NewsletterPage = lazy(() => import("./pages/NewsletterPage").then((module) => ({ default: module.NewsletterPage })));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage").then((module) => ({ default: module.NotFoundPage })));
@@ -19,6 +19,18 @@ const PaymentIncompletePage = lazy(() => import("./pages/PaymentReturnPage").the
 const PaymentSuccessPage = lazy(() => import("./pages/PaymentReturnPage").then((module) => ({ default: module.PaymentSuccessPage })));
 const SupportPage = lazy(() => import("./pages/SupportPage").then((module) => ({ default: module.SupportPage })));
 const WorkshopsPage = lazy(() => import("./pages/WorkshopsPage").then((module) => ({ default: module.WorkshopsPage })));
+
+function RouteFallback() {
+  return (
+    <div
+      className="container-shell grid min-h-[var(--hero-viewport-height)] place-items-center py-16"
+      role="status"
+      aria-label="Loading page"
+    >
+      <div className="h-16 w-16 animate-pulse rounded-full border border-bamboo/25 bg-paper/65 shadow-line" />
+    </div>
+  );
+}
 
 export default function App() {
   const { t } = useTranslation();
@@ -32,8 +44,8 @@ export default function App() {
       <ScrollToTop />
       <Seo />
       <Navbar currentPath={`${location.pathname}${location.hash}`} />
-      <main id="main-content" tabIndex={-1}>
-        <Suspense fallback={<div className="container-shell py-20" aria-live="polite" />}>
+      <main id="main-content" tabIndex={-1} className="min-h-[var(--hero-viewport-height)]">
+        <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<DojoPage />} />
             <Route path="/dojo" element={<Navigate to="/" replace />} />

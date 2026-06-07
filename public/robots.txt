@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /admin
 
-Sitemap: https://renshinkan-dojo.pages.dev/sitemap.xml
+Sitemap: https://renshinkandojo.org/sitemap.xml

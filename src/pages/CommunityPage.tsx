@@ -15,28 +15,21 @@ import { ResponsiveImage } from "../components/ResponsiveImage";
 import { historyMedia } from "../data/editableContent";
 import {
   cmuAikidoClub,
-  communityValues,
   pcfDojoPhotos,
   peaceCultureFoundation,
 } from "../data/siteContent";
 import { useTranslation } from "../i18n";
 import { getCommunityCalendarEvents, useEditableContent } from "../lib/content";
-import { assetPath } from "../utils/assetPath";
 import {
   cmuPhotoKeys,
-  communityValueKeys,
   pcfPhotoKeys,
   translateTitleCaption,
-  translateTitleDescription,
 } from "../utils/siteContentTranslations";
 
 export function CommunityPage() {
   const { t } = useTranslation();
   const { content } = useEditableContent();
   const activeHistoryMedia = content.historyMedia.length ? content.historyMedia : historyMedia;
-  const localizedCommunityValues = communityValues.map((value, index) =>
-    translateTitleDescription(t, value, communityValueKeys[index]),
-  );
   const localizedPcfPhotos = pcfDojoPhotos.map((photo, index) =>
     translateTitleCaption(t, photo, pcfPhotoKeys[index]),
   );
@@ -59,59 +52,11 @@ export function CommunityPage() {
 
   return (
     <>
-      {/* Intro */}
-      <MotionSection className="container-shell py-20">
-        <div className="grid items-center gap-10 lg:grid-cols-[1fr_0.85fr]">
-          <div>
-            <p className="eyebrow">{t("community.intro.eyebrow")}</p>
-            <h1 className="section-title">
-              {t("community.intro.title")}
-            </h1>
-            <p className="section-copy">
-              {t("community.intro.copy")}
-            </p>
-          </div>
-          <div className="flex items-center justify-center">
-            <ResponsiveImage
-              src={assetPath("/dojo-photos/pcf.png")}
-              alt={t("community.intro.imageAlt")}
-              imgClassName="w-full max-w-md rounded-[2rem] object-cover"
-              style={{ maskImage: "radial-gradient(ellipse 88% 88% at 50% 50%, black 55%, transparent 100%)", WebkitMaskImage: "radial-gradient(ellipse 88% 88% at 50% 50%, black 55%, transparent 100%)" }}
-              loading="eager"
-              width={1459}
-              height={1078}
-            />
-          </div>
-        </div>
-      </MotionSection>
-
-      {/* Values */}
-      <MotionSection className="container-shell pb-20">
-        <div className="grid grid-cols-2 gap-3 min-[420px]:gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {localizedCommunityValues.map((value) => {
-            const Icon = value.icon;
-            return (
-              <article key={value.title} className="surface card-hover rounded-[1.35rem] p-4 min-[420px]:p-5 sm:rounded-[1.75rem] lg:p-6">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-bamboo/10 text-bamboo sm:h-12 sm:w-12">
-                  <Icon size={20} aria-hidden="true" />
-                </div>
-                <h2 className="mt-4 text-[1.24rem] leading-tight text-ink min-[420px]:text-[1.36rem] sm:mt-5 sm:text-2xl">
-                  {value.title}
-                </h2>
-                <p className="mt-2 text-xs leading-5 text-charcoal/75 sm:mt-3 sm:text-sm">
-                  {value.description}
-                </p>
-              </article>
-            );
-          })}
-        </div>
-      </MotionSection>
-
       {/* Upcoming Events */}
-      <MotionSection id="upcoming-events" className="container-shell scroll-mt-28 pb-20">
+      <MotionSection id="upcoming-events" className="container-shell scroll-mt-28 py-20">
         <div className="mb-8 max-w-3xl">
           <p className="eyebrow">{t("community.events.eyebrow")}</p>
-          <h2 className="section-title">{t("community.events.title")}</h2>
+          <h1 className="section-title">{t("community.events.title")}</h1>
           <p className="section-copy">
             {t("community.events.copy")}
           </p>

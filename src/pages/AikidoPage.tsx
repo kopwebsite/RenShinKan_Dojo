@@ -120,7 +120,7 @@ export function AikidoPage() {
       {/* Aikido hero */}
       <section id="what-is-aikido" className="relative isolate min-h-[var(--hero-viewport-height)] overflow-hidden scroll-mt-28">
         <ResponsiveImage
-          src={assetPath("/dojo-photos/aikido-hero-new.png")}
+          src={assetPath("/dojo-photos/aikido-hero-new.webp")}
           alt=""
           aria-hidden="true"
           imgClassName="absolute inset-0 h-full w-full object-cover"

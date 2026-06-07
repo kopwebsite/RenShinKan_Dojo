@@ -312,8 +312,8 @@ function campaignHtml(env: BrevoEnv, event: RecentEvent) {
           <!-- Masthead -->
           <tr>
             <td align="center" class="pad" style="padding:34px 40px 18px 40px;">
-              <img src="${logo}" width="58" height="58" alt="RenshinKan Dojo" style="width:58px; height:auto; margin:0 auto 12px auto;" />
-              <div class="serif" style="font-size:26px; line-height:30px; color:#1f1b16; letter-spacing:0.3px;">RenshinKan Dojo</div>
+              <img src="${logo}" width="58" height="58" alt="RenShinKan Dojo" style="width:58px; height:auto; margin:0 auto 12px auto;" />
+              <div class="serif" style="font-size:26px; line-height:30px; color:#1f1b16; letter-spacing:0.3px;">RenShinKan Dojo</div>
               <div class="sans" style="font-size:11px; line-height:16px; letter-spacing:3px; text-transform:uppercase; color:#4f6b4a; margin-top:7px; font-weight:600;">Notes from the mat</div>
             </td>
           </tr>
@@ -375,7 +375,7 @@ ${bodyRows}
           <tr>
             <td class="pad sans" style="padding:30px 48px 38px 48px; font-size:16px; line-height:25px; color:#3d362c;">
               <p style="margin:0;">With warmth,</p>
-              <p class="serif" style="margin:4px 0 0 0; font-size:19px; color:#1f1b16;">The RenshinKan Dojo</p>
+              <p class="serif" style="margin:4px 0 0 0; font-size:19px; color:#1f1b16;">The RenShinKan Dojo</p>
             </td>
           </tr>
 
@@ -385,8 +385,8 @@ ${bodyRows}
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td align="center" class="sans" style="font-size:13px; line-height:21px; color:#b7a98f;">
-                    <div class="serif" style="font-size:17px; color:#f3ece0; margin-bottom:6px;">RenshinKan Dojo</div>
-                    <a href="https://www.google.com/maps/search/?api=1&amp;query=RenshinKan%20Dojo%2C%20155%20Soi%206%2C%20Suan%20Luang%20Village%2C%20T.%20Baan%20Waen%2C%20A.%20Hang%20Dong%2C%20Chiang%20Mai%2050230" style="color:#b7a98f; text-decoration:none;">155 Soi 6, Suan Luang Village, Baan Waen,<br />Hang Dong, Chiang Mai 50230</a>
+                    <div class="serif" style="font-size:17px; color:#f3ece0; margin-bottom:6px;">RenShinKan Dojo</div>
+                    <a href="https://www.google.com/maps/search/?api=1&amp;query=RenShinKan%20Dojo%2C%20155%20Soi%206%2C%20Suan%20Luang%20Village%2C%20T.%20Baan%20Waen%2C%20A.%20Hang%20Dong%2C%20Chiang%20Mai%2050230" style="color:#b7a98f; text-decoration:none;">155 Soi 6, Suan Luang Village, Baan Waen,<br />Hang Dong, Chiang Mai 50230</a>
                     <div style="margin-top:14px;">
                       <a href="https://www.facebook.com/RenShinKanChiangMai/" style="color:#e2d8c4; text-decoration:underline;">Facebook</a>
                       &nbsp;&middot;&nbsp;
@@ -395,7 +395,7 @@ ${bodyRows}
                       <a href="${base}/" style="color:#e2d8c4; text-decoration:underline;">Website</a>
                     </div>
                     <div style="margin-top:16px; padding-top:16px; border-top:1px solid #43382b; font-size:12px; line-height:19px; color:#9a8d76;">
-                      You are receiving this letter at {{ contact.EMAIL }} as a member of the RenshinKan community.<br />
+                      You are receiving this letter at {{ contact.EMAIL }} as a member of the RenShinKan community.<br />
                       Prefer not to receive these? <a href="{{ unsubscribe }}" style="color:#cdbfa6; text-decoration:underline;">Unsubscribe here</a>.
                     </div>
                   </td>
@@ -410,7 +410,7 @@ ${bodyRows}
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="container" style="width:600px; max-width:600px;">
           <tr>
             <td align="center" class="sans" style="padding:18px 24px 6px 24px; font-size:11px; line-height:17px; color:#8c8164;">
-              &copy; RenshinKan Dojo &middot; Aikido in Hang Dong, Chiang Mai, Thailand
+              &copy; RenShinKan Dojo &middot; Aikido in Hang Dong, Chiang Mai, Thailand
             </td>
           </tr>
         </table>
@@ -462,11 +462,11 @@ export async function createAndSendRecentEventCampaign(env: BrevoEnv, event: Rec
       "api-key": env.BREVO_API_KEY!,
     },
     body: JSON.stringify({
-      name: `RenshinKan Dojo: ${event.title}`.slice(0, 120),
+      name: `RenShinKan Dojo: ${event.title}`.slice(0, 120),
       subject: event.title,
       sender: {
         email: env.BREVO_SENDER_EMAIL,
-        name: env.BREVO_SENDER_NAME || "RenshinKan Dojo",
+        name: env.BREVO_SENDER_NAME || "RenShinKan Dojo",
       },
       type: "classic",
       htmlContent: campaignHtml(env, event),

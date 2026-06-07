@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import { classSchedule, googleMapsUrl, siteInfo } from "../data/siteMeta";
 import { htmlLangMap, useTranslation, type Language, type TranslationKey } from "../i18n";
 
-const SITE_URL = (import.meta.env.VITE_SITE_URL || "https://renshinkan-dojo.pages.dev").replace(/\/+$/, "");
+const SITE_URL = (import.meta.env.VITE_SITE_URL || "https://renshinkandojo.org").replace(/\/+$/, "");
 const DEFAULT_IMAGE = `${SITE_URL}/dojo-photos/new-hero-poster.webp`;
 const LOGO_IMAGE = `${SITE_URL}/renshinkan-logo.png`;
 const SEO_TOPICS = [
@@ -16,8 +16,8 @@ const SEO_TOPICS = [
   "Japanese jujutsu roots",
   "dojo in Chiang Mai",
   "dojo in Hang Dong",
-  "RenshinKan Dojo",
-  "RenshinKan Aikido",
+  "RenShinKan Dojo",
+  "RenShinKan Aikido",
 ];
 
 const CLASS_FAQS = [
@@ -171,7 +171,7 @@ function updateStructuredData(
       "@type": "WebSite",
       "@id": `${SITE_URL}/#website`,
       name: siteInfo.name,
-      alternateName: ["RenshinKan Aikido", "Aikido Chiang Mai - RenshinKan Dojo"],
+      alternateName: ["RenShinKan Aikido", "Aikido Chiang Mai - RenShinKan Dojo"],
       url: SITE_URL,
       inLanguage: htmlLangMap[language],
       publisher: {
@@ -194,7 +194,7 @@ function updateStructuredData(
       primaryImageOfPage: {
         "@type": "ImageObject",
         url: DEFAULT_IMAGE,
-        caption: "Aikido training at RenshinKan Dojo in Hang Dong, Chiang Mai.",
+        caption: "Aikido training at RenShinKan Dojo in Hang Dong, Chiang Mai.",
       },
     },
     {
@@ -202,9 +202,9 @@ function updateStructuredData(
       "@id": `${SITE_URL}/#dojo`,
       name: siteInfo.name,
       alternateName: [
-        "RenshinKan Aikido",
-        "Renshinkan Dojo Chiang Mai",
-        "Aikido Chiang Mai - RenshinKan Dojo",
+        "RenShinKan Aikido",
+        "RenShinKan Dojo Chiang Mai",
+        "Aikido Chiang Mai - RenShinKan Dojo",
       ],
       url: SITE_URL,
       logo: LOGO_IMAGE,
@@ -305,13 +305,13 @@ export function Seo() {
     upsertMeta('meta[property="og:url"]', { property: "og:url", content: canonical });
     upsertMeta('meta[property="og:image"]', { property: "og:image", content: DEFAULT_IMAGE });
     upsertMeta('meta[property="og:image:type"]', { property: "og:image:type", content: "image/webp" });
-    upsertMeta('meta[property="og:image:alt"]', { property: "og:image:alt", content: "Aikido training at RenshinKan Dojo in Hang Dong, Chiang Mai." });
+    upsertMeta('meta[property="og:image:alt"]', { property: "og:image:alt", content: "Aikido training at RenShinKan Dojo in Hang Dong, Chiang Mai." });
     upsertMeta('meta[property="og:locale"]', { property: "og:locale", content: ogLocaleByLanguage[language] });
     upsertMeta('meta[name="twitter:card"]', { name: "twitter:card", content: "summary_large_image" });
     upsertMeta('meta[name="twitter:title"]', { name: "twitter:title", content: title });
     upsertMeta('meta[name="twitter:description"]', { name: "twitter:description", content: description });
     upsertMeta('meta[name="twitter:image"]', { name: "twitter:image", content: DEFAULT_IMAGE });
-    upsertMeta('meta[name="twitter:image:alt"]', { name: "twitter:image:alt", content: "Aikido training at RenshinKan Dojo in Hang Dong, Chiang Mai." });
+    upsertMeta('meta[name="twitter:image:alt"]', { name: "twitter:image:alt", content: "Aikido training at RenShinKan Dojo in Hang Dong, Chiang Mai." });
     upsertLink("canonical", canonical);
 
     if (config.robots?.includes("noindex")) {

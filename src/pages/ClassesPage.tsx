@@ -1,4 +1,4 @@
-import { Eye } from "lucide-react";
+import { ArrowUpRight, Download, Eye } from "lucide-react";
 import { Link } from "react-router-dom";
 import { BeltCarousel } from "../components/BeltCarousel";
 import { BeltProgressionChart } from "../components/BeltProgressionChart";
@@ -36,6 +36,7 @@ export function ClassesPage() {
   const { content } = useEditableContent();
   const activeExamAnnouncement = content.examAnnouncement ?? examAnnouncement;
   const activePassedStudents = content.passedTestStudents.length ? content.passedTestStudents : passedTestStudents;
+  const beltExamApplicationUrl = assetPath("/forms/Application_Form_Aikido_Association_Thailand.pdf");
   const firstVisitItems: TranslationKey[] = [
     "classes.firstVisit.item1",
     "classes.firstVisit.item2",
@@ -61,7 +62,7 @@ export function ClassesPage() {
           </div>
           <div className="flex items-center justify-center">
             <ResponsiveImage
-              src={assetPath("/dojo-photos/kids-around-green-belt.png")}
+              src={assetPath("/dojo-photos/kids-around-green-belt.webp")}
               alt={t("classes.intro.imageAlt")}
               imgClassName="w-full max-w-md rounded-[2rem] object-cover"
               style={{ maskImage: "radial-gradient(ellipse 88% 88% at 50% 50%, black 55%, transparent 100%)", WebkitMaskImage: "radial-gradient(ellipse 88% 88% at 50% 50%, black 55%, transparent 100%)" }}
@@ -109,7 +110,7 @@ export function ClassesPage() {
             </Link>
           </div>
           <ResponsiveImage
-            src={assetPath("/dojo-photos/schedule.png")}
+            src={assetPath("/dojo-photos/schedule.webp")}
             alt={t("classes.schedule.imageAlt")}
             imgClassName="w-full rounded-[1.75rem] object-contain shadow-line"
             width={1476}
@@ -161,7 +162,31 @@ export function ClassesPage() {
           <p className="section-copy max-w-3xl">
             {t("classes.beltExams.copy")}
           </p>
+          <Link to="/support#donations" className="btn-secondary mt-6 inline-flex">
+            {t("classes.beltExams.donationCta")}
+            <ArrowUpRight size={16} aria-hidden="true" />
+          </Link>
         </div>
+
+        <article className="surface mb-10 flex flex-col gap-5 rounded-[1.75rem] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <div className="max-w-2xl">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-bamboo">
+              {t("classes.beltExams.applicationEyebrow")}
+            </p>
+            <h3 className="mt-3 text-2xl text-ink sm:text-3xl">{t("classes.beltExams.applicationTitle")}</h3>
+            <p className="mt-3 text-sm text-charcoal/75">
+              {t("classes.beltExams.applicationCopy")}
+            </p>
+          </div>
+          <a
+            href={beltExamApplicationUrl}
+            download="Application_Form_Aikido_Association_Thailand.pdf"
+            className="btn-secondary w-full justify-center sm:w-auto"
+          >
+            <Download size={17} aria-hidden="true" />
+            {t("classes.beltExams.applicationCta")}
+          </a>
+        </article>
 
         <BeltProgressionChart />
 

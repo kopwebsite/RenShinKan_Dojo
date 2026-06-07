@@ -1,4 +1,3 @@
-import { useReducedMotion } from "framer-motion";
 import { useEffect, useId, useRef, useState } from "react";
 import { assetPath } from "../utils/assetPath";
 
@@ -10,6 +9,30 @@ type BrushCircleLogoProps = {
   paintOn?: boolean;
 };
 
+function getPrefersReducedMotion() {
+  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function usePrefersReducedMotion() {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(getPrefersReducedMotion);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updatePreference = () => setPrefersReducedMotion(mediaQuery.matches);
+
+    updatePreference();
+    mediaQuery.addEventListener("change", updatePreference);
+
+    return () => mediaQuery.removeEventListener("change", updatePreference);
+  }, []);
+
+  return prefersReducedMotion;
+}
+
 export function BrushCircleLogo({
   className = "",
   imageClassName = "",
@@ -20,7 +43,7 @@ export function BrushCircleLogo({
   const [useFallback, setUseFallback] = useState(false);
   const [shouldPlay, setShouldPlay] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const shouldReduceMotion = useReducedMotion();
+  const shouldReduceMotion = usePrefersReducedMotion();
   const paintId = useId().replace(/:/g, "");
   const maskId = `renshinkan-paint-${paintId}`;
   const roughId = `renshinkan-rough-${paintId}`;

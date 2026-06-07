@@ -105,7 +105,7 @@ export function SupportPage() {
           </div>
           <div className="flex items-center justify-center">
             <ResponsiveImage
-              src={assetPath("/dojo-photos/image-community.png")}
+              src={assetPath("/dojo-photos/image-community.webp")}
               alt={t("support.intro.imageAlt")}
               imgClassName="w-full max-w-md rounded-[2rem] object-cover"
               style={{ maskImage: "radial-gradient(ellipse 88% 88% at 50% 50%, black 55%, transparent 100%)", WebkitMaskImage: "radial-gradient(ellipse 88% 88% at 50% 50%, black 55%, transparent 100%)" }}
@@ -146,7 +146,7 @@ export function SupportPage() {
             </div>
             <div className="flex items-center justify-center">
               <ResponsiveImage
-                src={assetPath("/dojo-photos/support.png")}
+                src={assetPath("/dojo-photos/support.avif")}
                 alt={t("support.monthly.supportImageAlt")}
                 imgClassName="w-full max-w-sm rounded-[2rem] object-cover"
                 style={{ maskImage: "radial-gradient(ellipse 88% 88% at 50% 50%, black 55%, transparent 100%)", WebkitMaskImage: "radial-gradient(ellipse 88% 88% at 50% 50%, black 55%, transparent 100%)" }}

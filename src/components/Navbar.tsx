@@ -1,4 +1,3 @@
-import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -226,17 +225,12 @@ function LanguageSelector({ mobile = false }: { mobile?: boolean }) {
         </span>
         <ChevronDown className={styles.languageChevron} aria-hidden="true" />
       </button>
-      <AnimatePresence>
-        {isOpen ? (
-          <motion.div
+      {isOpen ? (
+        <div
             id={menuId}
             className={styles.languageMenu}
             role="menu"
             aria-label={t("a11y.chooseLanguage")}
-            initial={{ opacity: 0, y: mobile ? 8 : -6, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: mobile ? 8 : -6, scale: 0.98 }}
-            transition={{ duration: 0.16, ease: "easeOut" }}
           >
             <div className={styles.languageMenuPanel}>
               {languageOptions.map((option) => (
@@ -257,9 +251,8 @@ function LanguageSelector({ mobile = false }: { mobile?: boolean }) {
                 </button>
               ))}
             </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -457,15 +450,10 @@ export function Navbar({ currentPath }: NavbarProps) {
                       </span>
                     </button>
 
-                    <AnimatePresence>
-                      {isOpen ? (
-                        <motion.div
+                    {isOpen ? (
+                      <div
                           id={`desktop-${item.id}-dropdown`}
                           className={styles.dropdownWrap}
-                          initial={{ opacity: 0, y: -4 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -4 }}
-                          transition={{ duration: 0.15, ease: "easeOut" }}
                         >
                           <div className={styles.dropdownPanel}>
                             {item.dropdown.map((dropdownItem) => (
@@ -480,9 +468,8 @@ export function Navbar({ currentPath }: NavbarProps) {
                               </Link>
                             ))}
                           </div>
-                        </motion.div>
-                      ) : null}
-                    </AnimatePresence>
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
@@ -503,16 +490,11 @@ export function Navbar({ currentPath }: NavbarProps) {
         </div>
       </header>
 
-      <AnimatePresence>
-        {isMobileOpen ? (
-          <motion.div
+      {isMobileOpen ? (
+        <div
             id="mobile-navigation-overlay"
             ref={overlayRef}
             className={styles.mobileOverlay}
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
             role="dialog"
             aria-modal="true"
             aria-label={t("a11y.mobileNavigation")}
@@ -580,15 +562,10 @@ export function Navbar({ currentPath }: NavbarProps) {
                       </button>
                     </div>
 
-                    <AnimatePresence initial={false}>
-                      {isOpen ? (
-                        <motion.div
+                    {isOpen ? (
+                      <div
                           id={`mobile-${item.id}-accordion`}
                           className={styles.mobileSubnav}
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: "auto", opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2, ease: "easeOut" }}
                         >
                           <div className={styles.mobileSubnavInner}>
                             {item.dropdown.map((dropdownItem) => (
@@ -603,9 +580,8 @@ export function Navbar({ currentPath }: NavbarProps) {
                               </Link>
                             ))}
                           </div>
-                        </motion.div>
-                      ) : null}
-                    </AnimatePresence>
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
@@ -627,9 +603,8 @@ export function Navbar({ currentPath }: NavbarProps) {
                 </a>
               </div>
             </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+        </div>
+      ) : null}
     </>
   );
 }

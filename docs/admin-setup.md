@@ -13,6 +13,8 @@ This site uses Cloudflare Pages for hosting, Pages Functions for the admin API, 
 - Public build-time `VITE_SITE_URL`.
 - Brevo API key, list ID, and verified sender if newsletter sending is enabled.
 - Public `VITE_BREVO_SIGNUP_FORM_URL` if the signup form should appear.
+- Cloudflare Turnstile widget site key and matching secret key for the public
+  `/support` contribution form.
 
 ## Admin Password Hash
 
@@ -53,19 +55,51 @@ npx wrangler pages secret put TURNSTILE_SECRET_KEY --project-name renshinkan-doj
 npx wrangler pages secret put BREVO_API_KEY --project-name renshinkan-dojo
 ```
 
-Add these Pages environment variables:
+This project uses `wrangler.toml` as the Cloudflare Pages configuration source of
+truth, so add public/plaintext variables to `[vars]` in `wrangler.toml`, not the
+Cloudflare dashboard:
 
-```bash
-SITE_URL=https://YOUR_DOMAIN
-VITE_SITE_URL=https://YOUR_DOMAIN
-VITE_TURNSTILE_SITE_KEY=PLACEHOLDER_CLOUDFLARE_TURNSTILE_SITE_KEY
-BREVO_LIST_ID=PLACEHOLDER_BREVO_LIST_ID
-BREVO_SENDER_EMAIL=PLACEHOLDER_VERIFIED_SENDER_EMAIL
-BREVO_SENDER_NAME=RenShinKan Dojo
-VITE_BREVO_SIGNUP_FORM_URL=PLACEHOLDER_BREVO_SIGNUP_FORM_URL
+```toml
+[vars]
+SITE_URL = "https://YOUR_DOMAIN"
+ALLOWED_ORIGIN = "https://YOUR_DOMAIN"
+VITE_SITE_URL = "https://YOUR_DOMAIN"
+VITE_MEMBERSHIP_WORKER_URL = "/api/membership"
+VITE_TURNSTILE_SITE_KEY = "PLACEHOLDER_CLOUDFLARE_TURNSTILE_SITE_KEY"
+BREVO_LIST_ID = "PLACEHOLDER_BREVO_LIST_ID"
+BREVO_SENDER_EMAIL = "PLACEHOLDER_VERIFIED_SENDER_EMAIL"
+BREVO_SENDER_NAME = "RenShinKan Dojo"
+VITE_BREVO_SIGNUP_FORM_URL = "PLACEHOLDER_BREVO_SIGNUP_FORM_URL"
 ```
 
-Only the `VITE_*` values are exposed to browser JavaScript. Keep `ADMIN_PASSWORD_HASH`, `SESSION_SECRET`, `TURNSTILE_SECRET_KEY`, and `BREVO_API_KEY` as secrets.
+Only the `VITE_*` values are exposed to browser JavaScript. Keep `ADMIN_PASSWORD_HASH`, `SESSION_SECRET`, `TURNSTILE_SECRET_KEY`, and `BREVO_API_KEY` as secrets managed in the Cloudflare dashboard.
+
+### Turnstile Site Key
+
+The `/support` contribution form renders Cloudflare Turnstile in the browser. If the
+production build does not have `VITE_TURNSTILE_SITE_KEY`, visitors will see:
+`Cloudflare verification needs a public site key.`
+
+To fix the live site:
+
+1. In Cloudflare, open **Turnstile** and create a managed widget.
+2. Add the production hostnames, for example `renshinkandojo.org` and
+   `www.renshinkandojo.org`. Also add `localhost` and `127.0.0.1` for local
+   testing.
+3. Copy the widget **Site key** into `[vars]` in `wrangler.toml` as
+   `VITE_TURNSTILE_SITE_KEY`. This key is public by design and Vite needs it
+   during the frontend build.
+4. Copy the widget **Secret key** into the Pages secret `TURNSTILE_SECRET_KEY`.
+5. Redeploy the Cloudflare Pages project. `VITE_*` values are read at build time,
+   so changing the variable without a new deployment leaves the old JavaScript in
+   place.
+
+For local-only development, `.env.local` may use Cloudflare's always-pass test
+site key:
+
+```bash
+VITE_TURNSTILE_SITE_KEY=1x00000000000000000000AA
+```
 
 ## Cloudflare Git Deployment
 

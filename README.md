@@ -86,6 +86,14 @@ Required Cloudflare configuration:
 - optional Brevo secrets if newsletter sending is enabled
 - `VITE_SITE_URL` and `VITE_BREVO_SIGNUP_FORM_URL` Pages build variables
 
+If the `/support` form says `Cloudflare verification needs a public site key`,
+the Pages production build is missing `VITE_TURNSTILE_SITE_KEY`. Add the real
+Turnstile widget site key to `[vars]` in `wrangler.toml`, add the matching
+`TURNSTILE_SECRET_KEY` as a Pages **Secret**, then redeploy. This project uses
+`wrangler.toml` as the Pages configuration source of truth, so public variables
+cannot be edited in the dashboard. `VITE_*` variables are compiled into the
+frontend bundle at build time.
+
 Intended flow:
 
 1. Admin fills out `/admin`.

@@ -3,6 +3,13 @@ name = "renshinkan-dojo"
 pages_build_output_dir = "./dist"
 compatibility_date = "2026-05-28"
 
+[vars]
+SITE_URL = "https://renshinkandojo.org"
+ALLOWED_ORIGIN = "https://renshinkandojo.org"
+VITE_SITE_URL = "https://renshinkandojo.org"
+VITE_MEMBERSHIP_WORKER_URL = "/api/membership"
+VITE_TURNSTILE_SITE_KEY = "0x4AAAAAADcmYAchez5JIG6l"
+
 [[kv_namespaces]]
 binding = "CONTENT_KV"
 # KV namespace: renshinkan-content

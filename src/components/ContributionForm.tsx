@@ -57,6 +57,7 @@ const PAYMENT_METHODS = [
     labelKey: "support.contribution.methods.qr.label",
     noteKey: "support.contribution.methods.qr.note",
     disabled: false,
+    preferred: false,
   },
   {
     id: "scheduled",
@@ -131,7 +132,7 @@ function loadTurnstileScript() {
   if (window.turnstile) return Promise.resolve(window.turnstile);
 
   if (!turnstileScriptPromise) {
-    turnstileScriptPromise = new Promise((resolve, reject) => {
+    turnstileScriptPromise = new Promise<TurnstileApi>((resolve, reject) => {
       let settled = false;
 
       const timeoutId = window.setTimeout(() => {
@@ -743,17 +744,19 @@ function TurnstileWidget({
   }, [siteKey, shouldLoad]);
 
   useEffect(() => {
-    if (!siteKey || !shouldLoad || !containerRef.current) return;
+    const container = containerRef.current;
+
+    if (!siteKey || !shouldLoad || !container) return;
 
     let mounted = true;
     setLoadState("loading");
 
     loadTurnstileScript()
       .then((turnstile) => {
-        if (!mounted || !containerRef.current || widgetIdRef.current) return;
+        if (!mounted || widgetIdRef.current) return;
 
         try {
-          widgetIdRef.current = turnstile.render(containerRef.current, {
+          widgetIdRef.current = turnstile.render(container, {
             sitekey: siteKey,
             theme: "light",
             size: "flexible",

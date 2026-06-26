@@ -48,13 +48,13 @@ const MAX_EVENT_PHOTOS = 6;
 const UPLOAD_IMAGE_MAX_WIDTH = 1920;
 const UPLOAD_IMAGE_WEBP_QUALITY = 0.86;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const ALLOWED_DOCUMENT_TYPES = new Map([
+const ALLOWED_DOCUMENT_TYPES: ReadonlyMap<string, DocumentMediaKind> = new Map([
   ["application/pdf", "pdf"],
   ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx"],
   ["application/vnd.ms-powerpoint", "ppt"],
   ["application/vnd.openxmlformats-officedocument.presentationml.presentation", "ppt"],
 ] as const);
-const ALLOWED_DOCUMENT_EXTENSIONS = new Map([
+const ALLOWED_DOCUMENT_EXTENSIONS: ReadonlyMap<string, DocumentMediaKind> = new Map([
   [".pdf", "pdf"],
   [".docx", "docx"],
   [".ppt", "ppt"],

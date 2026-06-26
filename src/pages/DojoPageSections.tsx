@@ -14,6 +14,7 @@ import { renshinkanBuildPhotos, dojoPhotos } from "../data/siteContent";
 import { siteInfo } from "../data/siteMeta";
 import { useTranslation } from "../i18n";
 import { getPublishedRecentEvents, useEditableContent } from "../lib/content";
+import { assetPath } from "../utils/assetPath";
 import {
   dojoJourneyPhotoKeys,
   dojoPhotoKeys,

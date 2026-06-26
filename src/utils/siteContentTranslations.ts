@@ -128,7 +128,7 @@ export const aikidoHistorySourceKeys = [
   "data.aikido.historySources.daitoRyu",
   "data.aikido.historySources.pcf",
   "data.aikido.historySources.cmuUnite",
-];
+] as const satisfies readonly TranslationKey[];
 
 export const aikidoHistoricalPhotoKeys = [
   "data.aikido.historicalPhotos.ueshiba1918",

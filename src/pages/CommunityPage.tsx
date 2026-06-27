@@ -125,11 +125,12 @@ export function CommunityPage() {
           <article className="rounded-[2rem] bg-ink/90 p-8 text-paper backdrop-blur-sm sm:p-10">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
               <div className="inline-flex w-fit rounded-[1.35rem] bg-paper px-4 py-3 shadow-soft">
-                <img
+                <ResponsiveImage
                   src={peaceCultureFoundation.logo.src}
                   alt={peaceCultureFoundation.logo.alt}
-                  className="h-16 w-auto object-contain"
-                  loading="eager"
+                  imgClassName="h-16 w-auto object-contain"
+                  loading="lazy"
+                  sizes="160px"
                 />
               </div>
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-vermilion text-paper">
@@ -218,11 +219,12 @@ export function CommunityPage() {
                     className="surface overflow-hidden rounded-[1.75rem] sm:col-span-2 lg:col-span-3"
                   >
                     <div className="grid sm:grid-cols-[minmax(0,18rem)_1fr] sm:items-center lg:grid-cols-[auto_1fr]">
-                      <img
+                      <ResponsiveImage
                         src={photo.src}
                         alt={photo.alt}
-                        className="w-full object-contain sm:max-h-56"
+                        imgClassName="w-full object-contain sm:max-h-56"
                         loading="lazy"
+                        sizes="(max-width: 639px) 100vw, 288px"
                       />
                       <figcaption className="border-t border-ink/10 p-6 sm:border-l sm:border-t-0 sm:p-8">
                         <p className="eyebrow">{t("community.foundation.founder")}</p>
@@ -240,11 +242,12 @@ export function CommunityPage() {
                   key={photo.src}
                   className="surface card-hover overflow-hidden rounded-[1.75rem]"
                 >
-                  <img
+                  <ResponsiveImage
                     src={photo.src}
                     alt={photo.alt}
-                    className="aspect-[4/3] w-full object-cover"
+                    imgClassName="aspect-[4/3] w-full object-cover"
                     loading="lazy"
+                    sizes="(max-width: 767px) 100vw, 33vw"
                   />
                   <figcaption className="p-5">
                     <p className="font-bold text-ink">{photo.title}</p>
@@ -277,11 +280,12 @@ export function CommunityPage() {
                 aria-hidden="true"
               />
               <div className="absolute left-5 top-5 rounded-2xl bg-paper/95 px-4 py-3 shadow-soft">
-                <img
+                <ResponsiveImage
                   src={cmuAikidoClub.logo.src}
                   alt={cmuAikidoClub.logo.alt}
-                  className="h-12 w-auto"
+                  imgClassName="h-12 w-auto"
                   loading="lazy"
+                  sizes="160px"
                 />
               </div>
               <div className="absolute bottom-0 left-0 right-0 p-6 text-paper sm:p-8">

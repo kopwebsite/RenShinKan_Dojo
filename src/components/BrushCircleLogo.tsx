@@ -87,9 +87,13 @@ export function BrushCircleLogo({
     >
       {showFinishedImage ? (
         <img
-          src={assetPath("/renshinkan-logo.png")}
+          src={assetPath("/optimized/brand/renshinkan-logo.webp")}
           alt={decorative ? "" : label}
           className={`h-full w-full object-contain ${imageClassName}`}
+          width={384}
+          height={384}
+          loading="eager"
+          decoding="async"
           onError={() => setUseFallback(true)}
         />
       ) : null}
@@ -207,7 +211,7 @@ export function BrushCircleLogo({
             </mask>
           </defs>
           <image
-            href={assetPath("/renshinkan-logo.png")}
+            href={assetPath("/optimized/brand/renshinkan-logo.webp")}
             width="100"
             height="100"
             preserveAspectRatio="xMidYMid meet"

@@ -651,6 +651,8 @@ export function ContributionForm() {
                     className="aspect-square w-56 max-w-full rounded-2xl border border-ink/10 bg-paper object-contain p-2"
                     width={224}
                     height={224}
+                    loading="lazy"
+                    decoding="async"
                   />
                 </div>
 

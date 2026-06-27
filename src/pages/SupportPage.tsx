@@ -235,6 +235,7 @@ export function SupportPage() {
                 width={720}
                 height={720}
                 loading="lazy"
+                decoding="async"
               />
               <div className="px-3 pb-2 pt-4 text-center">
                 <p className="text-xs font-bold uppercase tracking-[0.14em] text-charcoal/50">{t("support.donations.qrTitle")}</p>

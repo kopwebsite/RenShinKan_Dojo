@@ -10,6 +10,7 @@ import {
 } from "../utils/documentMedia";
 import { normalizeBodyMediaPlacement, splitEventBodyParagraphs } from "../utils/eventBody";
 import { normalizeEmbedUrl } from "../utils/mediaEmbeds";
+import { DeferredEmbed } from "./DeferredEmbed";
 import { ResponsiveImage } from "./ResponsiveImage";
 
 type EventBodyRendererProps = {
@@ -99,11 +100,11 @@ function DocumentViewer({ item }: { item: MediaItem }) {
 
   return (
     <div className="overflow-hidden rounded-lg border border-ink/10 bg-white">
-      <iframe
+      <DeferredEmbed
         src={officeDocumentEmbedUrl(item.src)}
         title={title}
         className={item.documentKind === "ppt" ? "aspect-video w-full" : "h-[520px] w-full"}
-        loading="lazy"
+        buttonLabel={title}
       />
     </div>
   );
@@ -125,12 +126,12 @@ function EventMediaFigure({
     <figure className={figureClassName(item, paragraphCount)} style={figureStyle(item, paragraphCount)}>
       {item.type === "video" ? (
         <div className="aspect-video overflow-hidden rounded-lg border border-ink/10 bg-ink">
-          <iframe
+          <DeferredEmbed
             key={item.src}
             src={normalizeEmbedUrl(item.src)}
             title={title}
             className="h-full w-full"
-            loading="lazy"
+            buttonLabel={title}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
           />

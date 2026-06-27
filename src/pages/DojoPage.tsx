@@ -1,5 +1,5 @@
 import { BookOpen, GraduationCap } from "lucide-react";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { BrushCircleLogo } from "../components/BrushCircleLogo";
 import { ResponsiveImage } from "../components/ResponsiveImage";
@@ -9,6 +9,47 @@ import { assetPath } from "../utils/assetPath";
 const DojoPageSections = lazy(() =>
   import("./DojoPageSections").then((module) => ({ default: module.DojoPageSections })),
 );
+
+function DeferredDojoPageSections() {
+  const [shouldLoad, setShouldLoad] = useState(false);
+  const boundaryRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const boundary = boundaryRef.current;
+
+    if (!boundary || shouldLoad) {
+      return;
+    }
+
+    if (!("IntersectionObserver" in window)) {
+      setShouldLoad(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShouldLoad(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.01 },
+    );
+
+    observer.observe(boundary);
+    return () => observer.disconnect();
+  }, [shouldLoad]);
+
+  return (
+    <div ref={boundaryRef} className="min-h-[35vh]">
+      {shouldLoad ? (
+        <Suspense fallback={<div className="container-shell h-32" aria-hidden="true" />}>
+          <DojoPageSections />
+        </Suspense>
+      ) : null}
+    </div>
+  );
+}
 
 export function DojoPage() {
   const { t } = useTranslation();
@@ -24,6 +65,8 @@ export function DojoPage() {
           loading="eager"
           width={1672}
           height={941}
+          sizes="100vw"
+          mobileWidth={640}
           fetchPriority="high"
         />
 
@@ -51,9 +94,7 @@ export function DojoPage() {
         </div>
       </section>
 
-      <Suspense fallback={<div className="container-shell h-16" aria-hidden="true" />}>
-        <DojoPageSections />
-      </Suspense>
+      <DeferredDojoPageSections />
     </>
   );
 }

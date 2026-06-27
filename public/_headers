@@ -1,0 +1,56 @@
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/optimized/*
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
+/uploads/generated/*
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
+/uploads/admin/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=86400
+
+/*.avif
+  Cache-Control: public, max-age=86400, stale-while-revalidate=86400
+
+/*.webp
+  Cache-Control: public, max-age=86400, stale-while-revalidate=86400
+
+/*.png
+  Cache-Control: public, max-age=86400, stale-while-revalidate=86400
+
+/*.jpg
+  Cache-Control: public, max-age=86400, stale-while-revalidate=86400
+
+/
+  Cache-Control: public, max-age=0, must-revalidate
+
+/aikido
+  Cache-Control: public, max-age=0, must-revalidate
+
+/classes
+  Cache-Control: public, max-age=0, must-revalidate
+
+/community
+  Cache-Control: public, max-age=0, must-revalidate
+
+/contact
+  Cache-Control: public, max-age=0, must-revalidate
+
+/instructors
+  Cache-Control: public, max-age=0, must-revalidate
+
+/newsletter
+  Cache-Control: public, max-age=0, must-revalidate
+
+/support
+  Cache-Control: public, max-age=0, must-revalidate
+
+/workshops
+  Cache-Control: public, max-age=0, must-revalidate
+
+/api/*
+  Cache-Control: no-store

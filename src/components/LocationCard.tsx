@@ -1,6 +1,7 @@
 import { ArrowUpRight, MapPin } from "lucide-react";
 import { googleMapsUrl, siteInfo } from "../data/siteMeta";
 import { useTranslation } from "../i18n";
+import { DeferredEmbed } from "./DeferredEmbed";
 
 const mapQuery = `${siteInfo.name}, ${siteInfo.address}`;
 const mapEmbedSrc = `https://www.google.com/maps?q=${encodeURIComponent(
@@ -12,11 +13,11 @@ export function LocationCard() {
   return (
     <article className="surface overflow-hidden rounded-[2rem]">
       <div className="relative min-h-[22rem] overflow-hidden bg-mist">
-        <iframe
+        <DeferredEmbed
           title={t("a11y.mapTitle", { name: siteInfo.name })}
           src={mapEmbedSrc}
           className="absolute inset-0 h-full w-full border-0"
-          loading="lazy"
+          buttonLabel={t("common.openMap")}
           allowFullScreen
           referrerPolicy="no-referrer-when-downgrade"
         />

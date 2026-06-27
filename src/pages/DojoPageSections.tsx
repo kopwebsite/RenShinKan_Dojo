@@ -1,5 +1,4 @@
 import { ArrowRight, ChevronLeft, ChevronRight, ExternalLink, HandCoins, MessageCircle } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { DojoJourney } from "../components/DojoJourney";
@@ -34,7 +33,7 @@ export function DojoPageSections() {
   const [activeSpacePhotoIndex, setActiveSpacePhotoIndex] = useState(0);
   const activeSpacePhoto = localizedDojoPhotos[activeSpacePhotoIndex];
   const spacePhotoOptions = localizedDojoPhotos.filter((_, index) => index !== activeSpacePhotoIndex);
-  const shouldReduceMotion = useReducedMotion();
+  const shouldReduceMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const [recentEventIndex, setRecentEventIndex] = useState(0);
 
   useEffect(() => {
@@ -50,33 +49,6 @@ export function DojoPageSections() {
       setRecentEventIndex(0);
     }
   }, [recentEventIndex, recentUpdates.length]);
-
-  const galleryImageMotion = shouldReduceMotion
-    ? {
-        initial: false as const,
-        animate: { opacity: 1 },
-        exit: { opacity: 1 },
-        transition: { duration: 0 },
-      }
-    : {
-        initial: { opacity: 0, scale: 1.015 },
-        animate: { opacity: 1, scale: 1 },
-        exit: { opacity: 0, scale: 0.995 },
-        transition: { duration: 0.48, ease: [0.22, 1, 0.36, 1] },
-      };
-  const galleryCaptionMotion = shouldReduceMotion
-    ? {
-        initial: false as const,
-        animate: { opacity: 1 },
-        exit: { opacity: 1 },
-        transition: { duration: 0 },
-      }
-    : {
-        initial: { opacity: 0, y: 10 },
-        animate: { opacity: 1, y: 0 },
-        exit: { opacity: 0, y: 6 },
-        transition: { duration: 0.36, ease: [0.22, 1, 0.36, 1] },
-      };
 
   return (
     <>
@@ -109,14 +81,9 @@ export function DojoPageSections() {
               {recentUpdates.length > 0 ? (
                 <>
                   <div className="relative h-[28rem] overflow-hidden rounded-[1.75rem] border border-ink/10 bg-paper/65 sm:h-[24rem] lg:h-[21rem]">
-                    <AnimatePresence mode="wait" initial={false}>
-                      <motion.div
+                      <div
                         key={recentEventIndex}
-                        initial={shouldReduceMotion ? false as const : { opacity: 0, x: 28 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: -20 }}
-                        transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
-                        className="grid h-full grid-rows-[auto_1fr] gap-0 lg:grid-cols-[0.86fr_1fr] lg:grid-rows-1"
+                        className="content-swap grid h-full grid-rows-[auto_1fr] gap-0 lg:grid-cols-[0.86fr_1fr] lg:grid-rows-1"
                       >
                         <ResponsiveImage
                           src={
@@ -146,8 +113,7 @@ export function DojoPageSections() {
                             <ArrowRight size={15} aria-hidden="true" />
                           </Link>
                         </div>
-                      </motion.div>
-                    </AnimatePresence>
+                      </div>
                   </div>
                   <div className="mt-4 flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -245,11 +211,9 @@ export function DojoPageSections() {
         </p>
         <div className="mb-10 grid gap-3 sm:gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
           <figure className="relative aspect-[16/10] overflow-hidden rounded-[1.4rem] bg-paper/70 shadow-line ring-1 ring-ink/10 sm:aspect-[16/9] sm:rounded-[1.75rem]">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
+              <div
                 key={activeSpacePhoto.src}
-                className="absolute inset-0 h-full w-full object-cover"
-                {...galleryImageMotion}
+                className="content-swap absolute inset-0 h-full w-full object-cover"
               >
                 <ResponsiveImage
                   src={activeSpacePhoto.src}
@@ -257,20 +221,16 @@ export function DojoPageSections() {
                   imgClassName="h-full w-full object-cover"
                   loading="lazy"
                 />
-              </motion.div>
-            </AnimatePresence>
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.figcaption
+              </div>
+              <figcaption
                 key={`${activeSpacePhoto.src}-caption`}
-                className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/85 via-ink/45 to-transparent p-3 text-paper sm:p-6"
-                {...galleryCaptionMotion}
+                className="content-swap absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/85 via-ink/45 to-transparent p-3 text-paper sm:p-6"
               >
                 <h3 className="text-xl leading-tight sm:text-2xl">{activeSpacePhoto.title}</h3>
                 <p className="mt-1 max-w-2xl text-sm leading-5 text-paper/82 sm:mt-2 sm:leading-6">
                   {activeSpacePhoto.description}
                 </p>
-              </motion.figcaption>
-            </AnimatePresence>
+              </figcaption>
           </figure>
 
           <div className="grid grid-cols-3 gap-2 sm:gap-4 lg:grid-cols-1 lg:grid-rows-3">

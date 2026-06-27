@@ -127,6 +127,8 @@ export function AikidoPage() {
           loading="eager"
           width={1881}
           height={836}
+          sizes="100vw"
+          mobileWidth={640}
           fetchPriority="high"
         />
         <div className="relative flex min-h-[var(--hero-viewport-height)] items-center justify-center py-16 text-center sm:py-20">

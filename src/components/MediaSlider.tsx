@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "../i18n";
 import { documentKindLabel, documentTitle } from "../utils/documentMedia";
 import { normalizeEmbedUrl } from "../utils/mediaEmbeds";
+import { DeferredEmbed } from "./DeferredEmbed";
 import { ResponsiveImage } from "./ResponsiveImage";
 
 type SliderMediaItem = {
@@ -66,12 +67,12 @@ export function MediaSlider({
       <figure className="surface overflow-hidden rounded-[1.75rem]">
         <div className="relative aspect-[16/9] bg-ink">
           {active.type === "video" ? (
-            <iframe
+            <DeferredEmbed
               key={active.src}
               src={normalizeEmbedUrl(active.src)}
               title={active.title || active.caption || label}
               className="absolute inset-0 h-full w-full"
-              loading="lazy"
+              buttonLabel={`${t("common.video")}: ${active.title || active.caption || label}`}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
             />

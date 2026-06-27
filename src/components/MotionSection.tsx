@@ -1,5 +1,4 @@
-import { motion, useReducedMotion } from "framer-motion";
-import type { PropsWithChildren } from "react";
+import type { CSSProperties, PropsWithChildren } from "react";
 
 type MotionSectionProps = PropsWithChildren<{
   id?: string;
@@ -15,19 +14,14 @@ export function MotionSection({
   ariaLabelledby,
   delay = 0,
 }: MotionSectionProps) {
-  const shouldReduceMotion = useReducedMotion();
-
   return (
-    <motion.section
+    <section
       id={id}
       aria-labelledby={ariaLabelledby}
-      className={className}
-      initial={shouldReduceMotion ? false : { opacity: 0, y: 28 }}
-      whileInView={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.08 }}
-      transition={{ duration: 0.72, delay, ease: [0.22, 1, 0.36, 1] }}
+      className={`motion-section ${className ?? ""}`}
+      style={{ "--motion-delay": `${delay}s` } as CSSProperties}
     >
       {children}
-    </motion.section>
+    </section>
   );
 }

@@ -12,7 +12,7 @@ export function DojoJourney({ photos = renshinkanBuildPhotos }: DojoJourneyProps
 
   return (
     <div className="mx-auto grid max-w-6xl grid-cols-2 gap-3 min-[420px]:gap-4 md:grid-cols-3 md:gap-5 xl:grid-cols-4">
-      {photos.map((photo, index) => (
+      {photos.map((photo) => (
         <figure
           key={photo.id}
           className="surface card-hover overflow-hidden rounded-[1.1rem] md:rounded-[1.35rem]"
@@ -22,7 +22,7 @@ export function DojoJourney({ photos = renshinkanBuildPhotos }: DojoJourneyProps
               src={photo.src}
               alt={photo.alt}
               imgClassName="h-full w-full object-cover"
-              loading={index < 2 ? "eager" : "lazy"}
+              loading="lazy"
             />
             <div
               className={`absolute left-2 top-2 rounded-full px-2.5 py-1 text-[0.63rem] font-bold uppercase leading-none shadow-sm md:left-3 md:top-3 md:px-3 md:text-[0.68rem] ${

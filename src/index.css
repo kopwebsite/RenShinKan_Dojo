@@ -2,6 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("/fonts/inter-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Cormorant Garamond";
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url("/fonts/cormorant-garamond-latin.woff2") format("woff2");
+}
+
 :root {
   --color-bg: rgba(252, 250, 247, 0.68);
   --color-text-primary: #1F1B16;
@@ -370,6 +386,20 @@ html:lang(th) :is(strong, b) {
   }
 }
 
+@media (max-width: 480px) {
+  body::before {
+    background-image:
+      linear-gradient(rgb(255 248 225 / 0.3), rgb(255 248 225 / 0.3)),
+      url("/optimized/backgrounds/manuscript-mobile-640.webp");
+    background-image:
+      linear-gradient(rgb(255 248 225 / 0.3), rgb(255 248 225 / 0.3)),
+      image-set(
+        url("/optimized/backgrounds/manuscript-mobile-640.avif") type("image/avif"),
+        url("/optimized/backgrounds/manuscript-mobile-640.webp") type("image/webp")
+      );
+  }
+}
+
 @media (max-width: 767px) {
   .container-shell {
     @apply px-5;
@@ -570,6 +600,33 @@ body.admin-simple .input-field {
   to {
     opacity: 1;
     stroke-dashoffset: 0;
+  }
+}
+
+@keyframes content-swap {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.content-swap {
+  animation: content-swap 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .motion-section {
+      animation: content-swap 1ms cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation-delay: var(--motion-delay, 0s);
+      animation-timeline: view();
+      animation-range: entry 0% entry 28%;
+    }
   }
 }
 

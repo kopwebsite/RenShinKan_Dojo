@@ -1446,25 +1446,25 @@ export const cmuAikidoClub = {
 
 export const pcfDojoPhotos = [
   {
-    src: "https://images.squarespace-cdn.com/content/v1/5ef17fec6947fc50b4ef6d98/1593060476288-40T0WMOMLWFVPWMDLUTL/LibLab_books.jpg",
+    src: assetPath("/community/library-books.jpg"),
     alt: "Stacks of books from the Peace Culture Foundation's LibLab community literacy programme.",
     title: "LibLab: Books for Communities",
     caption: "The foundation's LibLab programme puts books into communities that need them.",
   },
   {
-    src: "https://images.squarespace-cdn.com/content/v1/5ef17fec6947fc50b4ef6d98/2f4dd984-ed92-41a9-8604-fff8aa60a18e/book-table-open-book-nature-landscapes-3ab79f-1024.jpg",
+    src: assetPath("/community/open-book.jpg"),
     alt: "An open book resting on a table surrounded by nature.",
     title: "Learning in Every Setting",
     caption: "Peace culture is built through education, in classrooms, dojos, and communities alike.",
   },
   {
-    src: "https://images.squarespace-cdn.com/content/v1/5ef17fec6947fc50b4ef6d98/1741073068980-EH76HR39CGJYDBF9YF8U/image+%2834%29.png",
+    src: assetPath("/community/reading-group.png"),
     alt: "Peace Culture Foundation grooming prevention awareness graphic.",
     title: "Child Safety Education",
     caption: "Teaching communities to recognise unsafe patterns and protect the young people around them.",
   },
   {
-    src: "https://images.squarespace-cdn.com/content/v1/5ef17fec6947fc50b4ef6d98/1599217309955-OT5DYFE5SY5LMYRCHE9L/115881800_718580105643534_3910442649120489109_n.jpg",
+    src: assetPath("/community/community-reading.jpg"),
     alt: "Dr. Sombat Tapanya, founder of the Peace Culture Foundation.",
     title: "Dr. Sombat Tapanya",
     caption: "Founder of the Peace Culture Foundation and the person behind both its mission and RenShinKan Dojo.",

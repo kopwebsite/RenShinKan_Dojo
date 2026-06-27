@@ -86,11 +86,12 @@ export function NewsletterSignup({ compact = false, idPrefix = "newsletter" }: N
   const canEmbed = signupUrl.includes("sibforms.com");
   const formShellRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
+  const [embedActivated, setEmbedActivated] = useState(false);
   const [frameHeight, setFrameHeight] = useState(DEFAULT_FRAME_HEIGHT);
   const [frameWidth, setFrameWidth] = useState(BREVO_FORM_MAX_WIDTH);
 
   useEffect(() => {
-    if (!canEmbed || typeof window === "undefined") {
+    if (!canEmbed || !embedActivated || typeof window === "undefined") {
       return;
     }
 
@@ -113,10 +114,10 @@ export function NewsletterSignup({ compact = false, idPrefix = "newsletter" }: N
     return () => {
       observer.disconnect();
     };
-  }, [canEmbed]);
+  }, [canEmbed, embedActivated]);
 
   useEffect(() => {
-    if (!canEmbed) {
+    if (!canEmbed || !embedActivated) {
       return;
     }
 
@@ -135,7 +136,7 @@ export function NewsletterSignup({ compact = false, idPrefix = "newsletter" }: N
 
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [canEmbed]);
+  }, [canEmbed, embedActivated]);
 
   const targetVisibleHeight = frameWidth < 300
     ? BREVO_VISIBLE_HEIGHT_VERY_NARROW
@@ -155,29 +156,35 @@ export function NewsletterSignup({ compact = false, idPrefix = "newsletter" }: N
 
   const formColumn = signupUrl ? (
     canEmbed ? (
-      <div
-        ref={formShellRef}
-        className="relative mx-auto w-full overflow-hidden rounded-[3px] bg-transparent transition-[height] duration-300"
-        style={{
-          height: visibleFrameHeight,
-          maxWidth: BREVO_FORM_MAX_WIDTH,
-        }}
-      >
-        <iframe
-          ref={frameRef}
-          id={`${idPrefix}-brevo-form`}
-          title={t("newsletter.signup.frameTitle", { brand: t("common.brand") })}
-          src={signupUrl}
-          scrolling="no"
+      embedActivated ? (
+        <div
+          ref={formShellRef}
+          className="relative mx-auto w-full overflow-hidden rounded-[3px] bg-transparent transition-[height] duration-300"
           style={{
-            height: effectiveFrameHeight,
-            width: `calc(100% + ${BREVO_FRAME_OVERSCAN_X * 2}px)`,
-            transform: `translate(-${BREVO_FRAME_OVERSCAN_X}px, -${BREVO_FRAME_CROP_TOP}px)`,
+            height: visibleFrameHeight,
+            maxWidth: BREVO_FORM_MAX_WIDTH,
           }}
-          className="block max-w-none border-0 bg-paper transition-[height] duration-300"
-          loading="eager"
-        />
-      </div>
+        >
+          <iframe
+            ref={frameRef}
+            id={`${idPrefix}-brevo-form`}
+            title={t("newsletter.signup.frameTitle", { brand: t("common.brand") })}
+            src={signupUrl}
+            scrolling="no"
+            style={{
+              height: effectiveFrameHeight,
+              width: `calc(100% + ${BREVO_FRAME_OVERSCAN_X * 2}px)`,
+              transform: `translate(-${BREVO_FRAME_OVERSCAN_X}px, -${BREVO_FRAME_CROP_TOP}px)`,
+            }}
+            className="block max-w-none border-0 bg-paper transition-[height] duration-300"
+            loading="lazy"
+          />
+        </div>
+      ) : (
+        <button type="button" className="btn-primary" onClick={() => setEmbedActivated(true)}>
+          {t("newsletter.signup.openForm")}
+        </button>
+      )
     ) : (
       <a href={signupUrl} target="_blank" rel="noopener noreferrer" className="btn-primary">
         {t("newsletter.signup.openForm")}

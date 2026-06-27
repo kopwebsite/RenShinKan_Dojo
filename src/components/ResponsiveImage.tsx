@@ -1,4 +1,5 @@
 import type { CSSProperties, ImgHTMLAttributes } from "react";
+import { imageMetadata } from "../data/imageMetadata.generated";
 
 type FetchPriority = "high" | "low" | "auto";
 
@@ -16,40 +17,80 @@ type ResponsiveImageProps = Omit<
   loading?: "eager" | "lazy";
   decoding?: "async" | "sync" | "auto";
   fetchPriority?: FetchPriority;
+  mobileWidth?: number;
 };
 
 function isLocalOptimizableImage(src: string) {
   return (
     !/^(https?:|data:|blob:|pending:)/i.test(src) &&
     !src.includes("/uploads/admin/") &&
-    /\.(png|jpe?g|webp)(\?.*)?$/i.test(src)
+    /\.(png|jpe?g|webp|avif)(\?.*)?$/i.test(src)
   );
 }
 
-function replaceExtension(src: string, extension: "avif" | "webp") {
-  return src.replace(/\.(png|jpe?g|webp)(\?.*)?$/i, `.${extension}$2`);
+function basePath() {
+  const base = import.meta.env.BASE_URL || "/";
+  return base.endsWith("/") ? base : `${base}/`;
 }
 
-function derivedOptimizedSrc(src: string, extension: "avif" | "webp") {
-  const withNewExtension = replaceExtension(src, extension);
+function localPublicPath(src: string) {
+  const withoutQuery = src.split(/[?#]/, 1)[0].replace(/\\/g, "/");
+  const base = basePath();
+  let pathname = withoutQuery;
 
-  if (src.includes("/uploads/originals/")) {
-    return withNewExtension.replace("/uploads/originals/", "/uploads/generated/");
+  if (base !== "/" && base !== "./" && pathname.startsWith(base)) {
+    pathname = pathname.slice(base.length);
   }
 
-  if (src.includes("/dojo-photos/")) {
-    return withNewExtension.replace("/dojo-photos/", "/optimized/dojo-photos/");
+  pathname = pathname.replace(/^\.\//, "");
+  return pathname.startsWith("/") ? pathname : `/${pathname}`;
+}
+
+function imageKey(src: string) {
+  return localPublicPath(src).replace(/\.(png|jpe?g|webp|avif)$/i, "");
+}
+
+function withBase(pathname: string) {
+  return `${basePath()}${pathname.replace(/^\//, "")}`;
+}
+
+function derivedOptimizedBase(src: string) {
+  const pathname = localPublicPath(src).replace(/\.(png|jpe?g|webp|avif)$/i, "");
+
+  if (pathname.startsWith("/uploads/originals/")) {
+    return withBase(pathname.replace("/uploads/originals/", "/uploads/generated/"));
   }
 
-  if (src.includes("/past-events/")) {
-    return withNewExtension.replace("/past-events/", "/optimized/past-events/");
+  if (pathname === "/renshinkan-logo") {
+    return withBase("/optimized/brand/renshinkan-logo");
   }
 
-  if (src.includes("/renshinkan-gallery/")) {
-    return withNewExtension.replace("/renshinkan-gallery/", "/optimized/renshinkan-gallery/");
+  return withBase(`/optimized${pathname}`);
+}
+
+function variantSrc(source: string, width: number, outputWidth: number) {
+  if (width === outputWidth) {
+    return source;
   }
 
-  return withNewExtension;
+  return source.replace(/\.(avif|webp)$/i, `-${width}.$1`);
+}
+
+function responsiveSrcSet(source: string, widths: readonly number[], outputWidth: number) {
+  return widths.map((width) => `${variantSrc(source, width, outputWidth)} ${width}w`).join(", ");
+}
+
+function metadataFor(src: string) {
+  const key = imageKey(src) as keyof typeof imageMetadata;
+  return imageMetadata[key] as readonly [number, number, readonly number[]] | undefined;
+}
+
+function singleSource(src: string, extension: "avif" | "webp") {
+  if (/\.(avif|webp)$/i.test(src)) {
+    return src.replace(/\.(avif|webp)$/i, `.${extension}`);
+  }
+
+  return src.replace(/\.(png|jpe?g)(\?.*)?$/i, `.${extension}$2`);
 }
 
 export function ResponsiveImage({
@@ -64,6 +105,8 @@ export function ResponsiveImage({
   loading = "lazy",
   decoding = "async",
   fetchPriority,
+  mobileWidth,
+  sizes = "(max-width: 767px) 100vw, 50vw",
   style,
   ...imgProps
 }: ResponsiveImageProps) {
@@ -73,7 +116,9 @@ export function ResponsiveImage({
     ? ({ fetchpriority: fetchPriority } as Record<string, string>)
     : {};
 
-  if (!isLocalOptimizableImage(src) && !avif && !webp) {
+  const metadata = isLocalOptimizableImage(src) ? metadataFor(src) : undefined;
+
+  if ((!isLocalOptimizableImage(src) || !metadata) && !avif && !webp) {
     return (
       <img
         {...imgProps}
@@ -84,26 +129,48 @@ export function ResponsiveImage({
         style={imageStyle}
         loading={loading}
         decoding={decoding}
+        sizes={sizes}
       />
     );
   }
 
-  const avifSrc = avif || derivedOptimizedSrc(src, "avif");
-  const webpSrc = webp || derivedOptimizedSrc(src, "webp");
+  const optimizedBase = metadata ? derivedOptimizedBase(src) : "";
+  const avifSrc = avif || `${optimizedBase}.avif`;
+  const webpSrc = webp || `${optimizedBase}.webp`;
+  const outputWidth = metadata?.[0];
+  const outputHeight = metadata?.[1];
+  const widths = metadata?.[2];
+  const avifSrcSet = outputWidth && widths
+    ? responsiveSrcSet(avifSrc, widths, outputWidth)
+    : singleSource(avifSrc, "avif");
+  const webpSrcSet = outputWidth && widths
+    ? responsiveSrcSet(webpSrc, widths, outputWidth)
+    : singleSource(webpSrc, "webp");
+  const mobileAvifSrc = mobileWidth && outputWidth
+    ? variantSrc(avifSrc, mobileWidth, outputWidth)
+    : undefined;
+  const mobileWebpSrc = mobileWidth && outputWidth
+    ? variantSrc(webpSrc, mobileWidth, outputWidth)
+    : undefined;
 
   return (
     <picture className={pictureClassName}>
-      <source srcSet={avifSrc} type="image/avif" />
-      <source srcSet={webpSrc} type="image/webp" />
+      {mobileAvifSrc ? <source media="(max-width: 639px)" srcSet={mobileAvifSrc} type="image/avif" /> : null}
+      {mobileWebpSrc ? <source media="(max-width: 639px)" srcSet={mobileWebpSrc} type="image/webp" /> : null}
+      <source srcSet={avifSrcSet} sizes={sizes} type="image/avif" />
+      <source srcSet={webpSrcSet} sizes={sizes} type="image/webp" />
       <img
         {...imgProps}
         {...fetchPriorityProps}
-        src={src}
+        src={webpSrc}
         alt={alt}
         className={imageClassName}
         style={imageStyle}
         loading={loading}
         decoding={decoding}
+        sizes={sizes}
+        width={imgProps.width ?? outputWidth}
+        height={imgProps.height ?? outputHeight}
       />
     </picture>
   );

@@ -1,180 +1,101 @@
-import { Languages } from "lucide-react";
+import { ArrowLeft, ArrowRight, Languages, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { EventBodyRenderer } from "../components/EventBodyRenderer";
 import { NewsletterSignup } from "../components/NewsletterSignup";
 import { MotionSection } from "../components/MotionSection";
+import { ResponsiveImage } from "../components/ResponsiveImage";
 import { useTranslation, type Language } from "../i18n";
 import { getPublishedRecentEvents, useEditableContent } from "../lib/content";
+import { assetPath } from "../utils/assetPath";
 
-const googleTranslateTarget: Record<Language, string> = {
-  en: "en",
-  th: "th",
-  "zh-CN": "zh-CN",
-  ja: "ja",
-};
+const googleTranslateTarget: Record<Language, string> = { en: "en", th: "th", "zh-CN": "zh-CN", ja: "ja" };
 
-function buildGoogleTranslateTextUrl(targetLanguage: string, text: string) {
-  const params = new URLSearchParams({
-    sl: "auto",
-    tl: targetLanguage,
-    text,
-    op: "translate",
-  });
-
-  return `https://translate.google.com/?${params.toString()}`;
+function formatDate(value: string) {
+  const date = new Date(`${value}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long", year: "numeric" }).format(date);
 }
 
-function NewsletterTranslateButton({
-  title,
-  text,
-  className = "",
-}: {
-  title: string;
-  text: string;
-  className?: string;
-}) {
-  const { language, t } = useTranslation();
-  const targetLanguage = googleTranslateTarget[language] ?? "en";
-  const href = buildGoogleTranslateTextUrl(targetLanguage, text);
-
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-bamboo/30 bg-paper/80 px-4 py-2 text-sm font-bold text-bamboo transition hover:border-bamboo hover:bg-bamboo/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo ${className}`}
-      aria-label={t("newsletter.translate.aria", { title })}
-    >
-      <Languages size={16} aria-hidden="true" />
-      {t("newsletter.translate.label")}
-    </a>
-  );
+function categoryFor(title: string) {
+  const value = title.toLowerCase();
+  if (value.includes("belt") || value.includes("exam")) return "Belt examinations";
+  if (value.includes("workshop") || value.includes("seminar")) return "Workshops";
+  if (value.includes("visit")) return "Visiting instructors";
+  return "Dojo news";
 }
 
 export function NewsletterPage() {
-  const { t } = useTranslation();
-  const location = useLocation();
+  const { language, t } = useTranslation();
+  const { slug } = useParams();
   const { content } = useEditableContent();
-  const dojoUpdates = useMemo(() => getPublishedRecentEvents(content), [content]);
-  const [activeEventIndex, setActiveEventIndex] = useState(0);
-  const activeEvent = dojoUpdates[activeEventIndex];
-  const activeMedia = activeEvent?.media?.length
-    ? activeEvent.media
-    : activeEvent?.image
-      ? [activeEvent.image]
-      : [];
-  const activeEventTranslationText = activeEvent
-    ? [activeEvent.date, activeEvent.title, activeEvent.summary, activeEvent.body].filter(Boolean).join("\n\n")
-    : "";
+  const updates = useMemo(() => getPublishedRecentEvents(content), [content]);
+  const [query, setQuery] = useState("");
+  const article = slug ? updates.find((item) => item.slug === slug) : undefined;
+  const filtered = updates.filter((item) => `${item.title} ${item.summary} ${item.body}`.toLowerCase().includes(query.toLowerCase()));
 
   useEffect(() => {
-    const slug = location.hash.replace("#", "");
-    const index = dojoUpdates.findIndex((update) => update.slug === slug);
-    if (index >= 0) {
-      setActiveEventIndex(index);
+    if (!article) return;
+    const canonical = `https://renshinkandojo.org/newsletter/${article.slug}`;
+    document.title = `${article.title} | RenShinKan Dojo Journal`;
+    document.querySelector('meta[property="og:title"]')?.setAttribute("content", article.title);
+    document.querySelector('meta[property="og:description"]')?.setAttribute("content", article.summary);
+    document.querySelector('meta[property="og:type"]')?.setAttribute("content", "article");
+    document.querySelector('meta[property="og:url"]')?.setAttribute("content", canonical);
+    const image = article.image?.src || article.media?.find((item) => item.type === "image")?.src;
+    if (image) document.querySelector('meta[property="og:image"]')?.setAttribute("content", new URL(image, canonical).href);
+    const script = document.createElement("script");
+    script.id = "journal-article-schema";
+    script.type = "application/ld+json";
+    script.textContent = JSON.stringify({ "@context": "https://schema.org", "@type": "BlogPosting", headline: article.title, description: article.summary, datePublished: article.date, dateModified: article.updatedAt, author: { "@type": "Organization", name: "RenShinKan Dojo" }, mainEntityOfPage: canonical, image: image ? new URL(image, canonical).href : undefined });
+    document.head.appendChild(script);
+    return () => { script.remove(); document.querySelector('meta[property="og:type"]')?.setAttribute("content", "website"); };
+  }, [article]);
+
+  if (slug) {
+    if (!article) {
+      return <section className="container-shell journal-empty-page"><p className="eyebrow">Dojo journal</p><h1>That journal entry is not available.</h1><Link to="/newsletter" className="text-link"><ArrowLeft size={16} /> Return to the archive</Link></section>;
     }
-  }, [dojoUpdates, location.hash]);
+    const media = article.media?.length ? article.media : article.image ? [article.image] : [];
+    const translateText = [article.title, article.summary, article.body].join("\n\n");
+    const translateUrl = `https://translate.google.com/?${new URLSearchParams({ sl: "auto", tl: googleTranslateTarget[language], text: translateText, op: "translate" })}`;
+    const index = updates.findIndex((item) => item.id === article.id);
+    return (
+      <article className="journal-entry">
+        <header className="container-shell journal-entry__header">
+          <Link to="/newsletter" className="text-link"><ArrowLeft size={16} /> Journal archive</Link>
+          <p className="folio-mark">{categoryFor(article.title)} · {formatDate(article.date)}</p>
+          <h1>{article.title}</h1>
+          <p className="journal-entry__dek">{article.summary}</p>
+          <div className="journal-entry__byline"><span>RenShinKan Dojo</span><a href={translateUrl} target="_blank" rel="noopener noreferrer"><Languages size={15} /> Translate</a></div>
+        </header>
+        <div className="container-shell journal-entry__body">
+          <EventBodyRenderer body={article.body} media={media} fallbackTitle={article.title} />
+        </div>
+        <nav className="container-shell journal-entry__nav" aria-label="Journal entry navigation">
+          {updates[index + 1] ? <Link to={`/newsletter/${updates[index + 1].slug}`}><ArrowLeft size={16} /> Older<br /><strong>{updates[index + 1].title}</strong></Link> : <span />}
+          {updates[index - 1] ? <Link to={`/newsletter/${updates[index - 1].slug}`}>Newer <ArrowRight size={16} /><br /><strong>{updates[index - 1].title}</strong></Link> : null}
+        </nav>
+      </article>
+    );
+  }
 
-  // Scroll to the anchored section (e.g. #newsletter-signup, #recent-events)
-  // after navigation settles. ScrollToTop resets to top on pathname change,
-  // so we defer slightly to land on the target instead.
-  useEffect(() => {
-    const id = location.hash.replace("#", "");
-    if (!id) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 90);
-
-    return () => window.clearTimeout(timer);
-  }, [location.hash, activeEvent?.slug]);
-
-  useEffect(() => {
-    if (activeEventIndex >= dojoUpdates.length) {
-      setActiveEventIndex(0);
-    }
-  }, [activeEventIndex, dojoUpdates.length]);
-
+  const featured = filtered[0];
   return (
     <>
-      <MotionSection className="container-shell py-20">
-        <p className="eyebrow">{t("newsletter.intro.eyebrow")}</p>
-        <h1 className="section-title">{t("newsletter.intro.title")}</h1>
-        <p className="section-copy">
-          {t("newsletter.intro.copy")}
-        </p>
+      <MotionSection className="container-shell journal-opening">
+        <div><p className="folio-mark">RenShinKan journal · Archive</p><p className="eyebrow">{t("newsletter.intro.eyebrow")}</p><h1>Notes from the dojo.</h1><p>{t("newsletter.intro.copy")}</p></div>
+        <label className="journal-search"><Search size={17} aria-hidden="true" /><span className="sr-only">Search the journal</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search articles" /></label>
       </MotionSection>
-
-      <MotionSection id="recent-events" className="container-shell scroll-mt-28 pb-20">
-        <div className="mb-8 grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
-          <div>
-            <p className="eyebrow">{t("newsletter.recent.eyebrow")}</p>
-            <h2 className="section-title">{t("newsletter.recent.title")}</h2>
-          </div>
-          <p className="section-copy mt-0">
-            {t("newsletter.recent.copy")}
-          </p>
-        </div>
-
-        {activeEvent ? (
-          <article id={activeEvent.slug} className="surface rounded-[2rem] p-6 sm:p-8">
-            <p className="text-sm font-bold text-bamboo">{activeEvent.date}</p>
-            <h3 className="mt-5 text-3xl leading-tight text-ink sm:text-5xl">{activeEvent.title}</h3>
-            <div className="mt-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <p className="max-w-3xl text-base leading-7 text-charcoal/75">{activeEvent.summary}</p>
-              <NewsletterTranslateButton
-                title={activeEvent.title}
-                text={activeEventTranslationText}
-                className="lg:shrink-0"
-              />
-            </div>
-            <EventBodyRenderer
-              body={activeEvent.body}
-              media={activeMedia}
-              fallbackTitle={activeEvent.title}
-              className="mt-6 max-w-4xl"
-            />
+      <MotionSection className="container-shell journal-archive">
+        {featured ? (
+          <article className="journal-archive__featured">
+            <ResponsiveImage src={featured.image?.src || featured.media?.find((item) => item.type === "image")?.src || assetPath("/dojo-photos/aikido-hero-new.webp")} alt={featured.image?.alt || featured.title} imgClassName="h-full w-full object-cover" loading="eager" />
+            <div><p className="folio-mark">Featured · {formatDate(featured.date)}</p><h2>{featured.title}</h2><p>{featured.summary}</p><Link to={`/newsletter/${featured.slug}`} className="text-link">Read the entry <ArrowRight size={16} /></Link></div>
           </article>
-        ) : (
-          <article className="surface rounded-[2rem] p-6 sm:p-8">
-            <p className="text-sm leading-6 text-charcoal/72">
-              {t("newsletter.recent.empty")}
-            </p>
-          </article>
-        )}
-
-        {dojoUpdates.length > 1 && (
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {dojoUpdates.map((event, index) => {
-              const isActive = index === activeEventIndex;
-              return (
-                <button
-                  key={event.id}
-                  type="button"
-                  onClick={() => setActiveEventIndex(index)}
-                  className={`rounded-[1.5rem] border p-5 text-left transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bamboo ${
-                    isActive
-                      ? "border-bamboo bg-bamboo/8 shadow-soft"
-                      : "surface hover:border-ink/20"
-                  }`}
-                >
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-bamboo">{event.date}</p>
-                  <p className={`mt-2 text-base font-medium leading-snug ${isActive ? "text-bamboo" : "text-ink"}`}>
-                    {event.title}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
-        )}
+        ) : <div className="journal-empty"><h2>The journal is quiet for now.</h2><p>New dojo notes, examinations and workshop announcements will be published here.</p></div>}
+        {filtered.length > 1 ? <div className="journal-index"><h2>Previous entries</h2><ol>{filtered.slice(1).map((item, index) => <li key={item.id}><span>{String(index + 1).padStart(2, "0")}</span><time>{formatDate(item.date)}</time><div><p>{categoryFor(item.title)}</p><h3><Link to={`/newsletter/${item.slug}`}>{item.title}</Link></h3><p>{item.summary}</p></div></li>)}</ol></div> : null}
       </MotionSection>
-
-      <MotionSection id="newsletter-signup" className="container-shell scroll-mt-28 pb-20">
-        <NewsletterSignup idPrefix="main-newsletter" />
-      </MotionSection>
+      <MotionSection id="newsletter-signup" className="container-shell journal-signup scroll-mt-24"><NewsletterSignup idPrefix="journal-newsletter" /></MotionSection>
     </>
   );
 }

@@ -2,6 +2,7 @@ import { ArrowUpRight, MapPin } from "lucide-react";
 import { Link } from "react-router-dom";
 import { googleMapsUrl, siteInfo, socialLinks } from "../data/siteMeta";
 import { useTranslation, type TranslationKey } from "../i18n";
+import { recordsCopy } from "../data/recordsCopy";
 
 const footerNavigation: Array<{ labelKey: TranslationKey; path: string }> = [
   { labelKey: "nav.home", path: "/" },
@@ -14,7 +15,7 @@ const footerNavigation: Array<{ labelKey: TranslationKey; path: string }> = [
 ];
 
 export function Footer() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   return (
     <footer className="border-t border-ink/10 bg-charcoal/90 text-paper backdrop-blur-sm">
@@ -50,6 +51,9 @@ export function Footer() {
                 {t(item.labelKey)}
               </Link>
             ))}
+            <Link to="/student-records" className="text-sm text-paper/75 transition hover:text-paper">
+              {recordsCopy[language].eyebrow}
+            </Link>
           </div>
         </nav>
 

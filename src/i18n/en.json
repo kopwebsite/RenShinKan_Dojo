@@ -130,12 +130,12 @@
     "facilities": {
       "eyebrow": "Our Dojo",
       "title": "A welcoming practice space for students of all ages in Hang Dong.",
-      "copy": "RenShinKan was built in {{year}} on a quiet piece of land in Hang Dong. It is a calm, comfortable place to train, whoever you are and whatever your age."
+      "copy": "RenShinKan was completed in {{year}} on a quiet piece of land in Hang Dong. The training hall, garden and viewing deck are shared by children, adults, families and visitors."
     },
     "instructors": {
       "eyebrow": "Who Teaches Here",
-      "title": "Senseis who genuinely love what they teach.",
-      "copy": "Our instructors have practiced for decades, and they care about the people they teach. You will find them patient, encouraging, and steady at every level."
+      "title": "Instructors shaped by long practice.",
+      "copy": "Our instructors have trained for decades in Chiang Mai, Bangkok and Japan. In class they explain technique clearly, make space for questions and expect every student to protect their partner."
     },
     "photos": {
       "eyebrow": "Dojo Photos",
@@ -184,7 +184,7 @@
     },
     "firstVisit": {
       "eyebrow": "First Visit Guide",
-      "title": "A calm first class starts with a few simple steps.",
+      "title": "What to do on your first day.",
       "copy": "This guide is for beginners, parents, and visiting aikidoka. Message ahead so we can confirm the right class time and whether to observe or join in.",
       "beforeTitle": "Before you arrive",
       "item1": "You are welcome to drop in, just come along at class time",
@@ -294,7 +294,7 @@
       "joDesc": "Used to develop extension, timing, and smooth, connected footwork.",
       "tantoName": "Tanto",
       "tantoMeaning": "Wooden Knife",
-      "tantoDesc": "Used to practice calm, safe responses, careful distance, and steady awareness.",
+      "tantoDesc": "Used to study distance, timing and safe responses to a committed line of attack.",
       "weaponsClose": "Because hand to hand and weapons practice share the same foundation, growth in one naturally deepens understanding of the other. The two sides of aikido constantly support and explain each other."
     },
     "why": {
@@ -305,12 +305,12 @@
       "ukemiTitle": "Learning to Fall Safely",
       "ukemi1": "One of aikido's most practical life skills is ukemi, the art of falling and receiving techniques safely. From the very first class, students learn to relax, protect the head, round the body, roll, and land without getting hurt.",
       "ukemi2": "This matters far beyond the dojo. Slips, trips, everyday accidents, sport, and the natural changes that come with aging all involve falling at some point. Learning to fall well is a real world skill that can genuinely help reduce the risk of injury.",
-      "close": "Aikido is not only about self defense. It is also about learning to move well, stay calm, and respond to pressure without panic or aggression."
+      "close": "Aikido is not only about self defense. It asks students to move with control, notice what a partner needs and respond to pressure without aggression."
     },
     "who": {
       "eyebrow": "Everyone Is Welcome",
       "title": "Who Can Practice?",
-      "intro": "Aikido can be practiced by adults, children, complete beginners, and experienced martial artists alike. You do not need to be strong, athletic, flexible, or experienced to begin. Even very senior practitioners, well into older age, are warmly welcome and can keep training at their own pace. It is a wonderful way to stay active, mobile, and flexible as the years go on. Progress comes through steady practice, attention, and learning correct movement rather than relying on physical strength alone.",
+      "intro": "Adults, children, complete beginners and experienced martial artists can practise together. Strength and flexibility are not prerequisites. The instructor adjusts the pace and asks students to work through posture, timing and repetition rather than force.",
       "childrenTitle": "For Children",
       "adultsTitle": "For Adults",
       "visitorsTitle": "Visiting Aikidoka",
@@ -600,7 +600,7 @@
     "intro": {
       "eyebrow": "Newsletter",
       "title": "Gentle updates for families and students.",
-      "copy": "Sign up for beginner guidance, parent notes, workshop announcements, and reflections on calm practice."
+      "copy": "Receive class notices, workshop announcements, examination news and occasional notes from the dojo."
     },
     "recent": {
       "eyebrow": "Recent Events",
@@ -610,7 +610,7 @@
     },
     "notes": {
       "eyebrow": "Recent Notes",
-      "title": "Short writing for first steps and steady practice."
+      "title": "Practical notes from the dojo."
     },
     "signup": {
       "eyebrow": "Dojo Updates",
@@ -671,7 +671,7 @@
   "instructorsPage": {
     "eyebrow": "Instructors",
     "title": "Meet the aikido instructors at RenShinKan Dojo.",
-    "copy": "Get to know the teachers who guide class practice, introduce beginners to aikido, and help students build calm movement, respectful partner training, and steady confidence on the mat."
+    "copy": "Meet the teachers who lead class, introduce beginners to aikido and keep partner practice precise, cooperative and safe."
   },
   "locationCard": {
     "eyebrow": "Location"
@@ -680,7 +680,7 @@
     "homeTitle": "RenShinKan Dojo | Aikido in Hang Dong, Chiang Mai, Thailand",
     "homeDescription": "RenShinKan Dojo offers aikido and Japanese martial arts training in Hang Dong, Chiang Mai. Beginner friendly classes welcome children, adults, and visiting aikidoka.",
     "aikidoTitle": "Aikido in Chiang Mai | Japanese Martial Arts at RenShinKan Dojo",
-    "aikidoDescription": "Learn what aikido is, how it grew from Japanese jujutsu and aiki-jujutsu roots, and how RenShinKan teaches calm self defense in Hang Dong, Chiang Mai.",
+    "aikidoDescription": "Learn what aikido is, how it grew from Japanese jujutsu and aiki-jujutsu roots, and how RenShinKan practises noncompetitive martial arts in Hang Dong, Chiang Mai.",
     "instructorsTitle": "Aikido Instructors in Chiang Mai | RenShinKan Dojo",
     "instructorsDescription": "Meet the RenShinKan Dojo aikido instructors teaching beginner friendly classes, children, adults, and visiting aikidoka in Hang Dong, Chiang Mai.",
     "classesTitle": "Aikido Classes in Hang Dong, Chiang Mai | RenShinKan Dojo",
@@ -705,6 +705,8 @@
     "notFoundDescription": "The requested RenShinKan Dojo page could not be found. Return to the home page or contact the dojo for help.",
     "adminTitle": "Admin | RenShinKan Dojo",
     "adminDescription": "RenShinKan Dojo content administration.",
+    "recordsTitle": "Private Student Record Verification | RenShinKan Dojo",
+    "recordsDescription": "Secure, private verification of approved RenShinKan Dojo belt and training records using a record name and private code.",
     "localBusinessDescription": "Aikido classes, Japanese martial arts, and practical self defense training for children and adults at RenShinKan Dojo in Hang Dong, Chiang Mai."
   },
   "data": {

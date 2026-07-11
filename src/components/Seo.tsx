@@ -116,6 +116,12 @@ const seoByPath: Record<string, SeoConfig> = {
     path: "/admin",
     robots: "noindex,nofollow",
   },
+  "/student-records": {
+    titleKey: "seo.recordsTitle",
+    descriptionKey: "seo.recordsDescription",
+    path: "/student-records",
+    robots: "noindex,nofollow",
+  },
 };
 
 const notFoundSeo: SeoConfig = {
@@ -286,7 +292,16 @@ export function Seo() {
 
   useEffect(() => {
     const pathname = location.pathname === "/dojo" ? "/" : location.pathname;
-    const config = seoByPath[pathname] ?? notFoundSeo;
+    const isPrivateRecord = pathname === "/records" || pathname.startsWith("/records/share/");
+    const isAdmin = pathname.startsWith("/admin");
+    const isArticle = pathname.startsWith("/newsletter/");
+    const config = isAdmin
+      ? { ...seoByPath["/admin"], path: pathname }
+      : isPrivateRecord
+      ? { ...seoByPath["/student-records"], path: pathname }
+      : isArticle
+        ? { ...seoByPath["/newsletter"], path: pathname }
+        : seoByPath[pathname] ?? notFoundSeo;
     const canonical = `${SITE_URL}${config.path === "/" ? "/" : config.path}`;
     const title = t(config.titleKey);
     const description = t(config.descriptionKey);

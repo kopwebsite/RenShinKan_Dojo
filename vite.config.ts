@@ -64,6 +64,24 @@ function getWranglerVarsBlock(config: string) {
 }
 
 const cloudflarePagesBuildDefines = getCloudflarePagesBuildDefines();
+const SPA_ROUTES = new Set([
+  "/aikido", "/classes", "/community", "/contact", "/instructors", "/newsletter",
+  "/student-records", "/records", "/support", "/workshops", "/admin", "/admin/students",
+]);
+
+function spaRouteFallback() {
+  return {
+    name: "renshinkan-spa-route-fallback",
+    configureServer(server: { middlewares: { use(handler: (request: { url?: string; headers: Record<string, string | string[] | undefined> }, response: unknown, next: () => void) => void): void } }) {
+      server.middlewares.use((request, _response, next) => {
+        const pathname = (request.url || "").split(/[?#]/, 1)[0].replace(/\/$/, "") || "/";
+        const acceptsHtml = String(request.headers.accept || "").includes("text/html");
+        if (acceptsHtml && (SPA_ROUTES.has(pathname) || pathname.startsWith("/newsletter/") || pathname.startsWith("/records/share/"))) request.url = "/";
+        next();
+      });
+    },
+  };
+}
 
 function normalizeBasePath(basePath?: string) {
   if (!basePath) {
@@ -84,7 +102,7 @@ function normalizeBasePath(basePath?: string) {
 export default defineConfig({
   base: normalizeBasePath(process.env.BASE_PATH),
   define: cloudflarePagesBuildDefines,
-  plugins: [react()],
+  plugins: [spaRouteFallback(), react()],
   build: {
     rollupOptions: {
       output: {

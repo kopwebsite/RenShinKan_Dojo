@@ -1,100 +1,53 @@
-import { BookOpen, GraduationCap } from "lucide-react";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { ArrowDown, MapPin } from "lucide-react";
 import { Link } from "react-router-dom";
 import { BrushCircleLogo } from "../components/BrushCircleLogo";
 import { ResponsiveImage } from "../components/ResponsiveImage";
 import { useTranslation } from "../i18n";
 import { assetPath } from "../utils/assetPath";
-
-const DojoPageSections = lazy(() =>
-  import("./DojoPageSections").then((module) => ({ default: module.DojoPageSections })),
-);
-
-function DeferredDojoPageSections() {
-  const [shouldLoad, setShouldLoad] = useState(false);
-  const boundaryRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const boundary = boundaryRef.current;
-
-    if (!boundary || shouldLoad) {
-      return;
-    }
-
-    if (!("IntersectionObserver" in window)) {
-      setShouldLoad(true);
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setShouldLoad(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.01 },
-    );
-
-    observer.observe(boundary);
-    return () => observer.disconnect();
-  }, [shouldLoad]);
-
-  return (
-    <div ref={boundaryRef} className="min-h-[35vh]">
-      {shouldLoad ? (
-        <Suspense fallback={<div className="container-shell h-32" aria-hidden="true" />}>
-          <DojoPageSections />
-        </Suspense>
-      ) : null}
-    </div>
-  );
-}
+import { DojoPageSections } from "./DojoPageSections";
 
 export function DojoPage() {
   const { t } = useTranslation();
 
   return (
     <>
-      <section id="home" className="relative isolate min-h-[var(--hero-viewport-height)] scroll-mt-28 overflow-hidden">
-        <ResponsiveImage
-          src={assetPath("/dojo-photos/new-hero-poster.webp")}
-          alt=""
-          aria-hidden="true"
-          imgClassName="absolute inset-0 h-full w-full object-cover"
-          loading="eager"
-          width={1672}
-          height={941}
-          sizes="100vw"
-          mobileWidth={640}
-          fetchPriority="high"
-        />
+      <section id="home" className="manuscript-hero scroll-mt-24">
+        <div className="manuscript-hero__photo" aria-hidden="true">
+          <ResponsiveImage
+            src={assetPath("/dojo-photos/new-hero-poster.webp")}
+            alt=""
+            imgClassName="h-full w-full object-cover"
+            loading="eager"
+            width={1672}
+            height={941}
+            sizes="100vw"
+            mobileWidth={720}
+            fetchPriority="high"
+          />
+        </div>
 
-        <div className="relative container-shell grid min-h-[var(--hero-viewport-height)] place-items-center py-14 text-center sm:py-16">
-          <div className="relative mx-auto max-w-5xl">
-            <div className="absolute left-1/2 top-1/2 -z-10 h-[18rem] w-[18rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-bamboo/15 sm:h-[27rem] sm:w-[27rem]" />
-            <BrushCircleLogo paintOn className="mx-auto mb-5 h-24 w-24 sm:h-36 sm:w-36 lg:h-40 lg:w-40" />
-            <h1 className="mx-auto mt-3 max-w-4xl text-4xl leading-[0.98] text-ink sm:text-6xl lg:text-7xl">
-              {t("common.brand")}
-            </h1>
-            <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-charcoal/80 sm:text-lg sm:leading-8">
-              {t("home.hero.subtitle")}
-            </p>
-            <div className="mt-7 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
-              <Link to="/classes" className="btn-primary sm:w-auto">
-                <GraduationCap size={18} aria-hidden="true" />
-                {t("common.visitClass")}
-              </Link>
-              <Link to="/aikido#history-philosophy" className="btn-secondary sm:w-auto">
-                <BookOpen size={18} aria-hidden="true" />
-                {t("common.learnAboutAikido")}
-              </Link>
-            </div>
+        <div className="container-shell manuscript-hero__layout">
+          <div className="manuscript-hero__title">
+            <p className="folio-mark">Aikido · Chiang Mai · Est. 2013</p>
+            <BrushCircleLogo paintOn className="hero-seal" />
+            <h1>{t("common.brand")}</h1>
+            <p>{t("home.hero.subtitle")}</p>
           </div>
+
+          <aside className="manuscript-hero__invitation" aria-label="Visit RenShinKan Dojo">
+            <MapPin size={18} aria-hidden="true" />
+            <p>Hang Dong, Chiang Mai</p>
+            <strong>Beginners, children and visiting aikidoka are welcome.</strong>
+            <Link to="/classes#schedule">See class times</Link>
+          </aside>
+
+          <a className="manuscript-hero__continue" href="#visit-notes">
+            Begin here <ArrowDown size={16} aria-hidden="true" />
+          </a>
         </div>
       </section>
 
-      <DeferredDojoPageSections />
+      <DojoPageSections />
     </>
   );
 }

@@ -1,5 +1,8 @@
 User-agent: *
 Allow: /
 Disallow: /admin
+Disallow: /student-records
+Disallow: /records
+Disallow: /api/
 
 Sitemap: https://renshinkandojo.org/sitemap.xml

@@ -1,110 +1,45 @@
-import { Medal, UserRoundCheck } from "lucide-react";
-import { useState } from "react";
 import { instructors } from "../data/siteContent";
 import { useTranslation } from "../i18n";
-import { ResponsiveImage } from "./ResponsiveImage";
 import { instructorKeys, translateInstructor } from "../utils/siteContentTranslations";
+import { ResponsiveImage } from "./ResponsiveImage";
 
-// Mobile lays instructors out two per row (grid-cols-2). Track the open state
-// per row so toggling one card's "training background" also expands its row
-// partner, keeping the row visually balanced.
-const MOBILE_COLUMNS = 2;
-
-export function InstructorGrid() {
+export function InstructorGrid({ compact = false }: { compact?: boolean }) {
   const { t } = useTranslation();
-  const [openRows, setOpenRows] = useState<Record<number, boolean>>({});
   const localizedInstructors = instructors.map((instructor, index) =>
     translateInstructor(t, instructor, instructorKeys[index]),
   );
-
-  const toggleRow = (row: number) => {
-    setOpenRows((prev) => ({ ...prev, [row]: !prev[row] }));
-  };
+  const visible = compact ? localizedInstructors.slice(0, 3) : localizedInstructors;
 
   return (
-    <div className="grid grid-cols-2 gap-3 min-[420px]:gap-4 sm:gap-5 lg:grid-cols-3">
-      {localizedInstructors.map((instructor, index) => {
-        const row = Math.floor(index / MOBILE_COLUMNS);
-        const isRowOpen = Boolean(openRows[row]);
-        return (
-        <article
-          key={instructor.name}
-          className="surface card-hover overflow-hidden rounded-[1.35rem] sm:rounded-[2rem]"
-        >
-          <div className="relative aspect-[4/5] overflow-hidden bg-ink/5 sm:aspect-[4/3]">
+    <div className={compact ? "instructor-editorial instructor-editorial--compact" : "instructor-editorial"}>
+      {visible.map((instructor, index) => (
+        <article className={`instructor-profile instructor-profile--${(index % 3) + 1}`} key={instructor.name}>
+          <figure>
             {instructor.imageSrc ? (
               <ResponsiveImage
                 src={instructor.imageSrc}
-                alt={instructor.imageAlt ?? `${instructor.name} instructor portrait`}
+                alt={instructor.imageAlt ?? `${instructor.name}, RenShinKan instructor`}
                 imgClassName="h-full w-full object-cover object-[50%_22%]"
                 loading="lazy"
               />
             ) : (
-              <div
-                className="ink-wash h-full w-full"
-                role="img"
-                aria-label={t("a11y.portraitPlaceholder", { name: instructor.name })}
-              />
+              <div className="ink-wash h-full w-full" role="img" aria-label={t("a11y.portraitPlaceholder", { name: instructor.name })} />
             )}
-          </div>
-          <div className="p-3.5 min-[420px]:p-4 sm:p-6">
-            <p className="text-[0.68rem] font-bold uppercase leading-snug tracking-[0.12em] text-bamboo sm:text-sm sm:normal-case sm:tracking-normal">
-              {instructor.role}
-            </p>
-            <h3 className="mt-1.5 text-[1.28rem] leading-[1.05] text-ink min-[420px]:text-[1.42rem] sm:mt-2 sm:text-3xl">
-              {instructor.name}
-            </h3>
-            <p className="mt-2 text-sm font-semibold leading-tight text-charcoal/76 sm:hidden">
-              {instructor.rank}
-            </p>
-            <details className="mt-3 sm:hidden" open={isRowOpen}>
-              <summary
-                className="cursor-pointer text-xs font-bold uppercase tracking-[0.12em] text-vermilion"
-                onClick={(event) => {
-                  event.preventDefault();
-                  toggleRow(row);
-                }}
-              >
-                {t("common.trainingBackground")}
-              </summary>
-              <p className="mt-2 text-xs leading-5 text-charcoal/72">
-                {instructor.trainingBackground}
-              </p>
-            </details>
-            <dl className="mt-6 hidden gap-4 text-sm sm:grid">
-              <div>
-                <dt className="flex items-center gap-2 font-bold text-ink">
-                  <Medal size={16} aria-hidden="true" />
-                  {t("common.rank")}
-                </dt>
-                <dd className="mt-1 text-charcoal/75">{instructor.rank}</dd>
-              </div>
-              <div>
-                <dt className="flex items-center gap-2 font-bold text-ink">
-                  <UserRoundCheck size={16} aria-hidden="true" />
-                  {t("common.trainingBackground")}
-                </dt>
-                <dd className="mt-1 text-charcoal/75">
-                  {instructor.trainingBackground}
-                </dd>
-              </div>
-              {instructor.teachingFocus ? (
-                <div>
-                  <dt className="font-bold text-ink">{t("common.teachingFocus")}</dt>
-                  <dd className="mt-1 text-charcoal/75">{instructor.teachingFocus}</dd>
-                </div>
-              ) : null}
-              {instructor.languages ? (
-                <div>
-                  <dt className="font-bold text-ink">{t("common.languagesSpoken")}</dt>
-                  <dd className="mt-1 text-charcoal/75">{instructor.languages}</dd>
-                </div>
-              ) : null}
-            </dl>
+            <figcaption>{instructor.rank}</figcaption>
+          </figure>
+          <div className="instructor-profile__text">
+            <p className="folio-mark">{instructor.role}</p>
+            <h3>{instructor.name}</h3>
+            <p>{instructor.trainingBackground}</p>
+            {!compact && instructor.teachingFocus ? (
+              <blockquote>{instructor.teachingFocus}</blockquote>
+            ) : null}
+            {!compact && instructor.languages ? (
+              <p className="marginal-note">Languages: {instructor.languages}</p>
+            ) : null}
           </div>
         </article>
-        );
-      })}
+      ))}
     </div>
   );
 }

@@ -159,3 +159,15 @@ Use local env values for `ADMIN_PASSWORD_HASH`, `SESSION_SECRET`, `SITE_URL`, an
 8. Confirm the public page updates.
 9. Refresh the public page and confirm the change persists.
 10. Enable `notifySubscribers` only after a Brevo test list is configured.
+## D1 student records
+
+The student-record manager uses the `STUDENT_DB` D1 binding declared in `wrangler.toml`.
+
+```bash
+npx wrangler d1 migrations apply renshinkan-student-records --local
+npx wrangler d1 migrations apply renshinkan-student-records --remote
+```
+
+Production requires the existing `SESSION_SECRET` and `TURNSTILE_SECRET_KEY`. A separate `STUDENT_LOOKUP_PEPPER` Pages secret is recommended; when it is not configured, the server derives record HMACs from `SESSION_SECRET` with purpose-specific prefixes. Keep these values out of Git.
+
+Profile images are converted to WebP in the administrator's browser, which removes ordinary camera metadata, then validated again by MIME type, extension, file signature, and size before R2 storage. A photo is returned publicly only when photo consent and the relevant share-field setting are both enabled.

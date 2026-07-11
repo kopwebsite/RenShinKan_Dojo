@@ -19,6 +19,9 @@ const PaymentIncompletePage = lazy(() => import("./pages/PaymentReturnPage").the
 const PaymentSuccessPage = lazy(() => import("./pages/PaymentReturnPage").then((module) => ({ default: module.PaymentSuccessPage })));
 const SupportPage = lazy(() => import("./pages/SupportPage").then((module) => ({ default: module.SupportPage })));
 const WorkshopsPage = lazy(() => import("./pages/WorkshopsPage").then((module) => ({ default: module.WorkshopsPage })));
+const StudentRecordsPage = lazy(() => import("./pages/StudentRecordsPage").then((module) => ({ default: module.StudentRecordsPage })));
+const SharedStudentRecordPage = lazy(() => import("./pages/SharedStudentRecordPage").then((module) => ({ default: module.SharedStudentRecordPage })));
+const AdminStudentsPage = lazy(() => import("./pages/AdminStudentsPage").then((module) => ({ default: module.AdminStudentsPage })));
 
 function RouteFallback() {
   return (
@@ -54,6 +57,7 @@ export default function App() {
             <Route path="/classes" element={<ClassesPage />} />
             <Route path="/workshops" element={<WorkshopsPage />} />
             <Route path="/newsletter" element={<NewsletterPage />} />
+            <Route path="/newsletter/:slug" element={<NewsletterPage />} />
             <Route path="/community" element={<CommunityPage />} />
             <Route path="/support" element={<SupportPage />} />
             <Route path="/support/payment-success" element={<PaymentSuccessPage />} />
@@ -61,6 +65,10 @@ export default function App() {
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/visit" element={<Navigate to="/contact" replace />} />
             <Route path="/admin" element={<AdminPage />} />
+            <Route path="/admin/students" element={<AdminStudentsPage />} />
+            <Route path="/student-records" element={<StudentRecordsPage />} />
+            <Route path="/records" element={<Navigate to="/student-records" replace />} />
+            <Route path="/records/share/:token" element={<SharedStudentRecordPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>

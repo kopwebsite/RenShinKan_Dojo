@@ -65,6 +65,17 @@ The current admin UI exposes:
 - newsletter / dojo updates with title, article body, summary, and event images
 - the examination announcement text
 - edits/deletes for existing dojo updates
+- private student records with belt examinations and verified training hours
+- opt-in profile photos, lookup visibility, and guardian-consent status
+- revocable public share links and printable QR codes
+
+## Student records
+
+Structured student data is stored in the `renshinkan-student-records` D1 database through the `STUDENT_DB` Pages Functions binding. Apply the checked-in SQL migrations before using `/admin/students`. The public `/student-records` form verifies both a normalized-name HMAC and a private-code HMAC on the server. Shared QR links contain a 256-bit random token; only its SHA-256 hash is stored.
+
+`STUDENT_LOOKUP_PEPPER` may be configured as a dedicated Pages secret. If it is omitted, the existing `SESSION_SECRET` is used as the HMAC key with separate purpose prefixes. Never rotate either key without resetting existing lookup codes.
+
+Private lookup and share routes are excluded from the sitemap and return `noindex,nofollow`. Do not add them to public navigation beyond the generic lookup entry.
 
 Photos selected in `/admin` are converted to WebP in the browser, preview locally, then upload to R2 when the admin saves. The first update photo becomes the slider's first item and the front-page image. The server stores WebP images, validates MIME type, file extension, image signature, file count, and file size, and also allows newsletter document attachments.
 

@@ -11,9 +11,12 @@ import {
   RefreshCw,
   Save,
   Trash2,
+  UsersRound,
+  ExternalLink,
   X,
 } from "lucide-react";
 import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { EventBodyRenderer } from "../components/EventBodyRenderer";
 import {
   historyMedia as defaultHistoryMedia,
@@ -1198,9 +1201,9 @@ export function AdminPage() {
       <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="eyebrow">Admin</p>
-          <h1 className="section-title">Dojo content editor</h1>
+          <h1 className="section-title">Dojo administration</h1>
           <p className="section-copy">
-            Edit recent events, manage the photo galleries, and save the public content stored on Cloudflare.
+            Publish dojo updates, manage the photographic archive, and keep public information current.
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -1214,6 +1217,12 @@ export function AdminPage() {
           </button>
         </div>
       </div>
+
+      <nav className="admin-action-board" aria-label="Admin areas">
+        <a href="#admin-recent-events"><FileText size={22} /><span><strong>Create a dojo update</strong><small>Write, preview and publish journal entries</small></span></a>
+        <Link to="/admin/students"><UsersRound size={22} /><span><strong>Manage students</strong><small>Hours, examinations, privacy and QR sharing</small></span></Link>
+        <a href="/" target="_blank" rel="noopener noreferrer"><ExternalLink size={22} /><span><strong>Preview the website</strong><small>Open the public site in a new tab</small></span></a>
+      </nav>
 
       {publishMessage ? (
         <div
@@ -1244,6 +1253,7 @@ export function AdminPage() {
       ) : null}
 
       <div className="grid gap-8">
+        <div id="admin-recent-events" className="scroll-mt-24">
         <CollapsibleEditorSection
           title="Recent Events"
           copy="Create and edit public dojo updates. Published events appear on the Recent Events page."
@@ -1659,6 +1669,7 @@ export function AdminPage() {
             })}
           </div>
         </CollapsibleEditorSection>
+        </div>
 
         {renderMediaGallery(
           "onTheMatMedia",

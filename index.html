@@ -164,7 +164,7 @@
     </script>
     <title>RenShinKan Dojo | Aikido in Hang Dong, Chiang Mai, Thailand</title>
     <script>
-      if (window.location.pathname.replace(/\/+$/, "") === "/admin") {
+      if (window.location.pathname.replace(/\/+$/, "").startsWith("/admin")) {
         document.documentElement.classList.add("admin-route");
       }
     </script>

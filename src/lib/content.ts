@@ -299,7 +299,12 @@ export function useEditableContent() {
 
 export function getPublishedRecentEvents(content: EditableContent, limit?: number) {
   const events = content.recentEvents
-    .filter((event) => event.published)
+    .filter((event) => {
+      if (!event.published) return false;
+      const compactTitle = event.title.replace(/[^a-z0-9]/gi, "");
+      const looksLikeTestContent = compactTitle.length < 5 || /^(test|draft|sample|dsadsadsa|asdf)+$/i.test(compactTitle);
+      return !looksLikeTestContent;
+    })
     .sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
 
   return typeof limit === "number" ? events.slice(0, limit) : events;

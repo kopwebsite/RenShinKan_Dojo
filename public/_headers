@@ -59,6 +59,9 @@
 /admin
   X-Robots-Tag: noindex, nofollow
 
+/admin/*
+  X-Robots-Tag: noindex, nofollow
+
 /student-records
   X-Robots-Tag: noindex, nofollow
 

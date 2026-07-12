@@ -18,18 +18,18 @@ export function Footer() {
   const { t, language } = useTranslation();
 
   return (
-    <footer className="border-t border-ink/10 bg-charcoal/90 text-paper backdrop-blur-sm">
-      <div className="container-shell grid gap-10 py-14 lg:grid-cols-[1.15fr_0.85fr_1fr]">
-        <div>
-          <p className="eyebrow text-mist/75">{t("common.brand")}</p>
-          <h2 className="mt-3 max-w-md text-4xl leading-tight">
+    <footer className="site-footer">
+      <div className="container-shell site-footer__grid">
+        <div className="site-footer__brand">
+          <p className="eyebrow">{t("common.brand")}</p>
+          <h2>
             {t("footer.tagline")}
           </h2>
           <a
             href={googleMapsUrl}
             target="_blank"
             rel="noreferrer"
-            className="mt-5 flex max-w-md gap-3 rounded-2xl text-sm leading-6 text-paper/75 transition hover:text-paper focus-visible:outline-vermilion"
+            className="site-footer__address"
             aria-label={t("a11y.openAddressInMaps", { address: siteInfo.address })}
           >
             <MapPin className="mt-1 h-5 w-5 shrink-0 text-vermilion" aria-hidden="true" />
@@ -37,44 +37,44 @@ export function Footer() {
           </a>
         </div>
 
-        <nav aria-label={t("a11y.footerNavigation")}>
-          <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-paper/60">
+        <nav className="site-footer__nav" aria-label={t("a11y.footerNavigation")}>
+          <h3>
             {t("footer.explore")}
           </h3>
-          <div className="mt-5 grid grid-cols-2 gap-3">
+          <div>
             {footerNavigation.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
-                className="text-sm text-paper/75 transition hover:text-paper"
+                className="site-footer__link"
               >
                 {t(item.labelKey)}
               </Link>
             ))}
-            <Link to="/student-records" className="text-sm text-paper/75 transition hover:text-paper">
+            <Link to="/student-records" className="site-footer__link">
               {recordsCopy[language].eyebrow}
             </Link>
           </div>
         </nav>
 
-        <div>
-          <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-paper/60">
+        <div className="site-footer__connect">
+          <h3>
             {t("footer.stayConnected")}
           </h3>
-          <p className="mt-5 text-sm leading-6 text-paper/75">
+          <p>
             {t("footer.stayConnectedCopy")}
           </p>
-          <Link to="/newsletter#newsletter-signup" className="btn-secondary mt-5 border-paper/20 bg-paper/10 text-paper hover:text-paper">
+          <Link to="/newsletter#newsletter-signup" className="btn-secondary site-footer__cta">
             {t("footer.updatesCta")}
           </Link>
-          <div className="mt-7 flex flex-wrap gap-3">
+          <div className="site-footer__socials">
             {socialLinks.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 rounded-full border border-paper/15 px-4 py-2 text-xs font-bold text-paper/75 transition hover:border-vermilion/60 hover:text-paper"
+                className="site-footer__social"
               >
                 {link.label}
                 <ArrowUpRight size={14} aria-hidden="true" />

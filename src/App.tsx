@@ -38,6 +38,7 @@ function RouteFallback() {
 export default function App() {
   const { t } = useTranslation();
   const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith("/admin");
 
   return (
     <>
@@ -73,7 +74,7 @@ export default function App() {
           </Routes>
         </Suspense>
       </main>
-      <Footer />
+      {isAdminRoute ? null : <Footer />}
     </>
   );
 }

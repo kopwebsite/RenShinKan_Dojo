@@ -168,6 +168,15 @@ npx wrangler d1 migrations apply renshinkan-student-records --local
 npx wrangler d1 migrations apply renshinkan-student-records --remote
 ```
 
+Migration `0002_student_management.sql` is additive. It preserves legacy private-code hashes and belt-colour values, adds admin notes and a training-hours adjustment field, and seeds the Student ID sequence from the highest existing `RSK-` number. Existing private lookup codes continue to work as legacy credentials, while the current Student ID also works for lookup. Back up the production database before applying the remote migration:
+
+```bash
+npx wrangler d1 export renshinkan-student-records --remote --output renshinkan-student-records-backup.sql
+npx wrangler d1 migrations apply renshinkan-student-records --remote
+```
+
+The student list API is paginated and defaults to active students. Profile images are stored in the existing `MEDIA_BUCKET` R2 binding; no browser-local image URL is written to D1.
+
 Production requires the existing `SESSION_SECRET` and `TURNSTILE_SECRET_KEY`. A separate `STUDENT_LOOKUP_PEPPER` Pages secret is recommended; when it is not configured, the server derives record HMACs from `SESSION_SECRET` with purpose-specific prefixes. Keep these values out of Git.
 
 Profile images are converted to WebP in the administrator's browser, which removes ordinary camera metadata, then validated again by MIME type, extension, file signature, and size before R2 storage. A photo is returned publicly only when photo consent and the relevant share-field setting are both enabled.

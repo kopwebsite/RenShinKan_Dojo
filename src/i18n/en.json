@@ -706,7 +706,7 @@
     "adminTitle": "Admin | RenShinKan Dojo",
     "adminDescription": "RenShinKan Dojo content administration.",
     "recordsTitle": "Private Student Record Verification | RenShinKan Dojo",
-    "recordsDescription": "Secure, private verification of approved RenShinKan Dojo belt and training records using a record name and private code.",
+    "recordsDescription": "Secure, private verification of approved RenShinKan Dojo rank and training records using a record name and Student ID.",
     "localBusinessDescription": "Aikido classes, Japanese martial arts, and practical self defense training for children and adults at RenShinKan Dojo in Hang Dong, Chiang Mai."
   },
   "data": {

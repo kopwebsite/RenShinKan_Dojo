@@ -77,13 +77,27 @@ async function walkFiles(dir) {
 
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
+    let isDirectory = entry.isDirectory();
+    let isFile = entry.isFile();
 
-    if (entry.isDirectory()) {
+    // Windows can expose cloud-synced/reparse-point assets as symbolic links.
+    // Follow those entries so local builds scan the same source set as CI.
+    if (entry.isSymbolicLink()) {
+      try {
+        const stats = await fs.stat(fullPath);
+        isDirectory = stats.isDirectory();
+        isFile = stats.isFile();
+      } catch {
+        continue;
+      }
+    }
+
+    if (isDirectory) {
       files.push(...await walkFiles(fullPath));
       continue;
     }
 
-    if (entry.isFile() && sourceExtensions.has(path.extname(entry.name).toLowerCase())) {
+    if (isFile && sourceExtensions.has(path.extname(entry.name).toLowerCase())) {
       files.push(fullPath);
     }
   }

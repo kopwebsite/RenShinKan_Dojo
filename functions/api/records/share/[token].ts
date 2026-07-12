@@ -8,7 +8,7 @@ export const onRequestGet: PagesFunction<StudentEnv> = async ({ params, env }) =
   try {
     const db = requireStudentDb(env);
     const hash = await sha256Hex(token);
-    const student = await db.prepare(`SELECT s.id, s.public_student_id, s.display_name, s.current_belt, s.belt_color, s.profile_image_url, s.profile_image_consent, s.public_visible, s.active, s.share_fields, s.dojo_name, s.updated_at
+    const student = await db.prepare(`SELECT s.id, s.public_student_id, s.display_name, s.current_belt, s.belt_color, s.profile_image_url, s.profile_image_consent, s.public_visible, s.active, s.share_fields, s.dojo_name, s.training_hours_adjustment, s.updated_at
       FROM share_tokens st JOIN students s ON s.id = st.student_id
       WHERE st.token_hash = ? AND st.active = 1 AND (st.expires_at IS NULL OR st.expires_at > ?) AND s.active = 1 AND s.public_visible = 1 LIMIT 1`)
       .bind(hash, new Date().toISOString()).first<any>();

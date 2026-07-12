@@ -20,7 +20,7 @@ export function InstructorGrid({ compact = false }: { compact?: boolean }) {
                 src={instructor.imageSrc}
                 alt={instructor.imageAlt ?? `${instructor.name}, RenShinKan instructor`}
                 imgClassName="h-full w-full object-cover object-[50%_22%]"
-                loading="lazy"
+                loading={index === 0 ? "eager" : "lazy"}
               />
             ) : (
               <div className="ink-wash h-full w-full" role="img" aria-label={t("a11y.portraitPlaceholder", { name: instructor.name })} />

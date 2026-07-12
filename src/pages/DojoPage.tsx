@@ -21,7 +21,7 @@ export function DojoPage() {
             width={1672}
             height={941}
             sizes="100vw"
-            mobileWidth={720}
+            mobileWidth={640}
             fetchPriority="high"
           />
         </div>
@@ -29,8 +29,10 @@ export function DojoPage() {
         <div className="container-shell manuscript-hero__layout">
           <div className="manuscript-hero__title">
             <p className="folio-mark">Aikido · Chiang Mai · Est. 2013</p>
-            <BrushCircleLogo paintOn className="hero-seal" />
-            <h1>{t("common.brand")}</h1>
+            <div className="hero-title-lockup">
+              <BrushCircleLogo className="hero-seal" />
+              <h1>{t("common.brand")}</h1>
+            </div>
             <p>{t("home.hero.subtitle")}</p>
           </div>
 

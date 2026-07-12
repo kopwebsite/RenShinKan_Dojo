@@ -20,6 +20,10 @@ export type StudentEnv = {
   SITE_URL?: string;
 };
 
+export const DEFAULT_DOJO = "RenShinKan Dojo";
+export const DEFAULT_SHARE_FIELDS = { photo: false, trainingHours: true, examinations: true, lastUpdated: true };
+const STUDENT_ID_PATTERN = /^RSK-\d{4,}$/;
+
 const encoder = new TextEncoder();
 
 function bytesToHex(value: ArrayBuffer) {
@@ -46,6 +50,41 @@ export async function studentCredentialHashes(env: StudentEnv, name: string, cod
     nameHash: await hmacHex(pepper, `name:${normalizeVerifiedName(name)}`),
     codeHash: await hmacHex(pepper, `code:${code.trim().toLocaleUpperCase("en-US")}`),
   };
+}
+
+export function normalizeStudentId(value: string) {
+  return value.normalize("NFKC").trim().toLocaleUpperCase("en-US");
+}
+
+export function isValidStudentId(value: string) {
+  return STUDENT_ID_PATTERN.test(normalizeStudentId(value));
+}
+
+export function formatStudentId(sequence: number) {
+  return `RSK-${String(sequence).padStart(4, "0")}`;
+}
+
+export function rankColor(rank: string, fallback = "white") {
+  const normalized = rank.toLocaleLowerCase("en-US");
+  if (normalized.includes("dan") || normalized.includes("black")) return "black";
+  if (/\b(1|2)\s*(st|nd)?\s*kyu\b/.test(normalized) || normalized.includes("brown")) return "brown";
+  if (/\b(3|4)\s*(rd|th)?\s*kyu\b/.test(normalized) || normalized.includes("green")) return "green";
+  if (/\b(5|6)\s*(th)?\s*kyu\b/.test(normalized) || normalized.includes("blue")) return "blue";
+  if (/\b(7|8)\s*(th)?\s*kyu\b/.test(normalized) || normalized.includes("orange")) return "orange";
+  if (/\b(9|10)\s*(th)?\s*kyu\b/.test(normalized) || normalized.includes("white") || normalized.includes("unranked")) return "white";
+  return fallback || "white";
+}
+
+export async function nextStudentId(db: D1Database) {
+  const row = await db.prepare("UPDATE student_id_sequence SET last_number = last_number + 1 WHERE sequence_name = 'student' RETURNING last_number")
+    .first<{ last_number: number }>();
+  if (!row) throw new Error("Student ID sequence is not configured");
+  return formatStudentId(Number(row.last_number));
+}
+
+export async function suggestedStudentId(db: D1Database) {
+  const row = await db.prepare("SELECT last_number FROM student_id_sequence WHERE sequence_name = 'student'").first<{ last_number: number }>();
+  return formatStudentId(Number(row?.last_number || 0) + 1);
 }
 
 export function requireStudentDb(env: StudentEnv) {
@@ -82,7 +121,7 @@ export async function enforceLookupRateLimit(request: Request, env: StudentEnv) 
 type StudentRow = {
   id: string; public_student_id: string; display_name: string; current_belt: string; belt_color: string;
   profile_image_url: string | null; profile_image_consent: number; public_visible: number; active: number;
-  share_fields: string; dojo_name: string; updated_at: string;
+  share_fields: string; dojo_name: string; updated_at: string; training_hours_adjustment?: number;
 };
 
 function safeVisibility(value: string) {
@@ -95,7 +134,7 @@ export async function publicStudentRecord(db: D1Database, student: StudentRow, s
     ? (await db.prepare("SELECT examination_date, belt_awarded, belt_color, rank, examiner, public_notes FROM belt_examinations WHERE student_id = ? ORDER BY examination_date DESC").bind(student.id).all()).results || []
     : [];
   const total = visibility.trainingHours !== false
-    ? await db.prepare("SELECT COALESCE(SUM(verified_hours), 0) AS total FROM training_hours WHERE student_id = ?").bind(student.id).first<{ total: number }>()
+    ? await db.prepare("SELECT COALESCE(SUM(verified_hours), 0) + ? AS total FROM training_hours WHERE student_id = ?").bind(Number(student.training_hours_adjustment || 0), student.id).first<{ total: number }>()
     : { total: 0 };
   return {
     displayName: student.display_name,
@@ -112,7 +151,7 @@ export async function publicStudentRecord(db: D1Database, student: StudentRow, s
 }
 
 export function genericLookupFailure(status = 404) {
-  return jsonResponse({ error: "The record could not be verified. Check both details and try again." }, status, { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" });
+  return jsonResponse({ error: "We could not find a matching student record. Please check the name and Student ID and try again." }, status, { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" });
 }
 
 export async function audit(db: D1Database, action: string, recordType: string, recordId: string, summary: string) {

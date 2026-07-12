@@ -24,6 +24,7 @@ export type R2Bucket = {
       customMetadata?: Record<string, string>;
     },
   ): Promise<unknown>;
+  delete(key: string | string[]): Promise<void>;
 };
 
 export type StorageEnv = {

@@ -1,6 +1,6 @@
 import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { siteInfo } from "../data/siteMeta";
 import { languageOptions, useTranslation, type Language, type TranslationKey } from "../i18n";
 import { BrushCircleLogo } from "./BrushCircleLogo";
@@ -259,7 +259,6 @@ function LanguageSelector({ mobile = false }: { mobile?: boolean }) {
 
 export function Navbar({ currentPath }: NavbarProps) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -268,6 +267,7 @@ export function Navbar({ currentPath }: NavbarProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previouslyFocusedElementRef = useRef<HTMLElement | null>(null);
+  const isAdmin = currentPath.split("#")[0].startsWith("/admin");
 
   useEffect(() => {
     setIsMobileOpen(false);
@@ -382,6 +382,24 @@ export function Navbar({ currentPath }: NavbarProps) {
     setOpenAccordion((current) => (current === itemId ? null : itemId));
   };
 
+  if (isAdmin) {
+    return (
+      <header className={`${styles.header} ${styles.adminHeader} ${isScrolled ? styles.headerScrolled : ""}`}>
+        <div className={styles.headerInner}>
+          <Link to="/" className={styles.logoLockup} aria-label={`${t("common.brand")} home`}>
+            <BrushCircleLogo decorative className={styles.logoIcon} />
+            <span className={styles.wordmark}>{t("common.brand")} <span className={styles.adminMark}>/ Admin</span></span>
+          </Link>
+          <nav className={styles.adminNav} aria-label="Admin navigation">
+            <Link to="/">Public website</Link>
+            <Link to="/admin">Admin home</Link>
+            <Link to="/admin/students">Students</Link>
+          </nav>
+        </div>
+      </header>
+    );
+  }
+
   return (
     <>
       <header className={`${styles.header} ${isScrolled ? styles.headerScrolled : ""}`}>
@@ -397,23 +415,9 @@ export function Navbar({ currentPath }: NavbarProps) {
 
           <div className={styles.desktopCluster}>
             <nav className={styles.desktopNav} aria-label={t("a11y.mainNavigation")}>
-              {navItems.map((item) => {
+              {dropdownNavItems.map((item) => {
                 const isActive = isNavItemActive(item);
                 const itemLabel = t(item.labelKey);
-
-                if (!hasDropdown(item)) {
-                  return (
-                    <Link
-                      key={item.id}
-                      to={item.to}
-                      className={`${styles.navLink} ${item.id === "support" ? styles.supportNavLink : ""}`}
-                      data-active={isActive}
-                    >
-                      {itemLabel}
-                    </Link>
-                  );
-                }
-
                 const isOpen = activeDropdown === item.id;
 
                 return (
@@ -422,33 +426,28 @@ export function Navbar({ currentPath }: NavbarProps) {
                     className={styles.navDropdown}
                     onMouseEnter={() => handleDropdownMouseEnter(item.id)}
                     onMouseLeave={handleDropdownMouseLeave}
-                    onFocus={() => {
-                      clearHoverTimeout();
-                      setActiveDropdown(item.id);
-                    }}
                     onBlur={(event) => {
                       if (!event.currentTarget.contains(event.relatedTarget)) {
                         setActiveDropdown(null);
                       }
                     }}
                   >
-                    <button
-                      type="button"
-                      className={`${styles.navLink} ${item.id === "support" ? styles.supportNavLink : ""}`}
-                      data-active={isActive}
-                      aria-expanded={isOpen}
-                      aria-haspopup="true"
-                      aria-controls={`desktop-${item.id}-dropdown`}
-                      onClick={() => {
-                        setActiveDropdown(null);
-                        navigate(item.to);
-                      }}
-                    >
-                      {itemLabel}
-                      <span className={styles.chevron} aria-hidden="true">
-                        v
-                      </span>
-                    </button>
+                    <div className={styles.navSplit} data-active={isActive}>
+                      <Link to={item.to} className={styles.navLink} data-active={isActive}>
+                        {itemLabel}
+                      </Link>
+                      <button
+                        type="button"
+                        className={styles.navChevronButton}
+                        aria-expanded={isOpen}
+                        aria-haspopup="menu"
+                        aria-controls={`desktop-${item.id}-dropdown`}
+                        aria-label={t(isOpen ? "a11y.collapseMenu" : "a11y.expandMenu", { label: itemLabel })}
+                        onClick={() => setActiveDropdown((current) => current === item.id ? null : item.id)}
+                      >
+                        <ChevronDown className={styles.chevron} aria-hidden="true" />
+                      </button>
+                    </div>
 
                     {isOpen ? (
                       <div
@@ -474,7 +473,57 @@ export function Navbar({ currentPath }: NavbarProps) {
                 );
               })}
             </nav>
-            <LanguageSelector />
+            <div className={styles.desktopUtility}>
+              <Link to="/newsletter" className={styles.utilityLink} data-active={pathMatches(currentPath, "/newsletter")}>
+                {t("nav.newsletter")}
+              </Link>
+              <Link to="/contact" className={styles.utilityLink} data-active={pathMatches(currentPath, "/contact")}>
+                {t("nav.contact")}
+              </Link>
+              <div
+                className={`${styles.navDropdown} ${styles.supportDropdown}`}
+                onMouseEnter={() => handleDropdownMouseEnter(supportNavItem.id)}
+                onMouseLeave={handleDropdownMouseLeave}
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) setActiveDropdown(null);
+                }}
+              >
+                <div className={`${styles.navSplit} ${styles.supportSplit}`} data-active={isNavItemActive(supportNavItem)}>
+                  <Link to={supportNavItem.to} className={styles.supportNavLink} data-active={isNavItemActive(supportNavItem)}>
+                    {t(supportNavItem.labelKey)}
+                  </Link>
+                  <button
+                    type="button"
+                    className={styles.supportChevronButton}
+                    aria-expanded={activeDropdown === supportNavItem.id}
+                    aria-haspopup="menu"
+                    aria-controls="desktop-support-dropdown"
+                    aria-label={t(activeDropdown === supportNavItem.id ? "a11y.collapseMenu" : "a11y.expandMenu", { label: t(supportNavItem.labelKey) })}
+                    onClick={() => setActiveDropdown((current) => current === supportNavItem.id ? null : supportNavItem.id)}
+                  >
+                    <ChevronDown className={styles.chevron} aria-hidden="true" />
+                  </button>
+                </div>
+                {activeDropdown === supportNavItem.id ? (
+                  <div id="desktop-support-dropdown" className={`${styles.dropdownWrap} ${styles.dropdownWrapRight}`}>
+                    <div className={styles.dropdownPanel}>
+                      {supportNavItem.dropdown.map((dropdownItem) => (
+                        <Link
+                          key={dropdownItem.to}
+                          to={dropdownItem.to}
+                          className={styles.dropdownItem}
+                          data-active={pathMatches(currentPath, dropdownItem.to)}
+                          onClick={() => setActiveDropdown(null)}
+                        >
+                          {t(dropdownItem.labelKey)}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+              <LanguageSelector />
+            </div>
           </div>
 
           <button
@@ -500,6 +549,10 @@ export function Navbar({ currentPath }: NavbarProps) {
             aria-label={t("a11y.mobileNavigation")}
           >
             <div className={styles.mobileOverlayTop}>
+              <Link to="/" className={styles.mobileOverlayBrand} onClick={() => setIsMobileOpen(false)}>
+                <BrushCircleLogo decorative className={styles.mobileOverlayLogo} />
+                <span>{t("common.brand")}</span>
+              </Link>
               <button
                 ref={closeButtonRef}
                 type="button"

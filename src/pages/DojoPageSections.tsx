@@ -108,6 +108,21 @@ export function DojoPageSections() {
           <h2>{t("home.photos.title")}</h2>
           <p>{t("home.photos.copy")}</p>
         </header>
+        <figure className="on-mat-feature">
+          <ResponsiveImage
+            src={assetPath("/renshinkan-gallery/class-photos/on_the_mat_01.jpg")}
+            alt={t("home.photos.onMatGallery")}
+            imgClassName="on-mat-feature__image"
+            loading="lazy"
+            width={960}
+            height={720}
+          />
+          <figcaption>
+            <span className="folio-mark">{t("home.photos.eyebrow")}</span>
+            <strong>{t("home.photos.onMat")}</strong>
+            <p>{t("home.photos.copy")}</p>
+          </figcaption>
+        </figure>
         <div className="photo-journal__spread">
           {localizedDojoPhotos.slice(0, 4).map((photo, index) => (
             <figure key={photo.src} className={`photo-journal__item photo-journal__item--${index + 1}`}>

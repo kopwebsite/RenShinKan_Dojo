@@ -2,8 +2,9 @@
   position: sticky;
   top: 0;
   z-index: 100;
-  height: 60px;
-  background: rgba(250, 246, 236, 0.94);
+  height: 64px;
+  border-bottom: 1px solid rgba(31, 27, 22, 0.08);
+  background: rgba(250, 246, 236, 0.96);
   backdrop-filter: blur(10px);
   transition:
     background 200ms ease,
@@ -13,21 +14,22 @@
 }
 
 .headerScrolled {
-  border-bottom: 1px solid var(--color-border);
-  background: rgba(250, 246, 236, 0.86);
-  backdrop-filter: blur(12px);
+  border-bottom-color: rgba(31, 27, 22, 0.14);
+  background: rgba(250, 246, 236, 0.93);
+  box-shadow: 0 10px 28px rgba(31, 27, 22, 0.08);
+  backdrop-filter: blur(14px);
 }
 
 .headerInner {
   display: flex;
   width: 100%;
-  max-width: 1480px;
+  max-width: 1440px;
   height: 100%;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 clamp(20px, 3vw, 44px);
 }
 
 .logoLockup {
@@ -57,6 +59,52 @@
   white-space: nowrap;
 }
 
+.adminHeader {
+  border-bottom: 3px solid var(--color-brand-red);
+  background: rgba(37, 31, 25, 0.98);
+}
+
+.adminHeader .logoLockup,
+.adminHeader .wordmark {
+  color: #faf6ec;
+}
+
+.adminHeader .wordmark {
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.adminMark {
+  margin-left: 4px;
+  color: #f1b5a7;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: .62em;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.adminNav {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.adminNav a {
+  color: rgba(250, 246, 236, .82);
+  font-size: 13px;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.adminNav a:hover,
+.adminNav a:focus-visible {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
 .desktopCluster,
 .desktopNav {
   display: none;
@@ -67,13 +115,21 @@
   justify-content: flex-end;
   min-width: 0;
   flex: 1 1 auto;
-  gap: 28px;
+  gap: 22px;
 }
 
 .desktopNav {
   align-items: center;
   justify-content: flex-end;
-  gap: 30px;
+  gap: 18px;
+}
+
+.desktopUtility {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding-left: 20px;
+  border-left: 1px solid rgba(31, 27, 22, 0.12);
 }
 
 .languageSwitcher,
@@ -294,6 +350,36 @@
   position: relative;
 }
 
+.navSplit {
+  position: relative;
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 1px;
+}
+
+.navChevronButton,
+.supportChevronButton {
+  display: inline-grid;
+  width: 30px;
+  height: 38px;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #635b52;
+}
+
+.navChevronButton:hover,
+.navChevronButton:focus-visible,
+.supportChevronButton:hover,
+.supportChevronButton:focus-visible {
+  color: var(--color-brand-red);
+  background: rgba(200, 49, 42, 0.07);
+  outline: 0;
+}
+
 .navLink {
   position: relative;
   display: inline-flex;
@@ -305,8 +391,8 @@
   color: var(--color-nav-text, #3a332b);
   cursor: pointer;
   font-family: Inter, "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  font-size: 15px;
-  font-weight: 450;
+  font-size: 14px;
+  font-weight: 560;
   line-height: 1.2;
   text-decoration: none;
   transition: color 150ms ease;
@@ -342,7 +428,7 @@
   min-height: 38px;
   border: 1px solid hsl(var(--color-persimmon) / 0.34);
   border-radius: 999px;
-  padding: 9px 16px;
+  padding: 9px 8px 9px 15px;
   background: hsl(var(--color-persimmon) / 0.12);
   color: hsl(var(--color-persimmon));
   font-weight: 750;
@@ -352,6 +438,65 @@
     color 220ms ease,
     box-shadow 220ms ease,
     transform 220ms ease;
+}
+
+.supportSplit {
+  min-height: 40px;
+  gap: 0;
+  border: 1px solid hsl(var(--color-persimmon) / 0.34);
+  border-radius: 5px;
+  background: hsl(var(--color-persimmon) / 0.1);
+}
+
+.supportSplit .supportNavLink {
+  min-height: 38px;
+  border: 0;
+  border-radius: 4px 0 0 4px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.supportSplit .supportChevronButton {
+  width: 30px;
+  height: 38px;
+  border-radius: 0 4px 4px 0;
+  color: hsl(var(--color-persimmon));
+}
+
+.supportSplit:has(.supportNavLink:hover),
+.supportSplit:has(.supportNavLink:focus-visible),
+.supportSplit[data-active="true"] {
+  border-color: hsl(var(--color-persimmon) / 0.55);
+}
+
+.utilityLink {
+  position: relative;
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  color: #4a433c;
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.utilityLink::after {
+  position: absolute;
+  right: 0;
+  bottom: 5px;
+  left: 0;
+  height: 1px;
+  content: "";
+  background: var(--color-brand-red);
+  transform: scaleX(0);
+  transition: transform 180ms ease;
+}
+
+.utilityLink:hover::after,
+.utilityLink:focus-visible::after,
+.utilityLink[data-active="true"]::after {
+  transform: scaleX(1);
 }
 
 .supportNavLink::after {
@@ -369,9 +514,15 @@
 }
 
 .chevron {
-  font-size: 10px;
-  line-height: 1;
+  width: 13px;
+  height: 13px;
   opacity: 0.6;
+  transition: transform 180ms ease;
+}
+
+.navChevronButton[aria-expanded="true"] .chevron,
+.supportChevronButton[aria-expanded="true"] .chevron {
+  transform: rotate(180deg);
 }
 
 .dropdownWrap {
@@ -380,8 +531,13 @@
   left: 0;
   z-index: 120;
   width: 240px;
-  padding-top: 29px;
+  padding-top: 13px;
   animation: menuFadeIn 150ms ease-out both;
+}
+
+.dropdownWrapRight {
+  right: 0;
+  left: auto;
 }
 
 .dropdownPanel {
@@ -495,8 +651,28 @@
   display: flex;
   height: 44px;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 14px;
+}
+
+.mobileOverlayBrand {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+  color: var(--color-text-primary);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 18px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.mobileOverlayLogo {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  color: var(--color-brand-red);
 }
 
 .mobileNav {
@@ -529,7 +705,8 @@
   line-height: 1.1;
   text-align: left;
   text-decoration: none;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .mobileAccordionButton[data-active="true"],
@@ -555,7 +732,8 @@
   font-weight: 450;
   line-height: 1.1;
   text-decoration: none;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .mobileChevronButton {
@@ -602,7 +780,8 @@
   line-height: 1.2;
   text-decoration: none;
   transition: color 150ms ease;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .mobileSubnavLink:hover,
@@ -688,11 +867,11 @@
 
 @media (min-width: 768px) {
   .header {
-    height: 80px;
+    height: 72px;
   }
 
   .headerInner {
-    padding: 0 56px;
+    padding-inline: clamp(28px, 4vw, 56px);
   }
 
   .logoLockup {
@@ -710,7 +889,7 @@
 
 }
 
-@media (min-width: 1180px) {
+@media (min-width: 1200px) {
   .desktopCluster,
   .desktopNav {
     display: flex;
@@ -723,11 +902,11 @@
 
 @media (min-width: 1440px) {
   .desktopCluster {
-    gap: 34px;
+    gap: 26px;
   }
 
   .desktopNav {
-    gap: 36px;
+    gap: 24px;
   }
 }
 
@@ -740,6 +919,15 @@
     gap: 14px;
     padding: 0 16px;
   }
+
+  .adminNav { gap: 10px; }
+  .adminNav a:not(:first-child) { display: none; }
+  .adminHeader .headerInner { gap: 8px; }
+  .adminHeader .logoLockup { gap: 7px; }
+  .adminHeader .logoIcon { width: 27px; height: 27px; }
+  .adminHeader .wordmark { font-size: 15px; }
+  .adminHeader .adminMark { font-size: .58em; }
+  .adminHeader .adminNav a { font-size: 11px; }
 }
 
 @media (max-width: 350px) {

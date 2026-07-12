@@ -3,16 +3,15 @@ import { useTranslation } from "../i18n";
 import { instructorKeys, translateInstructor } from "../utils/siteContentTranslations";
 import { ResponsiveImage } from "./ResponsiveImage";
 
-export function InstructorGrid({ compact = false }: { compact?: boolean }) {
+export function InstructorGrid() {
   const { t } = useTranslation();
   const localizedInstructors = instructors.map((instructor, index) =>
     translateInstructor(t, instructor, instructorKeys[index]),
   );
-  const visible = compact ? localizedInstructors.slice(0, 3) : localizedInstructors;
 
   return (
-    <div className={compact ? "instructor-editorial instructor-editorial--compact" : "instructor-editorial"}>
-      {visible.map((instructor, index) => (
+    <div className="instructor-editorial">
+      {localizedInstructors.map((instructor, index) => (
         <article className={`instructor-profile instructor-profile--${(index % 3) + 1}`} key={instructor.name}>
           <figure>
             {instructor.imageSrc ? (
@@ -31,10 +30,10 @@ export function InstructorGrid({ compact = false }: { compact?: boolean }) {
             <p className="folio-mark">{instructor.role}</p>
             <h3>{instructor.name}</h3>
             <p>{instructor.trainingBackground}</p>
-            {!compact && instructor.teachingFocus ? (
+            {instructor.teachingFocus ? (
               <blockquote>{instructor.teachingFocus}</blockquote>
             ) : null}
-            {!compact && instructor.languages ? (
+            {instructor.languages ? (
               <p className="marginal-note">Languages: {instructor.languages}</p>
             ) : null}
           </div>

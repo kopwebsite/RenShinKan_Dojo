@@ -1,4 +1,4 @@
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, IdCard } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { siteInfo } from "../data/siteMeta";
@@ -93,6 +93,7 @@ const navItems: NavItem[] = [
   ...dropdownNavItems,
   { id: "newsletter", labelKey: "nav.newsletter", to: "/newsletter" },
   { id: "contact", labelKey: "nav.contact", to: "/contact" },
+  { id: "student-records", labelKey: "nav.studentRecords", to: "/student-records" },
   supportNavItem,
 ];
 
@@ -480,6 +481,15 @@ export function Navbar({ currentPath }: NavbarProps) {
               <Link to="/contact" className={styles.utilityLink} data-active={pathMatches(currentPath, "/contact")}>
                 {t("nav.contact")}
               </Link>
+              <Link
+                to="/student-records"
+                className={`${styles.utilityLink} ${styles.recordsLink}`}
+                data-active={pathMatches(currentPath, "/student-records")}
+                title={t("a11y.studentRecordsHint")}
+              >
+                <IdCard size={16} aria-hidden="true" />
+                {t("nav.studentRecords")}
+              </Link>
               <div
                 className={`${styles.navDropdown} ${styles.supportDropdown}`}
                 onMouseEnter={() => handleDropdownMouseEnter(supportNavItem.id)}
@@ -577,7 +587,14 @@ export function Navbar({ currentPath }: NavbarProps) {
                       data-active={isNavItemActive(item)}
                       onClick={() => setIsMobileOpen(false)}
                     >
-                      {itemLabel}
+                      {item.id === "student-records" ? (
+                        <span className={styles.mobileRecordsLabel}>
+                          <IdCard size={22} aria-hidden="true" />
+                          {itemLabel}
+                        </span>
+                      ) : (
+                        itemLabel
+                      )}
                     </Link>
                   );
                 }

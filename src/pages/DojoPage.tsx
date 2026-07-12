@@ -1,4 +1,4 @@
-import { ArrowDown, MapPin } from "lucide-react";
+import { ArrowDown, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { BrushCircleLogo } from "../components/BrushCircleLogo";
 import { ResponsiveImage } from "../components/ResponsiveImage";
@@ -11,12 +11,11 @@ export function DojoPage() {
 
   return (
     <>
-      <section id="home" className="manuscript-hero scroll-mt-24">
-        <div className="manuscript-hero__photo" aria-hidden="true">
+      <section id="home" className="koi-hero scroll-mt-24">
+        <div className="koi-hero__art" aria-hidden="true">
           <ResponsiveImage
             src={assetPath("/dojo-photos/new-hero-poster.webp")}
             alt=""
-            imgClassName="h-full w-full object-cover"
             loading="eager"
             width={1672}
             height={941}
@@ -25,28 +24,25 @@ export function DojoPage() {
             fetchPriority="high"
           />
         </div>
+        <div className="koi-hero__veil" aria-hidden="true" />
 
-        <div className="container-shell manuscript-hero__layout">
-          <div className="manuscript-hero__title">
-            <p className="folio-mark">Aikido · Chiang Mai · Est. 2013</p>
-            <div className="hero-title-lockup">
-              <BrushCircleLogo className="hero-seal" />
-              <h1>{t("common.brand")}</h1>
-            </div>
-            <p>{t("home.hero.subtitle")}</p>
+        <div className="container-shell koi-hero__inner">
+          <p className="koi-hero__place">{t("home.hero.place")}</p>
+          <BrushCircleLogo className="koi-hero__crest" decorative />
+          <h1>{t("common.brand")}</h1>
+          <p className="koi-hero__line">{t("home.hero.tagline")}</p>
+          <p className="koi-hero__support">{t("home.hero.support")}</p>
+          <div className="koi-hero__actions">
+            <Link to="/classes#schedule" className="btn-primary">{t("home.hero.cta")}</Link>
+            <Link to="/classes#first-visit" className="text-link">
+              {t("home.hero.visit")} <ArrowRight size={16} aria-hidden="true" />
+            </Link>
           </div>
-
-          <aside className="manuscript-hero__invitation" aria-label="Visit RenShinKan Dojo">
-            <MapPin size={18} aria-hidden="true" />
-            <p>Hang Dong, Chiang Mai</p>
-            <strong>Beginners, children and visiting aikidoka are welcome.</strong>
-            <Link to="/classes#schedule">See class times</Link>
-          </aside>
-
-          <a className="manuscript-hero__continue" href="#visit-notes">
-            Begin here <ArrowDown size={16} aria-hidden="true" />
-          </a>
         </div>
+
+        <a className="koi-hero__continue" href="#dojo">
+          {t("home.hero.continue")} <ArrowDown size={15} aria-hidden="true" />
+        </a>
       </section>
 
       <DojoPageSections />

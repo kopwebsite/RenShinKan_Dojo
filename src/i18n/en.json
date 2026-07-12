@@ -26,7 +26,8 @@
     "contactUs": "Contact us",
     "visitWebsite": "Visit website",
     "facebookPage": "Facebook page",
-    "emailAikidoCmu": "Email AikidoCMU"
+    "emailAikidoCmu": "Email AikidoCMU",
+    "readBiographies": "Read the full biographies"
   },
   "a11y": {
     "skipToContent": "Skip to content",
@@ -59,7 +60,8 @@
     "skipAheadPhotos": "Skip ahead {{count}} photos",
     "mediaSlideNavigation": "{{label}} slide navigation",
     "skipBackMediaItems": "Skip back {{count}} {{label}} items",
-    "skipAheadMediaItems": "Skip ahead {{count}} {{label}} items"
+    "skipAheadMediaItems": "Skip ahead {{count}} {{label}} items",
+    "studentRecordsHint": "Check your rank and training record using your exact name and Student ID."
   },
   "language": {
     "en": "English",
@@ -102,7 +104,8 @@
     "monthlyContribution": "Monthly Contribution",
     "donations": "Donations",
     "newsletter": "Newsletter",
-    "contact": "Contact Us"
+    "contact": "Contact Us",
+    "studentRecords": "Student Records"
   },
   "footer": {
     "tagline": "Aikido and martial arts training in Hang Dong, Chiang Mai.",
@@ -113,13 +116,21 @@
   },
   "home": {
     "hero": {
-      "subtitle": "Aikido in Hang Dong, Chiang Mai."
+      "subtitle": "Aikido in Hang Dong, Chiang Mai.",
+      "place": "Aikido · Hang Dong · Chiang Mai · Est. 2013",
+      "tagline": "Move with confidence. Train with purpose.",
+      "support": "Traditional Aikido for children and adults in Hang Dong, Chiang Mai.",
+      "cta": "View classes",
+      "visit": "Plan a first visit",
+      "continue": "Begin here"
     },
     "recent": {
       "eyebrow": "Recent Events",
       "title": "A look at what has been happening around the dojo.",
       "copy": "Our most recent updates, from training days and belt exams to seminars at RenShinKan Dojo.",
-      "newsletterSignupCta": "Sign up for the newsletter"
+      "newsletterSignupCta": "Sign up for the newsletter",
+      "empty": "The journal is being prepared. Workshop notes and dojo news will appear here.",
+      "archiveCta": "Open the journal archive"
     },
     "support": {
       "eyebrow": "Support RenShinKan",
@@ -129,13 +140,18 @@
     },
     "facilities": {
       "eyebrow": "Our Dojo",
-      "title": "A welcoming practice space for students of all ages in Hang Dong.",
-      "copy": "RenShinKan was completed in {{year}} on a quiet piece of land in Hang Dong. The training hall, garden and viewing deck are shared by children, adults, families and visitors."
+      "title": "Traditional practice. A place to grow.",
+      "copy": "RenShinKan welcomes children, adults, beginners, and experienced practitioners to train together in Hang Dong. Practice is cooperative: partners take care of each other, and progress is measured in patience rather than trophies.",
+      "note": "Completed in {{year}} on a quiet piece of land in Baan Waen · training hall, garden, koi pond and viewing deck",
+      "photoCaption": "RenShinKan Dojo · Baan Waen, Hang Dong",
+      "detailCaption": "The koi pond beside the training hall",
+      "quote": "A place to practise without competition or domination — with attention, discipline and care for one another."
     },
     "instructors": {
       "eyebrow": "Who Teaches Here",
       "title": "Instructors shaped by long practice.",
-      "copy": "Our instructors have trained for decades in Chiang Mai, Bangkok and Japan. In class they explain technique clearly, make space for questions and expect every student to protect their partner."
+      "copy": "Our instructors have trained for decades in Chiang Mai, Bangkok and Japan. In class they explain technique clearly, make space for questions and expect every student to protect their partner.",
+      "railLabel": "All RenShinKan instructors"
     },
     "photos": {
       "eyebrow": "Dojo Photos",
@@ -143,12 +159,27 @@
       "copy": "Take a look at the dojo and the people who train here.",
       "space": "The Space",
       "onMat": "On the Mat",
-      "onMatGallery": "On the Mat gallery"
+      "onMatGallery": "On the Mat gallery",
+      "matCaptions": {
+        "feature": "Adults and teens gather after evening practice in the main hall",
+        "weapons": "Bokken and jo resting on the tatami",
+        "children": "The children's class celebrates new green belts",
+        "community": "The children's class with their instructor"
+      },
+      "groundsTitle": "The grounds",
+      "archiveTitle": "Group photographs"
     },
     "journey": {
       "eyebrow": "Dojo Journey",
       "title": "From open ground to a working mat.",
-      "copy": "Photos showing the journey that took RenShinKan from an empty plot of land into our community space for practice and peace."
+      "copy": "Photos showing the journey that took RenShinKan from an empty plot of land into our community space for practice and peace.",
+      "sourceNote": "Construction photographs and historical notes are credited once here for the complete series."
+    },
+    "visitNotes": {
+      "title": "Come to watch, or step onto the mat.",
+      "copy": "No experience is expected. Wear comfortable clothing, arrive a little early, and let the instructor know that it is your first class. Practice is cooperative: each person is responsible for their partner's safety.",
+      "scheduleTitle": "Four classes, two quiet rhythms.",
+      "scheduleNote": "Evening practice on weekdays. Morning practice at the weekend."
     },
     "location": {
       "eyebrow": "Getting Here",
@@ -295,7 +326,8 @@
       "tantoName": "Tanto",
       "tantoMeaning": "Wooden Knife",
       "tantoDesc": "Used to study distance, timing and safe responses to a committed line of attack.",
-      "weaponsClose": "Because hand to hand and weapons practice share the same foundation, growth in one naturally deepens understanding of the other. The two sides of aikido constantly support and explain each other."
+      "weaponsClose": "Because hand to hand and weapons practice share the same foundation, growth in one naturally deepens understanding of the other. The two sides of aikido constantly support and explain each other.",
+      "weaponsCaption": "Bokken and jo on the tatami"
     },
     "why": {
       "eyebrow": "The Benefits",
@@ -305,7 +337,11 @@
       "ukemiTitle": "Learning to Fall Safely",
       "ukemi1": "One of aikido's most practical life skills is ukemi, the art of falling and receiving techniques safely. From the very first class, students learn to relax, protect the head, round the body, roll, and land without getting hurt.",
       "ukemi2": "This matters far beyond the dojo. Slips, trips, everyday accidents, sport, and the natural changes that come with aging all involve falling at some point. Learning to fall well is a real world skill that can genuinely help reduce the risk of injury.",
-      "close": "Aikido is not only about self defense. It asks students to move with control, notice what a partner needs and respond to pressure without aggression."
+      "close": "Aikido is not only about self defense. It asks students to move with control, notice what a partner needs and respond to pressure without aggression.",
+      "clusterMind": "A steady mind",
+      "clusterBody": "A settled body",
+      "clusterTogether": "Ease with others",
+      "ukemiCaption": "A high breakfall during a public demonstration"
     },
     "who": {
       "eyebrow": "Everyone Is Welcome",
@@ -314,7 +350,9 @@
       "childrenTitle": "For Children",
       "adultsTitle": "For Adults",
       "visitorsTitle": "Visiting Aikidoka",
-      "visitorsDesc": "Aikidoka passing through Chiang Mai are always welcome to step onto the mat. Send a quick message before you visit so we can confirm the timing and have someone ready to greet you."
+      "visitorsDesc": "Aikidoka passing through Chiang Mai are always welcome to step onto the mat. Send a quick message before you visit so we can confirm the timing and have someone ready to greet you.",
+      "childrenLead": "Playful confidence, learned safely.",
+      "adultsLead": "Calm attention and practical movement."
     },
     "about": {
       "eyebrow": "About Aikido",
@@ -329,7 +367,10 @@
       "traditionTitle": "Rooted in Tradition",
       "traditionCopy": "Bokken and jo practice connects aikido to the classical Japanese weapons arts from which it evolved, a living link to centuries of budo.",
       "spaceTitle": "A Respectful Space",
-      "spaceCopy": "The kamiza is a focal point of attention in every dojo. It reflects aikido's emphasis on sincerity, respect, and a settled, open mind."
+      "spaceCopy": "The kamiza is a focal point of attention in every dojo. It reflects aikido's emphasis on sincerity, respect, and a settled, open mind.",
+      "photoCaption": "A teaching moment during seminar practice at RenShinKan",
+      "traditionCaption": "The bokken rack on the dojo wall",
+      "spaceCaption": "The kamiza wall of RenShinKan"
     },
     "instructors": {
       "eyebrow": "RenShinKan Instructors",
@@ -671,7 +712,8 @@
   "instructorsPage": {
     "eyebrow": "Instructors",
     "title": "Meet the aikido instructors at RenShinKan Dojo.",
-    "copy": "Meet the teachers who lead class, introduce beginners to aikido and keep partner practice precise, cooperative and safe."
+    "copy": "Meet the teachers who lead class, introduce beginners to aikido and keep partner practice precise, cooperative and safe.",
+    "groupCaption": "RenShinKan instructors and students gathered in the main dojo"
   },
   "locationCard": {
     "eyebrow": "Location"

@@ -26,7 +26,8 @@
     "contactUs": "联系我们",
     "visitWebsite": "访问网站",
     "facebookPage": "脸书页面",
-    "emailAikidoCmu": "电子邮件 AikidoCMU"
+    "emailAikidoCmu": "电子邮件 AikidoCMU",
+    "readBiographies": "阅读完整介绍"
   },
   "a11y": {
     "skipToContent": "跳至内容",
@@ -59,7 +60,8 @@
     "skipAheadPhotos": "向后跳过 {{count}} 张照片",
     "mediaSlideNavigation": "{{label}}幻灯片导航",
     "skipBackMediaItems": "向前跳过 {{count}} 个{{label}}项目",
-    "skipAheadMediaItems": "向后跳过 {{count}} 个{{label}}项目"
+    "skipAheadMediaItems": "向后跳过 {{count}} 个{{label}}项目",
+    "studentRecordsHint": "使用姓名和学员编号查询段位与训练记录。"
   },
   "language": {
     "en": "英语",
@@ -102,7 +104,8 @@
     "monthlyContribution": "每月供款",
     "donations": "捐款",
     "newsletter": "时事通讯",
-    "contact": "联系我们"
+    "contact": "联系我们",
+    "studentRecords": "学员记录"
   },
   "footer": {
     "tagline": "Hang Dong, Chiang Mai 的合气道和武术训练。",
@@ -113,13 +116,21 @@
   },
   "home": {
     "hero": {
-      "subtitle": "Hang Dong, Chiang Mai 的合气道。"
+      "subtitle": "Hang Dong, Chiang Mai 的合气道。",
+      "place": "合气道 · 杭东 · 清迈 · 创立于2013年",
+      "tagline": "从容而动，专注而练。",
+      "support": "位于清迈杭东的传统合气道，欢迎儿童与成人。",
+      "cta": "查看课程",
+      "visit": "计划首次到访",
+      "continue": "从这里开始"
     },
     "recent": {
       "eyebrow": "近期活动",
       "title": "看看最近道场里发生的事。",
       "copy": "我们的最新消息，包括练习日、腰带考试，以及 RenShinKan Dojo 的讲习会。",
-      "newsletterSignupCta": "订阅新闻通讯"
+      "newsletterSignupCta": "订阅新闻通讯",
+      "empty": "道场日志正在整理中。讲习会记录和道场消息将在这里发布。",
+      "archiveCta": "打开道场日志存档"
     },
     "support": {
       "eyebrow": "支持 RenShinKan Dojo",
@@ -129,13 +140,18 @@
     },
     "facilities": {
       "eyebrow": "我们的道场",
-      "title": "在 Hang Dong，一个让各个年龄的学员都感到温暖的练习空间。",
-      "copy": "RenShinKan Dojo 建于{{year}}年，坐落在 Hang Dong 一处安静的土地上。无论您是谁、年纪多大，这里都是一个安静舒适的练习之地。"
+      "title": "传统的修习，成长的空间。",
+      "copy": "炼心馆欢迎儿童、成人、初学者和有经验的习武者一同在杭东练习。练习以互助为本：伙伴之间彼此照顾，进步以耐心衡量，而非奖杯。",
+      "note": "{{year}}年建成于班文的一块宁静土地 · 训练馆、庭院、锦鲤池与观摩台",
+      "photoCaption": "炼心馆道场 · 班文，杭东",
+      "detailCaption": "训练馆旁的锦鲤池",
+      "quote": "这里不以竞争或压制为目的，而以专注、纪律和彼此照顾来练习。"
     },
     "instructors": {
       "eyebrow": "在这里授课的人",
       "title": "真心热爱教学的老师们。",
-      "copy": "我们的老师已经练习了数十年，也真心在意每一位学员。你会发现他们耐心、给人鼓励，在每个阶段都一样地陪着你。"
+      "copy": "我们的老师已经练习了数十年，也真心在意每一位学员。你会发现他们耐心、给人鼓励，在每个阶段都一样地陪着你。",
+      "railLabel": "炼心馆全体教练"
     },
     "photos": {
       "eyebrow": "道场照片",
@@ -143,12 +159,27 @@
       "copy": "看看道场，也看看在这里练习的人们。",
       "space": "练习空间",
       "onMat": "在垫上",
-      "onMatGallery": "垫上照片集"
+      "onMatGallery": "垫上照片集",
+      "matCaptions": {
+        "feature": "晚课后聚集在主馆的成人与青少年",
+        "weapons": "搁在榻榻米上的木剑与杖",
+        "children": "儿童班庆祝新的绿带",
+        "community": "儿童班与他们的老师"
+      },
+      "groundsTitle": "道场庭院",
+      "archiveTitle": "集体照片"
     },
     "journey": {
       "eyebrow": "道场的历程",
       "title": "从一片空地，到能真正练习的垫子。",
-      "copy": "这些照片记录了 RenShinKan Dojo 从一片空地，成为用于练习与和平的社区空间的过程。"
+      "copy": "这些照片记录了 RenShinKan Dojo 从一片空地，成为用于练习与和平的社区空间的过程。",
+      "sourceNote": "整组建筑照片与历史说明的来源统一列于此处。"
+    },
+    "visitNotes": {
+      "title": "可以先来观看，也可以踏上垫子一起练习。",
+      "copy": "无需任何经验。请穿便于活动的衣服，稍早到达，并告诉老师这是你的第一堂课。练习以合作为基础，每个人都要照顾伙伴的安全。",
+      "scheduleTitle": "每周四堂课，两种安静的节奏。",
+      "scheduleNote": "工作日晚间练习，周末上午练习。"
     },
     "location": {
       "eyebrow": "如何到达",
@@ -295,7 +326,8 @@
       "tantoName": "短藤",
       "tantoMeaning": "木刀",
       "tantoDesc": "用于练习冷静、安全的反应、谨慎的距离和稳定的意识。",
-      "weaponsClose": "因为徒手格斗和武器练习有着相同的基础，其中一方的成长自然会加深对另一方的理解。合气道的双方不断地相互支持和解释。"
+      "weaponsClose": "因为徒手格斗和武器练习有着相同的基础，其中一方的成长自然会加深对另一方的理解。合气道的双方不断地相互支持和解释。",
+      "weaponsCaption": "榻榻米上的木剑与杖"
     },
     "why": {
       "eyebrow": "好处",
@@ -305,7 +337,11 @@
       "ukemiTitle": "学习安全跌倒",
       "ukemi1": "合气道最实用的生活技能之一是“ukemi”，即安全坠落和接收技术的艺术。从第一堂课开始，学生们就学会放松、保护头部、转动身体、滚动和着陆，以免受伤。",
       "ukemi2": "这远远超出了道场的范围。滑倒、绊倒、日常事故、运动以及随着年龄增长而发生的自然变化都与跌倒有关。学习如何正确摔倒是一项现实世界技能，可以真正帮助降低受伤风险。",
-      "close": "合气道不仅仅是自卫。它还涉及学习如何良好地移动、保持冷静以及在不恐慌或攻击性的情况下应对压力。"
+      "close": "合气道不仅仅是自卫。它还涉及学习如何良好地移动、保持冷静以及在不恐慌或攻击性的情况下应对压力。",
+      "clusterMind": "安定的心",
+      "clusterBody": "稳健的身体",
+      "clusterTogether": "与人相处的从容",
+      "ukemiCaption": "演武中的高位受身"
     },
     "who": {
       "eyebrow": "欢迎大家",
@@ -314,7 +350,9 @@
       "childrenTitle": "给孩子",
       "adultsTitle": "给成人",
       "visitorsTitle": "来访的合气道同好",
-      "visitorsDesc": "路过 Chiang Mai 的合气道同好，随时欢迎上垫一起练。来之前请先发条简短消息，好让我们确认时间，并安排专人迎接您。"
+      "visitorsDesc": "路过 Chiang Mai 的合气道同好，随时欢迎上垫一起练。来之前请先发条简短消息，好让我们确认时间，并安排专人迎接您。",
+      "childrenLead": "在游戏中安全地建立自信。",
+      "adultsLead": "平静的专注与实用的动作。"
     },
     "about": {
       "eyebrow": "关于合气道",
@@ -329,7 +367,10 @@
       "traditionTitle": "根植于传统",
       "traditionCopy": "木剑（bokken）和杖（jo）的练习，把合气道与它所由来的日本古典武器之术连在一起，是与数百年武道之间一条活生生的联系。",
       "spaceTitle": "一处怀着敬意的空间",
-      "spaceCopy": "上座（kamiza）是每一间道场里凝聚心神的地方。它体现了合气道对真诚、敬意，以及沉静开阔之心的看重。"
+      "spaceCopy": "上座（kamiza）是每一间道场里凝聚心神的地方。它体现了合气道对真诚、敬意，以及沉静开阔之心的看重。",
+      "photoCaption": "炼心馆研习课上的教学瞬间",
+      "traditionCaption": "道场墙上的木剑架",
+      "spaceCaption": "炼心馆的神龛"
     },
     "instructors": {
       "eyebrow": "RenShinKan Dojo 的老师",
@@ -671,7 +712,8 @@
   "instructorsPage": {
     "eyebrow": "导师",
     "title": "与 RenShinKan Dojo 的合气道教练见面。",
-    "copy": "结识指导课堂练习、向初学者介绍合气道的老师，帮助学生建立平静的动作、尊重的伙伴训练以及在垫子上坚定的信心。"
+    "copy": "结识指导课堂练习、向初学者介绍合气道的老师，帮助学生建立平静的动作、尊重的伙伴训练以及在垫子上坚定的信心。",
+    "groupCaption": "炼心馆教练与学员在主道场合影"
   },
   "locationCard": {
     "eyebrow": "地点"

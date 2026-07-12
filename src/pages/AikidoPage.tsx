@@ -1,11 +1,4 @@
-import {
-  ArrowUpRight,
-  Camera,
-  ShieldCheck,
-  Sparkles,
-  Swords,
-  UsersRound,
-} from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { MotionSection } from "../components/MotionSection";
 import { ResponsiveImage } from "../components/ResponsiveImage";
@@ -38,53 +31,26 @@ import {
   translateTitleDescription,
 } from "../utils/siteContentTranslations";
 
-function HistoricalFigure({
-  photo,
-  featured = false,
-  story = false,
-}: {
-  photo: HistoricalPhoto;
-  featured?: boolean;
-  story?: boolean;
-}) {
+const PRINCIPLE_NUMERALS = ["一", "二", "三"];
+
+function HistoricalFigure({ photo }: { photo: HistoricalPhoto }) {
   return (
-    <figure
-      className={`surface card-hover overflow-hidden rounded-[2rem] ${
-        featured ? "md:col-span-2 xl:col-span-2" : ""
-      }`}
-    >
-      <div className="relative bg-ink/5">
-        <ResponsiveImage
-          src={photo.src}
-          alt={photo.alt}
-          imgClassName={`w-full object-cover grayscale ${
-            story || featured ? "aspect-[4/3]" : "aspect-[3/4]"
-          }`}
-          objectPosition={photo.objectPosition}
-          loading={featured ? "eager" : "lazy"}
-        />
-        <div className="absolute left-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-paper/85 text-vermilion shadow-line">
-          <Camera size={18} aria-hidden="true" />
-        </div>
-      </div>
-      <figcaption className="p-5">
-        <p className="text-xs font-bold uppercase tracking-[0.16em] text-bamboo">
-          {photo.date}
-        </p>
-        <h3 className="mt-2 text-2xl text-ink">{photo.title}</h3>
-        <p className="mt-2 text-sm text-charcoal/75">{photo.caption}</p>
-        <p className="mt-4 text-xs font-semibold uppercase tracking-[0.14em] text-charcoal/55">
-          {photo.credit}
-        </p>
-        <p className="mt-3 text-xs leading-5 text-charcoal/65">{photo.rightsNote}</p>
-        <a
-          href={photo.sourceUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-4 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.14em] text-vermilion transition hover:text-ink"
-        >
+    <figure className="photo-mat historical-figure">
+      <ResponsiveImage
+        src={photo.src}
+        alt={photo.alt}
+        imgClassName="w-full object-cover grayscale aspect-[4/3]"
+        objectPosition={photo.objectPosition}
+        loading="lazy"
+      />
+      <figcaption>
+        <p className="folio-mark">{photo.date}</p>
+        <h3>{photo.title}</h3>
+        <p>{photo.caption}</p>
+        <p className="historical-figure__credit">{photo.credit}</p>
+        <a href={photo.sourceUrl} target="_blank" rel="noreferrer">
           {photo.sourceName}
-          <ArrowUpRight size={14} aria-hidden="true" />
+          <ArrowUpRight size={13} aria-hidden="true" />
         </a>
       </figcaption>
     </figure>
@@ -115,6 +81,26 @@ export function AikidoPage() {
     translateHistorySection(t, section, aikidoHistorySectionKeys[index]),
   );
 
+  const principles = [
+    { title: t("aikido.about.point1Title"), body: t("aikido.about.point1Body") },
+    { title: t("aikido.about.point2Title"), body: t("aikido.about.point2Body") },
+    { title: t("aikido.about.point3Title"), body: t("aikido.about.point3Body") },
+  ];
+
+  // The nine qualities regrouped into three quiet themes; indices follow
+  // the shared aikidoBenefits order so translations stay attached.
+  const qualityClusters = [
+    { name: t("aikido.why.clusterMind"), items: [0, 1, 2].map((i) => localizedBenefits[i]) },
+    { name: t("aikido.why.clusterBody"), items: [4, 5, 6].map((i) => localizedBenefits[i]) },
+    { name: t("aikido.why.clusterTogether"), items: [7, 8, 3].map((i) => localizedBenefits[i]) },
+  ];
+
+  const weapons = [
+    { name: t("aikido.overview.bokkenName"), meaning: t("aikido.overview.bokkenMeaning"), description: t("aikido.overview.bokkenDesc") },
+    { name: t("aikido.overview.joName"), meaning: t("aikido.overview.joMeaning"), description: t("aikido.overview.joDesc") },
+    { name: t("aikido.overview.tantoName"), meaning: t("aikido.overview.tantoMeaning"), description: t("aikido.overview.tantoDesc") },
+  ];
+
   return (
     <>
       {/* Aikido hero */}
@@ -143,312 +129,275 @@ export function AikidoPage() {
         </div>
       </section>
 
-      {/* What Is Aikido? */}
-      <MotionSection id="aikido-overview" className="container-shell scroll-mt-28 py-20">
-        <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
-          <figure className="surface overflow-hidden rounded-[2rem]">
-            <ResponsiveImage
-              src={pcfAikidoImages.classPractice.src}
-              alt={pcfAikidoImages.classPractice.alt}
-              imgClassName="aspect-[4/3] w-full object-cover"
-            />
-          </figure>
-          <div>
-            <p className="eyebrow">{t("aikido.about.eyebrow")}</p>
-            <h2 className="section-title">{t("aikido.about.title")}</h2>
-            <p className="mt-5 text-base leading-7 text-charcoal/80 sm:text-lg">
-              {t("aikido.about.copy")}
-            </p>
-            <div className="mt-8 grid gap-3 sm:grid-cols-3">
-              {[
-                {
-                  title: t("aikido.about.point1Title"),
-                  body: t("aikido.about.point1Body"),
-                },
-                {
-                  title: t("aikido.about.point2Title"),
-                  body: t("aikido.about.point2Body"),
-                },
-                {
-                  title: t("aikido.about.point3Title"),
-                  body: t("aikido.about.point3Body"),
-                },
-              ].map((pt) => (
-                <div key={pt.title} className="rounded-2xl bg-bamboo/10 px-5 py-4">
-                  <p className="text-sm font-bold text-ink">{pt.title}</p>
-                  <p className="mt-1 text-xs leading-5 text-charcoal/70">{pt.body}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+      {/* A. Opening: peace through movement — with B. principles walked below */}
+      <MotionSection id="aikido-overview" className="container-shell aikido-opening scroll-mt-28">
+        <div className="aikido-opening__text">
+          <p className="vertical-label">{t("aikido.about.eyebrow")}</p>
+          <h2>{t("aikido.about.title")}</h2>
+          <p>{t("aikido.about.copy")}</p>
         </div>
-        <div className="mt-5 grid gap-5 sm:grid-cols-2">
-          <figure className="surface card-hover overflow-hidden rounded-[2rem]">
+        <figure className="aikido-opening__photo">
+          <ResponsiveImage
+            src={aikidoActionImages.seminar.src}
+            alt={aikidoActionImages.seminar.alt}
+            loading="lazy"
+            sizes="(max-width: 1050px) 100vw, 55vw"
+          />
+          <figcaption>{t("aikido.about.photoCaption")}</figcaption>
+        </figure>
+      </MotionSection>
+
+      <MotionSection className="container-shell">
+        <ol className="principle-walk">
+          {principles.map((principle, index) => (
+            <li key={principle.title}>
+              <span className="principle-walk__numeral" aria-hidden="true">
+                {PRINCIPLE_NUMERALS[index]}
+              </span>
+              <h3>{principle.title}</h3>
+              <p>{principle.body}</p>
+            </li>
+          ))}
+        </ol>
+      </MotionSection>
+
+      {/* C. Tradition and the dojo space: two studies at different scales */}
+      <MotionSection className="container-shell tradition-study">
+        <article>
+          <figure>
             <ResponsiveImage
-              src={pcfAikidoImages.joBokken.src}
-              alt={pcfAikidoImages.joBokken.alt}
-              imgClassName="aspect-video w-full object-cover"
+              src={pcfAikidoImages.bokkenRack.src}
+              alt={pcfAikidoImages.bokkenRack.alt}
               loading="lazy"
+              sizes="(max-width: 1050px) 100vw, 55vw"
             />
-            <figcaption className="p-5">
-              <h3 className="text-2xl text-ink">{t("aikido.about.traditionTitle")}</h3>
-              <p className="mt-2 text-sm text-charcoal/75">
-                {t("aikido.about.traditionCopy")}
-              </p>
-            </figcaption>
+            <figcaption>{t("aikido.about.traditionCaption")}</figcaption>
           </figure>
-          <figure className="surface card-hover overflow-hidden rounded-[2rem]">
+          <h3>{t("aikido.about.traditionTitle")}</h3>
+          <p>{t("aikido.about.traditionCopy")}</p>
+        </article>
+        <article>
+          <figure>
             <ResponsiveImage
               src={pcfAikidoImages.kamiza.src}
               alt={pcfAikidoImages.kamiza.alt}
-              imgClassName="aspect-video w-full object-cover"
               loading="lazy"
+              sizes="(max-width: 1050px) 50vw, 38vw"
             />
-            <figcaption className="p-5">
-              <h3 className="text-2xl text-ink">{t("aikido.about.spaceTitle")}</h3>
-              <p className="mt-2 text-sm text-charcoal/75">
-                {t("aikido.about.spaceCopy")}
-              </p>
-            </figcaption>
+            <figcaption>{t("aikido.about.spaceCaption")}</figcaption>
           </figure>
-        </div>
-
-        <div className="surface mt-10 rounded-[2rem] p-6 sm:mt-12 sm:p-8 lg:p-10">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-bamboo/10 text-bamboo">
-              <Swords size={20} aria-hidden="true" />
-            </div>
-            <div className="max-w-2xl">
-              <h3 className="text-2xl text-ink sm:text-3xl">
-                {t("aikido.overview.weaponsTitle")}
-              </h3>
-              <p className="mt-3 text-base leading-7 text-charcoal/80">
-                {t("aikido.overview.weaponsIntro")}
-              </p>
-            </div>
-          </div>
-          <div className="mt-7 grid gap-3 min-[420px]:gap-4 sm:grid-cols-3">
-            {[
-              {
-                name: t("aikido.overview.bokkenName"),
-                meaning: t("aikido.overview.bokkenMeaning"),
-                description: t("aikido.overview.bokkenDesc"),
-              },
-              {
-                name: t("aikido.overview.joName"),
-                meaning: t("aikido.overview.joMeaning"),
-                description: t("aikido.overview.joDesc"),
-              },
-              {
-                name: t("aikido.overview.tantoName"),
-                meaning: t("aikido.overview.tantoMeaning"),
-                description: t("aikido.overview.tantoDesc"),
-              },
-            ].map((weapon) => (
-              <div key={weapon.name} className="rounded-2xl bg-bamboo/10 px-5 py-4">
-                <h4 className="text-lg font-bold text-ink">{weapon.name}</h4>
-                <p className="mt-0.5 text-[0.7rem] font-bold uppercase tracking-[0.14em] text-bamboo">
-                  {weapon.meaning}
-                </p>
-                <p className="mt-2 text-sm leading-6 text-charcoal/75">
-                  {weapon.description}
-                </p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 sm:gap-4">
-            {[
-              {
-                image: aikidoActionImages.joTraining,
-                caption: t("data.aikido.actionCaptions.jo"),
-              },
-              {
-                image: aikidoActionImages.tantoTechnique,
-                caption: t("data.aikido.actionCaptions.tanto"),
-              },
-            ].map((item) => (
-              <figure
-                key={item.caption}
-                className="overflow-hidden rounded-2xl border border-ink/10 bg-ink/5"
-              >
-                <ResponsiveImage
-                  src={item.image.src}
-                  alt={item.image.alt}
-                  imgClassName="aspect-[16/10] w-full object-cover"
-                  loading="lazy"
-                />
-                <figcaption className="px-4 py-3 text-[0.7rem] font-bold uppercase tracking-[0.14em] text-charcoal/60">
-                  {item.caption}
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-          <p className="mt-6 max-w-3xl text-base leading-7 text-charcoal/80">
-            {t("aikido.overview.weaponsClose")}
-          </p>
-        </div>
+          <h3>{t("aikido.about.spaceTitle")}</h3>
+          <p>{t("aikido.about.spaceCopy")}</p>
+        </article>
       </MotionSection>
 
-      {/* Why Pick Aikido? */}
-      <MotionSection id="why-aikido" className="container-shell scroll-mt-28 pb-20">
-        <div className="max-w-3xl">
+      {/* D. Weapons: object-led study with labels tied to the image band */}
+      <MotionSection className="container-shell weapon-study">
+        <header className="weapon-study__head">
+          <p className="eyebrow">{t("aikido.overview.eyebrow")}</p>
+          <h3>{t("aikido.overview.weaponsTitle")}</h3>
+          <p>{t("aikido.overview.weaponsIntro")}</p>
+        </header>
+        <figure className="weapon-study__image">
+          <ResponsiveImage
+            src={pcfAikidoImages.joBokken.src}
+            alt={pcfAikidoImages.joBokken.alt}
+            loading="lazy"
+            sizes="(max-width: 767px) 100vw, 90vw"
+          />
+        </figure>
+        <ol className="weapon-study__list">
+          {weapons.map((weapon) => (
+            <li key={weapon.name}>
+              <h4>{weapon.name}</h4>
+              <p className="weapon-study__meaning">{weapon.meaning}</p>
+              <p>{weapon.description}</p>
+            </li>
+          ))}
+        </ol>
+        <p className="weapon-study__close marginal-note">{t("aikido.overview.weaponsClose")}</p>
+      </MotionSection>
+
+      {/* E. Paired practice: cinematic sequence, one photo dominates */}
+      <MotionSection className="container-shell practice-cinema">
+        <figure className="practice-cinema__main">
+          <ResponsiveImage
+            src={aikidoActionImages.joTraining.src}
+            alt={aikidoActionImages.joTraining.alt}
+            loading="lazy"
+            sizes="(max-width: 767px) 100vw, 70vw"
+          />
+          <figcaption>{t("data.aikido.actionCaptions.jo")}</figcaption>
+        </figure>
+        <figure className="practice-cinema__inset photo-mat">
+          <ResponsiveImage
+            src={aikidoActionImages.tantoTechnique.src}
+            alt={aikidoActionImages.tantoTechnique.alt}
+            loading="lazy"
+            sizes="(max-width: 767px) 74vw, 26rem"
+          />
+          <figcaption>{t("data.aikido.actionCaptions.tanto")}</figcaption>
+        </figure>
+      </MotionSection>
+
+      {/* F. Qualities that grow with practice: three quiet clusters */}
+      <MotionSection id="why-aikido" className="container-shell weapon-study scroll-mt-28">
+        <header className="weapon-study__head">
           <p className="eyebrow">{t("aikido.why.eyebrow")}</p>
-          <h2 className="section-title">{t("aikido.why.title")}</h2>
-          <p className="section-copy">{t("aikido.why.intro")}</p>
-        </div>
-
-        <div className="mt-8">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-bamboo">
-            {t("aikido.why.benefitsLabel")}
-          </p>
-          <div className="mt-4 grid gap-3 min-[420px]:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {localizedBenefits.map((benefit) => (
-              <div
-                key={benefit.title}
-                className="rounded-2xl border border-ink/10 bg-bamboo/10 p-5"
-              >
-                <p className="text-base font-bold text-ink">{benefit.title}</p>
-                <p className="mt-1.5 text-sm leading-6 text-charcoal/75">
-                  {benefit.description}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-10 grid gap-5 lg:grid-cols-2 lg:items-stretch">
-          <div className="surface rounded-[2rem] p-6 sm:p-8">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-bamboo/10 text-bamboo">
-              <ShieldCheck size={20} aria-hidden="true" />
-            </div>
-            <h3 className="mt-5 text-2xl text-ink sm:text-3xl">
-              {t("aikido.why.ukemiTitle")}
-            </h3>
-            <div className="mt-4 grid gap-4 text-base leading-7 text-charcoal/80">
-              <p>{t("aikido.why.ukemi1")}</p>
-              <p>{t("aikido.why.ukemi2")}</p>
-            </div>
-          </div>
-          <figure className="surface relative min-h-[18rem] overflow-hidden rounded-[2rem]">
-            <ResponsiveImage
-              src={aikidoActionImages.breakfall.src}
-              alt={aikidoActionImages.breakfall.alt}
-              imgClassName="absolute inset-0 h-full w-full object-cover"
-              objectPosition="center 35%"
-              loading="lazy"
-            />
-          </figure>
-        </div>
-        <div className="mt-5 rounded-[2rem] bg-bamboo/10 p-6 sm:p-8">
-          <p className="max-w-3xl text-base leading-7 text-charcoal/80 sm:text-lg">
-            {t("aikido.why.close")}
-          </p>
-        </div>
-      </MotionSection>
-
-      {/* Who Can Practice? */}
-      <MotionSection id="who-can-practice" className="container-shell scroll-mt-28 pb-20">
-        <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
-          <div className="max-w-3xl">
-            <p className="eyebrow">{t("aikido.who.eyebrow")}</p>
-            <h2 className="section-title">{t("aikido.who.title")}</h2>
-            <p className="section-copy">{t("aikido.who.intro")}</p>
-          </div>
-          <figure className="surface overflow-hidden rounded-[2rem]">
-            <ResponsiveImage
-              src={aikidoActionImages.trainingPin.src}
-              alt={aikidoActionImages.trainingPin.alt}
-              imgClassName="aspect-[3/4] w-full object-cover"
-              loading="lazy"
-            />
-          </figure>
-        </div>
-        <div className="mt-12 grid gap-10">
-          {[
-            {
-              title: t("aikido.who.childrenTitle"),
-              icon: Sparkles,
-              items: localizedChildItems,
-            },
-            {
-              title: t("aikido.who.adultsTitle"),
-              icon: UsersRound,
-              items: localizedAdultItems,
-            },
-          ].map((group) => {
-            const Icon = group.icon;
-            return (
-              <div key={group.title}>
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-bamboo/10 text-bamboo">
-                    <Icon size={18} aria-hidden="true" />
-                  </div>
-                  <h3 className="text-2xl text-ink sm:text-3xl">{group.title}</h3>
-                </div>
-                <div className="mt-5 grid gap-3 min-[420px]:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {group.items.map((item) => (
-                    <div
-                      key={item.title}
-                      className="rounded-2xl border border-ink/10 bg-bamboo/10 p-5"
-                    >
-                      <p className="text-base font-bold text-ink">{item.title}</p>
-                      <p className="mt-1.5 text-sm leading-6 text-charcoal/75">
-                        {item.description}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </MotionSection>
-
-      <MotionSection className="container-shell pb-20">
-        <div className="mb-9 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
-          <div>
-            <p className="eyebrow">{t("aikido.instructors.eyebrow")}</p>
-            <h2 className="section-title">{t("aikido.instructors.title")}</h2>
-            <p className="section-copy">
-              {t("aikido.instructors.copy")}
-            </p>
-          </div>
-          <Link to="/instructors" className="btn-secondary">
-            {t("aikido.instructors.cta")}
-          </Link>
-        </div>
-        <div className="grid grid-cols-2 gap-3 min-[420px]:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {localizedInstructors.map((instructor) => (
-            <article
-              key={instructor.name}
-              className="surface card-hover flex flex-col items-start gap-3 rounded-[1.35rem] p-3.5 min-[420px]:p-4 sm:flex-row sm:items-center sm:gap-4 sm:rounded-[1.75rem]"
-            >
-              {instructor.imageSrc ? (
-                <ResponsiveImage
-                  src={instructor.imageSrc}
-                  alt={instructor.imageAlt ?? `${instructor.name} instructor portrait`}
-                  imgClassName="h-16 w-16 shrink-0 rounded-full object-cover object-[50%_22%] sm:h-20 sm:w-20"
-                  loading="lazy"
-                />
-              ) : null}
-              <div className="min-w-0">
-                <p className="text-[0.66rem] font-bold uppercase leading-tight tracking-[0.12em] text-bamboo sm:text-xs sm:tracking-[0.16em]">
-                  {instructor.rank}
-                </p>
-                <h3 className="mt-1 text-[1.16rem] leading-tight text-ink min-[420px]:text-[1.3rem] sm:text-2xl">
-                  {instructor.name}
-                </h3>
-                <p className="mt-1 text-xs leading-5 text-charcoal/70 sm:text-sm">{instructor.role}</p>
-              </div>
-            </article>
+          <h3>{t("aikido.why.benefitsLabel")}</h3>
+          <p>{t("aikido.why.intro")}</p>
+        </header>
+        <div className="quality-clusters">
+          {qualityClusters.map((cluster, clusterIndex) => (
+            <section key={cluster.name} aria-label={cluster.name}>
+              <span className="folio-mark">{String(clusterIndex + 1).padStart(2, "0")}</span>
+              <h3>{cluster.name}</h3>
+              <ul>
+                {cluster.items.map((item) => (
+                  <li key={item.title}>
+                    <strong>{item.title}</strong>
+                    <p>{item.description}</p>
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
         </div>
-        <p className="mt-5 text-xs font-semibold uppercase tracking-[0.16em] text-charcoal/55">
+      </MotionSection>
+
+      {/* G. Learning to fall safely: a full-width photographic interruption */}
+      <MotionSection className="ukemi-break">
+        <figure className="ukemi-break__photo" aria-label={t("aikido.why.ukemiCaption")}>
+          <ResponsiveImage
+            src={aikidoActionImages.breakfall.src}
+            alt={aikidoActionImages.breakfall.alt}
+            loading="lazy"
+            sizes="100vw"
+          />
+        </figure>
+        <div className="container-shell">
+          <div className="ukemi-break__panel">
+            <h3>{t("aikido.why.ukemiTitle")}</h3>
+            <p>{t("aikido.why.ukemi1")}</p>
+            <p>{t("aikido.why.ukemi2")}</p>
+          </div>
+          <p className="ukemi-break__note marginal-note">{t("aikido.why.close")}</p>
+        </div>
+      </MotionSection>
+
+      {/* H. Children and adults: two related but distinct narratives */}
+      <MotionSection id="who-can-practice" className="container-shell who-narratives scroll-mt-28">
+        <header className="section-masthead">
+          <p className="eyebrow">{t("aikido.who.eyebrow")}</p>
+          <h2>{t("aikido.who.title")}</h2>
+          <p>{t("aikido.who.intro")}</p>
+        </header>
+
+        <div className="who-children">
+          <figure className="photo-mat">
+            <ResponsiveImage
+              src={aikidoActionImages.pin.src}
+              alt={aikidoActionImages.pin.alt}
+              loading="lazy"
+              sizes="(max-width: 1050px) 88vw, 32vw"
+            />
+          </figure>
+          <div>
+            <p className="eyebrow">{t("aikido.who.childrenTitle")}</p>
+            <h3>{t("aikido.who.childrenLead")}</h3>
+            <ul>
+              {localizedChildItems.map((item) => (
+                <li key={item.title}>
+                  <strong>{item.title}</strong>
+                  <p>{item.description}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <div className="who-adults">
+          <div>
+            <p className="eyebrow">{t("aikido.who.adultsTitle")}</p>
+            <h3>{t("aikido.who.adultsLead")}</h3>
+            <ol>
+              {localizedAdultItems.map((item, index) => (
+                <li key={item.title}>
+                  <span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+                  <div>
+                    <strong>{item.title}</strong>
+                    <p>{item.description}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+          <figure>
+            <ResponsiveImage
+              src={aikidoActionImages.technique.src}
+              alt={aikidoActionImages.technique.alt}
+              loading="lazy"
+              sizes="(max-width: 1050px) 88vw, 32vw"
+            />
+          </figure>
+        </div>
+
+        <div className="who-visitors">
+          <h3>{t("aikido.who.visitorsTitle")}</h3>
+          <p>{t("aikido.who.visitorsDesc")}</p>
+        </div>
+      </MotionSection>
+
+      {/* I. Bridge into the people who teach here */}
+      <MotionSection className="lineage-bridge">
+        <figure>
+          <ResponsiveImage
+            src={pcfAikidoImages.classPractice.src}
+            alt={pcfAikidoImages.classPractice.alt}
+            loading="lazy"
+            sizes="100vw"
+          />
+        </figure>
+        <div className="lineage-bridge__plate">
+          <p className="eyebrow">{t("aikido.instructors.eyebrow")}</p>
+          <p>{t("aikido.instructors.title")}</p>
+        </div>
+      </MotionSection>
+
+      <MotionSection className="container-shell aikido-instructor-rail">
+        <header className="section-masthead">
+          <p>{t("aikido.instructors.copy")}</p>
+          <Link to="/instructors" className="text-link">
+            {t("aikido.instructors.cta")} <ArrowUpRight size={16} aria-hidden="true" />
+          </Link>
+        </header>
+        <ul className="instructor-line__rail" aria-label={t("home.instructors.railLabel")}>
+          {localizedInstructors.map((instructor) => (
+            <li key={instructor.name}>
+              <Link to="/instructors">
+                <figure>
+                  {instructor.imageSrc ? (
+                    <ResponsiveImage
+                      src={instructor.imageSrc}
+                      alt={instructor.imageAlt ?? `${instructor.name}, RenShinKan instructor`}
+                      loading="lazy"
+                      sizes="(max-width: 600px) 62vw, 16vw"
+                    />
+                  ) : null}
+                  <figcaption>{instructor.rank}</figcaption>
+                </figure>
+                <h4>{instructor.name}</h4>
+                <p>{instructor.role}</p>
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <p className="marginal-note">
           {t("common.source")}: {t("data.aikido.instructorSourceLabel")}
         </p>
       </MotionSection>
 
-      <MotionSection className="container-shell pb-20">
+      <MotionSection className="container-shell pb-20" id="aikido-history">
         <div className="grid gap-10 lg:grid-cols-[0.78fr_1.22fr] lg:items-start">
           <div className="lg:sticky lg:top-28">
             <p className="eyebrow">{t("aikido.history.eyebrow")}</p>
@@ -456,10 +405,8 @@ export function AikidoPage() {
             <p className="section-copy">
               {t("aikido.history.copy")}
             </p>
-            <div className="mt-7 rounded-[2rem] border border-ink/10 bg-paper/70 p-5">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-bamboo">
-                {t("aikido.history.primarySources")}
-              </p>
+            <div className="history-sources">
+              <p className="eyebrow">{t("aikido.history.primarySources")}</p>
               <div className="mt-3 grid gap-2">
                 {aikidoHistorySources.map((source, index) => (
                   <a
@@ -520,9 +467,9 @@ export function AikidoPage() {
               >
                 {photo ? (
                   <div className="grid gap-8 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
-                    {imageFirst ? <HistoricalFigure photo={photo} story /> : null}
+                    {imageFirst ? <HistoricalFigure photo={photo} /> : null}
                     {copy}
-                    {!imageFirst ? <HistoricalFigure photo={photo} story /> : null}
+                    {!imageFirst ? <HistoricalFigure photo={photo} /> : null}
                   </div>
                 ) : (
                   copy

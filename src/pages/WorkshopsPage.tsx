@@ -1,34 +1,41 @@
 import { Link } from "react-router-dom";
 import { MotionSection } from "../components/MotionSection";
+import { ResponsiveImage } from "../components/ResponsiveImage";
 import { WorkshopCards } from "../components/WorkshopCards";
 import { useTranslation } from "../i18n";
+import { assetPath } from "../utils/assetPath";
 
 export function WorkshopsPage() {
   const { t } = useTranslation();
 
   return (
     <>
-      <MotionSection className="container-shell py-20">
-        <p className="eyebrow">{t("workshops.intro.eyebrow")}</p>
-        <h1 className="section-title">
-          {t("workshops.intro.title")}
-        </h1>
-        <p className="section-copy">
-          {t("workshops.intro.copy")}
-        </p>
+      <MotionSection className="container-shell page-opening workshop-opening">
+        <div>
+          <p className="folio-mark">{t("workshops.intro.eyebrow")}</p>
+          <h1>{t("workshops.intro.title")}</h1>
+          <p>{t("workshops.intro.copy")}</p>
+        </div>
+        <figure>
+          <ResponsiveImage
+            src={assetPath("/pcf-aikido/jo-bokken.webp")}
+            alt={t("aikido.overview.weaponsCaption")}
+            imgClassName="h-full w-full object-cover"
+            loading="eager"
+          />
+          <figcaption>{t("aikido.overview.weaponsCaption")}</figcaption>
+        </figure>
       </MotionSection>
 
       <MotionSection className="container-shell pb-20">
         <WorkshopCards />
       </MotionSection>
 
-      <MotionSection className="container-shell pb-20">
-        <div className="rounded-[2rem] bg-bamboo/90 p-8 text-paper backdrop-blur-sm sm:p-10">
-          <p className="eyebrow text-paper/70">{t("workshops.updates.eyebrow")}</p>
-          <h2 className="mt-4 max-w-2xl text-3xl leading-tight sm:text-5xl">
-            {t("workshops.updates.title")}
-          </h2>
-          <Link to="/newsletter" className="btn-secondary mt-7 border-paper/20 bg-paper/10 text-paper hover:text-paper">
+      <MotionSection className="workshop-colophon">
+        <div className="container-shell workshop-colophon__inner">
+          <p className="vertical-label">{t("workshops.updates.eyebrow")}</p>
+          <h2>{t("workshops.updates.title")}</h2>
+          <Link to="/newsletter" className="text-link">
             {t("workshops.updates.cta")}
           </Link>
         </div>

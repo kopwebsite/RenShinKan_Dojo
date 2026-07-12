@@ -1221,19 +1221,19 @@ export const beltLevels = [
     level: "10 Kyu",
     techniques: "Kosa-Tori: 1 Kyo (Omote) · Morotetori: Kokyu-Ho (Omote, Ura) · Suwari Waza: Kokyu-Ho",
     days: 30,
-    color: "white",
+    color: "orange",
   },
   {
     level: "9 Kyu",
     techniques: "All 10 Kyu and Kosa-Tori: 1 Kyo (Ura) · Katate-Tori: Shiho-Nage (Omote)",
     days: 40,
-    color: "white",
+    color: "orange-blue",
   },
   {
     level: "8 Kyu",
     techniques: "Up to 9 Kyu and Katate-Tori: Shiho-Nage (Ura) · Kosa-Tori: 2 Kyo (Omote, Ura)",
     days: 40,
-    color: "white-stripe",
+    color: "blue-orange",
   },
   {
     level: "7 Kyu",
@@ -1245,7 +1245,7 @@ export const beltLevels = [
     level: "6 Kyu",
     techniques: "Up to 7 Kyu and Kosa-Tori: Kote-Gaeshi (Omote, Ura) · Kosa-Tori: 1–4 Kyo (Omote, Ura) · Shomen-Uchi: 1 Kyo (Omote, Ura)",
     days: 40,
-    color: "blue-stripe",
+    color: "blue-green",
   },
   {
     level: "5 Kyu",
@@ -1257,7 +1257,7 @@ export const beltLevels = [
     level: "4 Kyu",
     techniques: "All up to 5 Kyu and All Tsuki · All Ryote-Tori",
     days: 60,
-    color: "green-stripe",
+    color: "green-brown",
   },
   {
     level: "3 Kyu",
@@ -1269,13 +1269,13 @@ export const beltLevels = [
     level: "2 Kyu",
     techniques: "All up to 3 Kyu and Koshi-Nage · Kokyu-Nage · Free-Style",
     days: 60,
-    color: "brown-stripe",
+    color: "brown-black",
   },
   {
     level: "1 Kyu",
     techniques: "Up to 2 Kyu and Tanto-Tori Technique",
     days: 60,
-    color: "brown-double",
+    color: "black-brown",
   },
   {
     level: "SHO Dan-Ho",
@@ -1283,7 +1283,7 @@ export const beltLevels = [
     days: 140,
     color: "black",
   },
-];
+] as const;
 
 export const workshops: Workshop[] = [
   {

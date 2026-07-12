@@ -118,13 +118,11 @@ export function SupportPage() {
       </MotionSection>
 
       <MotionSection id="monthly-contribution" className="container-shell scroll-mt-28 pb-20">
-        <div className="mb-10 surface rounded-[2rem] p-8 sm:p-10">
+        <div className="mb-12 border-y border-ink/15 py-10">
           <div className="grid items-center gap-10 lg:grid-cols-[1fr_0.75fr]">
             <div>
               <div className="mb-6 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-vermilion/10 text-vermilion">
-                  <Repeat2 size={20} aria-hidden="true" />
-                </div>
+                <Repeat2 size={20} className="text-vermilion" aria-hidden="true" />
                 <p className="eyebrow text-xs tracking-widest text-vermilion/80">{t("support.monthly.eyebrow")}</p>
               </div>
               <h2 className="max-w-2xl text-3xl leading-snug text-ink sm:text-4xl">
@@ -136,7 +134,7 @@ export function SupportPage() {
               <p className="mt-4 max-w-2xl text-base leading-7 text-charcoal/75">
                 {t("support.monthly.copy2")}
               </p>
-              <div className="mt-7 flex max-w-full items-start gap-3 rounded-xl border border-vermilion/20 bg-vermilion/5 px-4 py-3 sm:inline-flex sm:items-center">
+              <div className="mt-7 flex max-w-full items-start gap-3 border-l-2 border-vermilion/60 bg-vermilion/5 px-4 py-3 sm:inline-flex sm:items-center">
                 <ShieldCheck size={18} className="shrink-0 text-vermilion" aria-hidden="true" />
                 <p className="text-sm text-charcoal/70">
                   <span className="font-semibold text-ink">{t("support.monthly.noteStrong")}</span>{" "}
@@ -148,7 +146,7 @@ export function SupportPage() {
               <ResponsiveImage
                 src={assetPath("/dojo-photos/support.avif")}
                 alt={t("support.monthly.supportImageAlt")}
-                imgClassName="w-full max-w-sm rounded-[2rem] object-cover"
+                imgClassName="w-full max-w-sm object-cover"
                 style={{ maskImage: "radial-gradient(ellipse 88% 88% at 50% 50%, black 55%, transparent 100%)", WebkitMaskImage: "radial-gradient(ellipse 88% 88% at 50% 50%, black 55%, transparent 100%)" }}
                 loading="lazy"
                 width={1402}
@@ -164,7 +162,7 @@ export function SupportPage() {
               src/components/ContributionForm.tsx so it is easy to edit later. */}
           <ContributionForm />
 
-          <article className="surface flex h-full flex-col rounded-[2rem] p-8 sm:p-10">
+          <article className="flex h-full flex-col">
             <div>
               <h3 className="text-3xl text-ink">{t("support.monthly.coversTitle")}</h3>
               <p className="mt-4 text-sm leading-6 text-charcoal/75">
@@ -172,29 +170,27 @@ export function SupportPage() {
               </p>
             </div>
 
-            <div className="mt-7 grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+            <div className="stat-ledger mt-7">
               {contributionHighlights.map((item) => (
-                <div key={item.labelKey} className="rounded-[1.35rem] border border-ink/10 bg-paper/65 p-4">
-                  <p className="text-2xl font-bold text-vermilion">{t(item.valueKey)}</p>
-                  <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-ink/70">
-                    {t(item.labelKey)}
-                  </p>
-                  <p className="mt-2 text-xs leading-5 text-charcoal/65">{t(item.noteKey)}</p>
+                <div key={item.labelKey}>
+                  <strong>{t(item.valueKey)}</strong>
+                  <p className="stat-ledger__label">{t(item.labelKey)}</p>
+                  <p className="stat-ledger__note">{t(item.noteKey)}</p>
                 </div>
               ))}
             </div>
 
-            <div className="mt-7 grid flex-1 gap-3">
+            <ul className="ruled-list mt-7 flex-1">
               {dojoExpenses.map((expense) => (
-                <div key={expense.labelKey} className="rounded-[1.25rem] border border-ink/10 bg-paper/55 px-4 py-3.5">
+                <li key={expense.labelKey}>
                   <p className="text-sm font-bold text-ink">{t(expense.labelKey)}</p>
                   <p className="mt-1 text-xs leading-5 text-charcoal/65">{t(expense.noteKey)}</p>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
 
-            <div className="mt-7 grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-              <div className="rounded-[1.5rem] bg-bamboo/10 p-5 ring-1 ring-bamboo/20">
+            <div className="mt-8 grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+              <div className="border-l-2 border-bamboo/70 bg-bamboo/5 py-3 pl-4 pr-3">
                 <p className="text-xs font-bold uppercase tracking-[0.14em] text-bamboo/80">
                   {t("support.monthly.whyTitle")}
                 </p>
@@ -202,7 +198,7 @@ export function SupportPage() {
                   {t("support.monthly.whyCopy")}
                 </p>
               </div>
-              <div className="rounded-[1.5rem] bg-ink/90 p-5 text-paper backdrop-blur-sm">
+              <div className="bg-ink/90 p-5 text-paper">
                 <p className="text-xs font-bold uppercase tracking-[0.14em] text-mist/70">{t("support.monthly.reminderEyebrow")}</p>
                 <p className="mt-2 text-sm font-bold leading-6">
                   {t("support.monthly.reminderCopy")}
@@ -249,8 +245,8 @@ export function SupportPage() {
             </p>
           </div>
 
-          <div className="flex flex-col gap-6">
-            <article className="surface rounded-[2rem] p-8">
+          <div className="flex flex-col gap-8">
+            <article className="border-t-4 border-double border-ink/35 pt-6">
               <h3 className="text-3xl text-ink">{t("support.donations.whereTitle")}</h3>
               <ul className="mt-5 grid gap-3">
                 {donationUseKeys.map((itemKey) => (
@@ -260,17 +256,15 @@ export function SupportPage() {
                   </li>
                 ))}
               </ul>
-              <div className="mt-6 rounded-[1.5rem] bg-bamboo/10 p-4 ring-1 ring-bamboo/20">
-                <p className="text-sm font-bold text-ink">
-                  {t("support.donations.noSalary")}
-                </p>
-              </div>
+              <p className="mt-6 border-l-2 border-bamboo/70 bg-bamboo/5 py-3 pl-4 text-sm font-bold text-ink">
+                {t("support.donations.noSalary")}
+              </p>
             </article>
 
-            <div className="surface overflow-hidden rounded-[2rem]">
+            <div className="border-y border-ink/15">
               <button
                 type="button"
-                className="flex min-h-14 w-full items-center justify-between gap-4 px-5 py-5 text-left sm:px-8"
+                className="flex min-h-14 w-full items-center justify-between gap-4 py-5 text-left"
                 aria-expanded={transferOpen}
                 onClick={() => setTransferOpen((open) => !open)}
               >
@@ -282,7 +276,7 @@ export function SupportPage() {
                 />
               </button>
               {transferOpen && (
-                <div className="border-t border-ink/10 px-5 pb-7 pt-5 sm:px-8">
+                <div className="border-t border-ink/10 pb-7 pt-5">
                   <div className="grid gap-4 sm:grid-cols-2">
                     {localizedTransferDetails.map((detail) => (
                       <div key={detail.label}>

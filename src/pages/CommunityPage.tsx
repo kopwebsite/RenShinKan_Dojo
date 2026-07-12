@@ -53,8 +53,8 @@ export function CommunityPage() {
   return (
     <>
       {/* Upcoming Events */}
-      <MotionSection id="upcoming-events" className="container-shell scroll-mt-28 py-20">
-        <div className="mb-8 max-w-3xl">
+      <MotionSection id="upcoming-events" className="container-shell community-opening scroll-mt-28">
+        <div className="section-masthead section-masthead--wide">
           <p className="eyebrow">{t("community.events.eyebrow")}</p>
           <h1 className="section-title">{t("community.events.title")}</h1>
           <p className="section-copy">
@@ -62,43 +62,32 @@ export function CommunityPage() {
           </p>
         </div>
         {upcomingEvents.length > 0 ? (
-          <div className="surface rounded-[2.5rem] overflow-hidden">
+          <ol className="event-ledger">
             {upcomingEvents.map((event, i) => (
-              <div
+              <li
                 key={event.title}
-                className={`flex flex-col items-start gap-4 px-6 py-7 sm:flex-row sm:gap-8 sm:px-10 sm:py-9 lg:gap-10 lg:px-12${
-                  i < upcomingEvents.length - 1 ? " border-b border-ink/[0.07]" : ""
-                }`}
+                className="event-ledger__entry"
               >
-                <div className="mt-0.5 flex h-12 w-12 flex-none items-center justify-center rounded-full bg-vermilion/10 text-vermilion sm:h-14 sm:w-14">
+                <span className="event-ledger__number" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
+                <div className="event-ledger__icon">
                   <CalendarDays size={24} aria-hidden="true" />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-bamboo">
-                    {event.date}
-                  </p>
-                  <h3 className="mt-2 font-serif text-3xl text-ink sm:text-4xl">
-                    <Link to={event.href} className="transition hover:text-vermilion">
-                      {event.title}
-                    </Link>
-                  </h3>
-                  <p className="mt-3 text-base text-charcoal/75 max-w-2xl">{event.description}</p>
+                <time>{event.date}</time>
+                <div className="event-ledger__copy">
+                  <h3><Link to={event.href}>{event.title}</Link></h3>
+                  <p>{event.description}</p>
                 </div>
-              </div>
+              </li>
             ))}
-          </div>
+          </ol>
         ) : (
-          <div className="surface flex flex-col items-center rounded-[2.5rem] px-6 py-16 text-center sm:px-10">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-bamboo/10 text-bamboo">
+          <div className="event-ledger event-ledger--empty">
+            <div className="event-ledger__icon">
               <CalendarDays size={30} aria-hidden="true" />
             </div>
-            <h3 className="mt-6 font-serif text-3xl text-ink sm:text-4xl">
-              {t("community.events.emptyTitle")}
-            </h3>
-            <p className="mt-4 max-w-xl text-base leading-7 text-charcoal/75">
-              {t("community.events.emptyCopy")}
-            </p>
-            <Link to="/newsletter#recent-events" className="btn-secondary mt-7">
+            <h3>{t("community.events.emptyTitle")}</h3>
+            <p>{t("community.events.emptyCopy")}</p>
+            <Link to="/newsletter#recent-events" className="text-link">
               {t("community.events.emptyCta")}
               <ArrowUpRight size={16} aria-hidden="true" />
             </Link>
@@ -107,8 +96,8 @@ export function CommunityPage() {
       </MotionSection>
 
       {/* Past Events */}
-      <MotionSection id="past-events" className="container-shell scroll-mt-28 pb-20">
-        <div className="mb-8 max-w-3xl">
+      <MotionSection id="past-events" className="container-shell community-past scroll-mt-28">
+        <div className="section-masthead">
           <p className="eyebrow">{t("community.past.eyebrow")}</p>
           <h2 className="section-title">{t("community.past.title")}</h2>
           <p className="section-copy">
@@ -120,11 +109,11 @@ export function CommunityPage() {
       </MotionSection>
 
       {/* Peace Culture Foundation */}
-      <MotionSection id="peace-culture" className="container-shell scroll-mt-28 pb-20">
-        <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
-          <article className="rounded-[2rem] bg-ink/90 p-8 text-paper backdrop-blur-sm sm:p-10">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-              <div className="inline-flex w-fit rounded-[1.35rem] bg-paper px-4 py-3 shadow-soft">
+      <MotionSection id="peace-culture" className="container-shell foundation-story scroll-mt-28">
+        <div className="foundation-diptych">
+          <article className="foundation-manifesto">
+            <div className="foundation-manifesto__marks">
+              <div className="foundation-manifesto__logo">
                 <ResponsiveImage
                   src={peaceCultureFoundation.logo.src}
                   alt={peaceCultureFoundation.logo.alt}
@@ -133,26 +122,26 @@ export function CommunityPage() {
                   sizes="160px"
                 />
               </div>
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-vermilion text-paper">
+              <div className="foundation-manifesto__icon">
                 <HeartHandshake size={26} aria-hidden="true" />
               </div>
             </div>
-            <p className="eyebrow mt-7 text-mist/70">{t("community.foundation.eyebrow")}</p>
-            <h2 className="mt-4 max-w-3xl text-3xl leading-tight sm:text-5xl">
+            <p className="eyebrow">{t("community.foundation.eyebrow")}</p>
+            <h2>
               {t("community.foundation.title")}
             </h2>
-            <p className="mt-5 max-w-2xl text-paper/75">
+            <p>
               {t("community.foundation.copy")}
             </p>
-            <p className="mt-4 max-w-2xl text-paper/75">
+            <p>
               {t("data.community.foundation.aikidoConnection")}
             </p>
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <div className="editorial-actions">
               <a
                 href={peaceCultureFoundation.homepageUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="btn-secondary border-paper/20 bg-paper/10 text-paper hover:text-paper"
+                className="text-link"
               >
                 {t("community.foundation.visit")}
                 <ArrowUpRight size={16} aria-hidden="true" />
@@ -161,7 +150,7 @@ export function CommunityPage() {
                 href={peaceCultureFoundation.advocacyUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="btn-secondary border-paper/20 bg-paper/10 text-paper hover:text-paper"
+                className="text-link"
               >
                 {t("community.foundation.advocacy")}
                 <ArrowUpRight size={16} aria-hidden="true" />
@@ -169,35 +158,32 @@ export function CommunityPage() {
             </div>
           </article>
 
-          <article className="surface rounded-[2rem] p-8 sm:p-10">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-bamboo/10 text-bamboo">
+          <article className="foundation-safeguard">
+            <div className="foundation-safeguard__icon">
               <ShieldCheck size={26} aria-hidden="true" />
             </div>
-            <p className="eyebrow mt-7">{t("community.foundation.groomingEyebrow")}</p>
-            <h2 className="mt-4 text-3xl leading-tight text-ink sm:text-5xl">
+            <p className="eyebrow">{t("community.foundation.groomingEyebrow")}</p>
+            <h2>
               {t("community.foundation.groomingTitle")}
             </h2>
-            <p className="mt-5 text-charcoal/78">
+            <p>
               {t("data.community.foundation.groomingPrevention")}
             </p>
-            <ul className="mt-6 grid gap-3">
+            <ul>
               {[
                 t("data.community.foundation.pillars.relationships"),
                 t("data.community.foundation.pillars.boundaries"),
                 t("data.community.foundation.pillars.awareness"),
                 t("data.community.foundation.pillars.education"),
               ].map((pillar) => (
-                <li key={pillar} className="flex items-start gap-3 text-sm font-bold text-charcoal/80">
-                  <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-vermilion" aria-hidden="true" />
-                  {pillar}
-                </li>
+                <li key={pillar}>{pillar}</li>
               ))}
             </ul>
             <a
               href={peaceCultureFoundation.groomingPreventionUrl}
               target="_blank"
               rel="noreferrer"
-              className="btn-primary mt-7"
+              className="text-link"
             >
               {t("community.foundation.groomingCta")}
               <ArrowUpRight size={16} aria-hidden="true" />
@@ -206,27 +192,27 @@ export function CommunityPage() {
         </div>
 
         {/* PCF Photo Gallery */}
-        <div className="mt-8">
-          <p className="mb-5 text-xs font-bold uppercase tracking-[0.16em] text-charcoal/55">
+        <div className="foundation-archive">
+          <p className="folio-mark">
             {t("community.foundation.photoEyebrow")}
           </p>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="foundation-archive__grid">
             {localizedPcfPhotos.map((photo) => {
               if ((photo as typeof photo & { featured?: boolean }).featured) {
                 return (
                   <figure
                     key={photo.src}
-                    className="surface overflow-hidden rounded-[1.75rem] sm:col-span-2 lg:col-span-3"
+                    className="foundation-archive__founder"
                   >
-                    <div className="grid sm:grid-cols-[minmax(0,18rem)_1fr] sm:items-center lg:grid-cols-[auto_1fr]">
+                    <div>
                       <ResponsiveImage
                         src={photo.src}
                         alt={photo.alt}
-                        imgClassName="w-full object-contain sm:max-h-56"
+                        imgClassName="w-full object-contain"
                         loading="lazy"
                         sizes="(max-width: 639px) 100vw, 288px"
                       />
-                      <figcaption className="border-t border-ink/10 p-6 sm:border-l sm:border-t-0 sm:p-8">
+                      <figcaption>
                         <p className="eyebrow">{t("community.foundation.founder")}</p>
                         <h3 className="mt-3 text-3xl leading-tight text-ink sm:text-4xl">
                           {photo.title}
@@ -240,7 +226,7 @@ export function CommunityPage() {
               return (
                 <figure
                   key={photo.src}
-                  className="surface card-hover overflow-hidden rounded-[1.75rem]"
+                  className="foundation-archive__photo"
                 >
                   <ResponsiveImage
                     src={photo.src}
@@ -249,9 +235,9 @@ export function CommunityPage() {
                     loading="lazy"
                     sizes="(max-width: 767px) 100vw, 33vw"
                   />
-                  <figcaption className="p-5">
-                    <p className="font-bold text-ink">{photo.title}</p>
-                    <p className="mt-2 text-sm text-charcoal/70">{photo.caption}</p>
+                  <figcaption>
+                    <p>{photo.title}</p>
+                    <small>{photo.caption}</small>
                   </figcaption>
                 </figure>
               );
@@ -263,11 +249,11 @@ export function CommunityPage() {
       {/* Chiang Mai CMU */}
       <MotionSection
         id="cmu-aikido"
-        className="container-shell scroll-mt-28 pb-20"
+        className="container-shell cmu-story scroll-mt-28"
         ariaLabelledby="cmu-aikido-heading"
       >
-        <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
-          <article className="surface overflow-hidden rounded-[2rem]">
+        <div className="cmu-story__layout">
+          <article className="cmu-study">
             <div className="relative min-h-[32rem] overflow-hidden bg-ink sm:min-h-[25rem]">
               <ResponsiveImage
                 src={cmuHeroPhoto.src}
@@ -279,7 +265,7 @@ export function CommunityPage() {
                 className="absolute inset-0 bg-gradient-to-t from-ink via-ink/35 to-transparent"
                 aria-hidden="true"
               />
-              <div className="absolute left-5 top-5 rounded-2xl bg-paper/95 px-4 py-3 shadow-soft">
+              <div className="cmu-study__logo">
                 <ResponsiveImage
                   src={cmuAikidoClub.logo.src}
                   alt={cmuAikidoClub.logo.alt}
@@ -298,8 +284,8 @@ export function CommunityPage() {
                 </p>
               </div>
             </div>
-            <div className="grid divide-y divide-ink/10 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-              <div className="p-5">
+            <div className="cmu-study__facts">
+              <div>
                 <CalendarDays className="text-vermilion" size={22} aria-hidden="true" />
                 <p className="mt-3 text-xs font-bold uppercase tracking-[0.18em] text-charcoal/55">
                   {t("community.cmu.publicDays")}
@@ -308,7 +294,7 @@ export function CommunityPage() {
                   {t("data.community.cmu.practice.days")}
                 </p>
               </div>
-              <div className="p-5">
+              <div>
                 <UsersRound className="text-bamboo" size={22} aria-hidden="true" />
                 <p className="mt-3 text-xs font-bold uppercase tracking-[0.18em] text-charcoal/55">
                   {t("community.cmu.community")}
@@ -317,7 +303,7 @@ export function CommunityPage() {
                   {t("community.cmu.studentsGuests")}
                 </p>
               </div>
-              <div className="p-5">
+              <div>
                 <GraduationCap className="text-wood" size={22} aria-hidden="true" />
                 <p className="mt-3 text-xs font-bold uppercase tracking-[0.18em] text-charcoal/55">
                   {t("community.cmu.roots")}
@@ -329,7 +315,7 @@ export function CommunityPage() {
             </div>
           </article>
 
-          <div>
+          <div className="cmu-story__copy">
             <p className="eyebrow">{t("community.cmu.eyebrow")}</p>
             <h2 id="cmu-aikido-heading" className="section-title">
               {t("community.cmu.title")}
@@ -341,7 +327,7 @@ export function CommunityPage() {
               {t("community.cmu.copy2")}
             </p>
 
-            <div className="mt-7 rounded-[2rem] bg-paper/70 p-6 shadow-line ring-1 ring-ink/10">
+            <div className="cmu-practice-note">
               <div className="flex items-start gap-4">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-vermilion/10 text-vermilion">
                   <CalendarDays size={22} aria-hidden="true" />
@@ -387,11 +373,11 @@ export function CommunityPage() {
         </div>
 
         {/* CMU Photo Gallery */}
-        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {cmuGalleryPhotos.map((photo) => (
+        <div className="cmu-contact-sheet">
+          {cmuGalleryPhotos.map((photo, index) => (
             <figure
               key={photo.src}
-              className="surface card-hover overflow-hidden rounded-[1.5rem]"
+              className={`cmu-contact-sheet__photo cmu-contact-sheet__photo--${index + 1}`}
             >
               <ResponsiveImage
                 src={photo.src}
@@ -399,9 +385,9 @@ export function CommunityPage() {
                 imgClassName="aspect-[4/3] w-full object-cover"
                 loading="lazy"
               />
-              <figcaption className="p-5">
-                <span className="text-lg font-bold text-ink">{photo.title}</span>
-                <p className="mt-2 text-sm text-charcoal/72">{photo.caption}</p>
+              <figcaption>
+                <span>{photo.title}</span>
+                <p>{photo.caption}</p>
               </figcaption>
             </figure>
           ))}

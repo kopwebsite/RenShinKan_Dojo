@@ -64,14 +64,36 @@ export function formatStudentId(sequence: number) {
   return `RSK-${String(sequence).padStart(4, "0")}`;
 }
 
+/**
+ * Kyu ranks mapped to the dojo's belt colour keys. Split belts keep the
+ * senior colour first (e.g. "orange-blue" is 2/3 orange, 1/3 blue). The
+ * same mapping lives client-side in src/utils/beltVisual.ts, which derives
+ * the visual directly from the rank string; this stored value is only a
+ * fallback for records whose rank text cannot be parsed.
+ */
+const KYU_BELT_KEYS: Record<number, string> = {
+  10: "orange",
+  9: "orange-blue",
+  8: "blue-orange",
+  7: "blue",
+  6: "blue-green",
+  5: "green",
+  4: "green-brown",
+  3: "brown",
+  2: "brown-black",
+  1: "black-brown",
+};
+
 export function rankColor(rank: string, fallback = "white") {
   const normalized = rank.toLocaleLowerCase("en-US");
-  if (normalized.includes("dan") || normalized.includes("black")) return "black";
-  if (/\b(1|2)\s*(st|nd)?\s*kyu\b/.test(normalized) || normalized.includes("brown")) return "brown";
-  if (/\b(3|4)\s*(rd|th)?\s*kyu\b/.test(normalized) || normalized.includes("green")) return "green";
-  if (/\b(5|6)\s*(th)?\s*kyu\b/.test(normalized) || normalized.includes("blue")) return "blue";
-  if (/\b(7|8)\s*(th)?\s*kyu\b/.test(normalized) || normalized.includes("orange")) return "orange";
-  if (/\b(9|10)\s*(th)?\s*kyu\b/.test(normalized) || normalized.includes("white") || normalized.includes("unranked")) return "white";
+  if (normalized.includes("dan") || normalized.includes("sho") || normalized.includes("black")) return "black";
+  const kyuMatch = normalized.match(/\b(10|[1-9])\s*(?:st|nd|rd|th)?\s*ky[uū]\b/);
+  if (kyuMatch && KYU_BELT_KEYS[Number(kyuMatch[1])]) return KYU_BELT_KEYS[Number(kyuMatch[1])];
+  if (normalized.includes("brown")) return "brown";
+  if (normalized.includes("green")) return "green";
+  if (normalized.includes("blue")) return "blue";
+  if (normalized.includes("orange")) return "orange";
+  if (normalized.includes("white") || normalized.includes("unranked")) return "white";
   return fallback || "white";
 }
 

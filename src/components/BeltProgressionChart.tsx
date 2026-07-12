@@ -1,6 +1,8 @@
 import { Printer } from "lucide-react";
 import { beltLevels } from "../data/siteContent";
 import { useTranslation } from "../i18n";
+import { beltShortNames } from "../utils/beltVisual";
+import { BeltMark } from "./BeltMark";
 
 const stages = [
   { title: "Beginning", note: "Foundations, safe falling and clear posture", levels: beltLevels.slice(0, 4) },
@@ -26,8 +28,12 @@ export function BeltProgressionChart() {
           <ol>
             {stage.levels.map((level) => (
               <li key={level.level}>
-                <span className={`belt-swatch belt-swatch--${level.color}`} aria-hidden="true" />
-                <div className="belt-rank"><strong>{level.level}</strong><span>{level.days} {t("common.days")}</span></div>
+                <BeltMark beltKey={level.color} variant="swatch" decorative />
+                <div className="belt-rank">
+                  <strong>{level.level}</strong>
+                  <span>{beltShortNames[level.color]} belt</span>
+                  <span>{level.days} {t("common.days")}</span>
+                </div>
                 <details>
                   <summary>Technique requirements</summary>
                   <p>{level.techniques}</p>

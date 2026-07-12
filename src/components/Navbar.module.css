@@ -503,6 +503,27 @@
   display: none;
 }
 
+.recordsLink {
+  gap: 6px;
+}
+
+.recordsLink svg {
+  flex: 0 0 auto;
+  color: hsl(var(--color-bamboo));
+}
+
+.mobileRecordsLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.mobileRecordsLabel svg {
+  flex: 0 0 auto;
+  color: hsl(var(--color-bamboo));
+}
+
 .supportNavLink:hover,
 .supportNavLink:focus-visible,
 .supportNavLink[data-active="true"] {

@@ -25,17 +25,14 @@ export function WorkshopCards() {
   );
 
   return (
-    <div>
-      <div className="mb-8 flex flex-wrap gap-2" aria-label={t("workshops.filters.label")}>
+    <div className="workshop-index">
+      <div className="workshop-index__filters" aria-label={t("workshops.filters.label")}>
         {filterOptions.map((option) => (
           <button
             key={option}
             type="button"
-            className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold transition ${
-              filter === option
-                ? "border-ink bg-ink text-paper"
-                : "border-ink/10 bg-paper/70 text-charcoal hover:border-vermilion/40 hover:text-vermilion"
-            }`}
+            className="workshop-index__filter"
+            data-active={filter === option}
             aria-pressed={filter === option}
             onClick={() => setFilter(option)}
           >
@@ -46,43 +43,40 @@ export function WorkshopCards() {
       </div>
 
       {visibleWorkshops.length > 0 ? (
-        <div className="grid gap-5 md:grid-cols-3">
-          {visibleWorkshops.map((workshop) => (
-            <article
+        <ol className="workshop-index__list">
+          {visibleWorkshops.map((workshop, index) => (
+            <li
               key={workshop.title}
-              className="surface card-hover flex min-h-[22rem] flex-col rounded-[2rem] p-6"
+              className="workshop-entry"
             >
-              <div className="flex items-center gap-3">
-                <span className="rounded-full bg-vermilion/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-vermilion">
-                  {t(filterLabelKeys[workshop.category])}
-                </span>
+              <div className="workshop-entry__number" aria-hidden="true">
+                {String(index + 1).padStart(2, "0")}
               </div>
-              <h3 className="mt-6 text-3xl leading-tight text-ink">{workshop.title}</h3>
-              <p className="mt-4 text-sm text-charcoal/75">{workshop.description}</p>
-              <dl className="mt-auto grid gap-3 pt-6 text-sm">
-                <div className="flex gap-2 text-charcoal/80">
-                  <CalendarDays className="mt-0.5 h-4 w-4 text-bamboo" aria-hidden="true" />
+              <div className="workshop-entry__copy">
+                <p className="folio-mark">{t(filterLabelKeys[workshop.category])}</p>
+                <h3>{workshop.title}</h3>
+                <p>{workshop.description}</p>
+              </div>
+              <dl className="workshop-entry__details">
+                <div>
+                  <CalendarDays aria-hidden="true" />
                   <div>
                     <dt className="sr-only">{t("common.dateAndTime")}</dt>
                     <dd>{workshop.date} - {workshop.time}</dd>
                   </div>
                 </div>
                 <div>
-                  <dt className="font-bold text-ink">{t("common.for")}</dt>
-                  <dd className="mt-1 text-charcoal/75">{workshop.audience}</dd>
+                  <dt>{t("common.for")}</dt>
+                  <dd>{workshop.audience}</dd>
                 </div>
               </dl>
-            </article>
+            </li>
           ))}
-        </div>
+        </ol>
       ) : (
-        <div className="surface rounded-[2rem] p-8 text-center">
-          <p className="font-serif text-3xl text-ink">
-            {t("workshops.empty.title")}
-          </p>
-          <p className="mt-3 text-sm text-charcoal/75">
-            {t("workshops.empty.copy")}
-          </p>
+        <div className="workshop-index__empty">
+          <p>{t("workshops.empty.title")}</p>
+          <small>{t("workshops.empty.copy")}</small>
         </div>
       )}
     </div>

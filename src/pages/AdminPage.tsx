@@ -1108,11 +1108,21 @@ export function AdminPage() {
             Sign in to edit site content and save it through the Cloudflare admin API.
           </p>
           <form onSubmit={login} className="mt-7">
+            <input
+              id="admin-username"
+              name="username"
+              type="text"
+              value="administrator"
+              autoComplete="username"
+              readOnly
+              hidden
+            />
             <label className="text-sm font-bold text-ink" htmlFor="admin-password">
               Password
             </label>
             <input
               id="admin-password"
+              name="password"
               className="input-field"
               type="password"
               value={password}

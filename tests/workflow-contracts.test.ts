@@ -9,6 +9,7 @@ const file = (path: string) => readFileSync(resolve(root, path), "utf8");
 describe("database safety and audit contracts", () => {
   const migration = file("migrations/0003_student_workflows.sql");
   const cycleMigration = file("migrations/0004_student_cycles_and_contributions.sql");
+  const operationsMigration = file("migrations/0005_shared_profile_photos.sql");
 
   it("uses an additive migration and preserves current records and legacy QR tokens", () => {
     expect(migration).not.toMatch(/\bDROP\s+(TABLE|COLUMN|INDEX)/i);
@@ -31,6 +32,15 @@ describe("database safety and audit contracts", () => {
     for (const column of ["archived_at", "archived_by", "public_visible_before_archive", "student_name_snapshot", "student_public_id_snapshot"]) expect(cycleMigration).toContain(column);
   });
 
+  it("makes approved QR photos visible and prevents duplicate hours approval", () => {
+    expect(operationsMigration).not.toMatch(/\bDROP\s+(TABLE|COLUMN|INDEX)/i);
+    expect(operationsMigration).toContain("hour_request_id");
+    expect(operationsMigration).toContain("idx_training_hours_hour_request");
+    expect(operationsMigration).toContain("json('true')");
+    const records = file("functions/_lib/studentRecords.ts");
+    expect(records).toContain("profileImage: student.profile_image_consent ? student.profile_image_url : null");
+  });
+
   it("protects every administrator mutation server-side", () => {
     const endpoints = ["functions/api/admin/students/index.ts", "functions/api/admin/students/[id].ts", "functions/api/admin/students/[id]/inline.ts", "functions/api/admin/students/[id]/hours.ts", "functions/api/admin/students/[id]/exam.ts", "functions/api/admin/students/bulk.ts", "functions/api/admin/examinations.ts", "functions/api/admin/contributions.ts"];
     endpoints.forEach((path) => { const source = file(path); expect(source).toContain("hasValidAdminSession"); expect(source).toContain("isSameOriginRequest"); });
@@ -38,7 +48,7 @@ describe("database safety and audit contracts", () => {
 
   it("logs every new student-data mutation source", () => {
     const all = ["functions/api/records/profile-requests.ts", "functions/api/records/hours.ts", "functions/api/records/examination-applications.ts", "functions/api/contributions.ts", "functions/api/admin/students/[id].ts", "functions/api/admin/students/[id]/inline.ts", "functions/api/admin/students/[id]/hours.ts", "functions/api/admin/students/[id]/exam.ts", "functions/api/admin/students/bulk.ts", "functions/api/admin/students/[id]/application.ts", "functions/api/admin/examinations.ts", "functions/api/admin/contributions.ts"].map(file).join("\n");
-    for (const source of ["student_profile_request", "student_self_service", "student_examination_application", "monthly_contribution_form", "admin_inline_edit", "admin_student_edit", "admin_bulk_hours", "admin_mass_promotion", "admin_examination_application", "admin_exam_applications", "admin_monthly_contributions", "student_archived", "student_restored"]) expect(all).toContain(source);
+    for (const source of ["student_profile_request", "student_self_service", "student_examination_application", "monthly_contribution_form", "admin_inline_edit", "admin_student_edit", "admin_bulk_hours", "admin_bulk_hours_approval", "admin_mass_promotion", "admin_examination_application", "admin_exam_applications", "admin_monthly_contributions", "student_archived", "student_restored", "student_permanently_deleted"]) expect(all).toContain(source);
   });
 
   it("prevents duplicate public submissions and mass-action replay", () => {
@@ -54,6 +64,13 @@ describe("student workflow contracts", () => {
   it("saves every applicant questionnaire field from the original PDF", () => {
     for (const key of ["aat_number", "date", "name", "surname", "nationality", "sex", "dob", "age", "permanent_address", "present_address", "tel", "school", "class", "office", "position", "certificate", "games_experience", "applicant_signature", "guarantor_signature", "signature_parenthetical", "official_note"]) expect(application).toContain(`${key}:`);
     expect(application).toContain("official_rank_${index}");
+  });
+
+  it("accepts a blank present address and stores a normalized international telephone", () => {
+    expect(application).toContain("present_address: text(body.presentAddress, 500)");
+    expect(application).toContain("telephone_country");
+    expect(application).toContain("normalizeInternationalPhone");
+    expect(application).not.toContain("present_address: text(body.presentAddress, 500, true)");
   });
 
   it("requires approved Student ID plus name, Turnstile, a higher rank, and one application per cycle", () => {
@@ -95,16 +112,23 @@ describe("UI and responsive workflow contracts", () => {
     const admin = file("src/pages/AdminStudentsPage.tsx");
     const exams = file("src/components/admin/AdminExamApplications.tsx");
     const contributions = file("src/components/admin/AdminMonthlyContributions.tsx");
-    for (const value of ["Student Database", "Exam Applications", "Monthly Contributions", "current_rank", "Add hours", "Mass promotion", "Confirm archive", "Confirm restore"]) expect(admin).toContain(value);
+    for (const value of ["Student Database", "Exam Applications", "Monthly Contributions", "current_rank", "Add hours", "Approve pending hours", "Mass promotion", "Confirm archive", "Confirm restore", "Delete permanently"]) expect(admin).toContain(value);
     for (const value of ["Start New Exam Cycle", "Not signed up", "Read-only historical cycle", "Confirm status change"]) expect(exams).toContain(value);
     for (const value of ["Awaiting payment", "Paid rate", "Last 12 months", "Internal note", "Accessible monthly contribution totals"]) expect(contributions).toContain(value);
     expect(admin).toContain("onWheel"); expect(admin).toContain("Review changes");
+    expect(admin).toContain("admin-select-box"); expect(admin).toContain("DELETE ${studentAction.student.public_student_id}");
   });
 
   it("shows three task choices, pending payment, existing bank QR, owner QR tools, and mobile layouts", () => {
     const page = file("src/pages/StudentRecordsPage.tsx"); const css = file("src/index.css");
     for (const text of ["Find my record", "Create a profile", "Apply for an exam", "/images/promptpay-qr.png", "payment status is", "Copy link", "Download QR", "Submit for review"]) expect(page).toContain(text);
     expect(css).toContain(".record-task-picker { display: grid; grid-template-columns: repeat(3, 1fr)"); expect(css).toContain(".record-task-picker { grid-template-columns: 1fr");
+  });
+
+  it("uses an optional present address and country-aware telephone control", () => {
+    const page = file("src/pages/StudentRecordsPage.tsx");
+    for (const value of ["Leave blank if same as permanent address", "Telephone country / calling code", "PHONE_COUNTRIES", "tel-national"]) expect(page).toContain(value);
+    expect(page).not.toMatch(/Present address<[^>]*>.*required/);
   });
 
   it("keeps personal exam answers out of persistent browser storage and removes the retired extra credential", () => {

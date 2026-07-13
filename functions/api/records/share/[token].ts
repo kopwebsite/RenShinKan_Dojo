@@ -13,7 +13,7 @@ export const onRequestGet: PagesFunction<StudentEnv> = async ({ params, env }) =
       WHERE st.token_hash = ? AND st.active = 1 AND (st.expires_at IS NULL OR st.expires_at > ?) AND s.active = 1 AND s.public_visible = 1 LIMIT 1`)
       .bind(hash, new Date().toISOString()).first<any>();
     if (!student) return jsonResponse({ error: "This shared record is unavailable." }, 404, headers);
-    return jsonResponse({ record: await publicStudentRecord(db, student, true) }, 200, headers);
+    return jsonResponse({ record: await publicStudentRecord(db, student) }, 200, headers);
   } catch {
     return jsonResponse({ error: "This shared record is unavailable." }, 404, headers);
   }

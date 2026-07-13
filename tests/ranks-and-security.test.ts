@@ -8,7 +8,7 @@ import {
   isSameOriginRequest,
   recordFailedAdminLoginAttempt,
 } from "../functions/_lib/auth";
-import { currentBangkokMonthKey, isMonthKey, namesLikelyMatch, recentMonthKeys } from "../functions/_lib/studentRecords";
+import { currentBangkokMonthKey, isMonthKey, namesLikelyMatch, normalizeInternationalPhone, recentMonthKeys } from "../functions/_lib/studentRecords";
 
 describe("official rank progression", () => {
   it("normalizes every supported rank through one ordered definition", () => {
@@ -48,6 +48,15 @@ describe("student and administrator security", () => {
     expect(months[0]).toBe(currentBangkokMonthKey());
     expect(new Set(months).size).toBe(12);
     expect(months.every(isMonthKey)).toBe(true);
+  });
+
+  it("normalizes local and international telephone formats against the selected calling code", () => {
+    expect(normalizeInternationalPhone("+66", "081 234 5678")).toBe("+66812345678");
+    expect(normalizeInternationalPhone("+1", "(206) 915-9115")).toBe("+12069159115");
+    expect(normalizeInternationalPhone("+39", "+39 06 6982")).toBe("+39066982");
+    expect(() => normalizeInternationalPhone("+66", "+1 206 915 9115")).toThrow("selected +66");
+    expect(() => normalizeInternationalPhone("+66", "call me")).toThrow("digits");
+    expect(() => normalizeInternationalPhone("66", "0812345678")).toThrow("calling code");
   });
 
   it("creates signed secure admin sessions and rejects tampering", async () => {

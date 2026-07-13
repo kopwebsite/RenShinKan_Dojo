@@ -4,6 +4,7 @@ import {
   auditStatement,
   enforceLookupRateLimit,
   namesLikelyMatch,
+  normalizeInternationalPhone,
   normalizeStudentId,
   normalizedRankOrError,
   requestIdentifier,
@@ -67,6 +68,9 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
     const age = ageOnDate(dateOfBirth, nowDate);
     if (age === null) return jsonResponse({ error: "Enter a valid date of birth." }, 400);
 
+    const telephoneCountry = text(body.phoneCountry, 80, true);
+    const telephoneCallingCode = text(body.phoneCallingCode, 8, true);
+    const telephone = normalizeInternationalPhone(telephoneCallingCode, body.phone);
     const answers: Record<string, string | number | boolean> = {
       aat_number: text(body.aatNumber, 40),
       date: now.slice(0, 10),
@@ -77,8 +81,9 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
       dob: dateOfBirth,
       age: age,
       permanent_address: text(body.permanentAddress, 500, true),
-      present_address: text(body.presentAddress, 500, true),
-      tel: text(body.phone, 80, true),
+      present_address: text(body.presentAddress, 500),
+      telephone_country: `${telephoneCountry} (${telephoneCallingCode})`,
+      tel: telephone,
       school: text(body.school, 160),
       class: text(body.classLevel, 80),
       office: text(body.office, 160),

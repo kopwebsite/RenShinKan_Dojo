@@ -29,9 +29,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
       const hourId = crypto.randomUUID();
       statements.push(
         db.prepare(`INSERT INTO training_hours
-          (id, student_id, entry_date, verified_hours, source, internal_note, created_at)
-          VALUES (?, ?, ?, ?, 'student_self_service_approved', ?, ?)`)
-          .bind(hourId, studentId, now.slice(0, 10), pending.submitted_hours, note || null, now),
+          (id, student_id, entry_date, verified_hours, source, internal_note, created_at, hour_request_id)
+          VALUES (?, ?, ?, ?, 'student_self_service_approved', ?, ?, ?)`)
+          .bind(hourId, studentId, now.slice(0, 10), pending.submitted_hours, note || null, now, pending.id),
         db.prepare("UPDATE students SET updated_at = ? WHERE id = ?").bind(now, studentId),
       );
     }

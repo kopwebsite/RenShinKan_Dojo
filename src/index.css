@@ -1763,6 +1763,15 @@ html.admin-route .admin-drawer { background: #fff; }.admin-drawer--workflow { wi
   object-position: center;
 }
 .admin-student-table--workflow { min-width: 890px; }
+.admin-select-box { position: relative; display: grid; width: 2.65rem; height: 2.65rem; place-items: center; cursor: pointer; }
+.admin-select-box input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.admin-select-box span { display: grid; width: 1.4rem; height: 1.4rem; place-items: center; border: 2px solid #7d8da3; border-radius: .28rem; background: #fff; transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease; }
+.admin-select-box input:checked + span { border-color: #174a86; background: #174a86; }
+.admin-select-box input:checked + span::after { content: ""; width: .65rem; height: .35rem; border-bottom: 2px solid #fff; border-left: 2px solid #fff; transform: translateY(-.08rem) rotate(-45deg); }
+.admin-select-box input:focus-visible + span { outline: 3px solid #93b9f4; outline-offset: 2px; }
+.admin-select-box:hover span { border-color: #174a86; box-shadow: 0 0 0 4px rgb(23 74 134 / .1); }
+.admin-record-entry-grid > .admin-workflow-card { display: flex; flex-direction: column; align-items: stretch; }
+.admin-record-entry-grid > .admin-workflow-card > .btn-primary { align-self: flex-start; margin-top: .9rem; }
 .admin-workspace-section { position: relative; margin-top: 1.25rem; color: #1f2937; }
 .admin-workspace-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; padding-block: 1.25rem; }
 .admin-workspace-heading h2 { margin-top: .3rem; font-size: clamp(1.7rem, 3.5vw, 2.5rem); }

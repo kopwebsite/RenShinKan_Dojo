@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle, Archive, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Database, Eye, GraduationCap,
-  History, LoaderCircle, Lock, LogOut, Plus, ReceiptText, RotateCcw, Save, Search, ShieldCheck, UserRound, Users, X,
+  History, LoaderCircle, Lock, LogOut, Plus, ReceiptText, RotateCcw, Save, Search, ShieldCheck, Trash2, UserRound, Users, X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { RANKS } from "../../shared/ranks";
@@ -30,7 +30,8 @@ type ListResponse = {
   students: StudentSummary[]; pagination: { page: number; pageSize: number; total: number; totalPages: number };
   summary: { total: number; active: number; archived: number; pending_profiles: number }; ranks: string[]; suggestedStudentId: string;
 };
-type BulkDraft = { type: "hours" | "promotion"; hours: string; levels: string; location: string; preview: boolean };
+type BulkDraft = { type: "hours" | "approve_hours" | "promotion"; hours: string; levels: string; location: string; preview: boolean };
+type StudentAction = { student: StudentSummary; action: "archive" | "restore" | "delete"; confirmationText: string };
 
 const EMPTY_PAGE = { page: 1, pageSize: 20, total: 0, totalPages: 1 };
 const EMPTY_SUMMARY = { total: 0, active: 0, archived: 0, pending_profiles: 0 };
@@ -90,11 +91,12 @@ export function AdminStudentsPage() {
   const [rowBusy, setRowBusy] = useState("");
   const [bulk, setBulk] = useState<BulkDraft | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [studentAction, setStudentAction] = useState<{ student: StudentSummary; action: "archive" | "restore" } | null>(null);
+  const [studentAction, setStudentAction] = useState<StudentAction | null>(null);
   const skipHoursBlur = useRef(false);
 
   const filtersActive = Boolean(query || rank || profileStatus || examinationStatus || paymentStatus || status !== "active");
   const selectedRows = useMemo(() => students.filter((student) => selected.has(student.id)), [students, selected]);
+  const selectedPendingRows = useMemo(() => selectedRows.filter((student) => Number(student.pending_hours) > 0), [selectedRows]);
 
   async function load(targetPage = page) {
     setLoading(true); setError("");
@@ -174,12 +176,19 @@ export function AdminStudentsPage() {
     setRowBusy(student.id);
     try {
       await api(`/api/admin/students/${student.id}`, {
-        method: action === "archive" ? "DELETE" : "PATCH",
-        body: JSON.stringify({ action, confirmed: true, studentId: student.public_student_id }),
+        method: action === "restore" ? "PATCH" : "DELETE",
+        body: JSON.stringify({
+          action: action === "delete" ? "delete_permanently" : action,
+          confirmed: true,
+          studentId: student.public_student_id,
+          confirmationText: studentAction.confirmationText,
+        }),
       });
       setNotice(action === "archive"
         ? `${student.display_name} (${student.public_student_id}) was archived. Exam, payment, and contribution history remains intact.`
-        : `${student.display_name} (${student.public_student_id}) was restored.`);
+        : action === "restore"
+          ? `${student.display_name} (${student.public_student_id}) was restored.`
+          : `${student.display_name} (${student.public_student_id}) and all connected student data were permanently deleted.`);
       setStudentAction(null);
       await load();
     } catch (reason) { setError(reason instanceof Error ? reason.message : `Could not ${action} the student.`); }
@@ -190,11 +199,17 @@ export function AdminStudentsPage() {
     if (!bulk || !bulk.preview) return;
     setLoading(true); setError("");
     try {
+      const targets = bulk.type === "approve_hours" ? selectedPendingRows : selectedRows;
       const body = bulk.type === "hours"
-        ? { action: "add_hours", studentIds: [...selected], hours: Number(bulk.hours) }
-        : { action: "mass_promotion", studentIds: [...selected], levels: Number(bulk.levels), location: bulk.location };
-      await api("/api/admin/students/bulk", { method: "POST", body: JSON.stringify(body) });
-      setNotice(`${selected.size} student${selected.size === 1 ? "" : "s"} updated in one audited operation.`); setBulk(null); setSelected(new Set()); await load();
+        ? { action: "add_hours", studentIds: targets.map((student) => student.id), hours: Number(bulk.hours) }
+        : bulk.type === "approve_hours"
+          ? { action: "approve_pending_hours", studentIds: targets.map((student) => student.id) }
+          : { action: "mass_promotion", studentIds: targets.map((student) => student.id), levels: Number(bulk.levels), location: bulk.location };
+      const result = await api<{ count: number; requestCount?: number; hoursApproved?: number }>("/api/admin/students/bulk", { method: "POST", body: JSON.stringify(body) });
+      setNotice(bulk.type === "approve_hours"
+        ? `${result.requestCount || 0} pending request${result.requestCount === 1 ? "" : "s"} approved for ${result.count} student${result.count === 1 ? "" : "s"}; ${result.hoursApproved || 0} hours added in one audited operation.`
+        : `${result.count} student${result.count === 1 ? "" : "s"} updated in one audited operation.`);
+      setBulk(null); setSelected(new Set()); await load();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "The bulk operation failed without applying a partial batch."); }
     finally { setLoading(false); }
   }
@@ -224,16 +239,16 @@ export function AdminStudentsPage() {
       <button type="button" className="btn-secondary admin-clear" disabled={!filtersActive} onClick={clearFilters}>{filtersActive ? "Reset active filters" : "No active filters"}</button>
     </form>
 
-    {selected.size ? <aside className="admin-bulk-toolbar"><strong><Users size={17} /> {selected.size} selected</strong><button className="btn-secondary" onClick={() => setBulk({ type: "hours", hours: "", levels: "", location: "", preview: false })}><Clock3 size={16} /> Add hours</button><button className="btn-secondary" onClick={() => setBulk({ type: "promotion", hours: "", levels: "1", location: "", preview: false })}><GraduationCap size={16} /> Mass promotion</button><button className="text-link" onClick={() => setSelected(new Set())}>Clear selection</button></aside> : null}
+    {selected.size ? <aside className="admin-bulk-toolbar"><strong><Users size={17} /> {selected.size} selected</strong><button className="btn-secondary" onClick={() => setBulk({ type: "hours", hours: "", levels: "", location: "", preview: false })}><Clock3 size={16} /> Add hours</button><button className="btn-secondary" disabled={!selectedPendingRows.length} onClick={() => setBulk({ type: "approve_hours", hours: "", levels: "", location: "", preview: true })}><CheckCircle2 size={16} /> Approve pending hours{selectedPendingRows.length ? ` (${selectedPendingRows.length})` : ""}</button><button className="btn-secondary" onClick={() => setBulk({ type: "promotion", hours: "", levels: "1", location: "", preview: false })}><GraduationCap size={16} /> Mass promotion</button><button className="text-link" onClick={() => setSelected(new Set())}>Clear selection</button></aside> : null}
 
     <section className="admin-table-section" aria-busy={loading}><div className="admin-table-meta"><p>{pagination.total} student{pagination.total === 1 ? "" : "s"}{filtersActive ? " · filters active" : ""}</p>{loading ? <span><LoaderCircle className="spin" size={15} /> Loading</span> : null}</div><div className="admin-table-scroll"><table className="admin-student-table admin-student-table--workflow"><thead><tr>
-      <th><input type="checkbox" aria-label="Select all visible students" checked={students.length > 0 && students.every((student) => selected.has(student.id))} onChange={(event) => setSelected(event.target.checked ? new Set(students.map((student) => student.id)) : new Set())} /></th>
+      <th><label className="admin-select-box"><input type="checkbox" aria-label="Select all visible students" checked={students.length > 0 && students.every((student) => selected.has(student.id))} onChange={(event) => setSelected(event.target.checked ? new Set(students.map((student) => student.id)) : new Set())} /><span aria-hidden="true" /></label></th>
       <th>Student</th><th>ID</th><th>Current kyu</th><th>Status</th><th>Updated</th><th>Actions</th>
     </tr></thead><tbody>{students.map((student) => <tr key={student.id} className={selected.has(student.id) ? "is-selected" : ""}>
-      <td><input type="checkbox" aria-label={`Select ${student.display_name}`} checked={selected.has(student.id)} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(student.id); else next.delete(student.id); return next; })} /></td>
+      <td><label className="admin-select-box"><input type="checkbox" aria-label={`Select ${student.display_name}`} checked={selected.has(student.id)} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(student.id); else next.delete(student.id); return next; })} /><span aria-hidden="true" /></label></td>
       <th><span className="admin-student-identity">{student.profile_image_url ? <img src={student.profile_image_url} alt="" /> : <span aria-hidden="true"><UserRound size={18} /></span>}<span>{student.display_name}{student.pending_hours ? <small>{student.pending_hours} hours request pending</small> : null}</span></span></th><td><code>{student.public_student_id}</code></td>
       <td><select className="admin-inline-rank" aria-label={`Current rank for ${student.display_name}`} value={student.current_belt} disabled={rowBusy === student.id} onWheel={(event) => event.currentTarget.blur()} onChange={(event) => void saveRank(student, event.target.value)}>{RANKS.map((item) => <option key={item}>{item}</option>)}</select>{rowBusy === student.id ? <LoaderCircle className="spin admin-inline-spinner" size={13} /> : null}</td>
-      <td><Status value={student.active ? "active" : "archived"} />{student.profile_status !== "approved" ? <Status value={student.profile_status} /> : null}</td><td>{formatDate(student.updated_at)}</td><td><div className="admin-row-actions"><button onClick={() => void openStudent(student.id)}><Eye size={14} /> View / edit</button>{student.active ? <button onClick={() => setStudentAction({ student, action: "archive" })}><Archive size={14} /> Archive</button> : <button onClick={() => setStudentAction({ student, action: "restore" })}><RotateCcw size={14} /> Restore</button>}</div></td>
+      <td><Status value={student.active ? "active" : "archived"} />{student.profile_status !== "approved" ? <Status value={student.profile_status} /> : null}</td><td>{formatDate(student.updated_at)}</td><td><div className="admin-row-actions"><button onClick={() => void openStudent(student.id)}><Eye size={14} /> View / edit</button>{student.active ? <button onClick={() => setStudentAction({ student, action: "archive", confirmationText: "" })}><Archive size={14} /> Archive</button> : <><button onClick={() => setStudentAction({ student, action: "restore", confirmationText: "" })}><RotateCcw size={14} /> Restore</button><button className="is-danger" onClick={() => setStudentAction({ student, action: "delete", confirmationText: "" })}><Trash2 size={14} /> Delete</button></>}</div></td>
     </tr>)}</tbody></table></div>{!loading && students.length === 0 ? <div className="admin-empty"><UserRound size={32} /><h2>No students found</h2><p>Try resetting the active filters or add a new student.</p></div> : null}
       <nav className="admin-pagination"><button className="btn-secondary" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}><ChevronLeft size={16} /> Previous</button><span>Page {pagination.page} of {pagination.totalPages}</span><button className="btn-secondary" disabled={page >= pagination.totalPages} onClick={() => setPage((value) => value + 1)}>Next <ChevronRight size={16} /></button></nav>
     </section>
@@ -243,16 +258,29 @@ export function AdminStudentsPage() {
     {section === "contributions" ? <AdminMonthlyContributions report={(message, isError = false) => isError ? setError(message) : setNotice(message)} /> : null}
 
     {(detailLoading || detail) ? <StudentDrawer detail={detail} loading={detailLoading} close={() => setDetail(null)} refresh={async () => { if (detail) await openStudent(detail.student.id); await load(); }} report={(message, isError = false) => isError ? setError(message) : setNotice(message)} /> : null}
-    {bulk ? <BulkModal bulk={bulk} setBulk={setBulk} students={selectedRows} close={() => setBulk(null)} confirm={() => void runBulk()} busy={loading} /> : null}
+    {bulk ? <BulkModal bulk={bulk} setBulk={setBulk} students={bulk.type === "approve_hours" ? selectedPendingRows : selectedRows} close={() => setBulk(null)} confirm={() => void runBulk()} busy={loading} /> : null}
     {createOpen ? <CreateStudentModal suggestedId={suggestedId} close={() => setCreateOpen(false)} complete={async (message) => { setCreateOpen(false); setNotice(message); await load(1); }} report={setError} /> : null}
-    {studentAction ? <div className="admin-confirm-backdrop"><section className="admin-confirm" role="alertdialog" aria-modal="true" aria-labelledby="student-action-title"><Archive /><h2 id="student-action-title">{studentAction.action === "archive" ? "Archive" : "Restore"} {studentAction.student.display_name}?</h2><p><strong>{studentAction.student.display_name}</strong><br />Student ID <code>{studentAction.student.public_student_id}</code></p><p>{studentAction.action === "archive" ? "The student will leave the active list. Exam, training, audit, and contribution history will remain available." : "The student will return to the active list and their approved visibility setting will be restored."}</p><div><button className="btn-secondary" onClick={() => setStudentAction(null)}>Cancel</button><button className={`btn-primary ${studentAction.action === "archive" ? "is-danger" : ""}`} disabled={rowBusy === studentAction.student.id} onClick={() => void runStudentAction()}>{studentAction.action === "archive" ? "Confirm archive" : "Confirm restore"}</button></div></section></div> : null}
+    {studentAction ? <div className="admin-confirm-backdrop"><section className="admin-confirm" role="alertdialog" aria-modal="true" aria-labelledby="student-action-title">
+      {studentAction.action === "delete" ? <Trash2 /> : studentAction.action === "restore" ? <RotateCcw /> : <Archive />}
+      <h2 id="student-action-title">{studentAction.action === "archive" ? "Archive" : studentAction.action === "restore" ? "Restore" : "Permanently delete"} {studentAction.student.display_name}?</h2>
+      <p><strong>{studentAction.student.display_name}</strong><br />Student ID <code>{studentAction.student.public_student_id}</code></p>
+      <p>{studentAction.action === "archive"
+        ? "The student will leave the active list. Exam, training, audit, and contribution history will remain available."
+        : studentAction.action === "restore"
+          ? "The student will return to the active list and their approved visibility setting will be restored."
+          : "This cannot be undone. The student record, exams, training hours, requests, contributions, QR access, and profile media will be deleted. A minimal deletion audit entry will remain."}</p>
+      {studentAction.action === "delete" ? <label className="admin-confirm-phrase">Type <strong>DELETE {studentAction.student.public_student_id}</strong> to confirm<input value={studentAction.confirmationText} onChange={(event) => setStudentAction({ ...studentAction, confirmationText: event.target.value })} autoComplete="off" autoFocus /></label> : null}
+      <div><button className="btn-secondary" onClick={() => setStudentAction(null)}>Cancel</button><button className={`btn-primary ${studentAction.action !== "restore" ? "is-danger" : ""}`} disabled={rowBusy === studentAction.student.id || (studentAction.action === "delete" && studentAction.confirmationText.trim() !== `DELETE ${studentAction.student.public_student_id}`)} onClick={() => void runStudentAction()}>{studentAction.action === "archive" ? "Confirm archive" : studentAction.action === "restore" ? "Confirm restore" : "Delete permanently"}</button></div>
+    </section></div> : null}
   </section>;
 }
 
 function BulkModal({ bulk, setBulk, students, close, confirm, busy }: { bulk: BulkDraft; setBulk: (value: BulkDraft) => void; students: StudentSummary[]; close: () => void; confirm: () => void; busy: boolean }) {
   const hours = Number(bulk.hours); const levels = Number(bulk.levels);
-  const valid = bulk.type === "hours" ? Number.isFinite(hours) && hours > 0 : Number.isInteger(levels) && levels > 0 && Boolean(bulk.location.trim());
-  return <div className="admin-confirm-backdrop"><section className="admin-bulk-modal"><header><div><p className="eyebrow">Bulk action</p><h2>{bulk.type === "hours" ? "Add training hours" : "Record mass promotion"}</h2></div><button onClick={close}><X /></button></header>{!bulk.preview ? <div className="admin-bulk-form">{bulk.type === "hours" ? <label>Hours to add to each student<input type="number" min="0.25" step="0.25" value={bulk.hours} onChange={(event) => setBulk({ ...bulk, hours: event.target.value })} autoFocus /></label> : <><label>Examination location<input value={bulk.location} onChange={(event) => setBulk({ ...bulk, location: event.target.value })} autoFocus /></label><label>Rank levels promoted<input type="number" min="1" step="1" value={bulk.levels} onChange={(event) => setBulk({ ...bulk, levels: event.target.value })} /></label></>}<p>{students.length} selected student{students.length === 1 ? "" : "s"}</p><footer><button className="btn-secondary" onClick={close}>Cancel</button><button className="btn-primary" disabled={!valid} onClick={() => setBulk({ ...bulk, preview: true })}>Review changes</button></footer></div> : <div className="admin-bulk-preview"><p>Confirm this single atomic operation. Every student receives an individual audit entry sharing one bulk-operation ID.</p><table><thead><tr><th>Student</th><th>Current</th><th>Change</th><th>Result</th></tr></thead><tbody>{students.map((student) => <tr key={student.id}><td>{student.display_name}</td><td>{bulk.type === "hours" ? `${student.total_hours} hr` : student.current_belt}</td><td>{bulk.type === "hours" ? `+${hours} hr` : `+${levels} level${levels === 1 ? "" : "s"}`}</td><td>{bulk.type === "hours" ? `${Number(student.total_hours) + hours} hr` : "Validated by official progression on save"}</td></tr>)}</tbody></table><footer><button className="btn-secondary" onClick={() => setBulk({ ...bulk, preview: false })}>Back</button><button className="btn-primary" disabled={busy} onClick={confirm}>{busy ? <LoaderCircle className="spin" size={16} /> : <Check size={16} />} Confirm {students.length} updates</button></footer></div>}</section></div>;
+  const valid = bulk.type === "approve_hours" ? students.length > 0 : bulk.type === "hours" ? Number.isFinite(hours) && hours > 0 : Number.isInteger(levels) && levels > 0 && Boolean(bulk.location.trim());
+  const preview = bulk.type === "approve_hours" || bulk.preview;
+  const title = bulk.type === "hours" ? "Add training hours" : bulk.type === "approve_hours" ? "Approve pending training hours" : "Record mass promotion";
+  return <div className="admin-confirm-backdrop"><section className="admin-bulk-modal"><header><div><p className="eyebrow">Bulk action</p><h2>{title}</h2></div><button onClick={close}><X /></button></header>{!preview ? <div className="admin-bulk-form">{bulk.type === "hours" ? <label>Hours to add to each student<input type="number" min="0.25" step="0.25" value={bulk.hours} onChange={(event) => setBulk({ ...bulk, hours: event.target.value })} autoFocus /></label> : <><label>Examination location<input value={bulk.location} onChange={(event) => setBulk({ ...bulk, location: event.target.value })} autoFocus /></label><label>Rank levels promoted<input type="number" min="1" step="1" value={bulk.levels} onChange={(event) => setBulk({ ...bulk, levels: event.target.value })} /></label></>}<p>{students.length} selected student{students.length === 1 ? "" : "s"}</p><footer><button className="btn-secondary" onClick={close}>Cancel</button><button className="btn-primary" disabled={!valid} onClick={() => setBulk({ ...bulk, preview: true })}>Review changes</button></footer></div> : <div className="admin-bulk-preview"><p>{bulk.type === "approve_hours" ? "Every pending request for these students will be approved, added once to verified training hours, and recorded with an individual audit entry." : "Confirm this single atomic operation. Every student receives an individual audit entry sharing one bulk-operation ID."}</p>{bulk.type === "approve_hours" ? <table><thead><tr><th>Student</th><th>Current total</th><th>Pending requests</th><th>Result</th></tr></thead><tbody>{students.map((student) => <tr key={student.id}><td>{student.display_name}</td><td>{student.total_hours} hr</td><td>{student.pending_hours}</td><td>Approve and add submitted hours</td></tr>)}</tbody></table> : <table><thead><tr><th>Student</th><th>Current</th><th>Change</th><th>Result</th></tr></thead><tbody>{students.map((student) => <tr key={student.id}><td>{student.display_name}</td><td>{bulk.type === "hours" ? `${student.total_hours} hr` : student.current_belt}</td><td>{bulk.type === "hours" ? `+${hours} hr` : `+${levels} level${levels === 1 ? "" : "s"}`}</td><td>{bulk.type === "hours" ? `${Number(student.total_hours) + hours} hr` : "Validated by official progression on save"}</td></tr>)}</tbody></table>}<footer>{bulk.type !== "approve_hours" ? <button className="btn-secondary" onClick={() => setBulk({ ...bulk, preview: false })}>Back</button> : <button className="btn-secondary" onClick={close}>Cancel</button>}<button className="btn-primary" disabled={busy || !valid} onClick={confirm}>{busy ? <LoaderCircle className="spin" size={16} /> : <Check size={16} />} Confirm {students.length} student{students.length === 1 ? "" : "s"}</button></footer></div>}</section></div>;
 }
 
 function CreateStudentModal({ suggestedId, close, complete, report }: { suggestedId: string; close: () => void; complete: (message: string) => void; report: (message: string) => void }) {

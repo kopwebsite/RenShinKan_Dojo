@@ -26,7 +26,7 @@ export type StudentEnv = {
 };
 
 export const DEFAULT_DOJO = "RenShinKan Dojo";
-export const DEFAULT_SHARE_FIELDS = { photo: false, trainingHours: true, examinations: true, lastUpdated: true };
+export const DEFAULT_SHARE_FIELDS = { photo: true, trainingHours: true, examinations: true, lastUpdated: true };
 const STUDENT_ID_PATTERN = /^RSK-\d{4,}$/;
 const ACCESS_SESSION_MINUTES = 20;
 const encoder = new TextEncoder();
@@ -97,6 +97,24 @@ export function namesLikelyMatch(submitted: string, recorded: string) {
   if (Math.min(left.length, right.length) >= 6 && (left.includes(right) || right.includes(left))) return true;
   const allowance = Math.max(2, Math.ceil(Math.max(left.length, right.length) * 0.12));
   return editDistance(left, right) <= allowance;
+}
+
+export function normalizeInternationalPhone(callingCodeValue: unknown, phoneValue: unknown) {
+  const callingCode = typeof callingCodeValue === "string" ? callingCodeValue.trim().replace(/\s+/g, "") : "";
+  const phone = typeof phoneValue === "string" ? phoneValue.normalize("NFKC").trim() : "";
+  if (!/^\+[1-9]\d{0,3}$/.test(callingCode)) throw new Error("Choose a valid telephone country and calling code.");
+  if (!phone || !/^[\d\s()+.\-]+$/.test(phone)) throw new Error("Enter a telephone number using digits, spaces, parentheses, dots, or hyphens.");
+
+  const digits = phone.replace(/\D/g, "");
+  let international = "";
+  if (phone.startsWith("+")) {
+    international = `+${digits}`;
+    if (!international.startsWith(callingCode)) throw new Error(`The telephone number must use the selected ${callingCode} calling code.`);
+  } else {
+    international = `${callingCode}${digits.replace(/^0/, "")}`;
+  }
+  if (!/^\+[1-9]\d{7,14}$/.test(international)) throw new Error("Enter a valid international telephone number containing 8 to 15 digits.");
+  return international;
 }
 
 export function isMonthKey(value: string) {
@@ -288,7 +306,7 @@ function safeVisibility(value: string) {
   try { return JSON.parse(value) as Record<string, boolean>; } catch { return {}; }
 }
 
-export async function publicStudentRecord(db: D1Database, student: StudentRow, shared = false) {
+export async function publicStudentRecord(db: D1Database, student: StudentRow) {
   const visibility = safeVisibility(student.share_fields);
   const exams = visibility.examinations !== false
     ? (await db.prepare(`SELECT examination_date, belt_awarded, belt_color, rank, examiner, public_notes,
@@ -305,7 +323,7 @@ export async function publicStudentRecord(db: D1Database, student: StudentRow, s
     examinations: exams,
     dojoName: student.dojo_name,
     lastUpdated: visibility.lastUpdated === false ? null : student.updated_at,
-    profileImage: student.profile_image_consent && (!shared || visibility.photo === true) ? student.profile_image_url : null,
+    profileImage: student.profile_image_consent ? student.profile_image_url : null,
     verified: true,
   };
 }

@@ -173,17 +173,74 @@ export const onRequestDelete: PagesFunction<Env> = async ({ request, env, params
   if (!(await allowed(request, env))) return jsonResponse({ error: "Unauthorized" }, 401);
   const db = requireStudentDb(env);
   const id = String(params.id);
-  const existing = await db.prepare("SELECT public_student_id, display_name, active, public_visible, archived_at FROM students WHERE id = ?").bind(id)
-    .first<{ public_student_id: string; display_name: string; active: number; public_visible: number; archived_at: string | null }>();
+  const existing = await db.prepare(`SELECT public_student_id, display_name, active, public_visible, archived_at,
+    profile_image_url, pending_profile_image_key FROM students WHERE id = ?`).bind(id)
+    .first<{ public_student_id: string; display_name: string; active: number; public_visible: number; archived_at: string | null; profile_image_url: string | null; pending_profile_image_key: string | null }>();
   if (!existing) return jsonResponse({ error: "Student not found" }, 404);
-  const body = await request.json<{ confirmed?: unknown; studentId?: unknown }>().catch(() => ({}));
+  const body = await request.json<{ action?: unknown; confirmed?: unknown; studentId?: unknown; confirmationText?: unknown }>().catch(() => ({}));
+  const requestId = requestIdentifier(request);
+  const now = new Date().toISOString();
+
+  if (body.action === "delete_permanently") {
+    const expectedConfirmation = `DELETE ${existing.public_student_id}`;
+    if (existing.active || !existing.archived_at) return jsonResponse({ error: "Archive the student before permanently deleting the record." }, 409);
+    if (body.confirmed !== true || normalizeStudentId(String(body.studentId || "")) !== existing.public_student_id || String(body.confirmationText || "").trim() !== expectedConfirmation) {
+      return jsonResponse({ error: `Type ${expectedConfirmation} to confirm permanent deletion.` }, 400);
+    }
+    await db.batch([
+      db.prepare(`DELETE FROM contribution_status_history WHERE contribution_id IN
+        (SELECT id FROM monthly_contributions WHERE student_id = ?)` ).bind(id),
+      db.prepare("DELETE FROM monthly_contributions WHERE student_id = ?").bind(id),
+      db.prepare("DELETE FROM contribution_period_students WHERE student_id = ?").bind(id),
+      db.prepare(`DELETE FROM exam_cycle_status_history WHERE cycle_status_id IN
+        (SELECT id FROM exam_cycle_student_status WHERE student_id = ?)` ).bind(id),
+      db.prepare("DELETE FROM exam_cycle_student_status WHERE student_id = ?").bind(id),
+      db.prepare(`DELETE FROM application_status_history WHERE application_id IN
+        (SELECT id FROM examination_applications WHERE student_id = ?)` ).bind(id),
+      db.prepare("DELETE FROM examination_applications WHERE student_id = ?").bind(id),
+      db.prepare("DELETE FROM training_hour_requests WHERE student_id = ?").bind(id),
+      db.prepare("DELETE FROM audit_log WHERE student_id = ? OR (entity_type = 'student' AND entity_id = ?)").bind(id, id),
+      db.prepare("DELETE FROM operation_failures WHERE student_id = ?").bind(id),
+      db.prepare("DELETE FROM students WHERE id = ? AND active = 0 AND archived_at IS NOT NULL").bind(id),
+      db.prepare(`UPDATE contribution_periods SET active_student_count_snapshot =
+        (SELECT COUNT(*) FROM contribution_period_students cps
+         WHERE cps.month_key = contribution_periods.month_key AND cps.active_at_period_start = 1)`),
+      auditStatement(db, {
+        actorType: "administrator", actorIdentifier: "primary_admin", action: "student_permanently_deleted", entityType: "student", entityId: id,
+        studentPublicId: existing.public_student_id, studentNameSnapshot: existing.display_name,
+        previousValues: { archived: true }, newValues: { permanentlyDeleted: true },
+        source: "admin_student_permanent_delete", requestId,
+        summary: `Permanently deleted ${existing.public_student_id}: ${existing.display_name}`, createdAt: now,
+      }),
+    ]);
+
+    const mediaKeys = Array.from(new Set([profileKey(existing.profile_image_url), existing.pending_profile_image_key].filter((value): value is string => Boolean(value))));
+    let mediaCleanupPending = false;
+    if (env.MEDIA_BUCKET && mediaKeys.length) {
+      try {
+        await env.MEDIA_BUCKET.delete(mediaKeys.length === 1 ? mediaKeys[0] : mediaKeys);
+      } catch (error) {
+        mediaCleanupPending = true;
+        const message = error instanceof Error ? error.message : "Profile media cleanup failed after student deletion.";
+        console.error(JSON.stringify({ message: "student deletion media cleanup failed", requestId, studentPublicId: existing.public_student_id, error: message }));
+        try {
+          await db.prepare(`INSERT INTO operation_failures
+            (id, action, entity_type, entity_id, request_id, error_summary, created_at)
+            VALUES (?, 'student_delete_media_cleanup', 'student', ?, ?, ?, ?)`)
+            .bind(crypto.randomUUID(), id, requestId, message.slice(0, 300), now).run();
+        } catch (loggingError) {
+          console.error(JSON.stringify({ message: "student deletion cleanup failure could not be recorded", requestId, error: loggingError instanceof Error ? loggingError.message : String(loggingError) }));
+        }
+      }
+    }
+    return jsonResponse({ ok: true, permanentlyDeleted: true, mediaCleanupPending });
+  }
+
   if (body.confirmed !== true || normalizeStudentId(String(body.studentId || "")) !== existing.public_student_id) {
     return jsonResponse({ error: `Confirm the archive action with Student ID ${existing.public_student_id}.` }, 400);
   }
   if (!existing.active && existing.archived_at) return jsonResponse({ ok: true, archived: true });
   if (!existing.active) return jsonResponse({ error: "Only an active student can be archived." }, 409);
-  const requestId = requestIdentifier(request);
-  const now = new Date().toISOString();
   await db.batch([
     db.prepare(`UPDATE students SET active = 0, public_visible_before_archive = public_visible,
       public_visible = 0, archived_at = ?, archived_by = 'primary_admin', updated_at = ? WHERE id = ? AND active = 1`)

@@ -71,9 +71,9 @@ The current admin UI exposes:
 
 ## Student records
 
-Structured student data is stored in the `renshinkan-student-records` D1 database through the `STUDENT_DB` Pages Functions binding. Apply the checked-in SQL migrations before using `/admin/students`. The public `/student-records` form requires an exact normalized student name plus the current Student ID. Legacy private-code hashes remain accepted for records created before migration `0002`, so existing access is not lost. Shared QR links contain a 256-bit random token; only its SHA-256 hash is stored.
+Structured student data is stored in the `renshinkan-student-records` D1 database through the `STUDENT_DB` Pages Functions binding. Apply the checked-in SQL migrations before using `/admin/students`. The public `/student-records` form requires a normalized student name plus the current Student ID and Cloudflare verification; successful lookup creates a short-lived capability for student submissions. Shared QR links contain a 256-bit random token; only its SHA-256 hash is stored.
 
-`STUDENT_LOOKUP_PEPPER` may be configured as a dedicated Pages secret. If it is omitted, the existing `SESSION_SECRET` is used as the HMAC key with separate purpose prefixes. Never rotate either key without resetting existing lookup codes.
+`STUDENT_LOOKUP_PEPPER` may be configured as a dedicated Pages secret. If it is omitted, the existing `SESSION_SECRET` is used as the HMAC key with separate purpose prefixes. Never rotate either key without rebuilding the derived student-name verification hashes.
 
 Private lookup and share routes are excluded from the sitemap and return `noindex,nofollow`. Do not add them to public navigation beyond the generic lookup entry.
 

@@ -5,43 +5,41 @@ import {
   ensureOwnerShareUrl,
   genericLookupFailure,
   issueStudentAccessSession,
+  namesLikelyMatch,
   normalizeStudentId,
   publicStudentRecord,
   requestIdentifier,
   requireStudentDb,
-  studentCredentialHashes,
   type StudentEnv,
   type StudentRow,
   verifyTurnstile,
 } from "../../_lib/studentRecords";
 
 type Env = StudentEnv;
-type Payload = { name?: unknown; studentId?: unknown; code?: unknown; turnstileToken?: unknown };
+type Payload = { name?: unknown; studentId?: unknown; turnstileToken?: unknown };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
     if (!(await enforceLookupRateLimit(request, env))) return genericLookupFailure(429);
     const payload = await request.json<Payload>();
     const name = typeof payload.name === "string" ? payload.name.trim() : "";
-    const studentId = normalizeStudentId(typeof payload.studentId === "string" ? payload.studentId : typeof payload.code === "string" ? payload.code : "");
+    const studentId = normalizeStudentId(typeof payload.studentId === "string" ? payload.studentId : "");
     const token = typeof payload.turnstileToken === "string" ? payload.turnstileToken : "";
     if (!name || name.length > 120 || studentId.length < 3 || studentId.length > 80) return genericLookupFailure();
     if (!(await verifyTurnstile(request, env, token))) return genericLookupFailure();
-    const { nameHash, codeHash } = await studentCredentialHashes(env, name, studentId);
     const db = requireStudentDb(env);
     const student = await db.prepare(`SELECT id, public_student_id, display_name, current_belt, belt_color,
       profile_image_url, profile_image_consent, public_visible, active, profile_status, share_fields, dojo_name,
-      training_hours_adjustment, updated_at, student_pin_hash
-      FROM students WHERE name_verification_hash = ? AND (UPPER(public_student_id) = ? OR lookup_code_hash = ?)
+      training_hours_adjustment, updated_at
+      FROM students WHERE UPPER(public_student_id) = ?
       AND active = 1 AND public_visible = 1 AND profile_status = 'approved' LIMIT 1`)
-      .bind(nameHash, studentId, codeHash).first<StudentRow & { student_pin_hash: string | null }>();
-    if (!student) return genericLookupFailure();
+      .bind(studentId).first<StudentRow>();
+    if (!student || !namesLikelyMatch(name, student.display_name)) return genericLookupFailure();
     const requestId = requestIdentifier(request);
-    const selfServiceAvailable = Boolean(student.student_pin_hash);
     const [record, share, accessToken] = await Promise.all([
       publicStudentRecord(db, student),
       ensureOwnerShareUrl(db, env, student.id, request),
-      selfServiceAvailable ? issueStudentAccessSession(db, student.id, requestId) : Promise.resolve(null),
+      issueStudentAccessSession(db, student.id, requestId),
     ]);
     if (share.created) {
       await audit(db, {
@@ -51,7 +49,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       });
     }
     return jsonResponse(
-      { record, shareUrl: share.url, accessToken, selfServiceAvailable },
+      { record, shareUrl: share.url, accessToken },
       200,
       { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" },
     );

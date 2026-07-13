@@ -28,8 +28,6 @@ export type StudentEnv = {
 export const DEFAULT_DOJO = "RenShinKan Dojo";
 export const DEFAULT_SHARE_FIELDS = { photo: false, trainingHours: true, examinations: true, lastUpdated: true };
 const STUDENT_ID_PATTERN = /^RSK-\d{4,}$/;
-const PIN_PATTERN = /^\d{6,12}$/;
-const PIN_ITERATIONS = 100_000;
 const ACCESS_SESSION_MINUTES = 20;
 const encoder = new TextEncoder();
 
@@ -53,13 +51,6 @@ function base64UrlToBytes(value: string) {
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }
 
-function constantTimeEqual(a: Uint8Array, b: Uint8Array) {
-  const max = Math.max(a.length, b.length);
-  let result = a.length ^ b.length;
-  for (let index = 0; index < max; index += 1) result |= (a[index] || 0) ^ (b[index] || 0);
-  return result === 0;
-}
-
 export function randomToken(byteLength = 32) {
   return bytesToBase64Url(crypto.getRandomValues(new Uint8Array(byteLength)));
 }
@@ -71,6 +62,65 @@ export function requestIdentifier(request: Request) {
 
 export function normalizeVerifiedName(value: string) {
   return value.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("und");
+}
+
+function compactVerifiedName(value: string) {
+  return normalizeVerifiedName(value).replace(/[\p{P}\p{S}\s]+/gu, "");
+}
+
+function editDistance(left: string, right: string) {
+  if (left === right) return 0;
+  if (!left) return [...right].length;
+  if (!right) return [...left].length;
+  const a = [...left];
+  const b = [...right];
+  let previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  for (let row = 0; row < a.length; row += 1) {
+    const current = [row + 1];
+    for (let column = 0; column < b.length; column += 1) {
+      current[column + 1] = Math.min(
+        current[column] + 1,
+        previous[column + 1] + 1,
+        previous[column] + (a[row] === b[column] ? 0 : 1),
+      );
+    }
+    previous = current;
+  }
+  return previous[b.length];
+}
+
+export function namesLikelyMatch(submitted: string, recorded: string) {
+  const left = compactVerifiedName(submitted);
+  const right = compactVerifiedName(recorded);
+  if (!left || !right) return false;
+  if (left === right) return true;
+  if (Math.min(left.length, right.length) >= 6 && (left.includes(right) || right.includes(left))) return true;
+  const allowance = Math.max(2, Math.ceil(Math.max(left.length, right.length) * 0.12));
+  return editDistance(left, right) <= allowance;
+}
+
+export function isMonthKey(value: string) {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) return false;
+  const [year] = value.split("-").map(Number);
+  return year >= 2000 && year <= 2200;
+}
+
+export function currentBangkokMonthKey(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+  }).formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  if (!year || !month) throw new Error("The current contribution month could not be determined.");
+  return `${year}-${month}`;
+}
+
+export function recentMonthKeys(count = 12, from = currentBangkokMonthKey()) {
+  const [year, month] = from.split("-").map(Number);
+  return Array.from({ length: Math.max(1, Math.min(24, count)) }, (_, index) =>
+    new Date(Date.UTC(year, month - 1 - index, 1)).toISOString().slice(0, 7));
 }
 
 export async function hmacHex(secret: string, value: string) {
@@ -88,12 +138,9 @@ function studentSecret(env: StudentEnv) {
   return secret;
 }
 
-export async function studentCredentialHashes(env: StudentEnv, name: string, code: string) {
+export async function studentNameVerificationHash(env: StudentEnv, name: string) {
   const secret = studentSecret(env);
-  return {
-    nameHash: await hmacHex(secret, `name:${normalizeVerifiedName(name)}`),
-    codeHash: await hmacHex(secret, `code:${code.trim().toLocaleUpperCase("en-US")}`),
-  };
+  return hmacHex(secret, `name:${normalizeVerifiedName(name)}`);
 }
 
 export function normalizeStudentId(value: string) {
@@ -155,34 +202,6 @@ export async function enforceLookupRateLimit(request: Request, env: StudentEnv) 
     await db.prepare("UPDATE lookup_attempts SET attempts = attempts + 1 WHERE actor_hash = ?").bind(actor).run();
   }
   return true;
-}
-
-export async function hashStudentPin(pin: string) {
-  if (!PIN_PATTERN.test(pin)) throw new Error("Student PIN must contain 6 to 12 digits.");
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const material = await crypto.subtle.importKey("raw", encoder.encode(pin), "PBKDF2", false, ["deriveBits"]);
-  const derived = new Uint8Array(await crypto.subtle.deriveBits(
-    { name: "PBKDF2", hash: "SHA-256", salt, iterations: PIN_ITERATIONS }, material, 256,
-  ));
-  return `pbkdf2-sha256$${PIN_ITERATIONS}$${bytesToBase64Url(salt)}$${bytesToBase64Url(derived)}`;
-}
-
-export async function verifyStudentPin(pin: string, storedHash: string | null | undefined) {
-  if (!storedHash || !PIN_PATTERN.test(pin)) return false;
-  const [algorithm, iterationsValue, saltValue, hashValue] = storedHash.split("$");
-  const iterations = Number(iterationsValue);
-  if (algorithm !== "pbkdf2-sha256" || !Number.isInteger(iterations) || iterations < 50_000 || iterations > 500_000 || !saltValue || !hashValue) return false;
-  try {
-    const salt = base64UrlToBytes(saltValue);
-    const expected = base64UrlToBytes(hashValue);
-    const material = await crypto.subtle.importKey("raw", encoder.encode(pin), "PBKDF2", false, ["deriveBits"]);
-    const actual = new Uint8Array(await crypto.subtle.deriveBits(
-      { name: "PBKDF2", hash: "SHA-256", salt, iterations }, material, expected.length * 8,
-    ));
-    return constantTimeEqual(actual, expected);
-  } catch {
-    return false;
-  }
 }
 
 async function capabilityKey(env: StudentEnv) {
@@ -306,6 +325,10 @@ export type AuditInput = {
   entityType: string;
   entityId: string;
   studentId?: string | null;
+  studentPublicId?: string | null;
+  studentNameSnapshot?: string | null;
+  examCycleId?: string | null;
+  contributionMonth?: string | null;
   previousValues?: unknown;
   newValues?: unknown;
   source: string;
@@ -325,13 +348,16 @@ export function auditStatement(db: D1Database, input: AuditInput) {
   return db.prepare(`INSERT INTO audit_log (
       id, admin_action, record_type, record_id, action_summary, created_at,
       actor_type, actor_identifier, action, entity_type, entity_id, student_id,
-      previous_values, new_values, source, bulk_operation_id, request_id, administrator_note
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      previous_values, new_values, source, bulk_operation_id, request_id, administrator_note,
+      student_public_id_snapshot, student_name_snapshot, exam_cycle_id, contribution_month
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .bind(
       crypto.randomUUID(), input.action, input.entityType, input.entityId, input.summary.slice(0, 300), createdAt,
       input.actorType, input.actorIdentifier.slice(0, 160), input.action, input.entityType, input.entityId,
       input.studentId || null, structuredValue(input.previousValues), structuredValue(input.newValues), input.source,
       input.bulkOperationId || null, input.requestId, input.administratorNote?.slice(0, 2000) || null,
+      input.studentPublicId?.slice(0, 80) || null, input.studentNameSnapshot?.slice(0, 160) || null,
+      input.examCycleId || null, input.contributionMonth || null,
     );
 }
 

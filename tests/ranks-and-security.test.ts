@@ -8,7 +8,7 @@ import {
   isSameOriginRequest,
   recordFailedAdminLoginAttempt,
 } from "../functions/_lib/auth";
-import { hashStudentPin, verifyStudentPin } from "../functions/_lib/studentRecords";
+import { currentBangkokMonthKey, isMonthKey, namesLikelyMatch, recentMonthKeys } from "../functions/_lib/studentRecords";
 
 describe("official rank progression", () => {
   it("normalizes every supported rank through one ordered definition", () => {
@@ -35,18 +35,19 @@ describe("official rank progression", () => {
 });
 
 describe("student and administrator security", () => {
-  it("hashes student PINs with a unique salt and verifies without storing plaintext", async () => {
-    const first = await hashStudentPin("123456");
-    const second = await hashStudentPin("123456");
-    expect(first).not.toBe(second);
-    expect(first).not.toContain("123456");
-    expect(await verifyStudentPin("123456", first)).toBe(true);
-    expect(await verifyStudentPin("654321", first)).toBe(false);
+  it("uses forgiving name matching only as a secondary check", () => {
+    expect(namesLikelyMatch(" Somchai  Prasert ", "somchai prasert")).toBe(true);
+    expect(namesLikelyMatch("Somchai Prasert", "Somchai Praserd")).toBe(true);
+    expect(namesLikelyMatch("Somchai Prasert", "Nattapong Kittisak")).toBe(false);
   });
 
-  it("rejects unsafe PIN formats", async () => {
-    await expect(hashStudentPin("12345")).rejects.toThrow(/6 to 12 digits/);
-    await expect(hashStudentPin("password")).rejects.toThrow(/6 to 12 digits/);
+  it("creates valid Bangkok contribution month keys and a descending history window", () => {
+    expect(isMonthKey(currentBangkokMonthKey())).toBe(true);
+    const months = recentMonthKeys(12);
+    expect(months).toHaveLength(12);
+    expect(months[0]).toBe(currentBangkokMonthKey());
+    expect(new Set(months).size).toBe(12);
+    expect(months.every(isMonthKey)).toBe(true);
   });
 
   it("creates signed secure admin sessions and rejects tampering", async () => {
@@ -60,6 +61,8 @@ describe("student and administrator security", () => {
   it("enforces same-origin checks for mutation requests", () => {
     expect(isSameOriginRequest(new Request("https://example.test/api", { headers: { Origin: "https://example.test" } }))).toBe(true);
     expect(isSameOriginRequest(new Request("https://example.test/api", { headers: { Origin: "https://attacker.test" } }))).toBe(false);
+    expect(isSameOriginRequest(new Request("https://example.test/api", { headers: { Referer: "https://example.test/admin" } }))).toBe(true);
+    expect(isSameOriginRequest(new Request("https://example.test/api", { headers: { "Sec-Fetch-Site": "cross-site" } }))).toBe(false);
   });
 
   it("rate-limits failed admin passwords without consuming successful attempts", async () => {

@@ -15,9 +15,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     if (action === "reverse_payment" && body.confirmed !== true) return jsonResponse({ error: "Confirm the payment reversal." }, 400);
     const db = requireStudentDb(env);
     const studentId = String(params.id);
-    const application = await db.prepare(`SELECT id, status, payment_status, administrator_notes, paid_at, paid_by
-      FROM examination_applications WHERE id = ? AND student_id = ? LIMIT 1`).bind(applicationId, studentId)
-      .first<{ id: string; status: string; payment_status: string; administrator_notes: string; paid_at: string | null; paid_by: string | null }>();
+    const application = await db.prepare(`SELECT ea.id, ea.status, ea.payment_status, ea.administrator_notes, ea.paid_at, ea.paid_by,
+        ea.cycle_id, ea.student_name_snapshot, ea.student_public_id_snapshot,
+        ecs.id AS cycle_status_id, ecs.status AS cycle_status
+      FROM examination_applications ea
+      LEFT JOIN exam_cycle_student_status ecs ON ecs.application_id = ea.id
+      WHERE ea.id = ? AND ea.student_id = ? LIMIT 1`).bind(applicationId, studentId)
+      .first<{ id: string; status: string; payment_status: string; administrator_notes: string; paid_at: string | null; paid_by: string | null;
+        cycle_id: string; student_name_snapshot: string; student_public_id_snapshot: string; cycle_status_id: string | null; cycle_status: string | null }>();
     if (!application) return jsonResponse({ error: "Application not found." }, 404);
     const now = new Date().toISOString();
     let nextStatus = application.status;
@@ -38,7 +43,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     } else {
       nextNote = note;
     }
-    await db.batch([
+    const statements = [
       db.prepare(`UPDATE examination_applications SET status = ?, payment_status = ?, administrator_notes = ?,
         paid_at = ?, paid_by = ?, completed_at = ?, updated_at = ? WHERE id = ?`)
         .bind(
@@ -54,11 +59,24 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
         .bind(crypto.randomUUID(), applicationId, application.status, nextStatus, application.payment_status, nextPayment, note || null, requestId, now),
       auditStatement(db, {
         actorType: "administrator", actorIdentifier: "primary_admin", action: auditAction, entityType: "examination_application", entityId: applicationId,
-        studentId, previousValues: { status: application.status, paymentStatus: application.payment_status, administratorNotes: application.administrator_notes },
+        studentId, studentPublicId: application.student_public_id_snapshot, studentNameSnapshot: application.student_name_snapshot,
+        previousValues: { status: application.status, paymentStatus: application.payment_status, administratorNotes: application.administrator_notes },
         newValues: { status: nextStatus, paymentStatus: nextPayment, administratorNotes: nextNote }, source: "admin_examination_application",
-        requestId, administratorNote: note || null, summary: auditAction.replace(/_/g, " "), createdAt: now,
+        requestId, examCycleId: application.cycle_id, administratorNote: note || null, summary: auditAction.replace(/_/g, " "), createdAt: now,
       }),
-    ]);
+    ];
+    if (application.cycle_status_id && (action === "mark_paid" || action === "reverse_payment")) {
+      const cycleStatus = action === "mark_paid" ? "paid" : "unpaid";
+      statements.push(
+        db.prepare("UPDATE exam_cycle_student_status SET status = ?, updated_at = ?, updated_by = 'primary_admin' WHERE id = ?")
+          .bind(cycleStatus, now, application.cycle_status_id),
+        db.prepare(`INSERT INTO exam_cycle_status_history
+          (id, cycle_status_id, previous_status, new_status, actor_identifier, request_id, note, created_at)
+          VALUES (?, ?, ?, ?, 'primary_admin', ?, 'Payment status synchronized', ?)`)
+          .bind(crypto.randomUUID(), application.cycle_status_id, application.cycle_status, cycleStatus, requestId, now),
+      );
+    }
+    await db.batch(statements);
     return jsonResponse({ ok: true, status: nextStatus, paymentStatus: nextPayment, administratorNotes: nextNote });
   } catch (error) {
     return jsonResponse({ error: error instanceof Error ? error.message : "The application could not be updated." }, 400);

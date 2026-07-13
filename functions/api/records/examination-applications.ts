@@ -3,20 +3,18 @@ import { jsonResponse } from "../../_lib/auth";
 import {
   auditStatement,
   enforceLookupRateLimit,
+  namesLikelyMatch,
   normalizeStudentId,
   normalizedRankOrError,
   requestIdentifier,
   requireStudentDb,
-  studentCredentialHashes,
   type StudentEnv,
-  verifyStudentPin,
   verifyTurnstile,
 } from "../../_lib/studentRecords";
 
 type Payload = Record<string, unknown> & {
   verificationName?: unknown;
   studentId?: unknown;
-  pin?: unknown;
   attemptedRank?: unknown;
   turnstileToken?: unknown;
   promiseAccepted?: unknown;
@@ -47,16 +45,16 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
     const body = await request.json<Payload>();
     const verificationName = text(body.verificationName, 120, true);
     const publicStudentId = normalizeStudentId(text(body.studentId, 40, true));
-    const pin = text(body.pin, 12, true);
     const turnstileToken = text(body.turnstileToken, 2048, true);
     if (!(await verifyTurnstile(request, env, turnstileToken))) return jsonResponse({ error: "Cloudflare verification failed. Please try again." }, 400);
-    const hashes = await studentCredentialHashes(env, verificationName, publicStudentId);
-    const student = await db.prepare(`SELECT id, public_student_id, current_belt, student_pin_hash FROM students
-      WHERE name_verification_hash = ? AND (UPPER(public_student_id) = ? OR lookup_code_hash = ?)
+    const student = await db.prepare(`SELECT id, public_student_id, display_name, current_belt FROM students
+      WHERE UPPER(public_student_id) = ?
       AND active = 1 AND public_visible = 1 AND profile_status = 'approved' LIMIT 1`)
-      .bind(hashes.nameHash, publicStudentId, hashes.codeHash)
-      .first<{ id: string; public_student_id: string; current_belt: string; student_pin_hash: string | null }>();
-    if (!student || !(await verifyStudentPin(pin, student.student_pin_hash))) return jsonResponse({ error: "The student verification details or secure PIN are incorrect." }, 403);
+      .bind(publicStudentId)
+      .first<{ id: string; public_student_id: string; display_name: string; current_belt: string }>();
+    if (!student || !namesLikelyMatch(verificationName, student.display_name)) {
+      return jsonResponse({ error: "The student verification details do not match an approved record." }, 403);
+    }
     const attemptedRank = normalizedRankOrError(body.attemptedRank);
     const currentRank = normalizedRankOrError(student.current_belt);
     if (rankIndex(attemptedRank) <= rankIndex(currentRank)) return jsonResponse({ error: "The attempted rank must be above the student's current rank." }, 400);
@@ -105,14 +103,38 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
       .bind(student.id, cycle.id).first<{ id: string }>();
     if (existing) return jsonResponse({ error: "An application for this student is already open in the current examination cycle." }, 409);
 
+    const existingCycleStatus = await db.prepare(`SELECT id, status FROM exam_cycle_student_status
+      WHERE student_id = ? AND cycle_id = ? LIMIT 1`).bind(student.id, cycle.id)
+      .first<{ id: string; status: string }>();
+
     const applicationId = crypto.randomUUID();
     const historyId = crypto.randomUUID();
+    const cycleStatusId = existingCycleStatus?.id || crypto.randomUUID();
     const response = { ok: true, applicationId, status: "application_submitted", paymentStatus: "payment_pending", cycle: cycle.name };
     await db.batch([
       db.prepare(`INSERT INTO examination_applications
-        (id, student_id, cycle_id, answers_json, current_rank, attempted_rank, status, payment_status, submitted_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, 'application_submitted', 'payment_pending', ?, ?)`)
-        .bind(applicationId, student.id, cycle.id, JSON.stringify(answers), currentRank, attemptedRank, now, now),
+        (id, student_id, cycle_id, answers_json, current_rank, attempted_rank, status, payment_status,
+         submitted_at, updated_at, student_name_snapshot, student_public_id_snapshot)
+        VALUES (?, ?, ?, ?, ?, ?, 'application_submitted', 'payment_pending', ?, ?, ?, ?)`)
+        .bind(applicationId, student.id, cycle.id, JSON.stringify(answers), currentRank, attemptedRank, now, now, student.display_name, student.public_student_id),
+      db.prepare(`INSERT INTO exam_cycle_student_status (
+          id, student_id, cycle_id, application_id, student_name_snapshot, student_public_id_snapshot,
+          current_rank_snapshot, requested_rank_snapshot, status, application_date, updated_at, updated_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'unpaid', ?, ?, ?)
+        ON CONFLICT(student_id, cycle_id) DO UPDATE SET
+          application_id = excluded.application_id,
+          student_name_snapshot = excluded.student_name_snapshot,
+          student_public_id_snapshot = excluded.student_public_id_snapshot,
+          current_rank_snapshot = excluded.current_rank_snapshot,
+          requested_rank_snapshot = excluded.requested_rank_snapshot,
+          status = 'unpaid', application_date = excluded.application_date,
+          updated_at = excluded.updated_at, updated_by = excluded.updated_by`)
+        .bind(cycleStatusId, student.id, cycle.id, applicationId, student.display_name, student.public_student_id,
+          currentRank, attemptedRank, now, now, student.id),
+      db.prepare(`INSERT INTO exam_cycle_status_history
+        (id, cycle_status_id, previous_status, new_status, actor_identifier, request_id, note, created_at)
+        VALUES (?, ?, ?, 'unpaid', ?, ?, 'Application submitted', ?)`)
+        .bind(crypto.randomUUID(), cycleStatusId, existingCycleStatus?.status || "not_signed_up", student.id, requestId, now),
       db.prepare(`INSERT INTO application_status_history
         (id, application_id, new_status, new_payment_status, actor_identifier, note, request_id, created_at)
         VALUES (?, ?, 'application_submitted', 'payment_pending', ?, 'Application submitted', ?, ?)`)
@@ -120,6 +142,7 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
       auditStatement(db, {
         actorType: "student", actorIdentifier: student.id, action: "examination_application_submitted", entityType: "examination_application",
         entityId: applicationId, studentId: student.id, newValues: { currentRank, attemptedRank, status: "application_submitted", paymentStatus: "payment_pending", cycleId: cycle.id },
+        studentPublicId: student.public_student_id, studentNameSnapshot: student.display_name, examCycleId: cycle.id,
         source: "student_examination_application", requestId, summary: `Submitted a belt examination application for ${attemptedRank}`, createdAt: now,
       }),
       db.prepare("INSERT INTO mutation_requests (request_id, actor_type, action, response_json, created_at) VALUES (?, 'student', 'examination_application_submitted', ?, ?)")

@@ -4,13 +4,12 @@ import {
   DEFAULT_DOJO,
   DEFAULT_SHARE_FIELDS,
   enforceLookupRateLimit,
-  hashStudentPin,
   nextStudentId,
   normalizedRankOrError,
   rankColor,
   requestIdentifier,
   requireStudentDb,
-  studentCredentialHashes,
+  studentNameVerificationHash,
   type StudentEnv,
   verifyTurnstile,
 } from "../../_lib/studentRecords";
@@ -22,7 +21,6 @@ type ProfilePayload = {
   currentRank?: unknown;
   practiceDuration?: unknown;
   profileBio?: unknown;
-  pin?: unknown;
   turnstileToken?: unknown;
 };
 
@@ -49,17 +47,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const displayName = clean(payload.displayName, 120);
     const practiceDuration = clean(payload.practiceDuration, 160);
     const profileBio = typeof payload.profileBio === "string" ? payload.profileBio.normalize("NFKC").trim().slice(0, 2001) : "";
-    const pin = typeof payload.pin === "string" ? payload.pin.trim() : "";
     const turnstileToken = typeof payload.turnstileToken === "string" ? payload.turnstileToken : "";
     if (!displayName || displayName.length > 120) return jsonResponse({ error: "Enter the student's full name." }, 400);
     if (!practiceDuration || practiceDuration.length > 160) return jsonResponse({ error: "Tell us how long the student has practiced aikido." }, 400);
     if (profileBio.length > 2000) return jsonResponse({ error: "Additional profile information must be 2,000 characters or fewer." }, 400);
     if (!(await verifyTurnstile(request, env, turnstileToken))) return jsonResponse({ error: "Cloudflare verification failed. Please try again." }, 400);
     const rank = normalizedRankOrError(payload.currentRank);
-    const [pinHash, image] = await Promise.all([hashStudentPin(pin), validateProfileWebp(file)]);
+    const image = await validateProfileWebp(file);
     const studentId = await nextStudentId(db);
     const studentUuid = crypto.randomUUID();
-    const hashes = await studentCredentialHashes(env, displayName, studentId);
+    const nameHash = await studentNameVerificationHash(env, displayName);
     const now = new Date().toISOString();
     pendingKey = datedProfileKey("pending-student-profiles");
     await env.MEDIA_BUCKET.put(pendingKey, image.bytes, {
@@ -73,11 +70,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         id, public_student_id, lookup_code_hash, name_verification_hash, display_name, current_belt, belt_color,
         profile_image_url, profile_image_consent, guardian_consent, public_visible, active, share_fields, dojo_name,
         admin_notes, training_hours_adjustment, created_at, updated_at, profile_status, practice_duration,
-        profile_bio, student_pin_hash, pending_profile_image_key
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 1, 0, 0, 0, ?, ?, '', 0, ?, ?, 'pending_admin_approval', ?, ?, ?, ?)`)
+        profile_bio, pending_profile_image_key
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 1, 0, 0, 0, ?, ?, '', 0, ?, ?, 'pending_admin_approval', ?, ?, ?)`)
         .bind(
-          studentUuid, studentId, hashes.codeHash, hashes.nameHash, displayName, rank, rankColor(rank),
-          JSON.stringify(DEFAULT_SHARE_FIELDS), DEFAULT_DOJO, now, now, practiceDuration, profileBio, pinHash, pendingKey,
+          studentUuid, studentId, "", nameHash, displayName, rank, rankColor(rank),
+          JSON.stringify(DEFAULT_SHARE_FIELDS), DEFAULT_DOJO, now, now, practiceDuration, profileBio, pendingKey,
         ),
       auditStatement(db, {
         actorType: "student",

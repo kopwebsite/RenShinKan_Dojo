@@ -15,8 +15,6 @@ const ContactPage = lazy(() => import("./pages/ContactPage").then((module) => ({
 const InstructorsPage = lazy(() => import("./pages/InstructorsPage").then((module) => ({ default: module.InstructorsPage })));
 const NewsletterPage = lazy(() => import("./pages/NewsletterPage").then((module) => ({ default: module.NewsletterPage })));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage").then((module) => ({ default: module.NotFoundPage })));
-const PaymentIncompletePage = lazy(() => import("./pages/PaymentReturnPage").then((module) => ({ default: module.PaymentIncompletePage })));
-const PaymentSuccessPage = lazy(() => import("./pages/PaymentReturnPage").then((module) => ({ default: module.PaymentSuccessPage })));
 const SupportPage = lazy(() => import("./pages/SupportPage").then((module) => ({ default: module.SupportPage })));
 const WorkshopsPage = lazy(() => import("./pages/WorkshopsPage").then((module) => ({ default: module.WorkshopsPage })));
 const StudentRecordsPage = lazy(() => import("./pages/StudentRecordsPage").then((module) => ({ default: module.StudentRecordsPage })));
@@ -71,8 +69,6 @@ export default function App() {
             <Route path="/newsletter/:slug" element={<NewsletterPage />} />
             <Route path="/community" element={<CommunityPage />} />
             <Route path="/support" element={<SupportPage />} />
-            <Route path="/support/payment-success" element={<PaymentSuccessPage />} />
-            <Route path="/support/payment-incomplete" element={<PaymentIncompletePage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/visit" element={<Navigate to="/contact" replace />} />
             <Route path="/admin" element={<AdminPage />} />

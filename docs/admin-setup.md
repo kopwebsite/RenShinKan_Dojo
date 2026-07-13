@@ -64,7 +64,6 @@ Cloudflare dashboard:
 SITE_URL = "https://YOUR_DOMAIN"
 ALLOWED_ORIGIN = "https://YOUR_DOMAIN"
 VITE_SITE_URL = "https://YOUR_DOMAIN"
-VITE_MEMBERSHIP_WORKER_URL = "/api/membership"
 VITE_TURNSTILE_SITE_KEY = "PLACEHOLDER_CLOUDFLARE_TURNSTILE_SITE_KEY"
 BREVO_LIST_ID = "PLACEHOLDER_BREVO_LIST_ID"
 BREVO_SENDER_EMAIL = "PLACEHOLDER_VERIFIED_SENDER_EMAIL"
@@ -73,6 +72,17 @@ VITE_BREVO_SIGNUP_FORM_URL = "PLACEHOLDER_BREVO_SIGNUP_FORM_URL"
 ```
 
 Only the `VITE_*` values are exposed to browser JavaScript. Keep `ADMIN_PASSWORD_HASH`, `SESSION_SECRET`, `TURNSTILE_SECRET_KEY`, and `BREVO_API_KEY` as secrets managed in the Cloudflare dashboard.
+
+Apply checked-in D1 migrations before deploying application code that depends on
+them:
+
+```bash
+npx wrangler d1 migrations apply STUDENT_DB --remote
+```
+
+The contribution form records an awaiting-payment attempt in D1 and then shows
+the existing PromptPay QR. Payment confirmation is an authenticated administrator
+action; the public form never marks a contribution as paid.
 
 ### Turnstile Site Key
 

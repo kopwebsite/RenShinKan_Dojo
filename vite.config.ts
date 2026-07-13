@@ -8,7 +8,6 @@ declare const process: {
 
 const WRANGLER_PUBLIC_VARS = [
   "VITE_SITE_URL",
-  "VITE_MEMBERSHIP_WORKER_URL",
   "VITE_TURNSTILE_SITE_KEY",
 ] as const;
 

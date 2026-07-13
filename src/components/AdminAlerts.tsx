@@ -9,8 +9,8 @@ type Dashboard = {
 
 const cards = [
   { key: "pendingProfiles", label: "Profile approvals", icon: UserPlus, filter: "profileStatus=pending_admin_approval" },
-  { key: "newApplications", label: "Exam applications", icon: FileCheck2, filter: "examinationStatus=application_submitted" },
-  { key: "paymentPending", label: "Payment confirmations", icon: CreditCard, filter: "paymentStatus=payment_pending" },
+  { key: "newApplications", label: "Exam applications", icon: FileCheck2, filter: "section=exams" },
+  { key: "paymentPending", label: "Unpaid exam applications", icon: CreditCard, filter: "section=exams&status=unpaid" },
   { key: "pendingHours", label: "Student hours", icon: Clock3, filter: "" },
   { key: "failedOperations", label: "Failed operations", icon: AlertTriangle, filter: "" },
 ] as const;

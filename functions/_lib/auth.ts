@@ -32,13 +32,21 @@ export function jsonResponse(data: unknown, status = 200, headers: HeadersInit =
 
 export function isSameOriginRequest(request: Request) {
   const origin = request.headers.get("Origin");
+  const referer = request.headers.get("Referer");
+  const fetchSite = request.headers.get("Sec-Fetch-Site");
 
-  if (!origin) {
-    return true;
+  if (fetchSite && fetchSite !== "same-origin" && fetchSite !== "none") {
+    return false;
   }
 
   try {
-    return new URL(origin).origin === new URL(request.url).origin;
+    const expectedOrigin = new URL(request.url).origin;
+    if (origin) return new URL(origin).origin === expectedOrigin;
+    if (referer) return new URL(referer).origin === expectedOrigin;
+    // Non-browser clients may omit Fetch Metadata and origin headers. Admin
+    // mutations still require a signed SameSite cookie, while browsers are
+    // rejected above whenever they identify a cross-site request.
+    return true;
   } catch {
     return false;
   }

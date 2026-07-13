@@ -1,16 +1,16 @@
 import { normalizeRank } from "../../../../shared/ranks";
 import { hasValidAdminSession, isSameOriginRequest, jsonResponse } from "../../../_lib/auth";
 import {
-  audit,
+  auditStatement,
+  currentBangkokMonthKey,
   DEFAULT_DOJO,
   DEFAULT_SHARE_FIELDS,
-  hashStudentPin,
   isValidStudentId,
   normalizeStudentId,
   rankColor,
   requestIdentifier,
   requireStudentDb,
-  studentCredentialHashes,
+  studentNameVerificationHash,
   type StudentEnv,
 } from "../../../_lib/studentRecords";
 import type { R2Bucket } from "../../../_lib/storage";
@@ -20,7 +20,7 @@ type ExistingStudent = {
   id: string; public_student_id: string; display_name: string; current_belt: string; belt_color: string;
   profile_image_url: string | null; profile_image_consent: number; guardian_consent: number; public_visible: number;
   active: number; share_fields: string; dojo_name: string; admin_notes: string; training_hours_adjustment: number;
-  profile_status: string; practice_duration: string; profile_bio: string; student_pin_hash: string | null;
+  profile_status: string; practice_duration: string; profile_bio: string;
   pending_profile_image_key: string | null; profile_review_note: string;
 };
 
@@ -42,15 +42,19 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
   if (!(await allowed(request, env))) return jsonResponse({ error: "Unauthorized" }, 401);
   const db = requireStudentDb(env);
   const id = String(params.id);
-  const student = await db.prepare(`SELECT s.*,
+  const student = await db.prepare(`SELECT
+    s.id, s.public_student_id, s.display_name, s.current_belt, s.belt_color,
+    s.profile_image_url, s.profile_image_consent, s.guardian_consent,
+    s.public_visible, s.active, s.share_fields, s.dojo_name, s.admin_notes,
+    s.training_hours_adjustment, s.created_at, s.updated_at, s.profile_status,
+    s.practice_duration, s.profile_bio, s.pending_profile_image_key,
+    s.profile_review_note, s.archived_at, s.archived_by,
+    s.public_visible_before_archive,
     COALESCE((SELECT SUM(verified_hours) FROM training_hours h WHERE h.student_id = s.id), 0) + s.training_hours_adjustment AS total_hours,
     EXISTS(SELECT 1 FROM share_tokens st WHERE st.student_id = s.id AND st.active = 1) AS sharing_active
     FROM students s WHERE s.id = ?`).bind(id).first<Record<string, unknown>>();
   if (!student) return jsonResponse({ error: "Student not found" }, 404);
   if (student.pending_profile_image_key) student.pending_profile_image_url = `/api/admin/students/${encodeURIComponent(id)}/pending-image`;
-  delete student.lookup_code_hash;
-  delete student.name_verification_hash;
-  delete student.student_pin_hash;
   const [exams, hours, applications, hourRequests] = await db.batch([
     db.prepare(`SELECT id, examination_date, belt_awarded, belt_color, rank, examiner, public_notes, internal_notes,
       COALESCE(rank_before, '') AS rank_before,
@@ -95,7 +99,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, params })
     const body = await request.json<Record<string, unknown>>();
     const existing = await db.prepare(`SELECT id, public_student_id, display_name, current_belt, belt_color, profile_image_url,
       profile_image_consent, guardian_consent, public_visible, active, share_fields, dojo_name, admin_notes,
-      training_hours_adjustment, profile_status, practice_duration, profile_bio, student_pin_hash,
+      training_hours_adjustment, profile_status, practice_duration, profile_bio,
       pending_profile_image_key, profile_review_note FROM students WHERE id = ?`).bind(id).first<ExistingStudent>();
     if (!existing) return jsonResponse({ error: "Student not found" }, 404);
 
@@ -124,12 +128,11 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, params })
       if (duplicate) return jsonResponse({ error: "That Student ID is already in use." }, 409);
     }
 
-    const hashes = await studentCredentialHashes(env, name, studentId);
+    const nameHash = await studentNameVerificationHash(env, name);
     const now = new Date().toISOString();
     const shareFields = JSON.stringify(body.shareFields && typeof body.shareFields === "object" ? body.shareFields : (() => {
       try { return JSON.parse(existing.share_fields); } catch { return DEFAULT_SHARE_FIELDS; }
     })());
-    const newPinHash = body.studentPin ? await hashStudentPin(String(body.studentPin)) : existing.student_pin_hash;
     const next = {
       publicStudentId: studentId, displayName: name, currentRank: currentBelt, profileImageUrl: image,
       profileImageConsent: body.profileImageConsent === undefined ? existing.profile_image_consent : body.profileImageConsent ? 1 : 0,
@@ -139,22 +142,24 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, params })
       dojoName, adminNotes, practiceDuration, profileBio, totalHours: currentTrainingHours,
     };
 
-    await db.prepare(`UPDATE students SET public_student_id = ?, lookup_code_hash = ?, name_verification_hash = ?,
+    const statements = [db.prepare(`UPDATE students SET public_student_id = ?, name_verification_hash = ?,
       display_name = ?, current_belt = ?, belt_color = ?, profile_image_url = ?, profile_image_consent = ?,
       guardian_consent = ?, public_visible = ?, active = ?, share_fields = ?, dojo_name = ?, admin_notes = ?,
-      practice_duration = ?, profile_bio = ?, student_pin_hash = ?, training_hours_adjustment = ?, updated_at = ? WHERE id = ?`)
-      .bind(studentId, hashes.codeHash, hashes.nameHash, name, currentBelt, rankColor(currentBelt, existing.belt_color), image,
+      practice_duration = ?, profile_bio = ?, training_hours_adjustment = ?, updated_at = ? WHERE id = ?`)
+      .bind(studentId, nameHash, name, currentBelt, rankColor(currentBelt, existing.belt_color), image,
         next.profileImageConsent, next.guardianConsent, next.publicVisible, next.active, shareFields, dojoName, adminNotes,
-        practiceDuration, profileBio, newPinHash, currentTrainingHours - recordedHours, now, id).run();
+        practiceDuration, profileBio, currentTrainingHours - recordedHours, now, id)];
     if (studentId !== existing.public_student_id && isValidStudentId(studentId)) {
-      await db.prepare("UPDATE student_id_sequence SET last_number = MAX(last_number, ?) WHERE sequence_name = 'student'").bind(Number(studentId.slice(4))).run();
+      statements.push(db.prepare("UPDATE student_id_sequence SET last_number = MAX(last_number, ?) WHERE sequence_name = 'student'").bind(Number(studentId.slice(4))));
     }
-    await audit(db, {
+    statements.push(auditStatement(db, {
       actorType: "administrator", actorIdentifier: "primary_admin", action: "student_updated", entityType: "student", entityId: id,
       studentId: id, previousValues: { publicStudentId: existing.public_student_id, displayName: existing.display_name, currentRank: existing.current_belt,
         profileImageUrl: existing.profile_image_url, active: existing.active, totalHours: previousTotal }, newValues: next,
-      source: "admin_student_edit", requestId, summary: `Updated ${studentId}${body.studentPin ? " and reset student PIN" : ""}`, createdAt: now,
-    });
+      studentPublicId: studentId, studentNameSnapshot: name,
+      source: "admin_student_edit", requestId, summary: `Updated ${studentId}`, createdAt: now,
+    }));
+    await db.batch(statements);
     const oldProfileKey = profileKey(existing.profile_image_url);
     if (env.MEDIA_BUCKET && oldProfileKey && existing.profile_image_url !== image) await env.MEDIA_BUCKET.delete(oldProfileKey);
     return jsonResponse({ ok: true, studentId });
@@ -168,16 +173,70 @@ export const onRequestDelete: PagesFunction<Env> = async ({ request, env, params
   if (!(await allowed(request, env))) return jsonResponse({ error: "Unauthorized" }, 401);
   const db = requireStudentDb(env);
   const id = String(params.id);
-  const existing = await db.prepare("SELECT public_student_id, display_name, active FROM students WHERE id = ?").bind(id)
-    .first<{ public_student_id: string; display_name: string; active: number }>();
+  const existing = await db.prepare("SELECT public_student_id, display_name, active, public_visible, archived_at FROM students WHERE id = ?").bind(id)
+    .first<{ public_student_id: string; display_name: string; active: number; public_visible: number; archived_at: string | null }>();
   if (!existing) return jsonResponse({ error: "Student not found" }, 404);
+  const body = await request.json<{ confirmed?: unknown; studentId?: unknown }>().catch(() => ({}));
+  if (body.confirmed !== true || normalizeStudentId(String(body.studentId || "")) !== existing.public_student_id) {
+    return jsonResponse({ error: `Confirm the archive action with Student ID ${existing.public_student_id}.` }, 400);
+  }
+  if (!existing.active && existing.archived_at) return jsonResponse({ ok: true, archived: true });
+  if (!existing.active) return jsonResponse({ error: "Only an active student can be archived." }, 409);
   const requestId = requestIdentifier(request);
   const now = new Date().toISOString();
-  await db.prepare("UPDATE students SET active = 0, public_visible = 0, updated_at = ? WHERE id = ?").bind(now, id).run();
-  await audit(db, {
-    actorType: "administrator", actorIdentifier: "primary_admin", action: "profile_deactivated", entityType: "student", entityId: id,
-    studentId: id, previousValues: { active: Boolean(existing.active) }, newValues: { active: false, publicVisible: false },
-    source: "admin_students", requestId, summary: `Archived ${existing.public_student_id}: ${existing.display_name}`, createdAt: now,
-  });
+  await db.batch([
+    db.prepare(`UPDATE students SET active = 0, public_visible_before_archive = public_visible,
+      public_visible = 0, archived_at = ?, archived_by = 'primary_admin', updated_at = ? WHERE id = ? AND active = 1`)
+      .bind(now, now, id),
+    auditStatement(db, {
+      actorType: "administrator", actorIdentifier: "primary_admin", action: "student_archived", entityType: "student", entityId: id,
+      studentId: id, studentPublicId: existing.public_student_id, studentNameSnapshot: existing.display_name,
+      previousValues: { active: true, publicVisible: Boolean(existing.public_visible) }, newValues: { active: false, publicVisible: false },
+      source: "admin_students", requestId, summary: `Archived ${existing.public_student_id}: ${existing.display_name}`, createdAt: now,
+    }),
+  ]);
   return jsonResponse({ ok: true, archived: true });
+};
+
+export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params }) => {
+  if (!(await allowed(request, env))) return jsonResponse({ error: "Unauthorized" }, 401);
+  const db = requireStudentDb(env);
+  const id = String(params.id);
+  const existing = await db.prepare(`SELECT public_student_id, display_name, current_belt, active, profile_status,
+    public_visible_before_archive, archived_at FROM students WHERE id = ?`).bind(id)
+    .first<{ public_student_id: string; display_name: string; current_belt: string; active: number; profile_status: string; public_visible_before_archive: number | null; archived_at: string | null }>();
+  if (!existing) return jsonResponse({ error: "Student not found" }, 404);
+  const body = await request.json<{ action?: unknown; confirmed?: unknown; studentId?: unknown }>().catch(() => ({}));
+  if (body.action !== "restore" || body.confirmed !== true || normalizeStudentId(String(body.studentId || "")) !== existing.public_student_id) {
+    return jsonResponse({ error: `Confirm the restore action with Student ID ${existing.public_student_id}.` }, 400);
+  }
+  if (existing.active) return jsonResponse({ ok: true, restored: true });
+  if (!existing.archived_at) return jsonResponse({ error: "This inactive record was not archived and cannot be restored from the archive." }, 409);
+  const requestId = requestIdentifier(request);
+  const now = new Date().toISOString();
+  const restoredVisibility = existing.profile_status === "approved" ? Number(existing.public_visible_before_archive ?? 1) : 0;
+  const currentMonth = currentBangkokMonthKey();
+  const contributionPeriod = await db.prepare("SELECT month_key FROM contribution_periods WHERE month_key = ? LIMIT 1")
+    .bind(currentMonth).first<{ month_key: string }>();
+  await db.batch([
+    db.prepare(`UPDATE students SET active = 1, public_visible = ?, archived_at = NULL,
+      archived_by = NULL, updated_at = ? WHERE id = ? AND active = 0`).bind(restoredVisibility, now, id),
+    ...(contributionPeriod && existing.profile_status === "approved" ? [
+      db.prepare(`INSERT OR IGNORE INTO contribution_period_students (
+        id, month_key, student_id, student_name_snapshot, student_public_id_snapshot,
+        current_rank_snapshot, active_at_period_start, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, 1, ?)`)
+        .bind(crypto.randomUUID(), currentMonth, id, existing.display_name, existing.public_student_id, existing.current_belt, now),
+      db.prepare(`UPDATE contribution_periods SET active_student_count_snapshot = (
+        SELECT COUNT(*) FROM contribution_period_students WHERE month_key = ? AND active_at_period_start = 1
+      ) WHERE month_key = ?`).bind(currentMonth, currentMonth),
+    ] : []),
+    auditStatement(db, {
+      actorType: "administrator", actorIdentifier: "primary_admin", action: "student_restored", entityType: "student", entityId: id,
+      studentId: id, studentPublicId: existing.public_student_id, studentNameSnapshot: existing.display_name,
+      previousValues: { active: false, publicVisible: false }, newValues: { active: true, publicVisible: Boolean(restoredVisibility) },
+      source: "admin_students", requestId, summary: `Restored ${existing.public_student_id}: ${existing.display_name}`, createdAt: now,
+    }),
+  ]);
+  return jsonResponse({ ok: true, restored: true });
 };

@@ -1,17 +1,17 @@
 import { RANKS, normalizeRank } from "../../../../shared/ranks";
 import { hasValidAdminSession, isSameOriginRequest, jsonResponse } from "../../../_lib/auth";
 import {
-  audit,
+  auditStatement,
+  currentBangkokMonthKey,
   DEFAULT_DOJO,
   DEFAULT_SHARE_FIELDS,
-  hashStudentPin,
   isValidStudentId,
   nextStudentId,
   normalizeStudentId,
   rankColor,
   requestIdentifier,
   requireStudentDb,
-  studentCredentialHashes,
+  studentNameVerificationHash,
   suggestedStudentId,
   type StudentEnv,
 } from "../../../_lib/studentRecords";
@@ -78,7 +78,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   if (profileStatus) { conditions.push("s.profile_status = ?"); bindings.push(profileStatus); }
   if (examinationStatus) { conditions.push(`${applicationStatusExpression} = ?`); bindings.push(examinationStatus); }
   if (paymentStatus) { conditions.push(`${paymentStatusExpression} = ?`); bindings.push(paymentStatus); }
-  if (status === "archived") conditions.push("s.active = 0");
+  if (status === "archived") conditions.push("s.archived_at IS NOT NULL");
   else if (status !== "all") conditions.push("s.active = 1");
 
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -93,7 +93,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       .bind(...bindings, pageSize, (page - 1) * pageSize),
     db.prepare(`SELECT COUNT(*) AS total,
       SUM(CASE WHEN active = 1 THEN 1 ELSE 0 END) AS active,
-      SUM(CASE WHEN active = 0 THEN 1 ELSE 0 END) AS archived,
+      SUM(CASE WHEN archived_at IS NOT NULL THEN 1 ELSE 0 END) AS archived,
       SUM(CASE WHEN profile_status = 'pending_admin_approval' THEN 1 ELSE 0 END) AS pending_profiles
       FROM students`),
   ]);
@@ -120,7 +120,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const currentTrainingHours = Number(body.currentTrainingHours ?? 0);
     const profileImageUrl = validProfileUrl(body.profileImageUrl);
     const manualStudentId = body.manualStudentId === true;
-    const pin = String(body.studentPin || "");
 
     if (!displayName || displayName.length > 120) return jsonResponse({ error: "Enter a student name of 120 characters or fewer." }, 400);
     if (!currentBelt) return jsonResponse({ error: "Choose a valid rank from the official progression." }, 400);
@@ -132,7 +131,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const db = requireStudentDb(env);
     const requestedId = normalizeStudentId(String(body.studentId || ""));
     if (manualStudentId && !isValidStudentId(requestedId)) return jsonResponse({ error: "Student ID must use the format RSK-0001." }, 400);
-    const pinHash = pin ? await hashStudentPin(pin) : null;
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     const shareFields = JSON.stringify(body.shareFields && typeof body.shareFields === "object" ? body.shareFields : DEFAULT_SHARE_FIELDS);
@@ -145,25 +143,51 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         if (manualStudentId) return jsonResponse({ error: "That Student ID is already in use." }, 409);
         continue;
       }
-      const hashes = await studentCredentialHashes(env, displayName, studentId);
+      const nameHash = await studentNameVerificationHash(env, displayName);
       try {
-        await db.prepare(`INSERT INTO students (
+        const cycle = await db.prepare("SELECT id FROM examination_cycles WHERE status = 'active' ORDER BY created_at DESC LIMIT 1")
+          .first<{ id: string }>();
+        const currentMonth = currentBangkokMonthKey();
+        const contributionPeriod = await db.prepare("SELECT month_key FROM contribution_periods WHERE month_key = ? LIMIT 1")
+          .bind(currentMonth).first<{ month_key: string }>();
+        const statements = [db.prepare(`INSERT INTO students (
           id, public_student_id, lookup_code_hash, name_verification_hash, display_name, current_belt, belt_color,
           profile_image_url, profile_image_consent, guardian_consent, public_visible, active, share_fields, dojo_name,
-          admin_notes, training_hours_adjustment, profile_status, student_pin_hash, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 'approved', ?, ?, ?)`)
-          .bind(id, studentId, hashes.codeHash, hashes.nameHash, displayName, currentBelt, rankColor(currentBelt),
+          admin_notes, training_hours_adjustment, profile_status, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 'approved', ?, ?)`)
+          .bind(id, studentId, "", nameHash, displayName, currentBelt, rankColor(currentBelt),
             profileImageUrl, body.profileImageConsent ? 1 : 0, body.guardianConsent ? 1 : 0,
-            body.publicVisible === false ? 0 : 1, shareFields, dojoName, adminNotes, currentTrainingHours, pinHash, now, now).run();
-        if (manualStudentId) {
-          await db.prepare("UPDATE student_id_sequence SET last_number = MAX(last_number, ?) WHERE sequence_name = 'student'")
-            .bind(Number(studentId.slice(4))).run();
+            body.publicVisible === false ? 0 : 1, shareFields, dojoName, adminNotes, currentTrainingHours, now, now)];
+        if (cycle) {
+          statements.push(db.prepare(`INSERT OR IGNORE INTO exam_cycle_student_status (
+            id, student_id, cycle_id, student_name_snapshot, student_public_id_snapshot,
+            current_rank_snapshot, status, updated_at, updated_by
+          ) VALUES (?, ?, ?, ?, ?, ?, 'not_signed_up', ?, 'primary_admin')`)
+            .bind(crypto.randomUUID(), id, cycle.id, displayName, studentId, currentBelt, now));
         }
-        await audit(db, {
+        if (contributionPeriod) {
+          statements.push(
+            db.prepare(`INSERT OR IGNORE INTO contribution_period_students (
+              id, month_key, student_id, student_name_snapshot, student_public_id_snapshot,
+              current_rank_snapshot, active_at_period_start, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, 1, ?)`)
+              .bind(crypto.randomUUID(), currentMonth, id, displayName, studentId, currentBelt, now),
+            db.prepare(`UPDATE contribution_periods SET active_student_count_snapshot = (
+              SELECT COUNT(*) FROM contribution_period_students WHERE month_key = ? AND active_at_period_start = 1
+            ) WHERE month_key = ?`).bind(currentMonth, currentMonth),
+          );
+        }
+        if (manualStudentId) {
+          statements.push(db.prepare("UPDATE student_id_sequence SET last_number = MAX(last_number, ?) WHERE sequence_name = 'student'")
+            .bind(Number(studentId.slice(4))));
+        }
+        statements.push(auditStatement(db, {
           actorType: "administrator", actorIdentifier: "primary_admin", action: "student_created", entityType: "student", entityId: id,
           studentId: id, previousValues: null, newValues: { studentId, displayName, currentBelt, currentTrainingHours, active: true },
+          studentPublicId: studentId, studentNameSnapshot: displayName,
           source: "admin_students", requestId, summary: `Created student record ${studentId}`, createdAt: now,
-        });
+        }));
+        await db.batch(statements);
         return jsonResponse({ ok: true, id, studentId }, 201);
       } catch (error) {
         const duplicateError = error instanceof Error && error.message.includes("UNIQUE");

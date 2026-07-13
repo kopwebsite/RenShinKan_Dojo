@@ -1,11 +1,13 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
-  AlertCircle, Archive, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Eye, GraduationCap,
-  History, LoaderCircle, Lock, LogOut, Plus, RotateCcw, Save, Search, ShieldCheck, UserRound, Users, X,
+  AlertCircle, Archive, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Database, Eye, GraduationCap,
+  History, LoaderCircle, Lock, LogOut, Plus, ReceiptText, RotateCcw, Save, Search, ShieldCheck, UserRound, Users, X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { RANKS } from "../../shared/ranks";
 import { BeltMark } from "../components/BeltMark";
+import { AdminExamApplications } from "../components/admin/AdminExamApplications";
+import { AdminMonthlyContributions } from "../components/admin/AdminMonthlyContributions";
 
 type StudentSummary = {
   id: string; public_student_id: string; display_name: string; current_belt: string; profile_image_url: string | null;
@@ -53,7 +55,7 @@ function label(value: string) {
 }
 
 function Status({ value }: { value: string }) {
-  const tone = value.includes("pending") || value === "application_submitted" ? "is-pending" : value === "approved" || value === "paid" || value === "examination_completed" ? "is-active" : value === "rejected" ? "is-error" : "is-neutral";
+  const tone = value.includes("pending") || value === "application_submitted" ? "is-pending" : value === "active" || value === "restored" || value === "approved" || value === "paid" || value === "examination_completed" ? "is-active" : value === "rejected" ? "is-error" : "is-neutral";
   return <span className={`admin-status ${tone}`}>{label(value === "none" ? "No current application" : value === "not_applicable" ? "—" : value)}</span>;
 }
 
@@ -72,6 +74,10 @@ export function AdminStudentsPage() {
   const [examinationStatus, setExaminationStatus] = useState(() => new URLSearchParams(window.location.search).get("examinationStatus") || "");
   const [paymentStatus, setPaymentStatus] = useState(() => new URLSearchParams(window.location.search).get("paymentStatus") || "");
   const [status, setStatus] = useState("active");
+  const [section, setSectionState] = useState<"students" | "exams" | "contributions">(() => {
+    const value = new URLSearchParams(window.location.search).get("section");
+    return value === "exams" || value === "contributions" ? value : "students";
+  });
   const [sort, setSort] = useState("name");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -84,10 +90,7 @@ export function AdminStudentsPage() {
   const [rowBusy, setRowBusy] = useState("");
   const [bulk, setBulk] = useState<BulkDraft | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [resetOpen, setResetOpen] = useState(false);
-  const [resetStep, setResetStep] = useState(1);
-  const [resetPhrase, setResetPhrase] = useState("");
-  const [resetCount, setResetCount] = useState(0);
+  const [studentAction, setStudentAction] = useState<{ student: StudentSummary; action: "archive" | "restore" } | null>(null);
   const skipHoursBlur = useRef(false);
 
   const filtersActive = Boolean(query || rank || profileStatus || examinationStatus || paymentStatus || status !== "active");
@@ -158,10 +161,28 @@ export function AdminStudentsPage() {
     finally { setRowBusy(""); }
   }
 
-  async function archive(student: StudentSummary) {
+  function setSection(value: "students" | "exams" | "contributions") {
+    setSectionState(value);
+    const url = new URL(window.location.href);
+    url.searchParams.set("section", value);
+    window.history.replaceState(null, "", `${url.pathname}?${url.searchParams}${url.hash}`);
+  }
+
+  async function runStudentAction() {
+    if (!studentAction) return;
+    const { student, action } = studentAction;
     setRowBusy(student.id);
-    try { await api(`/api/admin/students/${student.id}`, { method: "DELETE" }); setNotice(`${student.display_name} was archived. Historical data remains intact.`); await load(); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "Could not archive the student."); }
+    try {
+      await api(`/api/admin/students/${student.id}`, {
+        method: action === "archive" ? "DELETE" : "PATCH",
+        body: JSON.stringify({ action, confirmed: true, studentId: student.public_student_id }),
+      });
+      setNotice(action === "archive"
+        ? `${student.display_name} (${student.public_student_id}) was archived. Exam, payment, and contribution history remains intact.`
+        : `${student.display_name} (${student.public_student_id}) was restored.`);
+      setStudentAction(null);
+      await load();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : `Could not ${action} the student.`); }
     finally { setRowBusy(""); }
   }
 
@@ -178,33 +199,26 @@ export function AdminStudentsPage() {
     finally { setLoading(false); }
   }
 
-  async function openReset() {
-    try { const body = await api<{ affectedStudents: number }>("/api/admin/examination/reset"); setResetCount(body.affectedStudents); setResetStep(1); setResetPhrase(""); setResetOpen(true); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "Could not load reset details."); }
-  }
-
-  async function runReset() {
-    try {
-      await api("/api/admin/examination/reset", { method: "POST", body: JSON.stringify({ confirmed: true, phrase: resetPhrase }) });
-      setResetOpen(false); setNotice(`The examination cycle was closed for ${resetCount} student${resetCount === 1 ? "" : "s"}; all history was preserved.`); await load();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Reset failed."); }
-  }
-
   if (!checked) return <div className="admin-gate"><LoaderCircle className="spin" /><p>Checking administrator session…</p></div>;
   if (!authed) return <section className="container-shell student-admin"><form className="admin-login-card" onSubmit={login}><Lock size={30} /><p className="eyebrow">Administrator access</p><h1>Student records</h1><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required /></label>{error ? <p className="form-error">{error}</p> : null}<button className="btn-primary"><ShieldCheck size={17} /> Sign in</button></form></section>;
 
   return <section className="container-shell student-admin student-admin--table">
-    <header className="student-admin__header"><div><p className="eyebrow">Administrator workspace</p><h1>Student records</h1><p>Inline edits, approvals, examinations, and bulk updates—all changes are audited.</p></div><div className="admin-header-actions"><Link className="btn-secondary" to="/admin"><ChevronLeft size={16} /> Content dashboard</Link><Link className="btn-secondary" to="/admin/audit"><History size={16} /> Audit log</Link><button className="btn-secondary" onClick={openReset}><RotateCcw size={16} /> Reset exam cycle</button><button className="btn-primary" onClick={() => setCreateOpen(true)}><Plus size={16} /> Add student</button><button className="btn-secondary" onClick={logout}><LogOut size={16} /> Sign out</button></div></header>
-    <div className="admin-summary"><div><strong>{summary.active}</strong><span>Active students</span></div><div><strong>{summary.pending_profiles}</strong><span>Pending profiles</span></div><div><strong>{summary.archived}</strong><span>Archived records</span></div></div>
+    <header className="student-admin__header"><div><p className="eyebrow">Administrator workspace</p><h1>Student management</h1><p>Manage the student database, examination cycles, and monthly contributions without overwriting history.</p></div><div className="admin-header-actions"><Link className="btn-secondary" to="/admin"><ChevronLeft size={16} /> Content dashboard</Link><Link className="btn-secondary" to="/admin/audit"><History size={16} /> Audit log</Link><button className="btn-primary" onClick={() => setCreateOpen(true)}><Plus size={16} /> Add student</button><button className="btn-secondary" onClick={logout}><LogOut size={16} /> Sign out</button></div></header>
+    <nav className="admin-section-tabs" aria-label="Student administration sections">
+      <button className={section === "students" ? "is-active" : ""} onClick={() => setSection("students")} aria-current={section === "students" ? "page" : undefined}><Database size={17} /> Student Database</button>
+      <button className={section === "exams" ? "is-active" : ""} onClick={() => setSection("exams")} aria-current={section === "exams" ? "page" : undefined}><GraduationCap size={17} /> Exam Applications</button>
+      <button className={section === "contributions" ? "is-active" : ""} onClick={() => setSection("contributions")} aria-current={section === "contributions" ? "page" : undefined}><ReceiptText size={17} /> Monthly Contributions</button>
+    </nav>
     {notice ? <div className="admin-notice"><CheckCircle2 size={18} /><span>{notice}</span><button onClick={() => setNotice("")}><X size={15} /></button></div> : null}
     {error ? <div className="admin-page-error" role="alert"><AlertCircle size={18} /><span>{error}</span><button onClick={() => setError("")}><X size={15} /></button></div> : null}
+
+    <div hidden={section !== "students"}>
+    <div className="admin-summary"><div><strong>{summary.active}</strong><span>Active students</span></div><div><strong>{summary.pending_profiles}</strong><span>Pending profiles</span></div><div><strong>{summary.archived}</strong><span>Archived records</span></div></div>
 
     <form className="admin-student-controls admin-student-controls--workflow" onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(queryInput.trim()); }}>
       <label className="admin-search-wide">Search by name or ID<div><Search size={17} /><input value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="Name or RSK-0001" /><button className="btn-secondary">Search</button></div></label>
       <label>Current kyu<select value={rank} onChange={(event) => { setRank(event.target.value); setPage(1); }}><option value="">All ranks</option>{RANKS.map((item) => <option key={item}>{item}</option>)}</select></label>
       <label>Profile<select value={profileStatus} onChange={(event) => { setProfileStatus(event.target.value); setPage(1); }}><option value="">All profiles</option><option value="pending_admin_approval">Pending approval</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></label>
-      <label>Examination<select value={examinationStatus} onChange={(event) => { setExaminationStatus(event.target.value); setPage(1); }}><option value="">All exam states</option><option value="none">No current application</option><option value="application_submitted">Application submitted</option><option value="examination_completed">Completed</option></select></label>
-      <label>Payment<select value={paymentStatus} onChange={(event) => { setPaymentStatus(event.target.value); setPage(1); }}><option value="">All payment states</option><option value="payment_pending">Payment pending</option><option value="paid">Paid</option><option value="not_applicable">Not applicable</option></select></label>
       <label>Record status<select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="active">Active</option><option value="archived">Archived</option><option value="all">All</option></select></label>
       <label>Sort<select value={sort} onChange={(event) => setSort(event.target.value)}><option value="name">Name</option><option value="studentId">Student ID</option><option value="trainingHours">Training hours</option><option value="updated">Last updated</option></select></label>
       <button type="button" className="btn-secondary admin-clear" disabled={!filtersActive} onClick={clearFilters}>{filtersActive ? "Reset active filters" : "No active filters"}</button>
@@ -214,21 +228,24 @@ export function AdminStudentsPage() {
 
     <section className="admin-table-section" aria-busy={loading}><div className="admin-table-meta"><p>{pagination.total} student{pagination.total === 1 ? "" : "s"}{filtersActive ? " · filters active" : ""}</p>{loading ? <span><LoaderCircle className="spin" size={15} /> Loading</span> : null}</div><div className="admin-table-scroll"><table className="admin-student-table admin-student-table--workflow"><thead><tr>
       <th><input type="checkbox" aria-label="Select all visible students" checked={students.length > 0 && students.every((student) => selected.has(student.id))} onChange={(event) => setSelected(event.target.checked ? new Set(students.map((student) => student.id)) : new Set())} /></th>
-      <th>Student</th><th>ID</th><th>Profile</th><th>Current kyu</th><th>Total hours</th><th>Examination</th><th>Payment</th><th>Updated</th><th>Actions</th>
+      <th>Student</th><th>ID</th><th>Current kyu</th><th>Status</th><th>Updated</th><th>Actions</th>
     </tr></thead><tbody>{students.map((student) => <tr key={student.id} className={selected.has(student.id) ? "is-selected" : ""}>
       <td><input type="checkbox" aria-label={`Select ${student.display_name}`} checked={selected.has(student.id)} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(student.id); else next.delete(student.id); return next; })} /></td>
-      <th>{student.display_name}{student.pending_hours ? <small>{student.pending_hours} hours request pending</small> : null}</th><td><code>{student.public_student_id}</code></td><td><Status value={student.profile_status} /></td>
+      <th><span className="admin-student-identity">{student.profile_image_url ? <img src={student.profile_image_url} alt="" /> : <span aria-hidden="true"><UserRound size={18} /></span>}<span>{student.display_name}{student.pending_hours ? <small>{student.pending_hours} hours request pending</small> : null}</span></span></th><td><code>{student.public_student_id}</code></td>
       <td><select className="admin-inline-rank" aria-label={`Current rank for ${student.display_name}`} value={student.current_belt} disabled={rowBusy === student.id} onWheel={(event) => event.currentTarget.blur()} onChange={(event) => void saveRank(student, event.target.value)}>{RANKS.map((item) => <option key={item}>{item}</option>)}</select>{rowBusy === student.id ? <LoaderCircle className="spin admin-inline-spinner" size={13} /> : null}</td>
-      <td>{hoursEdit?.id === student.id ? <span className="admin-inline-hours"><input autoFocus type="number" min="0" step="0.25" value={hoursEdit.value} onChange={(event) => setHoursEdit({ ...hoursEdit, value: event.target.value })} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); skipHoursBlur.current = true; void saveHoursEdit(); } if (event.key === "Escape") { skipHoursBlur.current = true; setHoursEdit(null); } }} onBlur={() => { if (skipHoursBlur.current) { skipHoursBlur.current = false; return; } void saveHoursEdit(); }} /><button aria-label="Save hours" onMouseDown={(event) => event.preventDefault()} onClick={() => void saveHoursEdit()}><Save size={14} /></button></span> : <button className="admin-hours-value" onClick={() => setHoursEdit({ id: student.id, value: String(Number(student.total_hours || 0)), previous: Number(student.total_hours || 0) })}>{Number(student.total_hours || 0).toLocaleString()} hr</button>}</td>
-      <td><Status value={student.examination_status} /></td><td><Status value={student.payment_status} /></td><td>{formatDate(student.updated_at)}</td><td><div className="admin-row-actions"><button onClick={() => void openStudent(student.id)}><Eye size={14} /> Open</button>{student.active ? <button onClick={() => void archive(student)}><Archive size={14} /> Archive</button> : null}</div></td>
+      <td><Status value={student.active ? "active" : "archived"} />{student.profile_status !== "approved" ? <Status value={student.profile_status} /> : null}</td><td>{formatDate(student.updated_at)}</td><td><div className="admin-row-actions"><button onClick={() => void openStudent(student.id)}><Eye size={14} /> View / edit</button>{student.active ? <button onClick={() => setStudentAction({ student, action: "archive" })}><Archive size={14} /> Archive</button> : <button onClick={() => setStudentAction({ student, action: "restore" })}><RotateCcw size={14} /> Restore</button>}</div></td>
     </tr>)}</tbody></table></div>{!loading && students.length === 0 ? <div className="admin-empty"><UserRound size={32} /><h2>No students found</h2><p>Try resetting the active filters or add a new student.</p></div> : null}
       <nav className="admin-pagination"><button className="btn-secondary" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}><ChevronLeft size={16} /> Previous</button><span>Page {pagination.page} of {pagination.totalPages}</span><button className="btn-secondary" disabled={page >= pagination.totalPages} onClick={() => setPage((value) => value + 1)}>Next <ChevronRight size={16} /></button></nav>
     </section>
+    </div>
+
+    {section === "exams" ? <AdminExamApplications report={(message, isError = false) => isError ? setError(message) : setNotice(message)} /> : null}
+    {section === "contributions" ? <AdminMonthlyContributions report={(message, isError = false) => isError ? setError(message) : setNotice(message)} /> : null}
 
     {(detailLoading || detail) ? <StudentDrawer detail={detail} loading={detailLoading} close={() => setDetail(null)} refresh={async () => { if (detail) await openStudent(detail.student.id); await load(); }} report={(message, isError = false) => isError ? setError(message) : setNotice(message)} /> : null}
     {bulk ? <BulkModal bulk={bulk} setBulk={setBulk} students={selectedRows} close={() => setBulk(null)} confirm={() => void runBulk()} busy={loading} /> : null}
     {createOpen ? <CreateStudentModal suggestedId={suggestedId} close={() => setCreateOpen(false)} complete={async (message) => { setCreateOpen(false); setNotice(message); await load(1); }} report={setError} /> : null}
-    {resetOpen ? <div className="admin-confirm-backdrop"><section className="admin-confirm"><RotateCcw /><h2>{resetStep === 1 ? "Close the current exam cycle?" : "Type the confirmation phrase"}</h2>{resetStep === 1 ? <><p>This returns <strong>{resetCount} student{resetCount === 1 ? "" : "s"}</strong> to “No current application.” It archives statuses only; applications, answers, payment records, examinations, students, and audit history remain available.</p><div><button className="btn-secondary" onClick={() => setResetOpen(false)}>Cancel</button><button className="btn-primary is-danger" onClick={() => setResetStep(2)}>Continue</button></div></> : <><label className="admin-confirm-phrase">Enter <strong>RESET EXAM STATUS</strong><input value={resetPhrase} onChange={(event) => setResetPhrase(event.target.value)} autoFocus /></label><div><button className="btn-secondary" onClick={() => setResetStep(1)}>Back</button><button className="btn-primary is-danger" disabled={resetPhrase !== "RESET EXAM STATUS"} onClick={() => void runReset()}>Reset statuses</button></div></>}</section></div> : null}
+    {studentAction ? <div className="admin-confirm-backdrop"><section className="admin-confirm" role="alertdialog" aria-modal="true" aria-labelledby="student-action-title"><Archive /><h2 id="student-action-title">{studentAction.action === "archive" ? "Archive" : "Restore"} {studentAction.student.display_name}?</h2><p><strong>{studentAction.student.display_name}</strong><br />Student ID <code>{studentAction.student.public_student_id}</code></p><p>{studentAction.action === "archive" ? "The student will leave the active list. Exam, training, audit, and contribution history will remain available." : "The student will return to the active list and their approved visibility setting will be restored."}</p><div><button className="btn-secondary" onClick={() => setStudentAction(null)}>Cancel</button><button className={`btn-primary ${studentAction.action === "archive" ? "is-danger" : ""}`} disabled={rowBusy === studentAction.student.id} onClick={() => void runStudentAction()}>{studentAction.action === "archive" ? "Confirm archive" : "Confirm restore"}</button></div></section></div> : null}
   </section>;
 }
 
@@ -239,9 +256,9 @@ function BulkModal({ bulk, setBulk, students, close, confirm, busy }: { bulk: Bu
 }
 
 function CreateStudentModal({ suggestedId, close, complete, report }: { suggestedId: string; close: () => void; complete: (message: string) => void; report: (message: string) => void }) {
-  const [draft, setDraft] = useState({ name: "", studentId: suggestedId, rank: "Unranked", hours: "0", pin: "", notes: "" }); const [busy, setBusy] = useState(false);
-  async function submit(event: FormEvent) { event.preventDefault(); setBusy(true); try { const result = await api<{ studentId: string }>("/api/admin/students", { method: "POST", body: JSON.stringify({ displayName: draft.name, studentId: draft.studentId, manualStudentId: draft.studentId !== suggestedId, currentBelt: draft.rank, currentTrainingHours: Number(draft.hours), studentPin: draft.pin || undefined, adminNotes: draft.notes }) }); await complete(`Created ${result.studentId}.`); } catch (reason) { report(reason instanceof Error ? reason.message : "Could not create student."); } finally { setBusy(false); } }
-  return <div className="admin-confirm-backdrop"><section className="admin-bulk-modal"><header><div><p className="eyebrow">Official profile</p><h2>Add student</h2></div><button onClick={close}><X /></button></header><form className="admin-bulk-form" onSubmit={submit}><label>Name<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required /></label><label>Student ID<input value={draft.studentId} onChange={(event) => setDraft({ ...draft, studentId: event.target.value.toUpperCase() })} required /></label><label>Current kyu<select value={draft.rank} onChange={(event) => setDraft({ ...draft, rank: event.target.value })}>{RANKS.map((item) => <option key={item}>{item}</option>)}</select></label><label>Current total hours<input type="number" min="0" step="0.25" value={draft.hours} onChange={(event) => setDraft({ ...draft, hours: event.target.value })} /></label><label>Student PIN <small>Optional now; 6–12 digits enables verified self-service.</small><input type="password" inputMode="numeric" pattern="[0-9]{6,12}" value={draft.pin} onChange={(event) => setDraft({ ...draft, pin: event.target.value })} /></label><label>Administrator note<textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} /></label><footer><button type="button" className="btn-secondary" onClick={close}>Cancel</button><button className="btn-primary" disabled={busy}>{busy ? <LoaderCircle className="spin" size={16} /> : <Plus size={16} />} Create student</button></footer></form></section></div>;
+  const [draft, setDraft] = useState({ name: "", studentId: suggestedId, rank: "Unranked", hours: "0", notes: "" }); const [busy, setBusy] = useState(false);
+  async function submit(event: FormEvent) { event.preventDefault(); setBusy(true); try { const result = await api<{ studentId: string }>("/api/admin/students", { method: "POST", body: JSON.stringify({ displayName: draft.name, studentId: draft.studentId, manualStudentId: draft.studentId !== suggestedId, currentBelt: draft.rank, currentTrainingHours: Number(draft.hours), adminNotes: draft.notes }) }); await complete(`Created ${result.studentId}.`); } catch (reason) { report(reason instanceof Error ? reason.message : "Could not create student."); } finally { setBusy(false); } }
+  return <div className="admin-confirm-backdrop"><section className="admin-bulk-modal"><header><div><p className="eyebrow">Official profile</p><h2>Add student</h2></div><button onClick={close}><X /></button></header><form className="admin-bulk-form" onSubmit={submit}><label>Name<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required /></label><label>Student ID<input value={draft.studentId} onChange={(event) => setDraft({ ...draft, studentId: event.target.value.toUpperCase() })} required /></label><label>Current kyu<select value={draft.rank} onChange={(event) => setDraft({ ...draft, rank: event.target.value })}>{RANKS.map((item) => <option key={item}>{item}</option>)}</select></label><label>Current total hours<input type="number" min="0" step="0.25" value={draft.hours} onChange={(event) => setDraft({ ...draft, hours: event.target.value })} /></label><label>Administrator note<textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} /></label><footer><button type="button" className="btn-secondary" onClick={close}>Cancel</button><button className="btn-primary" disabled={busy}>{busy ? <LoaderCircle className="spin" size={16} /> : <Plus size={16} />} Create student</button></footer></form></section></div>;
 }
 
 function StudentDrawer({ detail, loading, close, refresh, report }: { detail: Detail | null; loading: boolean; close: () => void; refresh: () => Promise<void>; report: (message: string, error?: boolean) => void }) {
@@ -265,15 +282,15 @@ function StudentDrawer({ detail, loading, close, refresh, report }: { detail: De
 function StudentDetailsEditor({ student, refresh, report }: { student: Student; refresh: () => Promise<void>; report: (message: string, error?: boolean) => void }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [draft, setDraft] = useState({ name: student.display_name, studentId: student.public_student_id, rank: student.current_belt, practiceDuration: student.practice_duration || "", profileBio: student.profile_bio || "", notes: student.admin_notes || "", pin: "" });
-  useEffect(() => setDraft({ name: student.display_name, studentId: student.public_student_id, rank: student.current_belt, practiceDuration: student.practice_duration || "", profileBio: student.profile_bio || "", notes: student.admin_notes || "", pin: "" }), [student.id, student.updated_at]);
+  const [draft, setDraft] = useState({ name: student.display_name, studentId: student.public_student_id, rank: student.current_belt, practiceDuration: student.practice_duration || "", profileBio: student.profile_bio || "", notes: student.admin_notes || "" });
+  useEffect(() => setDraft({ name: student.display_name, studentId: student.public_student_id, rank: student.current_belt, practiceDuration: student.practice_duration || "", profileBio: student.profile_bio || "", notes: student.admin_notes || "" }), [student.id, student.updated_at]);
   async function save(event: FormEvent) {
     event.preventDefault(); setBusy(true);
     try {
-      await api(`/api/admin/students/${student.id}`, { method: "PUT", body: JSON.stringify({ displayName: draft.name, studentId: draft.studentId, currentBelt: draft.rank, practiceDuration: draft.practiceDuration, profileBio: draft.profileBio, adminNotes: draft.notes, studentPin: draft.pin || undefined }) });
+      await api(`/api/admin/students/${student.id}`, { method: "PUT", body: JSON.stringify({ displayName: draft.name, studentId: draft.studentId, currentBelt: draft.rank, practiceDuration: draft.practiceDuration, profileBio: draft.profileBio, adminNotes: draft.notes }) });
       report("Student details saved with an audit entry."); setOpen(false); await refresh();
     } catch (reason) { report(reason instanceof Error ? reason.message : "Student details could not be saved.", true); }
     finally { setBusy(false); }
   }
-  return <details className="admin-workflow-card" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}><summary>Edit profile details or correct a request</summary><form className="admin-bulk-form" onSubmit={save}><label>Name<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required /></label><label>Student ID<input value={draft.studentId} onChange={(event) => setDraft({ ...draft, studentId: event.target.value.toUpperCase() })} required /></label><label>Current kyu<select value={draft.rank} onChange={(event) => setDraft({ ...draft, rank: event.target.value })}>{RANKS.map((rank) => <option key={rank}>{rank}</option>)}</select></label><label>Practice duration<input value={draft.practiceDuration} onChange={(event) => setDraft({ ...draft, practiceDuration: event.target.value })} /></label><label>Public profile information<textarea value={draft.profileBio} onChange={(event) => setDraft({ ...draft, profileBio: event.target.value })} /></label><label>Administrator note<textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} /></label><label>Reset student PIN <small>Optional · enter 6–12 digits only when a reset is needed.</small><input type="password" inputMode="numeric" pattern="[0-9]{6,12}" value={draft.pin} onChange={(event) => setDraft({ ...draft, pin: event.target.value })} /></label><footer><button className="btn-primary" disabled={busy}>{busy ? <LoaderCircle className="spin" size={16} /> : <Save size={16} />} Save details</button></footer></form></details>;
+  return <details className="admin-workflow-card" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}><summary>Edit profile details or correct a request</summary><form className="admin-bulk-form" onSubmit={save}><label>Name<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required /></label><label>Student ID<input value={draft.studentId} onChange={(event) => setDraft({ ...draft, studentId: event.target.value.toUpperCase() })} required /></label><label>Current kyu<select value={draft.rank} onChange={(event) => setDraft({ ...draft, rank: event.target.value })}>{RANKS.map((rank) => <option key={rank}>{rank}</option>)}</select></label><label>Practice duration<input value={draft.practiceDuration} onChange={(event) => setDraft({ ...draft, practiceDuration: event.target.value })} /></label><label>Public profile information<textarea value={draft.profileBio} onChange={(event) => setDraft({ ...draft, profileBio: event.target.value })} /></label><label>Administrator note<textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} /></label><footer><button className="btn-primary" disabled={busy}>{busy ? <LoaderCircle className="spin" size={16} /> : <Save size={16} />} Save details</button></footer></form></details>;
 }

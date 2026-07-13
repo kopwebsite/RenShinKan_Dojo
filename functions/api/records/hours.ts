@@ -7,10 +7,9 @@ import {
   studentTotal,
   type StudentEnv,
   validStudentAccessSession,
-  verifyStudentPin,
 } from "../../_lib/studentRecords";
 
-type Payload = { studentId?: unknown; accessToken?: unknown; pin?: unknown; hours?: unknown };
+type Payload = { studentId?: unknown; accessToken?: unknown; hours?: unknown };
 
 export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env }) => {
   const requestId = requestIdentifier(request);
@@ -22,13 +21,12 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
     const body = await request.json<Payload>();
     const publicStudentId = normalizeStudentId(typeof body.studentId === "string" ? body.studentId : "");
     const accessToken = typeof body.accessToken === "string" ? body.accessToken : "";
-    const pin = typeof body.pin === "string" ? body.pin.trim() : "";
     const hours = Number(body.hours);
     if (!Number.isFinite(hours) || hours <= 0 || hours > 1000) return jsonResponse({ error: "Enter a positive number of hours, up to 1,000." }, 400);
-    const student = await db.prepare(`SELECT id, student_pin_hash FROM students
+    const student = await db.prepare(`SELECT id FROM students
       WHERE UPPER(public_student_id) = ? AND active = 1 AND public_visible = 1 AND profile_status = 'approved' LIMIT 1`)
-      .bind(publicStudentId).first<{ id: string; student_pin_hash: string | null }>();
-    if (!student || !(await verifyStudentPin(pin, student.student_pin_hash))) return jsonResponse({ error: "The Student ID or secure PIN is incorrect." }, 403);
+      .bind(publicStudentId).first<{ id: string }>();
+    if (!student) return jsonResponse({ error: "The verified student session is unavailable. Look up the record again." }, 403);
     const session = await validStudentAccessSession(db, student.id, accessToken);
     if (!session) return jsonResponse({ error: "Your secure record session expired. Look up the record again before submitting hours." }, 403);
     const previousTotal = await studentTotal(db, student.id);

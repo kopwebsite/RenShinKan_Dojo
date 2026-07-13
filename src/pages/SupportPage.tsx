@@ -143,15 +143,14 @@ export function SupportPage() {
               </div>
             </div>
             <div className="flex items-center justify-center">
-              <ResponsiveImage
-                src={assetPath("/dojo-photos/support.avif")}
-                alt={t("support.monthly.supportImageAlt")}
-                imgClassName="w-full max-w-sm object-cover"
-                style={{ maskImage: "radial-gradient(ellipse 88% 88% at 50% 50%, black 55%, transparent 100%)", WebkitMaskImage: "radial-gradient(ellipse 88% 88% at 50% 50%, black 55%, transparent 100%)" }}
-                loading="lazy"
-                width={1402}
-                height={1122}
-              />
+              <div className="support-dojo-art" role="img" aria-label={t("support.monthly.supportImageAlt")}>
+                <span className="support-dojo-art__sun" aria-hidden="true" />
+                <span className="support-dojo-art__shoji" aria-hidden="true" />
+                <span className="support-dojo-art__figure support-dojo-art__figure--one" aria-hidden="true"><i /><b /></span>
+                <span className="support-dojo-art__figure support-dojo-art__figure--two" aria-hidden="true"><i /><b /></span>
+                <span className="support-dojo-art__tatami" aria-hidden="true" />
+                <span className="support-dojo-art__enso" aria-hidden="true">合</span>
+              </div>
             </div>
           </div>
         </div>

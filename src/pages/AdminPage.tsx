@@ -15,6 +15,7 @@ import {
   ExternalLink,
   X,
 } from "lucide-react";
+import { AdminAlerts } from "../components/AdminAlerts";
 import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { EventBodyRenderer } from "../components/EventBodyRenderer";
@@ -458,16 +459,6 @@ export function AdminPage() {
     passedTestStudents: false,
   });
   const [openEventIds, setOpenEventIds] = useState<string[]>([]);
-
-  useEffect(() => {
-    document.documentElement.classList.add("admin-route");
-    document.body.classList.add("admin-simple");
-
-    return () => {
-      document.documentElement.classList.remove("admin-route");
-      document.body.classList.remove("admin-simple");
-    };
-  }, []);
 
   useEffect(() => {
     fetch("/api/admin/session", { credentials: "include" })
@@ -1223,6 +1214,8 @@ export function AdminPage() {
         <Link to="/admin/students"><UsersRound size={22} /><span><strong>Manage students</strong><small>Hours, examinations, privacy and QR sharing</small></span></Link>
         <a href="/" target="_blank" rel="noopener noreferrer"><ExternalLink size={22} /><span><strong>Preview the website</strong><small>Open the public site in a new tab</small></span></a>
       </nav>
+
+      <AdminAlerts />
 
       {publishMessage ? (
         <div

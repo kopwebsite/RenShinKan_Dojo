@@ -2,13 +2,19 @@
   "name": "renshinkan-dojo",
   "private": true,
   "version": "0.1.0",
+  "engines": { "node": ">=20 <26" },
   "type": "module",
   "scripts": {
     "predev": "npm run optimize:images",
     "dev": "vite",
     "optimize:images": "node scripts/optimize-images.mjs",
     "build": "npm run optimize:images && vite build",
-    "check": "tsc --noEmit && npm run build",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/ranks-and-security.test.ts",
+    "test:integration": "vitest run tests/workflow-contracts.test.ts",
+    "check": "npm run lint && npm run test && npm run build",
     "deploy": "wrangler pages deploy dist --project-name renshinkan-dojo",
     "preview": "vite preview"
   },
@@ -30,6 +36,7 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2",
     "vite": "^6.0.5",
+    "vitest": "^3.2.7",
     "wrangler": "^4.110.0"
   }
 }

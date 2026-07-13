@@ -1,5 +1,19 @@
 import { jsonResponse } from "../../_lib/auth";
-import { enforceLookupRateLimit, genericLookupFailure, normalizeStudentId, publicStudentRecord, requireStudentDb, studentCredentialHashes, type StudentEnv, verifyTurnstile } from "../../_lib/studentRecords";
+import {
+  audit,
+  enforceLookupRateLimit,
+  ensureOwnerShareUrl,
+  genericLookupFailure,
+  issueStudentAccessSession,
+  normalizeStudentId,
+  publicStudentRecord,
+  requestIdentifier,
+  requireStudentDb,
+  studentCredentialHashes,
+  type StudentEnv,
+  type StudentRow,
+  verifyTurnstile,
+} from "../../_lib/studentRecords";
 
 type Env = StudentEnv;
 type Payload = { name?: unknown; studentId?: unknown; code?: unknown; turnstileToken?: unknown };
@@ -15,10 +29,32 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!(await verifyTurnstile(request, env, token))) return genericLookupFailure();
     const { nameHash, codeHash } = await studentCredentialHashes(env, name, studentId);
     const db = requireStudentDb(env);
-    const student = await db.prepare("SELECT id, public_student_id, display_name, current_belt, belt_color, profile_image_url, profile_image_consent, public_visible, active, share_fields, dojo_name, training_hours_adjustment, updated_at FROM students WHERE name_verification_hash = ? AND (UPPER(public_student_id) = ? OR lookup_code_hash = ?) AND active = 1 AND public_visible = 1 LIMIT 1")
-      .bind(nameHash, studentId, codeHash).first<any>();
+    const student = await db.prepare(`SELECT id, public_student_id, display_name, current_belt, belt_color,
+      profile_image_url, profile_image_consent, public_visible, active, profile_status, share_fields, dojo_name,
+      training_hours_adjustment, updated_at, student_pin_hash
+      FROM students WHERE name_verification_hash = ? AND (UPPER(public_student_id) = ? OR lookup_code_hash = ?)
+      AND active = 1 AND public_visible = 1 AND profile_status = 'approved' LIMIT 1`)
+      .bind(nameHash, studentId, codeHash).first<StudentRow & { student_pin_hash: string | null }>();
     if (!student) return genericLookupFailure();
-    return jsonResponse({ record: await publicStudentRecord(db, student) }, 200, { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" });
+    const requestId = requestIdentifier(request);
+    const selfServiceAvailable = Boolean(student.student_pin_hash);
+    const [record, share, accessToken] = await Promise.all([
+      publicStudentRecord(db, student),
+      ensureOwnerShareUrl(db, env, student.id, request),
+      selfServiceAvailable ? issueStudentAccessSession(db, student.id, requestId) : Promise.resolve(null),
+    ]);
+    if (share.created) {
+      await audit(db, {
+        actorType: "system", actorIdentifier: "student_lookup", action: "qr_link_created", entityType: "share_token", entityId: student.id,
+        studentId: student.id, newValues: { purpose: "owner" }, source: "student_record_lookup", requestId,
+        summary: `Created a compatible public profile QR link for ${student.public_student_id}`,
+      });
+    }
+    return jsonResponse(
+      { record, shareUrl: share.url, accessToken, selfServiceAvailable },
+      200,
+      { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" },
+    );
   } catch {
     return genericLookupFailure();
   }

@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Footer } from "./components/Footer";
 import { Navbar } from "./components/Navbar";
@@ -22,6 +22,7 @@ const WorkshopsPage = lazy(() => import("./pages/WorkshopsPage").then((module) =
 const StudentRecordsPage = lazy(() => import("./pages/StudentRecordsPage").then((module) => ({ default: module.StudentRecordsPage })));
 const SharedStudentRecordPage = lazy(() => import("./pages/SharedStudentRecordPage").then((module) => ({ default: module.SharedStudentRecordPage })));
 const AdminStudentsPage = lazy(() => import("./pages/AdminStudentsPage").then((module) => ({ default: module.AdminStudentsPage })));
+const AdminAuditPage = lazy(() => import("./pages/AdminAuditPage").then((module) => ({ default: module.AdminAuditPage })));
 
 function RouteFallback() {
   return (
@@ -39,6 +40,15 @@ export default function App() {
   const { t } = useTranslation();
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith("/admin");
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("admin-route", isAdminRoute);
+    document.body.classList.toggle("admin-simple", isAdminRoute);
+    return () => {
+      document.documentElement.classList.remove("admin-route");
+      document.body.classList.remove("admin-simple");
+    };
+  }, [isAdminRoute]);
 
   return (
     <>
@@ -67,6 +77,7 @@ export default function App() {
             <Route path="/visit" element={<Navigate to="/contact" replace />} />
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/admin/students" element={<AdminStudentsPage />} />
+            <Route path="/admin/audit" element={<AdminAuditPage />} />
             <Route path="/student-records" element={<StudentRecordsPage />} />
             <Route path="/records" element={<Navigate to="/student-records" replace />} />
             <Route path="/records/share/:token" element={<SharedStudentRecordPage />} />

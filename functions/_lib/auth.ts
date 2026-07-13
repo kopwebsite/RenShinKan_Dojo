@@ -4,6 +4,14 @@ const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 type AuthEnv = {
   ADMIN_PASSWORD_HASH?: string;
   SESSION_SECRET?: string;
+  STUDENT_DB?: {
+    prepare(query: string): {
+      bind(...values: unknown[]): {
+        first<T>(): Promise<T | null>;
+        run(): Promise<unknown>;
+      };
+    };
+  };
 };
 
 type SessionPayload = {
@@ -98,6 +106,41 @@ async function hmacSha256Hex(secret: string, value: string) {
   return [...bytes]
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
+}
+
+async function loginActorHash(request: Request) {
+  const value = `${request.headers.get("CF-Connecting-IP") || "unknown"}:${request.headers.get("User-Agent") || ""}`;
+  const digest = await crypto.subtle.digest("SHA-256", textToBytes(value));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export async function allowAdminLoginAttempt(request: Request, env: AuthEnv) {
+  if (!env.STUDENT_DB) return true;
+  const actor = await loginActorHash(request);
+  const row = await env.STUDENT_DB.prepare("SELECT locked_until FROM admin_login_attempts WHERE actor_hash = ?")
+    .bind(actor).first<{ locked_until: string | null }>();
+  return !(row?.locked_until && Date.parse(row.locked_until) > Date.now());
+}
+
+export async function recordFailedAdminLoginAttempt(request: Request, env: AuthEnv) {
+  if (!env.STUDENT_DB) return true;
+  const actor = await loginActorHash(request);
+  const now = Date.now();
+  const row = await env.STUDENT_DB.prepare("SELECT window_started_at, attempts FROM admin_login_attempts WHERE actor_hash = ?")
+    .bind(actor).first<{ window_started_at: string; attempts: number }>();
+  const expired = !row || now - Date.parse(row.window_started_at) > 15 * 60 * 1000;
+  const attempts = expired ? 1 : Number(row.attempts || 0) + 1;
+  const lockedUntil = attempts >= 8 ? new Date(now + 15 * 60 * 1000).toISOString() : null;
+  await env.STUDENT_DB.prepare(`INSERT INTO admin_login_attempts (actor_hash, window_started_at, attempts, locked_until)
+    VALUES (?, ?, ?, ?) ON CONFLICT(actor_hash) DO UPDATE SET window_started_at = excluded.window_started_at,
+    attempts = excluded.attempts, locked_until = excluded.locked_until`)
+    .bind(actor, expired ? new Date(now).toISOString() : row!.window_started_at, attempts, lockedUntil).run();
+  return !lockedUntil;
+}
+
+export async function clearAdminLoginAttempts(request: Request, env: AuthEnv) {
+  if (!env.STUDENT_DB) return;
+  await env.STUDENT_DB.prepare("DELETE FROM admin_login_attempts WHERE actor_hash = ?").bind(await loginActorHash(request)).run();
 }
 
 function normalizeHash(value: string) {

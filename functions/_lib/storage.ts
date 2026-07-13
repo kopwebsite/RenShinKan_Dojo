@@ -39,6 +39,12 @@ export type UploadedMedia = {
   size: number;
 };
 
+export type ValidatedProfileImage = {
+  bytes: Uint8Array;
+  width: number;
+  height: number;
+};
+
 const CONTENT_KEY = "site:editable-content";
 const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_DOCUMENT_FILE_SIZE = 20 * 1024 * 1024;
@@ -55,6 +61,53 @@ const mimeTypeByExtension = new Map(
   ),
 );
 const imageMimeTypes = new Set(["image/webp"]);
+
+function ascii(bytes: Uint8Array, start: number, length: number) {
+  return String.fromCharCode(...bytes.slice(start, start + length));
+}
+
+function webpDimensions(bytes: Uint8Array) {
+  const chunk = ascii(bytes, 12, 4);
+  if (chunk === "VP8X" && bytes.length >= 30) {
+    const width = 1 + bytes[24] + (bytes[25] << 8) + (bytes[26] << 16);
+    const height = 1 + bytes[27] + (bytes[28] << 8) + (bytes[29] << 16);
+    return { width, height };
+  }
+  if (chunk === "VP8 " && bytes.length >= 30 && bytes[23] === 0x9d && bytes[24] === 0x01 && bytes[25] === 0x2a) {
+    return {
+      width: (bytes[26] | (bytes[27] << 8)) & 0x3fff,
+      height: (bytes[28] | (bytes[29] << 8)) & 0x3fff,
+    };
+  }
+  if (chunk === "VP8L" && bytes.length >= 25 && bytes[20] === 0x2f) {
+    return {
+      width: 1 + bytes[21] + ((bytes[22] & 0x3f) << 8),
+      height: 1 + (bytes[22] >> 6) + (bytes[23] << 2) + ((bytes[24] & 0x0f) << 10),
+    };
+  }
+  return null;
+}
+
+export async function validateProfileWebp(file: File, maxSize = 3 * 1024 * 1024): Promise<ValidatedProfileImage> {
+  if (file.type !== "image/webp" || !file.name.toLocaleLowerCase("en-US").endsWith(".webp")) {
+    throw new Error("Choose a JPEG, PNG, or WebP profile image.");
+  }
+  if (file.size <= 0 || file.size > maxSize) throw new Error("Profile images must be smaller than 3 MB.");
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (bytes.length < 30 || ascii(bytes, 0, 4) !== "RIFF" || ascii(bytes, 8, 4) !== "WEBP") {
+    throw new Error("The uploaded file is not a valid WebP image.");
+  }
+  const dimensions = webpDimensions(bytes);
+  if (!dimensions || dimensions.width < 128 || dimensions.height < 128 || dimensions.width > 4000 || dimensions.height > 4000) {
+    throw new Error("Profile images must be between 128 × 128 and 4000 × 4000 pixels.");
+  }
+  return { bytes, ...dimensions };
+}
+
+export function datedProfileKey(prefix: "student-profiles" | "pending-student-profiles") {
+  const now = new Date();
+  return `${prefix}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, "0")}/${crypto.randomUUID()}.webp`;
+}
 
 export function emptyContent(): EditableContent {
   return {

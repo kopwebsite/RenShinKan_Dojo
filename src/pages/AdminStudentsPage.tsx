@@ -1,425 +1,279 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Archive, ArrowDown, ArrowLeft, ArrowUp, BadgePlus, CheckCircle2, ChevronLeft, ChevronRight,
-  Clock3, Edit3, Eye, GraduationCap, ImagePlus, LoaderCircle, Lock, LogOut, Plus, Printer,
-  QrCode, RotateCcw, Search, ShieldCheck, Trash2, Upload, UserRound, X,
+  AlertCircle, Archive, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Eye, GraduationCap,
+  History, LoaderCircle, Lock, LogOut, Plus, RotateCcw, Save, Search, ShieldCheck, UserRound, Users, X,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
-import QRCodeLib from "qrcode";
+import { Link } from "react-router-dom";
+import { RANKS } from "../../shared/ranks";
 import { BeltMark } from "../components/BeltMark";
 
 type StudentSummary = {
-  id: string; public_student_id: string; display_name: string; current_belt: string;
-  profile_image_url: string | null; active: number; dojo_name: string; updated_at: string;
-  total_hours: number; sharing_active: number;
+  id: string; public_student_id: string; display_name: string; current_belt: string; profile_image_url: string | null;
+  active: number; dojo_name: string; updated_at: string; profile_status: string; total_hours: number;
+  examination_status: string; payment_status: string; pending_hours: number; sharing_active: number;
 };
 type Student = StudentSummary & {
-  belt_color: string; profile_image_consent: number; guardian_consent: number; public_visible: number;
-  share_fields: string; admin_notes: string; training_hours_adjustment: number; created_at: string;
+  belt_color: string; profile_image_consent: number; guardian_consent: number; public_visible: number; admin_notes: string;
+  practice_duration: string; profile_bio: string; pending_profile_image_url?: string; profile_review_note: string;
 };
-type Examination = {
-  id: string; examination_date: string; belt_awarded: string; rank?: string | null; examiner?: string | null;
-  public_notes?: string | null; internal_notes?: string | null;
+type Examination = { id: string; rank_before: string; rank_attempted: string; passed: number; examination_location: string; rank_after: string; examination_timestamp: string };
+type TrainingHour = { id: string; verified_hours: number; source: string; created_at: string };
+type HourRequest = { id: string; submitted_hours: number; previous_total: number; requested_total: number; status: string; submitted_at: string; review_note?: string };
+type Application = {
+  id: string; status: string; payment_status: string; attempted_rank: string; current_rank: string; submitted_at: string;
+  administrator_notes: string; cycle_name: string; answers: Record<string, string>; history: Array<Record<string, string>>;
 };
-type TrainingHour = {
-  id: string; entry_date: string; period_end?: string | null; verified_hours: number;
-  source?: string | null; internal_note?: string | null;
-};
-type Detail = { student: Student; examinations: Examination[]; trainingHours: TrainingHour[] };
+type Detail = { student: Student; examinations: Examination[]; trainingHours: TrainingHour[]; hourRequests: HourRequest[]; applications: Application[] };
 type ListResponse = {
-  students: StudentSummary[];
-  pagination: { page: number; pageSize: number; total: number; totalPages: number };
-  summary: { total: number; active: number; archived: number };
-  dojos: string[]; ranks: string[]; suggestedStudentId: string;
+  students: StudentSummary[]; pagination: { page: number; pageSize: number; total: number; totalPages: number };
+  summary: { total: number; active: number; archived: number; pending_profiles: number }; ranks: string[]; suggestedStudentId: string;
 };
-type DrawerMode = "create" | "view" | "edit";
-type SortKey = "name" | "studentId" | "rank" | "trainingHours" | "updated";
-type Draft = {
-  displayName: string; studentId: string; currentBelt: string; dojoName: string; currentTrainingHours: string;
-  adminNotes: string; profileImageUrl: string | null; profileImageConsent: boolean; guardianConsent: boolean;
-  publicVisible: boolean; active: boolean;
-};
+type BulkDraft = { type: "hours" | "promotion"; hours: string; levels: string; location: string; preview: boolean };
 
-const DEFAULT_RANKS = ["Unranked", "10 Kyu", "9 Kyu", "8 Kyu", "7 Kyu", "6 Kyu", "5 Kyu", "4 Kyu", "3 Kyu", "2 Kyu", "1 Kyu", "SHO Dan-Ho", "1st Dan", "2nd Dan", "3rd Dan"];
-const EMPTY_PAGINATION = { page: 1, pageSize: 20, total: 0, totalPages: 1 };
-const EMPTY_SUMMARY = { total: 0, active: 0, archived: 0 };
-const PROFILE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const EMPTY_PAGE = { page: 1, pageSize: 20, total: 0, totalPages: 1 };
+const EMPTY_SUMMARY = { total: 0, active: 0, archived: 0, pending_profiles: 0 };
 
-async function jsonFetch<T = any>(url: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    ...options,
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...(options?.headers || {}) },
-  });
+async function api<T>(url: string, options: RequestInit = {}) {
+  const headers = new Headers(options.headers);
+  if (options.body && !(options.body instanceof FormData)) headers.set("Content-Type", "application/json");
+  if (options.method && options.method !== "GET") headers.set("X-Request-ID", crypto.randomUUID());
+  const response = await fetch(url, { ...options, headers, credentials: "include", cache: "no-store" });
   const body = await response.json() as T & { error?: string };
-  if (!response.ok) throw new Error(body.error || "Request failed");
+  if (!response.ok) throw new Error(body.error || "The request could not be completed.");
   return body;
 }
 
-async function imageToWebp(file: File) {
-  if (!PROFILE_TYPES.has(file.type)) throw new Error("Choose a JPEG, PNG, or WebP image.");
-  if (file.size > 5 * 1024 * 1024) throw new Error("Profile images must be 5 MB or smaller.");
-  const bitmap = await createImageBitmap(file);
-  const max = 1200;
-  const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("This browser could not prepare the image.");
-  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(
-    (value) => value ? resolve(value) : reject(new Error("Could not prepare image")), "image/webp", .84,
-  ));
-  return new File([blob], "profile.webp", { type: "image/webp" });
-}
-
-function blankDraft(studentId: string): Draft {
-  return {
-    displayName: "", studentId, currentBelt: "Unranked", dojoName: "RenShinKan Dojo",
-    currentTrainingHours: "0", adminNotes: "", profileImageUrl: null, profileImageConsent: false,
-    guardianConsent: false, publicVisible: true, active: true,
-  };
-}
-
-function detailDraft(student: Student): Draft {
-  return {
-    displayName: student.display_name, studentId: student.public_student_id, currentBelt: student.current_belt,
-    dojoName: student.dojo_name, currentTrainingHours: String(Number(student.total_hours || 0)),
-    adminNotes: student.admin_notes || "", profileImageUrl: student.profile_image_url,
-    profileImageConsent: Boolean(student.profile_image_consent), guardianConsent: Boolean(student.guardian_consent),
-    publicVisible: Boolean(student.public_visible), active: Boolean(student.active),
-  };
-}
-
 function formatDate(value: string) {
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? value : new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(parsed);
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
-function initials(name: string) {
-  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "RS";
+function label(value: string) {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
-function Avatar({ student, large = false }: { student: Pick<StudentSummary, "display_name" | "profile_image_url">; large?: boolean }) {
-  return student.profile_image_url
-    ? <img className={`admin-avatar${large ? " admin-avatar--large" : ""}`} src={student.profile_image_url} alt="" />
-    : <span className={`admin-avatar admin-avatar--fallback${large ? " admin-avatar--large" : ""}`} aria-hidden="true">{initials(student.display_name)}</span>;
+function Status({ value }: { value: string }) {
+  const tone = value.includes("pending") || value === "application_submitted" ? "is-pending" : value === "approved" || value === "paid" || value === "examination_completed" ? "is-active" : value === "rejected" ? "is-error" : "is-neutral";
+  return <span className={`admin-status ${tone}`}>{label(value === "none" ? "No current application" : value === "not_applicable" ? "—" : value)}</span>;
 }
 
 export function AdminStudentsPage() {
-  const navigate = useNavigate();
   const [checked, setChecked] = useState(false);
   const [authed, setAuthed] = useState(false);
   const [password, setPassword] = useState("");
   const [students, setStudents] = useState<StudentSummary[]>([]);
-  const [pagination, setPagination] = useState(EMPTY_PAGINATION);
+  const [pagination, setPagination] = useState(EMPTY_PAGE);
   const [summary, setSummary] = useState(EMPTY_SUMMARY);
-  const [dojos, setDojos] = useState<string[]>([]);
-  const [ranks, setRanks] = useState<string[]>(DEFAULT_RANKS);
   const [suggestedId, setSuggestedId] = useState("RSK-0001");
   const [queryInput, setQueryInput] = useState("");
   const [query, setQuery] = useState("");
-  const [rankFilter, setRankFilter] = useState("");
-  const [dojoFilter, setDojoFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("active");
-  const [sort, setSort] = useState<SortKey>("name");
-  const [direction, setDirection] = useState<"asc" | "desc">("asc");
+  const [rank, setRank] = useState("");
+  const [profileStatus, setProfileStatus] = useState(() => new URLSearchParams(window.location.search).get("profileStatus") || "");
+  const [examinationStatus, setExaminationStatus] = useState(() => new URLSearchParams(window.location.search).get("examinationStatus") || "");
+  const [paymentStatus, setPaymentStatus] = useState(() => new URLSearchParams(window.location.search).get("paymentStatus") || "");
+  const [status, setStatus] = useState("active");
+  const [sort, setSort] = useState("name");
   const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
-  const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  const [drawer, setDrawer] = useState<DrawerMode | null>(null);
+  const [notice, setNotice] = useState("");
   const [detail, setDetail] = useState<Detail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [draft, setDraft] = useState<Draft>(blankDraft("RSK-0001"));
-  const [studentIdEdited, setStudentIdEdited] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
-  const [imageBusy, setImageBusy] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<StudentSummary | null>(null);
-  const [shareUrl, setShareUrl] = useState("");
-  const [qr, setQr] = useState("");
-  const [exam, setExam] = useState({ date: "", belt: "", rank: "", examiner: "", publicNotes: "", internalNotes: "", updateCurrentBelt: true });
-  const [hours, setHours] = useState({ date: "", periodEnd: "", hours: "", source: "", internalNote: "" });
+  const [hoursEdit, setHoursEdit] = useState<{ id: string; value: string; previous: number } | null>(null);
+  const [rowBusy, setRowBusy] = useState("");
+  const [bulk, setBulk] = useState<BulkDraft | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetStep, setResetStep] = useState(1);
+  const [resetPhrase, setResetPhrase] = useState("");
+  const [resetCount, setResetCount] = useState(0);
+  const skipHoursBlur = useRef(false);
 
-  const allRanks = useMemo(() => Array.from(new Set([...DEFAULT_RANKS, ...ranks])).filter(Boolean), [ranks]);
-  const filtersActive = Boolean(query || rankFilter || dojoFilter || statusFilter !== "active");
+  const filtersActive = Boolean(query || rank || profileStatus || examinationStatus || paymentStatus || status !== "active");
+  const selectedRows = useMemo(() => students.filter((student) => selected.has(student.id)), [students, selected]);
 
-  async function loadStudents(targetPage = page) {
-    setLoading(true);
-    setError("");
+  async function load(targetPage = page) {
+    setLoading(true); setError("");
     try {
-      const params = new URLSearchParams({ page: String(targetPage), pageSize: "20", status: statusFilter, sort, direction });
+      const params = new URLSearchParams({ page: String(targetPage), pageSize: "20", sort, status });
       if (query) params.set("query", query);
-      if (rankFilter) params.set("rank", rankFilter);
-      if (dojoFilter) params.set("dojo", dojoFilter);
-      const body = await jsonFetch<ListResponse>(`/api/admin/students?${params}`);
-      setStudents(body.students);
-      setPagination(body.pagination);
-      setSummary({ total: Number(body.summary.total || 0), active: Number(body.summary.active || 0), archived: Number(body.summary.archived || 0) });
-      setDojos(body.dojos);
-      setRanks(body.ranks);
-      setSuggestedId(body.suggestedStudentId);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Could not load students");
-    } finally {
-      setLoading(false);
-    }
+      if (rank) params.set("rank", rank);
+      if (profileStatus) params.set("profileStatus", profileStatus);
+      if (examinationStatus) params.set("examinationStatus", examinationStatus);
+      if (paymentStatus) params.set("paymentStatus", paymentStatus);
+      const body = await api<ListResponse>(`/api/admin/students?${params}`);
+      setStudents(body.students); setPagination(body.pagination); setSummary(body.summary); setSuggestedId(body.suggestedStudentId);
+      setSelected((current) => new Set([...current].filter((id) => body.students.some((student) => student.id === id))));
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not load students."); }
+    finally { setLoading(false); }
   }
 
   useEffect(() => {
-    fetch("/api/admin/session", { cache: "no-store", credentials: "include" }).then(async (response) => {
-      const body = await response.json() as { authenticated?: boolean };
-      setAuthed(response.ok && body.authenticated === true);
-      setChecked(true);
-    }).catch(() => setChecked(true));
+    api<{ authenticated: boolean }>("/api/admin/session").then((body) => setAuthed(body.authenticated)).catch(() => setAuthed(false)).finally(() => setChecked(true));
   }, []);
-
-  useEffect(() => {
-    if (authed) void loadStudents(page);
-  }, [authed, page, query, rankFilter, dojoFilter, statusFilter, sort, direction]);
-
-  useEffect(() => {
-    if (!drawer && !deleteTarget) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        if (deleteTarget) setDeleteTarget(null);
-        else setDrawer(null);
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = ""; };
-  }, [drawer, deleteTarget]);
+  useEffect(() => { if (authed) void load(page); }, [authed, page, query, rank, profileStatus, examinationStatus, paymentStatus, status, sort]);
 
   async function login(event: FormEvent) {
-    event.preventDefault();
-    setError("");
-    try {
-      await jsonFetch("/api/admin/login", { method: "POST", body: JSON.stringify({ password }) });
-      setAuthed(true);
-      setPassword("");
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Sign in failed");
-    }
+    event.preventDefault(); setError("");
+    try { await api("/api/admin/login", { method: "POST", body: JSON.stringify({ password }) }); setPassword(""); setAuthed(true); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "Sign in failed."); }
   }
 
-  async function logout() {
-    await fetch("/api/admin/logout", { method: "POST", credentials: "include" });
-    setAuthed(false);
-    navigate("/admin");
-  }
+  async function logout() { await api("/api/admin/logout", { method: "POST" }); setAuthed(false); setStudents([]); }
 
   function clearFilters() {
-    setQueryInput(""); setQuery(""); setRankFilter(""); setDojoFilter(""); setStatusFilter("active"); setPage(1);
+    setQueryInput(""); setQuery(""); setRank(""); setProfileStatus(""); setExaminationStatus(""); setPaymentStatus(""); setStatus("active"); setPage(1);
   }
 
-  function changeSort(next: SortKey) {
-    if (sort === next) setDirection((value) => value === "asc" ? "desc" : "asc");
-    else { setSort(next); setDirection("asc"); }
-    setPage(1);
+  async function openStudent(id: string) {
+    setDetail(null); setDetailLoading(true); setError("");
+    try { setDetail(await api<Detail>(`/api/admin/students/${id}`)); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "Could not open the student."); }
+    finally { setDetailLoading(false); }
   }
 
-  function openCreate() {
-    setDraft(blankDraft(suggestedId)); setStudentIdEdited(false); setDetail(null); setFieldErrors({}); setShareUrl(""); setQr(""); setDrawer("create");
+  function patchRow(id: string, patch: Partial<StudentSummary>) {
+    setStudents((current) => current.map((student) => student.id === id ? { ...student, ...patch } : student));
   }
 
-  async function openStudent(id: string, mode: "view" | "edit") {
-    setDrawer(mode); setDetail(null); setDetailLoading(true); setFieldErrors({}); setShareUrl(""); setQr("");
+  async function saveHoursEdit(edit = hoursEdit) {
+    if (!edit) return;
+    const value = Number(edit.value);
+    if (!Number.isFinite(value) || value < 0) { setError("Training hours must be zero or a positive number."); setHoursEdit(null); return; }
+    if (value === edit.previous) { setHoursEdit(null); return; }
+    setRowBusy(edit.id); setError("");
     try {
-      const body = await jsonFetch<Detail>(`/api/admin/students/${id}`);
-      setDetail(body); setDraft(detailDraft(body.student)); setStudentIdEdited(false);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Could not load student"); setDrawer(null);
-    } finally { setDetailLoading(false); }
+      await api(`/api/admin/students/${edit.id}/inline`, { method: "PATCH", body: JSON.stringify({ field: "total_hours", value }) });
+      patchRow(edit.id, { total_hours: value, updated_at: new Date().toISOString() }); setNotice("Training hours saved."); setHoursEdit(null);
+    } catch (reason) { patchRow(edit.id, { total_hours: edit.previous }); setHoursEdit(null); setError(reason instanceof Error ? reason.message : "Hours were restored because saving failed."); }
+    finally { setRowBusy(""); }
   }
 
-  function validateDraft() {
-    const errors: Record<string, string> = {};
-    if (!draft.displayName.trim()) errors.displayName = "Student name is required.";
-    if (!/^RSK-\d{4,}$/.test(draft.studentId.trim().toUpperCase())) errors.studentId = "Use the format RSK-0001.";
-    if (!draft.currentBelt.trim()) errors.currentBelt = "Current kyu or dan rank is required.";
-    if (!draft.dojoName.trim()) errors.dojoName = "Dojo is required.";
-    const value = Number(draft.currentTrainingHours);
-    if (!Number.isFinite(value) || value < 0) errors.currentTrainingHours = "Enter zero or a positive number.";
-    setFieldErrors(errors);
-    return Object.keys(errors).length === 0;
+  async function saveRank(student: StudentSummary, value: string) {
+    if (value === student.current_belt) return;
+    const previous = student.current_belt; setRowBusy(student.id); patchRow(student.id, { current_belt: value });
+    try { await api(`/api/admin/students/${student.id}/inline`, { method: "PATCH", body: JSON.stringify({ field: "current_rank", value }) }); setNotice("Rank saved."); }
+    catch (reason) { patchRow(student.id, { current_belt: previous }); setError(reason instanceof Error ? reason.message : "Rank was restored because saving failed."); }
+    finally { setRowBusy(""); }
   }
 
-  async function saveStudent(event: FormEvent) {
-    event.preventDefault();
-    if (!validateDraft()) return;
-    setSaving(true); setError("");
-    const payload = {
-      ...draft, studentId: draft.studentId.trim().toUpperCase(), currentTrainingHours: Number(draft.currentTrainingHours),
-      manualStudentId: drawer === "create" ? studentIdEdited : true,
-    };
+  async function archive(student: StudentSummary) {
+    setRowBusy(student.id);
+    try { await api(`/api/admin/students/${student.id}`, { method: "DELETE" }); setNotice(`${student.display_name} was archived. Historical data remains intact.`); await load(); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "Could not archive the student."); }
+    finally { setRowBusy(""); }
+  }
+
+  async function runBulk() {
+    if (!bulk || !bulk.preview) return;
+    setLoading(true); setError("");
     try {
-      if (drawer === "create") {
-        const body = await jsonFetch<{ id: string; studentId: string }>("/api/admin/students", { method: "POST", body: JSON.stringify(payload) });
-        setNotice(`Student ${body.studentId} was created.`);
-        setDrawer(null); setPage(1); await loadStudents(1); await openStudent(body.id, "view");
-      } else if (detail) {
-        await jsonFetch(`/api/admin/students/${detail.student.id}`, { method: "PUT", body: JSON.stringify(payload) });
-        setNotice("Student record saved.");
-        await loadStudents(); await openStudent(detail.student.id, "view");
-      }
-    } catch (reason) {
-      const message = reason instanceof Error ? reason.message : "Could not save the student";
-      setError(message);
-      if (message.toLowerCase().includes("student id")) setFieldErrors((value) => ({ ...value, studentId: message }));
-    } finally { setSaving(false); }
+      const body = bulk.type === "hours"
+        ? { action: "add_hours", studentIds: [...selected], hours: Number(bulk.hours) }
+        : { action: "mass_promotion", studentIds: [...selected], levels: Number(bulk.levels), location: bulk.location };
+      await api("/api/admin/students/bulk", { method: "POST", body: JSON.stringify(body) });
+      setNotice(`${selected.size} student${selected.size === 1 ? "" : "s"} updated in one audited operation.`); setBulk(null); setSelected(new Set()); await load();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "The bulk operation failed without applying a partial batch."); }
+    finally { setLoading(false); }
   }
 
-  async function uploadProfile(file?: File) {
-    if (!file) return;
-    setImageBusy(true); setError("");
+  async function openReset() {
+    try { const body = await api<{ affectedStudents: number }>("/api/admin/examination/reset"); setResetCount(body.affectedStudents); setResetStep(1); setResetPhrase(""); setResetOpen(true); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "Could not load reset details."); }
+  }
+
+  async function runReset() {
     try {
-      const webp = await imageToWebp(file);
-      const form = new FormData(); form.append("file", webp);
-      const response = await fetch("/api/admin/students/upload", { method: "POST", body: form, credentials: "include" });
-      const body = await response.json() as { url?: string; error?: string };
-      if (!response.ok || !body.url) throw new Error(body.error || "Could not upload image");
-      setDraft((value) => ({ ...value, profileImageUrl: body.url!, profileImageConsent: true }));
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not upload image"); }
-    finally { setImageBusy(false); }
+      await api("/api/admin/examination/reset", { method: "POST", body: JSON.stringify({ confirmed: true, phrase: resetPhrase }) });
+      setResetOpen(false); setNotice(`The examination cycle was closed for ${resetCount} student${resetCount === 1 ? "" : "s"}; all history was preserved.`); await load();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Reset failed."); }
   }
 
-  async function setArchived(student: StudentSummary, active: boolean) {
-    setError("");
-    try {
-      await jsonFetch(`/api/admin/students/${student.id}`, { method: "PUT", body: JSON.stringify({ active }) });
-      setNotice(`${student.display_name} was ${active ? "reactivated" : "archived"}.`);
-      setStudents((items) => statusFilter === "all" ? items.map((item) => item.id === student.id ? { ...item, active: active ? 1 : 0 } : item) : items.filter((item) => item.id !== student.id));
-      await loadStudents();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not update status"); }
-  }
-
-  async function confirmDelete() {
-    if (!deleteTarget) return;
-    const target = deleteTarget;
-    setSaving(true);
-    try {
-      await jsonFetch(`/api/admin/students/${target.id}`, { method: "DELETE" });
-      setStudents((items) => items.filter((item) => item.id !== target.id));
-      setDeleteTarget(null); setDrawer(null); setNotice(`${target.display_name} was permanently deleted.`);
-      await loadStudents();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Deletion failed"); }
-    finally { setSaving(false); }
-  }
-
-  async function refreshDetail() {
-    if (!detail) return;
-    const body = await jsonFetch<Detail>(`/api/admin/students/${detail.student.id}`);
-    setDetail(body); setDraft(detailDraft(body.student)); await loadStudents();
-  }
-
-  async function addExam(event: FormEvent) {
-    event.preventDefault(); if (!detail) return;
-    try {
-      await jsonFetch(`/api/admin/students/${detail.student.id}/exam`, { method: "POST", body: JSON.stringify(exam) });
-      setExam({ date: "", belt: "", rank: "", examiner: "", publicNotes: "", internalNotes: "", updateCurrentBelt: true });
-      setNotice("Examination recorded."); await refreshDetail();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not record examination"); }
-  }
-
-  async function addHours(event: FormEvent) {
-    event.preventDefault(); if (!detail) return;
-    try {
-      await jsonFetch(`/api/admin/students/${detail.student.id}/hours`, { method: "POST", body: JSON.stringify(hours) });
-      setHours({ date: "", periodEnd: "", hours: "", source: "", internalNote: "" });
-      setNotice("Training hours added."); await refreshDetail();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not add hours"); }
-  }
-
-  async function generateShare() {
-    if (!detail) return;
-    const body = await jsonFetch<{ url: string }>(`/api/admin/students/${detail.student.id}/share`, { method: "POST" });
-    setShareUrl(body.url); setQr(await QRCodeLib.toDataURL(body.url, { width: 420, margin: 2 }));
-    setNotice("A new share link was generated; the previous link is revoked."); await refreshDetail();
-  }
-
-  async function revokeShare() {
-    if (!detail || !window.confirm("Revoke the current public share link? Printed QR codes will stop working.")) return;
-    await jsonFetch(`/api/admin/students/${detail.student.id}/share`, { method: "DELETE" });
-    setShareUrl(""); setQr(""); setNotice("Public sharing was revoked."); await refreshDetail();
-  }
-
-  function sortButton(label: string, key: SortKey) {
-    return <button type="button" className="admin-sort" onClick={() => changeSort(key)} aria-label={`Sort by ${label}`}>
-      {label}{sort === key ? direction === "asc" ? <ArrowUp size={13} /> : <ArrowDown size={13} /> : null}
-    </button>;
-  }
-
-  if (!checked) return <section className="container-shell admin-loading" aria-live="polite"><LoaderCircle className="spin" /> Checking the secure session…</section>;
-  if (!authed) return <section className="container-shell admin-login"><form onSubmit={login}><Lock size={24} /><p className="eyebrow">Admin</p><h1>Student management</h1><p>Sign in to access private student records.</p><label htmlFor="student-admin-password">Password<input id="student-admin-password" className="input-field" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>{error ? <p className="form-error" role="alert">{error}</p> : null}<button className="btn-primary">Sign in</button></form></section>;
+  if (!checked) return <div className="admin-gate"><LoaderCircle className="spin" /><p>Checking administrator session…</p></div>;
+  if (!authed) return <section className="container-shell student-admin"><form className="admin-login-card" onSubmit={login}><Lock size={30} /><p className="eyebrow">Administrator access</p><h1>Student records</h1><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required /></label>{error ? <p className="form-error">{error}</p> : null}<button className="btn-primary"><ShieldCheck size={17} /> Sign in</button></form></section>;
 
   return <section className="container-shell student-admin student-admin--table">
-    <header className="student-admin__header">
-      <div><p className="eyebrow">Admin · Student records</p><h1>Student management</h1><p>Search, update, archive, and securely manage training records.</p></div>
-      <div className="admin-header-actions"><Link to="/admin" className="btn-secondary"><ArrowLeft size={16} /> Admin home</Link><Link to="/" className="btn-secondary">Public website</Link><button type="button" onClick={logout} className="btn-secondary"><LogOut size={16} /> Log out</button><button type="button" onClick={openCreate} className="btn-primary"><Plus size={17} /> Add student</button></div>
-    </header>
+    <header className="student-admin__header"><div><p className="eyebrow">Administrator workspace</p><h1>Student records</h1><p>Inline edits, approvals, examinations, and bulk updates—all changes are audited.</p></div><div className="admin-header-actions"><Link className="btn-secondary" to="/admin"><ChevronLeft size={16} /> Content dashboard</Link><Link className="btn-secondary" to="/admin/audit"><History size={16} /> Audit log</Link><button className="btn-secondary" onClick={openReset}><RotateCcw size={16} /> Reset exam cycle</button><button className="btn-primary" onClick={() => setCreateOpen(true)}><Plus size={16} /> Add student</button><button className="btn-secondary" onClick={logout}><LogOut size={16} /> Sign out</button></div></header>
+    <div className="admin-summary"><div><strong>{summary.active}</strong><span>Active students</span></div><div><strong>{summary.pending_profiles}</strong><span>Pending profiles</span></div><div><strong>{summary.archived}</strong><span>Archived records</span></div></div>
+    {notice ? <div className="admin-notice"><CheckCircle2 size={18} /><span>{notice}</span><button onClick={() => setNotice("")}><X size={15} /></button></div> : null}
+    {error ? <div className="admin-page-error" role="alert"><AlertCircle size={18} /><span>{error}</span><button onClick={() => setError("")}><X size={15} /></button></div> : null}
 
-    <div className="admin-summary" aria-label="Student summary">
-      <div><strong>{summary.active}</strong><span>Active students</span></div><div><strong>{summary.archived}</strong><span>Archived</span></div><div><strong>{summary.total}</strong><span>Total records</span></div>
-    </div>
-    {notice ? <p className="admin-notice" role="status"><CheckCircle2 size={18} />{notice}<button type="button" onClick={() => setNotice("")} aria-label="Dismiss message"><X size={16} /></button></p> : null}
-    {error ? <p className="form-error admin-page-error" role="alert">{error}<button type="button" onClick={() => setError("")} aria-label="Dismiss error"><X size={16} /></button></p> : null}
+    <form className="admin-student-controls admin-student-controls--workflow" onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(queryInput.trim()); }}>
+      <label className="admin-search-wide">Search by name or ID<div><Search size={17} /><input value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="Name or RSK-0001" /><button className="btn-secondary">Search</button></div></label>
+      <label>Current kyu<select value={rank} onChange={(event) => { setRank(event.target.value); setPage(1); }}><option value="">All ranks</option>{RANKS.map((item) => <option key={item}>{item}</option>)}</select></label>
+      <label>Profile<select value={profileStatus} onChange={(event) => { setProfileStatus(event.target.value); setPage(1); }}><option value="">All profiles</option><option value="pending_admin_approval">Pending approval</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></label>
+      <label>Examination<select value={examinationStatus} onChange={(event) => { setExaminationStatus(event.target.value); setPage(1); }}><option value="">All exam states</option><option value="none">No current application</option><option value="application_submitted">Application submitted</option><option value="examination_completed">Completed</option></select></label>
+      <label>Payment<select value={paymentStatus} onChange={(event) => { setPaymentStatus(event.target.value); setPage(1); }}><option value="">All payment states</option><option value="payment_pending">Payment pending</option><option value="paid">Paid</option><option value="not_applicable">Not applicable</option></select></label>
+      <label>Record status<select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="active">Active</option><option value="archived">Archived</option><option value="all">All</option></select></label>
+      <label>Sort<select value={sort} onChange={(event) => setSort(event.target.value)}><option value="name">Name</option><option value="studentId">Student ID</option><option value="trainingHours">Training hours</option><option value="updated">Last updated</option></select></label>
+      <button type="button" className="btn-secondary admin-clear" disabled={!filtersActive} onClick={clearFilters}>{filtersActive ? "Reset active filters" : "No active filters"}</button>
+    </form>
 
-    <section className="admin-student-controls" aria-label="Student search and filters">
-      <form className="admin-search-wide" onSubmit={(event) => { event.preventDefault(); setQuery(queryInput.trim()); setPage(1); }}><label htmlFor="admin-student-search">Search students</label><div><Search size={17} /><input id="admin-student-search" value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="Name or Student ID" /><button type="submit" className="btn-secondary">Search</button></div></form>
-      <label>Rank<select value={rankFilter} onChange={(event) => { setRankFilter(event.target.value); setPage(1); }}><option value="">All ranks</option>{allRanks.map((item) => <option key={item}>{item}</option>)}</select></label>
-      <label>Dojo<select value={dojoFilter} onChange={(event) => { setDojoFilter(event.target.value); setPage(1); }}><option value="">All dojos</option>{dojos.map((item) => <option key={item}>{item}</option>)}</select></label>
-      <label>Status<select value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value); setPage(1); }}><option value="active">Active</option><option value="archived">Archived</option><option value="all">All</option></select></label>
-      <button type="button" className="btn-secondary admin-clear" onClick={clearFilters} disabled={!filtersActive}><RotateCcw size={15} /> Clear filters</button>
+    {selected.size ? <aside className="admin-bulk-toolbar"><strong><Users size={17} /> {selected.size} selected</strong><button className="btn-secondary" onClick={() => setBulk({ type: "hours", hours: "", levels: "", location: "", preview: false })}><Clock3 size={16} /> Add hours</button><button className="btn-secondary" onClick={() => setBulk({ type: "promotion", hours: "", levels: "1", location: "", preview: false })}><GraduationCap size={16} /> Mass promotion</button><button className="text-link" onClick={() => setSelected(new Set())}>Clear selection</button></aside> : null}
+
+    <section className="admin-table-section" aria-busy={loading}><div className="admin-table-meta"><p>{pagination.total} student{pagination.total === 1 ? "" : "s"}{filtersActive ? " · filters active" : ""}</p>{loading ? <span><LoaderCircle className="spin" size={15} /> Loading</span> : null}</div><div className="admin-table-scroll"><table className="admin-student-table admin-student-table--workflow"><thead><tr>
+      <th><input type="checkbox" aria-label="Select all visible students" checked={students.length > 0 && students.every((student) => selected.has(student.id))} onChange={(event) => setSelected(event.target.checked ? new Set(students.map((student) => student.id)) : new Set())} /></th>
+      <th>Student</th><th>ID</th><th>Profile</th><th>Current kyu</th><th>Total hours</th><th>Examination</th><th>Payment</th><th>Updated</th><th>Actions</th>
+    </tr></thead><tbody>{students.map((student) => <tr key={student.id} className={selected.has(student.id) ? "is-selected" : ""}>
+      <td><input type="checkbox" aria-label={`Select ${student.display_name}`} checked={selected.has(student.id)} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(student.id); else next.delete(student.id); return next; })} /></td>
+      <th>{student.display_name}{student.pending_hours ? <small>{student.pending_hours} hours request pending</small> : null}</th><td><code>{student.public_student_id}</code></td><td><Status value={student.profile_status} /></td>
+      <td><select className="admin-inline-rank" aria-label={`Current rank for ${student.display_name}`} value={student.current_belt} disabled={rowBusy === student.id} onWheel={(event) => event.currentTarget.blur()} onChange={(event) => void saveRank(student, event.target.value)}>{RANKS.map((item) => <option key={item}>{item}</option>)}</select>{rowBusy === student.id ? <LoaderCircle className="spin admin-inline-spinner" size={13} /> : null}</td>
+      <td>{hoursEdit?.id === student.id ? <span className="admin-inline-hours"><input autoFocus type="number" min="0" step="0.25" value={hoursEdit.value} onChange={(event) => setHoursEdit({ ...hoursEdit, value: event.target.value })} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); skipHoursBlur.current = true; void saveHoursEdit(); } if (event.key === "Escape") { skipHoursBlur.current = true; setHoursEdit(null); } }} onBlur={() => { if (skipHoursBlur.current) { skipHoursBlur.current = false; return; } void saveHoursEdit(); }} /><button aria-label="Save hours" onMouseDown={(event) => event.preventDefault()} onClick={() => void saveHoursEdit()}><Save size={14} /></button></span> : <button className="admin-hours-value" onClick={() => setHoursEdit({ id: student.id, value: String(Number(student.total_hours || 0)), previous: Number(student.total_hours || 0) })}>{Number(student.total_hours || 0).toLocaleString()} hr</button>}</td>
+      <td><Status value={student.examination_status} /></td><td><Status value={student.payment_status} /></td><td>{formatDate(student.updated_at)}</td><td><div className="admin-row-actions"><button onClick={() => void openStudent(student.id)}><Eye size={14} /> Open</button>{student.active ? <button onClick={() => void archive(student)}><Archive size={14} /> Archive</button> : null}</div></td>
+    </tr>)}</tbody></table></div>{!loading && students.length === 0 ? <div className="admin-empty"><UserRound size={32} /><h2>No students found</h2><p>Try resetting the active filters or add a new student.</p></div> : null}
+      <nav className="admin-pagination"><button className="btn-secondary" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}><ChevronLeft size={16} /> Previous</button><span>Page {pagination.page} of {pagination.totalPages}</span><button className="btn-secondary" disabled={page >= pagination.totalPages} onClick={() => setPage((value) => value + 1)}>Next <ChevronRight size={16} /></button></nav>
     </section>
 
-    <section className="admin-table-section" aria-busy={loading}>
-      <div className="admin-table-meta"><p>{pagination.total} student{pagination.total === 1 ? "" : "s"}</p>{loading ? <span><LoaderCircle className="spin" size={16} /> Loading</span> : null}</div>
-      <div className="admin-table-scroll">
-        <table className="admin-student-table">
-          <thead><tr><th scope="col">Profile</th><th scope="col">{sortButton("Student name", "name")}</th><th scope="col">{sortButton("Student ID", "studentId")}</th><th scope="col">Dojo</th><th scope="col">{sortButton("Current rank", "rank")}</th><th scope="col">{sortButton("Training hours", "trainingHours")}</th><th scope="col">Status</th><th scope="col">{sortButton("Last updated", "updated")}</th><th scope="col" className="admin-actions-column">Actions</th></tr></thead>
-          <tbody>{students.map((student) => <tr key={student.id}>
-            <td><Avatar student={student} /></td><th scope="row">{student.display_name}</th><td><code>{student.public_student_id}</code></td><td>{student.dojo_name}</td><td><span className="admin-belt-cell"><BeltMark rank={student.current_belt} />{student.current_belt}</span></td><td>{Number(student.total_hours || 0).toLocaleString()} hr</td><td><span className={`admin-status ${student.active ? "is-active" : "is-archived"}`}>{student.active ? "Active" : "Archived"}</span></td><td>{formatDate(student.updated_at)}</td>
-            <td><div className="admin-row-actions"><button type="button" onClick={() => openStudent(student.id, "view")}><Eye size={14} /> View</button><button type="button" onClick={() => openStudent(student.id, "edit")}><Edit3 size={14} /> Edit</button>{student.active ? <button type="button" onClick={() => setArchived(student, false)}><Archive size={14} /> Archive</button> : <button type="button" onClick={() => setArchived(student, true)}><RotateCcw size={14} /> Reactivate</button>}<button type="button" className="is-danger" onClick={() => setDeleteTarget(student)}><Trash2 size={14} /> Delete</button></div></td>
-          </tr>)}</tbody>
-        </table>
-      </div>
-      {!loading && students.length === 0 ? <div className="admin-empty"><UserRound size={32} /><h2>No students found</h2><p>{filtersActive ? "Clear or change the filters to see other records." : "Create the first student record to get started."}</p>{filtersActive ? <button className="btn-secondary" onClick={clearFilters}>Clear filters</button> : <button className="btn-primary" onClick={openCreate}><Plus size={16} /> Add student</button>}</div> : null}
-      <nav className="admin-pagination" aria-label="Student pages"><button type="button" className="btn-secondary" disabled={pagination.page <= 1 || loading} onClick={() => setPage((value) => value - 1)}><ChevronLeft size={16} /> Previous</button><span>Page {pagination.page} of {pagination.totalPages}</span><button type="button" className="btn-secondary" disabled={pagination.page >= pagination.totalPages || loading} onClick={() => setPage((value) => value + 1)}>Next <ChevronRight size={16} /></button></nav>
-    </section>
-
-    {drawer ? <div className="admin-drawer-backdrop" role="presentation"><section className="admin-drawer" role="dialog" aria-modal="true" aria-labelledby="student-drawer-title"><header><div><p className="eyebrow">{drawer === "create" ? "New student" : drawer === "edit" ? "Edit student" : "Student record"}</p><h2 id="student-drawer-title">{drawer === "create" ? "Create student" : detail?.student.display_name || "Loading…"}</h2></div><button type="button" className="admin-icon-button" onClick={() => setDrawer(null)} aria-label="Close student panel"><X /></button></header>
-      <div className="admin-drawer__body">{detailLoading ? <div className="admin-drawer-loading"><LoaderCircle className="spin" /> Loading student record…</div> : drawer === "view" && detail ? <>
-        <div className="admin-profile-heading"><Avatar student={detail.student} large /><div><h3>{detail.student.display_name}</h3><p><code>{detail.student.public_student_id}</code> · <BeltMark rank={detail.student.current_belt} legacyColor={detail.student.belt_color} /> {detail.student.current_belt}</p><span className={`admin-status ${detail.student.active ? "is-active" : "is-archived"}`}>{detail.student.active ? "Active" : "Archived"}</span></div></div>
-        <dl className="admin-detail-grid"><div><dt>Dojo</dt><dd>{detail.student.dojo_name}</dd></div><div><dt>Accumulated training</dt><dd>{Number(detail.student.total_hours || 0).toLocaleString()} hours</dd></div><div><dt>Private lookup</dt><dd>{detail.student.public_visible && detail.student.active ? "Enabled" : "Disabled"}</dd></div><div><dt>Guardian consent</dt><dd>{detail.student.guardian_consent ? "Recorded" : "Not recorded"}</dd></div><div><dt>Photo consent</dt><dd>{detail.student.profile_image_consent ? "Recorded" : "Not recorded"}</dd></div><div><dt>Last updated</dt><dd>{formatDate(detail.student.updated_at)}</dd></div></dl>
-        <section className="admin-private-notes"><h3>Additional information <span>Admin only</span></h3><p>{detail.student.admin_notes || "No additional information recorded."}</p></section>
-        <RecordHistory detail={detail} />
-        <ShareManager detail={detail} shareUrl={shareUrl} qr={qr} generateShare={generateShare} revokeShare={revokeShare} />
-      </> : <><form onSubmit={saveStudent} className="student-form" noValidate>
-        <div className="admin-profile-editor"><div>{draft.profileImageUrl ? <img src={draft.profileImageUrl} alt="Profile preview" /> : <span>{initials(draft.displayName)}</span>}</div><div><label className="btn-secondary admin-upload-button"><Upload size={16} /> {draft.profileImageUrl ? "Replace image" : "Add profile image"}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => uploadProfile(event.target.files?.[0])} disabled={imageBusy} /></label>{draft.profileImageUrl ? <button type="button" className="text-link is-danger" onClick={() => setDraft((value) => ({ ...value, profileImageUrl: null, profileImageConsent: false }))}><Trash2 size={14} /> Remove image</button> : null}<small>JPEG, PNG, or WebP up to 5 MB. Images are cropped without stretching.</small>{imageBusy ? <span><LoaderCircle className="spin" size={15} /> Uploading…</span> : null}</div></div>
-        <div className="student-form-grid"><Field label="Student name / display and verification name" error={fieldErrors.displayName}><input value={draft.displayName} onChange={(event) => setDraft({ ...draft, displayName: event.target.value })} maxLength={120} /></Field><Field label="Student ID" hint={drawer === "create" && !studentIdEdited ? "Generated automatically; you may edit it before saving." : "Required format: RSK-0001"} error={fieldErrors.studentId}><input value={draft.studentId} onChange={(event) => { setDraft({ ...draft, studentId: event.target.value.toUpperCase() }); setStudentIdEdited(event.target.value.toUpperCase() !== suggestedId); }} maxLength={40} /></Field><Field label="Current kyu or dan rank" error={fieldErrors.currentBelt}><input list="student-rank-options" value={draft.currentBelt} onChange={(event) => setDraft({ ...draft, currentBelt: event.target.value })} maxLength={80} /><datalist id="student-rank-options">{allRanks.map((item) => <option key={item} value={item} />)}</datalist></Field><Field label="Dojo" error={fieldErrors.dojoName}><input list="student-dojo-options" value={draft.dojoName} onChange={(event) => setDraft({ ...draft, dojoName: event.target.value })} maxLength={120} /><datalist id="student-dojo-options">{dojos.map((item) => <option key={item} value={item} />)}</datalist></Field><Field label="Current accumulated training hours" hint="Hours" error={fieldErrors.currentTrainingHours}><input type="number" min="0" step="0.25" value={draft.currentTrainingHours} onChange={(event) => setDraft({ ...draft, currentTrainingHours: event.target.value })} /></Field><label className="admin-span-2">Additional information <span className="admin-private-label">Admin only</span><textarea value={draft.adminNotes} onChange={(event) => setDraft({ ...draft, adminNotes: event.target.value })} maxLength={5000} rows={5} /></label></div>
-        <fieldset className="student-form-checks"><legend>Privacy and status</legend><label><input type="checkbox" checked={draft.profileImageConsent} onChange={(event) => setDraft({ ...draft, profileImageConsent: event.target.checked })} /> Profile image consent recorded</label><label><input type="checkbox" checked={draft.guardianConsent} onChange={(event) => setDraft({ ...draft, guardianConsent: event.target.checked })} /> Guardian consent recorded</label><label><input type="checkbox" checked={draft.publicVisible} onChange={(event) => setDraft({ ...draft, publicVisible: event.target.checked })} /> Allow private Student ID + name lookup</label><label><input type="checkbox" checked={draft.active} onChange={(event) => setDraft({ ...draft, active: event.target.checked })} /> Active student</label></fieldset>
-        <div className="admin-drawer-actions"><button type="button" className="btn-secondary" onClick={() => setDrawer(null)}>Cancel</button><button type="submit" className="btn-primary" disabled={saving || imageBusy}>{saving ? <LoaderCircle className="spin" size={16} /> : <ShieldCheck size={16} />} {drawer === "create" ? "Create student" : "Save changes"}</button></div></form>
-        {drawer === "edit" && detail ? <div className="admin-record-entry-grid"><details><summary><GraduationCap size={18} /> Record examination</summary><form onSubmit={addExam}><Field label="Date"><input type="date" required value={exam.date} onChange={(event) => setExam({ ...exam, date: event.target.value })} /></Field><Field label="Belt or rank"><input list="student-rank-options" required value={exam.belt} onChange={(event) => setExam({ ...exam, belt: event.target.value })} /></Field><Field label="Examiner"><input value={exam.examiner} onChange={(event) => setExam({ ...exam, examiner: event.target.value })} /></Field><Field label="Public note"><textarea value={exam.publicNotes} onChange={(event) => setExam({ ...exam, publicNotes: event.target.value })} /></Field><Field label="Internal note (admin only)"><textarea value={exam.internalNotes} onChange={(event) => setExam({ ...exam, internalNotes: event.target.value })} /></Field><label><input type="checkbox" checked={exam.updateCurrentBelt} onChange={(event) => setExam({ ...exam, updateCurrentBelt: event.target.checked })} /> Update current rank</label><button className="btn-primary"><BadgePlus size={15} /> Save examination</button></form></details><details><summary><Clock3 size={18} /> Add training hours</summary><form onSubmit={addHours}><Field label="Date"><input type="date" required value={hours.date} onChange={(event) => setHours({ ...hours, date: event.target.value })} /></Field><Field label="Period end"><input type="date" value={hours.periodEnd} onChange={(event) => setHours({ ...hours, periodEnd: event.target.value })} /></Field><Field label="Verified hours"><input type="number" min="0.01" max="1000" step="0.25" required value={hours.hours} onChange={(event) => setHours({ ...hours, hours: event.target.value })} /></Field><Field label="Source"><input value={hours.source} onChange={(event) => setHours({ ...hours, source: event.target.value })} /></Field><Field label="Internal explanation"><textarea value={hours.internalNote} onChange={(event) => setHours({ ...hours, internalNote: event.target.value })} /></Field><button className="btn-primary"><Clock3 size={15} /> Add hours</button></form></details></div> : null}
-      </>}</div>
-      {drawer === "view" && detail ? <footer><button className="btn-secondary" onClick={() => setDrawer("edit")}><Edit3 size={15} /> Edit</button>{detail.student.active ? <button className="btn-secondary" onClick={() => { setArchived(detail.student, false); setDrawer(null); }}><Archive size={15} /> Archive</button> : <button className="btn-secondary" onClick={() => { setArchived(detail.student, true); setDrawer(null); }}><RotateCcw size={15} /> Reactivate</button>}<button className="btn-secondary is-danger" onClick={() => setDeleteTarget(detail.student)}><Trash2 size={15} /> Delete</button></footer> : null}
-    </section></div> : null}
-
-    {deleteTarget ? <div className="admin-confirm-backdrop"><section className="admin-confirm" role="alertdialog" aria-modal="true" aria-labelledby="delete-title" aria-describedby="delete-copy"><div className="admin-confirm__icon"><Trash2 /></div><h2 id="delete-title">Permanently delete this student?</h2><p id="delete-copy"><strong>{deleteTarget.display_name} ({deleteTarget.public_student_id})</strong> and all related training hours, examinations, and share links will be permanently deleted. This cannot be undone.</p><div><button className="btn-secondary" onClick={() => setDeleteTarget(null)} disabled={saving}>Cancel</button><button className="btn-primary is-danger" onClick={confirmDelete} disabled={saving}>{saving ? <LoaderCircle className="spin" size={16} /> : <Trash2 size={16} />} Permanently delete</button></div></section></div> : null}
+    {(detailLoading || detail) ? <StudentDrawer detail={detail} loading={detailLoading} close={() => setDetail(null)} refresh={async () => { if (detail) await openStudent(detail.student.id); await load(); }} report={(message, isError = false) => isError ? setError(message) : setNotice(message)} /> : null}
+    {bulk ? <BulkModal bulk={bulk} setBulk={setBulk} students={selectedRows} close={() => setBulk(null)} confirm={() => void runBulk()} busy={loading} /> : null}
+    {createOpen ? <CreateStudentModal suggestedId={suggestedId} close={() => setCreateOpen(false)} complete={async (message) => { setCreateOpen(false); setNotice(message); await load(1); }} report={setError} /> : null}
+    {resetOpen ? <div className="admin-confirm-backdrop"><section className="admin-confirm"><RotateCcw /><h2>{resetStep === 1 ? "Close the current exam cycle?" : "Type the confirmation phrase"}</h2>{resetStep === 1 ? <><p>This returns <strong>{resetCount} student{resetCount === 1 ? "" : "s"}</strong> to “No current application.” It archives statuses only; applications, answers, payment records, examinations, students, and audit history remain available.</p><div><button className="btn-secondary" onClick={() => setResetOpen(false)}>Cancel</button><button className="btn-primary is-danger" onClick={() => setResetStep(2)}>Continue</button></div></> : <><label className="admin-confirm-phrase">Enter <strong>RESET EXAM STATUS</strong><input value={resetPhrase} onChange={(event) => setResetPhrase(event.target.value)} autoFocus /></label><div><button className="btn-secondary" onClick={() => setResetStep(1)}>Back</button><button className="btn-primary is-danger" disabled={resetPhrase !== "RESET EXAM STATUS"} onClick={() => void runReset()}>Reset statuses</button></div></>}</section></div> : null}
   </section>;
 }
 
-function Field({ label, hint, error, children }: { label: string; hint?: string; error?: string; children: React.ReactNode }) {
-  return <label>{label}{children}{hint ? <small>{hint}</small> : null}{error ? <span className="field-error">{error}</span> : null}</label>;
+function BulkModal({ bulk, setBulk, students, close, confirm, busy }: { bulk: BulkDraft; setBulk: (value: BulkDraft) => void; students: StudentSummary[]; close: () => void; confirm: () => void; busy: boolean }) {
+  const hours = Number(bulk.hours); const levels = Number(bulk.levels);
+  const valid = bulk.type === "hours" ? Number.isFinite(hours) && hours > 0 : Number.isInteger(levels) && levels > 0 && Boolean(bulk.location.trim());
+  return <div className="admin-confirm-backdrop"><section className="admin-bulk-modal"><header><div><p className="eyebrow">Bulk action</p><h2>{bulk.type === "hours" ? "Add training hours" : "Record mass promotion"}</h2></div><button onClick={close}><X /></button></header>{!bulk.preview ? <div className="admin-bulk-form">{bulk.type === "hours" ? <label>Hours to add to each student<input type="number" min="0.25" step="0.25" value={bulk.hours} onChange={(event) => setBulk({ ...bulk, hours: event.target.value })} autoFocus /></label> : <><label>Examination location<input value={bulk.location} onChange={(event) => setBulk({ ...bulk, location: event.target.value })} autoFocus /></label><label>Rank levels promoted<input type="number" min="1" step="1" value={bulk.levels} onChange={(event) => setBulk({ ...bulk, levels: event.target.value })} /></label></>}<p>{students.length} selected student{students.length === 1 ? "" : "s"}</p><footer><button className="btn-secondary" onClick={close}>Cancel</button><button className="btn-primary" disabled={!valid} onClick={() => setBulk({ ...bulk, preview: true })}>Review changes</button></footer></div> : <div className="admin-bulk-preview"><p>Confirm this single atomic operation. Every student receives an individual audit entry sharing one bulk-operation ID.</p><table><thead><tr><th>Student</th><th>Current</th><th>Change</th><th>Result</th></tr></thead><tbody>{students.map((student) => <tr key={student.id}><td>{student.display_name}</td><td>{bulk.type === "hours" ? `${student.total_hours} hr` : student.current_belt}</td><td>{bulk.type === "hours" ? `+${hours} hr` : `+${levels} level${levels === 1 ? "" : "s"}`}</td><td>{bulk.type === "hours" ? `${Number(student.total_hours) + hours} hr` : "Validated by official progression on save"}</td></tr>)}</tbody></table><footer><button className="btn-secondary" onClick={() => setBulk({ ...bulk, preview: false })}>Back</button><button className="btn-primary" disabled={busy} onClick={confirm}>{busy ? <LoaderCircle className="spin" size={16} /> : <Check size={16} />} Confirm {students.length} updates</button></footer></div>}</section></div>;
 }
 
-function RecordHistory({ detail }: { detail: Detail }) {
-  return <div className="admin-history-grid"><section><h3>Training history</h3>{detail.trainingHours.length ? <ol>{detail.trainingHours.map((entry) => <li key={entry.id}><strong>{Number(entry.verified_hours).toLocaleString()} hours</strong><time>{formatDate(entry.entry_date)}</time>{entry.source ? <span>{entry.source}</span> : null}{entry.internal_note ? <p><ShieldCheck size={13} /> {entry.internal_note}</p> : null}</li>)}</ol> : <p>No individual training-hour entries.</p>}</section><section><h3>Examination history</h3>{detail.examinations.length ? <ol>{detail.examinations.map((entry) => <li key={entry.id}><strong><BeltMark rank={`${entry.belt_awarded} ${entry.rank ?? ""}`} /> {entry.belt_awarded}{entry.rank ? ` · ${entry.rank}` : ""}</strong><time>{formatDate(entry.examination_date)}</time>{entry.examiner ? <span>Examiner: {entry.examiner}</span> : null}{entry.internal_notes ? <p><ShieldCheck size={13} /> {entry.internal_notes}</p> : null}</li>)}</ol> : <p>No examinations recorded.</p>}</section></div>;
+function CreateStudentModal({ suggestedId, close, complete, report }: { suggestedId: string; close: () => void; complete: (message: string) => void; report: (message: string) => void }) {
+  const [draft, setDraft] = useState({ name: "", studentId: suggestedId, rank: "Unranked", hours: "0", pin: "", notes: "" }); const [busy, setBusy] = useState(false);
+  async function submit(event: FormEvent) { event.preventDefault(); setBusy(true); try { const result = await api<{ studentId: string }>("/api/admin/students", { method: "POST", body: JSON.stringify({ displayName: draft.name, studentId: draft.studentId, manualStudentId: draft.studentId !== suggestedId, currentBelt: draft.rank, currentTrainingHours: Number(draft.hours), studentPin: draft.pin || undefined, adminNotes: draft.notes }) }); await complete(`Created ${result.studentId}.`); } catch (reason) { report(reason instanceof Error ? reason.message : "Could not create student."); } finally { setBusy(false); } }
+  return <div className="admin-confirm-backdrop"><section className="admin-bulk-modal"><header><div><p className="eyebrow">Official profile</p><h2>Add student</h2></div><button onClick={close}><X /></button></header><form className="admin-bulk-form" onSubmit={submit}><label>Name<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required /></label><label>Student ID<input value={draft.studentId} onChange={(event) => setDraft({ ...draft, studentId: event.target.value.toUpperCase() })} required /></label><label>Current kyu<select value={draft.rank} onChange={(event) => setDraft({ ...draft, rank: event.target.value })}>{RANKS.map((item) => <option key={item}>{item}</option>)}</select></label><label>Current total hours<input type="number" min="0" step="0.25" value={draft.hours} onChange={(event) => setDraft({ ...draft, hours: event.target.value })} /></label><label>Student PIN <small>Optional now; 6–12 digits enables verified self-service.</small><input type="password" inputMode="numeric" pattern="[0-9]{6,12}" value={draft.pin} onChange={(event) => setDraft({ ...draft, pin: event.target.value })} /></label><label>Administrator note<textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} /></label><footer><button type="button" className="btn-secondary" onClick={close}>Cancel</button><button className="btn-primary" disabled={busy}>{busy ? <LoaderCircle className="spin" size={16} /> : <Plus size={16} />} Create student</button></footer></form></section></div>;
 }
 
-function ShareManager({ detail, shareUrl, qr, generateShare, revokeShare }: { detail: Detail; shareUrl: string; qr: string; generateShare: () => void; revokeShare: () => void }) {
-  return <section className="share-manager admin-share-manager"><header><QrCode size={21} /><div><h3>Revocable QR sharing</h3><p>The QR contains no name, Student ID, or database identifier.</p></div></header><div className="admin-inline-actions"><button className="btn-secondary" onClick={generateShare}>{detail.student.sharing_active ? "Regenerate share link" : "Generate share link"}</button>{detail.student.sharing_active ? <button className="text-link is-danger" onClick={revokeShare}>Revoke link</button> : null}</div>{shareUrl ? <div className="share-manager__result">{qr ? <img src={qr} alt="Student share QR code" /> : null}<div><label>Share URL<input readOnly value={shareUrl} onFocus={(event) => event.currentTarget.select()} /></label><button className="text-link" onClick={() => window.print()}><Printer size={15} /> Print QR</button><a className="text-link" href={shareUrl} target="_blank" rel="noopener noreferrer">Preview record</a></div></div> : null}</section>;
+function StudentDrawer({ detail, loading, close, refresh, report }: { detail: Detail | null; loading: boolean; close: () => void; refresh: () => Promise<void>; report: (message: string, error?: boolean) => void }) {
+  const [hours, setHours] = useState(""); const [exam, setExam] = useState({ current: "", attempted: "", passed: true, location: "" }); const [reviewNote, setReviewNote] = useState(""); const [busy, setBusy] = useState(false); const [applicationNote, setApplicationNote] = useState("");
+  useEffect(() => { if (detail) setExam((value) => ({ ...value, current: detail.student.current_belt, attempted: RANKS[Math.min(RANKS.length - 1, Math.max(1, RANKS.indexOf(detail.student.current_belt as (typeof RANKS)[number]) + 1))] })); }, [detail?.student.id, detail?.student.current_belt]);
+  async function mutate(path: string, body: Record<string, unknown>, success: string) { if (!detail) return; setBusy(true); try { await api(path, { method: "POST", body: JSON.stringify(body) }); report(success); await refresh(); } catch (reason) { report(reason instanceof Error ? reason.message : "The change could not be saved.", true); } finally { setBusy(false); } }
+  if (loading || !detail) return <div className="admin-drawer-backdrop"><section className="admin-drawer"><header><h2>Student record</h2><button onClick={close}><X /></button></header><div className="admin-drawer-loading"><LoaderCircle className="spin" /> Loading complete record…</div></section></div>;
+  const student = detail.student; const currentApp = detail.applications[0]; const pendingRequests = detail.hourRequests.filter((request) => request.status === "pending");
+  return <div className="admin-drawer-backdrop"><section className="admin-drawer admin-drawer--workflow"><header><div><p className="eyebrow">Student workspace</p><h2>{student.display_name}</h2><p><code>{student.public_student_id}</code> · <BeltMark rank={student.current_belt} /> {student.current_belt}</p></div><button className="admin-icon-button" onClick={close}><X /></button></header><div className="admin-drawer__body">
+    <div className="admin-profile-review"><div>{student.pending_profile_image_url ? <img src={student.pending_profile_image_url} alt="Pending profile" /> : student.profile_image_url ? <img src={student.profile_image_url} alt="Profile" /> : <UserRound />}</div><dl><div><dt>Profile</dt><dd><Status value={student.profile_status} /></dd></div><div><dt>Total hours</dt><dd>{Number(student.total_hours).toLocaleString()} hr</dd></div><div><dt>Practice duration</dt><dd>{student.practice_duration || "Not supplied"}</dd></div><div><dt>Profile information</dt><dd>{student.profile_bio || "Not supplied"}</dd></div></dl></div>
+    <StudentDetailsEditor student={student} refresh={refresh} report={report} />
+    {student.profile_status === "pending_admin_approval" ? <section className="admin-workflow-card"><h3>Review profile request</h3><p>Pending profiles remain inactive and private until approval.</p><label>Internal review note<textarea value={reviewNote} onChange={(event) => setReviewNote(event.target.value)} /></label><div><button className="btn-primary" disabled={busy} onClick={() => void mutate(`/api/admin/students/${student.id}/profile-status`, { action: "approve", note: reviewNote }, "Profile approved and public QR activated.")}><Check size={16} /> Approve</button><button className="btn-secondary is-danger" disabled={busy || !reviewNote.trim()} onClick={() => void mutate(`/api/admin/students/${student.id}/profile-status`, { action: "reject", note: reviewNote }, "Profile rejected; the private history was retained.")}>Reject</button></div></section> : null}
+    <div className="admin-record-entry-grid"><section className="admin-workflow-card"><h3><Clock3 size={18} /> Add training hours</h3><label>Number of hours to add<input type="number" min="0.25" step="0.25" value={hours} onChange={(event) => setHours(event.target.value)} /></label><dl className="admin-preview-math"><div><dt>Current</dt><dd>{student.total_hours} hr</dd></div><div><dt>Add</dt><dd>{Number(hours || 0)} hr</dd></div><div><dt>Result</dt><dd>{Number(student.total_hours) + Number(hours || 0)} hr</dd></div></dl><button className="btn-primary" disabled={busy || !(Number(hours) > 0)} onClick={() => void mutate(`/api/admin/students/${student.id}/hours`, { hours: Number(hours) }, "Training hours added.")}>Add hours</button></section>
+      <section className="admin-workflow-card"><h3><GraduationCap size={18} /> Record examination</h3><label>Current kyu<select value={exam.current} onChange={(event) => setExam({ ...exam, current: event.target.value })}>{RANKS.map((item) => <option key={item}>{item}</option>)}</select></label><label>Attempting<select value={exam.attempted} onChange={(event) => setExam({ ...exam, attempted: event.target.value })}>{RANKS.map((item) => <option key={item}>{item}</option>)}</select></label><label>Did they pass?<select value={exam.passed ? "yes" : "no"} onChange={(event) => setExam({ ...exam, passed: event.target.value === "yes" })}><option value="yes">Yes</option><option value="no">No</option></select></label><label>Examination location<input value={exam.location} onChange={(event) => setExam({ ...exam, location: event.target.value })} /></label><button className="btn-primary" disabled={busy || !exam.location.trim()} onClick={() => void mutate(`/api/admin/students/${student.id}/exam`, { currentRank: exam.current, attemptedRank: exam.attempted, passed: exam.passed, location: exam.location }, `Examination ${exam.passed ? "pass" : "attempt"} recorded.`)}>Record examination</button></section></div>
+    {pendingRequests.length ? <section className="admin-workflow-card"><h3>Student-submitted training hours</h3>{pendingRequests.map((request) => <article className="admin-request-row" key={request.id}><div><strong>+{request.submitted_hours} hours</strong><span>{formatDate(request.submitted_at)} · pending review</span><small>{request.previous_total} → {request.requested_total} hours requested</small></div><div><button className="btn-primary" onClick={() => void mutate(`/api/admin/students/${student.id}/hours-requests`, { hourRequestId: request.id, action: "approve" }, "Student hours approved.")}>Approve</button><button className="btn-secondary is-danger" onClick={() => void mutate(`/api/admin/students/${student.id}/hours-requests`, { hourRequestId: request.id, action: "reject" }, "Student hours rejected.")}>Reject</button></div></article>)}</section> : null}
+    {currentApp ? <section className="admin-workflow-card admin-application"><header><div><h3>Examination application</h3><p>{currentApp.cycle_name} · submitted {formatDate(currentApp.submitted_at)}</p></div><Status value={currentApp.payment_status} /></header><dl className="admin-detail-grid"><div><dt>Current rank</dt><dd>{currentApp.current_rank}</dd></div><div><dt>Attempting</dt><dd>{currentApp.attempted_rank}</dd></div><div><dt>Status</dt><dd><Status value={currentApp.status} /></dd></div><div><dt>Payment</dt><dd><Status value={currentApp.payment_status} /></dd></div></dl><details><summary>View every PDF questionnaire answer</summary><dl className="admin-answer-list">{Object.entries(currentApp.answers).map(([key, value]) => <div key={key}><dt>{label(key)}</dt><dd>{value || "—"}</dd></div>)}</dl></details><label>Administrator note<textarea value={applicationNote || currentApp.administrator_notes} onChange={(event) => setApplicationNote(event.target.value)} /></label><div className="admin-inline-actions">{currentApp.payment_status === "paid" ? <button className="btn-secondary is-danger" onClick={() => { if (window.confirm("Reverse this payment confirmation? The reversal will be logged.")) void mutate(`/api/admin/students/${student.id}/application`, { applicationId: currentApp.id, action: "reverse_payment", confirmed: true }, "Payment confirmation reversed."); }}>Undo payment confirmation</button> : <button className="btn-primary" onClick={() => void mutate(`/api/admin/students/${student.id}/application`, { applicationId: currentApp.id, action: "mark_paid" }, "Payment confirmed.")}>Mark paid</button>}<button className="btn-secondary" onClick={() => void mutate(`/api/admin/students/${student.id}/application`, { applicationId: currentApp.id, action: "update_note", note: applicationNote || currentApp.administrator_notes }, "Administrator note saved.")}>Save note</button></div>{currentApp.history?.length ? <details><summary>Status and payment history</summary><ol className="admin-status-history">{currentApp.history.map((entry, index) => <li key={String(entry.id || index)}>{formatDate(String(entry.createdAt))} · {label(String(entry.newStatus || entry.newPaymentStatus || "updated"))}</li>)}</ol></details> : null}</section> : null}
+    <section className="admin-history-grid"><section><h3>Training history</h3>{detail.trainingHours.length ? <ol>{detail.trainingHours.map((entry) => <li key={entry.id}><strong>+{entry.verified_hours} hours</strong><time>{formatDate(entry.created_at)}</time><span>{label(entry.source)}</span></li>)}</ol> : <p>No entries yet.</p>}</section><section><h3>Examination history</h3>{detail.examinations.length ? <ol>{detail.examinations.map((entry) => <li key={entry.id}><strong>{entry.rank_before ? `${entry.rank_before} → ` : ""}{entry.rank_after || entry.rank_attempted}</strong><time>{formatDate(entry.examination_timestamp)}</time><span>{entry.passed ? "Passed" : "Did not pass"}{entry.examination_location ? ` · ${entry.examination_location}` : ""}</span></li>)}</ol> : <p>No examinations yet.</p>}</section></section>
+  </div></section></div>;
+}
+
+function StudentDetailsEditor({ student, refresh, report }: { student: Student; refresh: () => Promise<void>; report: (message: string, error?: boolean) => void }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [draft, setDraft] = useState({ name: student.display_name, studentId: student.public_student_id, rank: student.current_belt, practiceDuration: student.practice_duration || "", profileBio: student.profile_bio || "", notes: student.admin_notes || "", pin: "" });
+  useEffect(() => setDraft({ name: student.display_name, studentId: student.public_student_id, rank: student.current_belt, practiceDuration: student.practice_duration || "", profileBio: student.profile_bio || "", notes: student.admin_notes || "", pin: "" }), [student.id, student.updated_at]);
+  async function save(event: FormEvent) {
+    event.preventDefault(); setBusy(true);
+    try {
+      await api(`/api/admin/students/${student.id}`, { method: "PUT", body: JSON.stringify({ displayName: draft.name, studentId: draft.studentId, currentBelt: draft.rank, practiceDuration: draft.practiceDuration, profileBio: draft.profileBio, adminNotes: draft.notes, studentPin: draft.pin || undefined }) });
+      report("Student details saved with an audit entry."); setOpen(false); await refresh();
+    } catch (reason) { report(reason instanceof Error ? reason.message : "Student details could not be saved.", true); }
+    finally { setBusy(false); }
+  }
+  return <details className="admin-workflow-card" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}><summary>Edit profile details or correct a request</summary><form className="admin-bulk-form" onSubmit={save}><label>Name<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required /></label><label>Student ID<input value={draft.studentId} onChange={(event) => setDraft({ ...draft, studentId: event.target.value.toUpperCase() })} required /></label><label>Current kyu<select value={draft.rank} onChange={(event) => setDraft({ ...draft, rank: event.target.value })}>{RANKS.map((rank) => <option key={rank}>{rank}</option>)}</select></label><label>Practice duration<input value={draft.practiceDuration} onChange={(event) => setDraft({ ...draft, practiceDuration: event.target.value })} /></label><label>Public profile information<textarea value={draft.profileBio} onChange={(event) => setDraft({ ...draft, profileBio: event.target.value })} /></label><label>Administrator note<textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} /></label><label>Reset student PIN <small>Optional · enter 6–12 digits only when a reset is needed.</small><input type="password" inputMode="numeric" pattern="[0-9]{6,12}" value={draft.pin} onChange={(event) => setDraft({ ...draft, pin: event.target.value })} /></label><footer><button className="btn-primary" disabled={busy}>{busy ? <LoaderCircle className="spin" size={16} /> : <Save size={16} />} Save details</button></footer></form></details>;
 }

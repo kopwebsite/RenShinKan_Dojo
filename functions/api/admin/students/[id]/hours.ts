@@ -1,11 +1,40 @@
 import { hasValidAdminSession, isSameOriginRequest, jsonResponse } from "../../../../_lib/auth";
-import { audit, requireStudentDb, type StudentEnv } from "../../../../_lib/studentRecords";
+import { auditStatement, requestIdentifier, requireStudentDb, studentTotal, type StudentEnv } from "../../../../_lib/studentRecords";
+
 type Env = StudentEnv & { SESSION_SECRET?: string };
+
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }) => {
   if (!isSameOriginRequest(request) || !(await hasValidAdminSession(request, env))) return jsonResponse({ error: "Unauthorized" }, 401);
-  const body = await request.json<any>(); const date = String(body.date || ""); const hours = Number(body.hours);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(hours) || hours <= 0 || hours > 1000) return jsonResponse({ error: "Enter a valid date and number of verified hours." }, 400);
-  const db = requireStudentDb(env); const recordId = crypto.randomUUID(); const studentId = String(params.id); const now = new Date().toISOString();
-  await db.batch([db.prepare("INSERT INTO training_hours (id, student_id, entry_date, period_end, verified_hours, source, internal_note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(recordId, studentId, date, body.periodEnd || null, hours, body.source || null, body.internalNote || null, now), db.prepare("UPDATE students SET updated_at = ? WHERE id = ?").bind(now, studentId)]);
-  await audit(db, "create", "training_hours", recordId, `Added ${hours} verified training hours`); return jsonResponse({ ok: true, id: recordId }, 201);
+  const requestId = requestIdentifier(request);
+  try {
+    const body = await request.json<{ hours?: unknown }>();
+    const hours = Number(body.hours);
+    if (!Number.isFinite(hours) || hours <= 0 || hours > 1000) return jsonResponse({ error: "Enter a positive number of hours, up to 1,000." }, 400);
+    const db = requireStudentDb(env);
+    const studentId = String(params.id);
+    const previousTotal = await studentTotal(db, studentId);
+    if (previousTotal === null) return jsonResponse({ error: "Student not found." }, 404);
+    const recordId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const newTotal = previousTotal + hours;
+    const response = { ok: true, id: recordId, previousTotal, newTotal };
+    await db.batch([
+      db.prepare(`INSERT INTO training_hours
+        (id, student_id, entry_date, period_end, verified_hours, source, internal_note, created_at)
+        VALUES (?, ?, ?, NULL, ?, 'admin_student_edit', NULL, ?)`)
+        .bind(recordId, studentId, now.slice(0, 10), hours, now),
+      db.prepare("UPDATE students SET updated_at = ? WHERE id = ?").bind(now, studentId),
+      auditStatement(db, {
+        actorType: "administrator", actorIdentifier: "primary_admin", action: "training_hours_added", entityType: "training_hours", entityId: recordId,
+        studentId, previousValues: { totalHours: previousTotal }, newValues: { hoursAdded: hours, totalHours: newTotal },
+        source: "admin_student_edit", requestId, summary: `Added ${hours} training hours (${previousTotal} → ${newTotal})`, createdAt: now,
+      }),
+      db.prepare("INSERT INTO mutation_requests (request_id, actor_type, action, response_json, created_at) VALUES (?, 'administrator', 'training_hours_added', ?, ?)")
+        .bind(requestId, JSON.stringify(response), now),
+    ]);
+    return jsonResponse(response, 201);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Training hours could not be added.";
+    return jsonResponse({ error: message.includes("UNIQUE") ? "This hours update was already applied." : message }, message.includes("UNIQUE") ? 409 : 400);
+  }
 };

@@ -66,7 +66,7 @@ function getWranglerVarsBlock(config: string) {
 const cloudflarePagesBuildDefines = getCloudflarePagesBuildDefines();
 const SPA_ROUTES = new Set([
   "/aikido", "/classes", "/community", "/contact", "/instructors", "/newsletter",
-  "/student-records", "/records", "/support", "/workshops", "/admin", "/admin/students",
+  "/student-records", "/records", "/support", "/workshops", "/admin", "/admin/students", "/admin/audit",
 ]);
 
 function spaRouteFallback() {

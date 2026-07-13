@@ -1,3 +1,5 @@
+import { beltKeyForRank } from "../../shared/ranks";
+
 /**
  * RenShinKan kyu-belt visual system.
  *
@@ -32,19 +34,6 @@ export type BeltKey =
   | "black-brown"
   | "black"
   | "white";
-
-const KYU_TO_BELT: Record<number, BeltKey> = {
-  10: "orange",
-  9: "orange-blue",
-  8: "blue-orange",
-  7: "blue",
-  6: "blue-green",
-  5: "green",
-  4: "green-brown",
-  3: "brown",
-  2: "brown-black",
-  1: "black-brown",
-};
 
 /** Plain-language colour description so meaning never relies on colour alone. */
 export const beltDescriptions: Record<BeltKey, string> = {
@@ -103,19 +92,14 @@ const LEGACY_COLOR_TO_BELT: Record<string, BeltKey> = {
  * the white beginner belt, so old records keep rendering.
  */
 export function rankToBeltKey(rank: string | null | undefined, legacyColor?: string | null): BeltKey {
+  const definedBelt = beltKeyForRank(rank);
+  if (definedBelt) return definedBelt;
+
   const normalized = (rank ?? "").toLocaleLowerCase("en-US").trim();
 
   if (normalized) {
     if (normalized.includes("dan") || normalized.includes("sho")) {
       return "black";
-    }
-
-    const kyuMatch = normalized.match(/\b(10|[1-9])\s*(?:st|nd|rd|th)?\s*ky[uū]\b/);
-    if (kyuMatch) {
-      const belt = KYU_TO_BELT[Number(kyuMatch[1])];
-      if (belt) {
-        return belt;
-      }
     }
 
     if (normalized.includes("unranked") || normalized.includes("beginner")) {

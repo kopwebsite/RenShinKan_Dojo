@@ -1,6 +1,11 @@
+import { beltKeyForRank, normalizeRank } from "../../shared/ranks";
 import { jsonResponse } from "./auth";
 
-export type D1Result<T = unknown> = { results?: T[]; success: boolean };
+export type D1Result<T = unknown> = {
+  results?: T[];
+  success: boolean;
+  meta?: { changes?: number; last_row_id?: number | string };
+};
 export type D1PreparedStatement = {
   bind(...values: unknown[]): D1PreparedStatement;
   first<T = Record<string, unknown>>(): Promise<T | null>;
@@ -23,11 +28,45 @@ export type StudentEnv = {
 export const DEFAULT_DOJO = "RenShinKan Dojo";
 export const DEFAULT_SHARE_FIELDS = { photo: false, trainingHours: true, examinations: true, lastUpdated: true };
 const STUDENT_ID_PATTERN = /^RSK-\d{4,}$/;
-
+const PIN_PATTERN = /^\d{6,12}$/;
+const PIN_ITERATIONS = 100_000;
+const ACCESS_SESSION_MINUTES = 20;
 const encoder = new TextEncoder();
 
-function bytesToHex(value: ArrayBuffer) {
-  return [...new Uint8Array(value)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+function bytesToHex(value: ArrayBuffer | Uint8Array) {
+  const bytes = value instanceof Uint8Array ? value : new Uint8Array(value);
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function bytesToBase64Url(bytes: Uint8Array) {
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.slice(index, index + 0x8000));
+  }
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function base64UrlToBytes(value: string) {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+function constantTimeEqual(a: Uint8Array, b: Uint8Array) {
+  const max = Math.max(a.length, b.length);
+  let result = a.length ^ b.length;
+  for (let index = 0; index < max; index += 1) result |= (a[index] || 0) ^ (b[index] || 0);
+  return result === 0;
+}
+
+export function randomToken(byteLength = 32) {
+  return bytesToBase64Url(crypto.getRandomValues(new Uint8Array(byteLength)));
+}
+
+export function requestIdentifier(request: Request) {
+  const supplied = request.headers.get("X-Request-ID")?.trim() || "";
+  return /^[A-Za-z0-9._:-]{8,128}$/.test(supplied) ? supplied : crypto.randomUUID();
 }
 
 export function normalizeVerifiedName(value: string) {
@@ -43,12 +82,17 @@ export async function sha256Hex(value: string) {
   return bytesToHex(await crypto.subtle.digest("SHA-256", encoder.encode(value)));
 }
 
+function studentSecret(env: StudentEnv) {
+  const secret = env.STUDENT_LOOKUP_PEPPER || env.SESSION_SECRET;
+  if (!secret) throw new Error("Student record security is not configured");
+  return secret;
+}
+
 export async function studentCredentialHashes(env: StudentEnv, name: string, code: string) {
-  const pepper = env.STUDENT_LOOKUP_PEPPER || env.SESSION_SECRET;
-  if (!pepper) throw new Error("Student record hashing is not configured");
+  const secret = studentSecret(env);
   return {
-    nameHash: await hmacHex(pepper, `name:${normalizeVerifiedName(name)}`),
-    codeHash: await hmacHex(pepper, `code:${code.trim().toLocaleUpperCase("en-US")}`),
+    nameHash: await hmacHex(secret, `name:${normalizeVerifiedName(name)}`),
+    codeHash: await hmacHex(secret, `code:${code.trim().toLocaleUpperCase("en-US")}`),
   };
 }
 
@@ -64,37 +108,8 @@ export function formatStudentId(sequence: number) {
   return `RSK-${String(sequence).padStart(4, "0")}`;
 }
 
-/**
- * Kyu ranks mapped to the dojo's belt colour keys. Split belts keep the
- * senior colour first (e.g. "orange-blue" is 2/3 orange, 1/3 blue). The
- * same mapping lives client-side in src/utils/beltVisual.ts, which derives
- * the visual directly from the rank string; this stored value is only a
- * fallback for records whose rank text cannot be parsed.
- */
-const KYU_BELT_KEYS: Record<number, string> = {
-  10: "orange",
-  9: "orange-blue",
-  8: "blue-orange",
-  7: "blue",
-  6: "blue-green",
-  5: "green",
-  4: "green-brown",
-  3: "brown",
-  2: "brown-black",
-  1: "black-brown",
-};
-
 export function rankColor(rank: string, fallback = "white") {
-  const normalized = rank.toLocaleLowerCase("en-US");
-  if (normalized.includes("dan") || normalized.includes("sho") || normalized.includes("black")) return "black";
-  const kyuMatch = normalized.match(/\b(10|[1-9])\s*(?:st|nd|rd|th)?\s*ky[uū]\b/);
-  if (kyuMatch && KYU_BELT_KEYS[Number(kyuMatch[1])]) return KYU_BELT_KEYS[Number(kyuMatch[1])];
-  if (normalized.includes("brown")) return "brown";
-  if (normalized.includes("green")) return "green";
-  if (normalized.includes("blue")) return "blue";
-  if (normalized.includes("orange")) return "orange";
-  if (normalized.includes("white") || normalized.includes("unranked")) return "white";
-  return fallback || "white";
+  return beltKeyForRank(rank) || fallback || "white";
 }
 
 export async function nextStudentId(db: D1Database) {
@@ -129,21 +144,125 @@ export async function enforceLookupRateLimit(request: Request, env: StudentEnv) 
   const db = requireStudentDb(env);
   const actor = await sha256Hex(`${request.headers.get("CF-Connecting-IP") || "unknown"}:${request.headers.get("User-Agent") || ""}`);
   const now = Date.now();
-  const row = await db.prepare("SELECT window_started_at, attempts FROM lookup_attempts WHERE actor_hash = ?").bind(actor).first<{ window_started_at: string; attempts: number }>();
+  const row = await db.prepare("SELECT window_started_at, attempts FROM lookup_attempts WHERE actor_hash = ?").bind(actor)
+    .first<{ window_started_at: string; attempts: number }>();
   const expired = !row || now - Date.parse(row.window_started_at) > 15 * 60 * 1000;
   if (!expired && row.attempts >= 8) return false;
   if (expired) {
-    await db.prepare("INSERT INTO lookup_attempts (actor_hash, window_started_at, attempts) VALUES (?, ?, 1) ON CONFLICT(actor_hash) DO UPDATE SET window_started_at = excluded.window_started_at, attempts = 1").bind(actor, new Date(now).toISOString()).run();
+    await db.prepare("INSERT INTO lookup_attempts (actor_hash, window_started_at, attempts) VALUES (?, ?, 1) ON CONFLICT(actor_hash) DO UPDATE SET window_started_at = excluded.window_started_at, attempts = 1")
+      .bind(actor, new Date(now).toISOString()).run();
   } else {
     await db.prepare("UPDATE lookup_attempts SET attempts = attempts + 1 WHERE actor_hash = ?").bind(actor).run();
   }
   return true;
 }
 
-type StudentRow = {
-  id: string; public_student_id: string; display_name: string; current_belt: string; belt_color: string;
-  profile_image_url: string | null; profile_image_consent: number; public_visible: number; active: number;
-  share_fields: string; dojo_name: string; updated_at: string; training_hours_adjustment?: number;
+export async function hashStudentPin(pin: string) {
+  if (!PIN_PATTERN.test(pin)) throw new Error("Student PIN must contain 6 to 12 digits.");
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const material = await crypto.subtle.importKey("raw", encoder.encode(pin), "PBKDF2", false, ["deriveBits"]);
+  const derived = new Uint8Array(await crypto.subtle.deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", salt, iterations: PIN_ITERATIONS }, material, 256,
+  ));
+  return `pbkdf2-sha256$${PIN_ITERATIONS}$${bytesToBase64Url(salt)}$${bytesToBase64Url(derived)}`;
+}
+
+export async function verifyStudentPin(pin: string, storedHash: string | null | undefined) {
+  if (!storedHash || !PIN_PATTERN.test(pin)) return false;
+  const [algorithm, iterationsValue, saltValue, hashValue] = storedHash.split("$");
+  const iterations = Number(iterationsValue);
+  if (algorithm !== "pbkdf2-sha256" || !Number.isInteger(iterations) || iterations < 50_000 || iterations > 500_000 || !saltValue || !hashValue) return false;
+  try {
+    const salt = base64UrlToBytes(saltValue);
+    const expected = base64UrlToBytes(hashValue);
+    const material = await crypto.subtle.importKey("raw", encoder.encode(pin), "PBKDF2", false, ["deriveBits"]);
+    const actual = new Uint8Array(await crypto.subtle.deriveBits(
+      { name: "PBKDF2", hash: "SHA-256", salt, iterations }, material, expected.length * 8,
+    ));
+    return constantTimeEqual(actual, expected);
+  } catch {
+    return false;
+  }
+}
+
+async function capabilityKey(env: StudentEnv) {
+  const digest = await crypto.subtle.digest("SHA-256", encoder.encode(`share:${studentSecret(env)}`));
+  return crypto.subtle.importKey("raw", digest, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+}
+
+export async function encryptCapabilityToken(env: StudentEnv, token: string) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await capabilityKey(env), encoder.encode(token)));
+  return `v1.${bytesToBase64Url(iv)}.${bytesToBase64Url(encrypted)}`;
+}
+
+export async function decryptCapabilityToken(env: StudentEnv, value: string) {
+  const [version, ivValue, encryptedValue] = value.split(".");
+  if (version !== "v1" || !ivValue || !encryptedValue) return null;
+  try {
+    const decrypted = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: base64UrlToBytes(ivValue) },
+      await capabilityKey(env),
+      base64UrlToBytes(encryptedValue),
+    );
+    return new TextDecoder().decode(decrypted);
+  } catch {
+    return null;
+  }
+}
+
+export async function ensureOwnerShareUrl(db: D1Database, env: StudentEnv, studentId: string, request: Request) {
+  const existing = await db.prepare("SELECT token_ciphertext FROM share_tokens WHERE student_id = ? AND active = 1 AND purpose = 'owner' AND token_ciphertext IS NOT NULL ORDER BY created_at DESC LIMIT 1")
+    .bind(studentId).first<{ token_ciphertext: string }>();
+  let token = existing?.token_ciphertext ? await decryptCapabilityToken(env, existing.token_ciphertext) : null;
+  let created = false;
+  if (!token) {
+    token = randomToken();
+    created = true;
+    const now = new Date().toISOString();
+    await db.prepare("INSERT INTO share_tokens (id, token_hash, student_id, active, created_at, token_ciphertext, purpose) VALUES (?, ?, ?, 1, ?, ?, 'owner')")
+      .bind(crypto.randomUUID(), await sha256Hex(token), studentId, now, await encryptCapabilityToken(env, token)).run();
+  }
+  const origin = (env.SITE_URL || new URL(request.url).origin).replace(/\/$/, "");
+  return { url: `${origin}/records/share/${token}`, created };
+}
+
+export async function issueStudentAccessSession(db: D1Database, studentId: string, requestId: string) {
+  const token = randomToken();
+  const now = new Date();
+  const expires = new Date(now.getTime() + ACCESS_SESSION_MINUTES * 60 * 1000).toISOString();
+  await db.prepare("INSERT INTO student_access_sessions (id, token_hash, student_id, expires_at, request_id, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind(crypto.randomUUID(), await sha256Hex(token), studentId, expires, requestId, now.toISOString()).run();
+  return token;
+}
+
+export async function validStudentAccessSession(db: D1Database, studentId: string, token: string) {
+  if (!/^[A-Za-z0-9_-]{40,100}$/.test(token)) return null;
+  return db.prepare("SELECT id FROM student_access_sessions WHERE token_hash = ? AND student_id = ? AND used_at IS NULL AND expires_at > ? LIMIT 1")
+    .bind(await sha256Hex(token), studentId, new Date().toISOString()).first<{ id: string }>();
+}
+
+export async function studentTotal(db: D1Database, studentId: string) {
+  const row = await db.prepare(`SELECT COALESCE((SELECT SUM(verified_hours) FROM training_hours WHERE student_id = s.id), 0)
+    + s.training_hours_adjustment AS total FROM students s WHERE s.id = ?`).bind(studentId).first<{ total: number }>();
+  return row ? Number(row.total || 0) : null;
+}
+
+export type StudentRow = {
+  id: string;
+  public_student_id: string;
+  display_name: string;
+  current_belt: string;
+  belt_color: string;
+  profile_image_url: string | null;
+  profile_image_consent: number;
+  public_visible: number;
+  active: number;
+  profile_status?: string;
+  share_fields: string;
+  dojo_name: string;
+  updated_at: string;
+  training_hours_adjustment?: number;
 };
 
 function safeVisibility(value: string) {
@@ -153,17 +272,17 @@ function safeVisibility(value: string) {
 export async function publicStudentRecord(db: D1Database, student: StudentRow, shared = false) {
   const visibility = safeVisibility(student.share_fields);
   const exams = visibility.examinations !== false
-    ? (await db.prepare("SELECT examination_date, belt_awarded, belt_color, rank, examiner, public_notes FROM belt_examinations WHERE student_id = ? ORDER BY examination_date DESC").bind(student.id).all()).results || []
+    ? (await db.prepare(`SELECT examination_date, belt_awarded, belt_color, rank, examiner, public_notes,
+        passed, rank_before, rank_attempted, rank_after, examination_location
+        FROM belt_examinations WHERE student_id = ? ORDER BY examination_date DESC`).bind(student.id).all()).results || []
     : [];
-  const total = visibility.trainingHours !== false
-    ? await db.prepare("SELECT COALESCE(SUM(verified_hours), 0) + ? AS total FROM training_hours WHERE student_id = ?").bind(Number(student.training_hours_adjustment || 0), student.id).first<{ total: number }>()
-    : { total: 0 };
+  const total = visibility.trainingHours !== false ? await studentTotal(db, student.id) : 0;
   return {
     displayName: student.display_name,
     studentId: student.public_student_id,
     currentBelt: student.current_belt,
     beltColor: student.belt_color,
-    totalVerifiedTrainingHours: Number(total?.total || 0),
+    totalVerifiedTrainingHours: Number(total || 0),
     examinations: exams,
     dojoName: student.dojo_name,
     lastUpdated: visibility.lastUpdated === false ? null : student.updated_at,
@@ -173,10 +292,55 @@ export async function publicStudentRecord(db: D1Database, student: StudentRow, s
 }
 
 export function genericLookupFailure(status = 404) {
-  return jsonResponse({ error: "We could not find a matching student record. Please check the name and Student ID and try again." }, status, { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" });
+  return jsonResponse(
+    { error: "We could not find a matching student record. Please check the details and try again." },
+    status,
+    { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" },
+  );
 }
 
-export async function audit(db: D1Database, action: string, recordType: string, recordId: string, summary: string) {
-  await db.prepare("INSERT INTO audit_log (id, admin_action, record_type, record_id, action_summary, created_at) VALUES (?, ?, ?, ?, ?, ?)")
-    .bind(crypto.randomUUID(), action, recordType, recordId, summary.slice(0, 300), new Date().toISOString()).run();
+export type AuditInput = {
+  actorType: "administrator" | "student" | "system";
+  actorIdentifier: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  studentId?: string | null;
+  previousValues?: unknown;
+  newValues?: unknown;
+  source: string;
+  bulkOperationId?: string | null;
+  requestId: string;
+  administratorNote?: string | null;
+  summary: string;
+  createdAt?: string;
+};
+
+function structuredValue(value: unknown) {
+  return value === undefined ? null : JSON.stringify(value);
+}
+
+export function auditStatement(db: D1Database, input: AuditInput) {
+  const createdAt = input.createdAt || new Date().toISOString();
+  return db.prepare(`INSERT INTO audit_log (
+      id, admin_action, record_type, record_id, action_summary, created_at,
+      actor_type, actor_identifier, action, entity_type, entity_id, student_id,
+      previous_values, new_values, source, bulk_operation_id, request_id, administrator_note
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .bind(
+      crypto.randomUUID(), input.action, input.entityType, input.entityId, input.summary.slice(0, 300), createdAt,
+      input.actorType, input.actorIdentifier.slice(0, 160), input.action, input.entityType, input.entityId,
+      input.studentId || null, structuredValue(input.previousValues), structuredValue(input.newValues), input.source,
+      input.bulkOperationId || null, input.requestId, input.administratorNote?.slice(0, 2000) || null,
+    );
+}
+
+export async function audit(db: D1Database, input: AuditInput) {
+  await auditStatement(db, input).run();
+}
+
+export function normalizedRankOrError(value: unknown) {
+  const rank = normalizeRank(value);
+  if (!rank) throw new Error("Choose a valid rank from the official progression.");
+  return rank;
 }

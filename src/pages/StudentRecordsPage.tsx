@@ -1,91 +1,89 @@
-import { FormEvent, useCallback, useState } from "react";
-import { LockKeyhole, Search, ShieldCheck } from "lucide-react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Camera, CheckCircle2, Clock3, Copy, Download, FileCheck2, LockKeyhole, Printer, QrCode, Search, Share2, ShieldCheck, UserPlus } from "lucide-react";
+import QRCodeLib from "qrcode";
+import { RANKS } from "../../shared/ranks";
 import { StudentRecordCard } from "../components/StudentRecordCard";
 import { TurnstileWidget } from "../components/TurnstileWidget";
 import type { PublicStudentRecord } from "../types/studentRecord";
-import { recordsCopy } from "../data/recordsCopy";
-import { useTranslation } from "../i18n";
 
-const LOOKUP_FAILURE = "We could not find a matching student record. Please check the name and Student ID and try again.";
-const studentIdCopy = {
-  en: {
-    intro: "Enter the student's exact record name and Student ID. Both details are required and neither works on its own.",
-    label: "Student ID",
-    privacy: "Names and Student IDs are verified on the server and are never placed in the page URL.",
-  },
-  th: {
-    intro: "กรอกชื่อในประวัติและรหัสนักเรียนให้ตรงกัน ต้องใช้ข้อมูลทั้งสองอย่างร่วมกัน",
-    label: "รหัสนักเรียน",
-    privacy: "ชื่อและรหัสนักเรียนจะตรวจสอบที่เซิร์ฟเวอร์และไม่ปรากฏใน URL",
-  },
-  ja: {
-    intro: "記録上の正確な氏名と生徒IDを入力してください。両方の情報が必要です。",
-    label: "生徒ID",
-    privacy: "氏名と生徒IDはサーバーで確認され、URLには含まれません。",
-  },
-  "zh-CN": {
-    intro: "请输入记录中的准确姓名和学员ID。两项信息必须同时使用。",
-    label: "学员ID",
-    privacy: "姓名和学员ID仅在服务器端验证，不会写入页面网址。",
-  },
-} as const;
+type Task = "lookup" | "profile" | "exam";
+type LookupResult = { record: PublicStudentRecord; shareUrl: string; accessToken: string | null; selfServiceAvailable: boolean };
+type ExamDraft = {
+  verificationName: string; studentId: string; pin: string; attemptedRank: string; aatNumber: string; firstName: string; surname: string;
+  nationality: string; sex: string; dateOfBirth: string; permanentAddress: string; presentAddress: string; phone: string;
+  school: string; classLevel: string; office: string; position: string; certificate: string; gamesExperience: string;
+  applicantSignature: string; guarantorSignature: string; guarantorName: string; promiseAccepted: boolean;
+};
+
+const EMPTY_EXAM: ExamDraft = { verificationName: "", studentId: "", pin: "", attemptedRank: "10 Kyu", aatNumber: "", firstName: "", surname: "", nationality: "", sex: "", dateOfBirth: "", permanentAddress: "", presentAddress: "", phone: "", school: "", classLevel: "", office: "", position: "", certificate: "", gamesExperience: "", applicantSignature: "", guarantorSignature: "", guarantorName: "", promiseAccepted: false };
+
+async function responseBody<T>(response: Response) {
+  const body = await response.json() as T & { error?: string };
+  if (!response.ok) throw new Error(body.error || "Please check the form and try again.");
+  return body;
+}
+
+async function profileWebp(file: File) {
+  if (!new Set(["image/jpeg", "image/png", "image/webp"]).has(file.type)) throw new Error("Choose a JPEG, PNG, or WebP profile photo.");
+  if (file.size > 8 * 1024 * 1024) throw new Error("The original photo must be 8 MB or smaller.");
+  const bitmap = await createImageBitmap(file);
+  if (bitmap.width < 128 || bitmap.height < 128) { bitmap.close(); throw new Error("The photo must be at least 128 × 128 pixels."); }
+  const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas"); canvas.width = Math.round(bitmap.width * scale); canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height); bitmap.close();
+  const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("The photo could not be prepared.")), "image/webp", .84));
+  if (blob.size > 3 * 1024 * 1024) throw new Error("The prepared photo is still larger than 3 MB. Choose a smaller photo.");
+  return new File([blob], "profile.webp", { type: "image/webp" });
+}
 
 export function StudentRecordsPage() {
-  const { language } = useTranslation();
-  const c = recordsCopy[language];
-  const idCopy = studentIdCopy[language];
-  const [name, setName] = useState("");
-  const [studentId, setStudentId] = useState("");
-  const [token, setToken] = useState("");
-  const [record, setRecord] = useState<PublicStudentRecord | null>(null);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [reset, setReset] = useState(0);
-  const onToken = useCallback((value: string) => setToken(value), []);
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setError("");
-    setRecord(null);
-    if (!name.trim() || !studentId.trim() || !token) {
-      setError(c.required);
-      return;
-    }
-    setBusy(true);
-    try {
-      const response = await fetch("/api/records/lookup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, studentId, turnstileToken: token }),
-      });
-      const body = await response.json() as { record?: PublicStudentRecord; error?: string };
-      if (!response.ok || !body.record) throw new Error(body.error || LOOKUP_FAILURE);
-      setRecord(body.record);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : LOOKUP_FAILURE);
-    } finally {
-      setBusy(false);
-      setToken("");
-      setReset((value) => value + 1);
-    }
-  }
-
+  const [task, setTask] = useState<Task>("lookup");
   return <>
-    <section className="container-shell records-opening">
-      <div><p className="folio-mark">{c.eyebrow}</p><h1>{c.title}</h1><p>{idCopy.intro}</p></div>
-      <aside><LockKeyhole size={22} /><strong>{c.privacyTitle}</strong><p>{c.privacyBody}</p></aside>
-    </section>
-    <section className="container-shell records-layout">
-      <form className="record-lookup" onSubmit={submit} noValidate>
-        <h2>{c.lookup}</h2>
-        <label htmlFor="record-name">{c.name}<input id="record-name" value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" maxLength={120} /></label>
-        <label htmlFor="record-student-id">{idCopy.label}<input id="record-student-id" value={studentId} onChange={(event) => setStudentId(event.target.value.toUpperCase())} autoComplete="off" autoCapitalize="characters" maxLength={40} /></label>
-        <TurnstileWidget onToken={onToken} resetSignal={reset} />
-        {error ? <p className="form-error" role="alert">{error}</p> : null}
-        <button className="btn-primary" disabled={busy}><Search size={17} /> {busy ? c.checking : c.verify}</button>
-        <p className="record-privacy"><ShieldCheck size={15} /> {idCopy.privacy}</p>
-      </form>
-      {record ? <StudentRecordCard record={record} /> : <div className="record-placeholder"><span>認</span><h2>{c.placeholderTitle}</h2><p>{c.placeholderBody}</p></div>}
-    </section>
+    <section className="container-shell records-opening records-opening--tasks"><div><p className="folio-mark">Student records</p><h1>What would you like to do?</h1><p>Choose one task. Only the form you need will be shown.</p></div><aside><LockKeyhole size={22} /><strong>Private by design</strong><p>Pending profiles and examination answers are never shown on public profile pages.</p></aside></section>
+    <nav className="container-shell record-task-picker" aria-label="Student record tasks">{([
+      ["lookup", Search, "Find my record", "View your approved profile, QR code, and submit hours."],
+      ["profile", UserPlus, "Create a profile", "Request a new student record for administrator approval."],
+      ["exam", FileCheck2, "Apply for an exam", "Complete the official belt-examination application."],
+    ] as const).map(([value, Icon, title, copy]) => <button key={value} className={task === value ? "is-active" : ""} onClick={() => setTask(value)} aria-pressed={task === value}><Icon /><span><strong>{title}</strong><small>{copy}</small></span></button>)}</nav>
+    <section className="container-shell record-task-panel">{task === "lookup" ? <LookupWorkflow /> : task === "profile" ? <ProfileWorkflow /> : <ExamWorkflow />}</section>
   </>;
 }
+
+function LookupWorkflow() {
+  const [name, setName] = useState(""); const [studentId, setStudentId] = useState(""); const [token, setToken] = useState("");
+  const [result, setResult] = useState<LookupResult | null>(null); const [error, setError] = useState(""); const [busy, setBusy] = useState(false); const [reset, setReset] = useState(0);
+  const [qr, setQr] = useState(""); const [hours, setHours] = useState(""); const [pin, setPin] = useState(""); const [hoursMessage, setHoursMessage] = useState("");
+  const onToken = useCallback((value: string) => setToken(value), []);
+  useEffect(() => { if (result?.shareUrl) QRCodeLib.toDataURL(result.shareUrl, { width: 360, margin: 2, errorCorrectionLevel: "M" }).then(setQr); }, [result?.shareUrl]);
+  async function submit(event: FormEvent) { event.preventDefault(); setError(""); setResult(null); if (!name.trim() || !studentId.trim() || !token) { setError("Enter the exact record name, Student ID, and complete Cloudflare verification."); return; } setBusy(true); try { const response = await fetch("/api/records/lookup", { method: "POST", headers: { "Content-Type": "application/json", "X-Request-ID": crypto.randomUUID() }, body: JSON.stringify({ name, studentId, turnstileToken: token }) }); setResult(await responseBody<LookupResult>(response)); } catch (reason) { setError(reason instanceof Error ? reason.message : "No matching approved record was found."); } finally { setBusy(false); setToken(""); setReset((value) => value + 1); } }
+  async function submitHours(event: FormEvent) { event.preventDefault(); if (!result?.accessToken) return; setBusy(true); setError(""); try { const response = await fetch("/api/records/hours", { method: "POST", headers: { "Content-Type": "application/json", "X-Request-ID": crypto.randomUUID() }, body: JSON.stringify({ studentId: result.record.studentId, accessToken: result.accessToken, pin, hours: Number(hours) }) }); const body = await responseBody<{ requestedTotal: number }>(response); setHoursMessage(`Submitted for administrator review. Your requested total is ${body.requestedTotal} hours; your approved total has not changed yet.`); setHours(""); setPin(""); } catch (reason) { setError(reason instanceof Error ? reason.message : "The hours request could not be submitted."); } finally { setBusy(false); } }
+  async function copyLink() { if (result) { await navigator.clipboard.writeText(result.shareUrl); setHoursMessage("Profile link copied."); } }
+  async function shareLink() { if (!result) return; if (navigator.share) await navigator.share({ title: `${result.record.displayName} · RenShinKan`, url: result.shareUrl }); else await copyLink(); }
+  return <><div className="records-layout"><form className="record-lookup" onSubmit={submit}><p className="eyebrow">Existing student</p><h2>Look up an approved record</h2><p>Use the exact student name and Student ID. Neither value works alone.</p><label>Student name<input value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" /></label><label>Student ID<input value={studentId} onChange={(event) => setStudentId(event.target.value.toUpperCase())} placeholder="RSK-0001" /></label><TurnstileWidget onToken={onToken} resetSignal={reset} />{error ? <p className="form-error">{error}</p> : null}<button className="btn-primary" disabled={busy}><Search size={17} /> {busy ? "Checking…" : "Find my record"}</button><p className="record-privacy"><ShieldCheck size={15} /> Verification details are sent securely and never placed in the page URL.</p></form>{result ? <StudentRecordCard record={result.record} /> : <div className="record-placeholder"><span>認</span><h2>Your verified record will appear here</h2><p>Public profile links never allow editing and never reveal application answers or payment details.</p></div>}</div>
+    {result ? <section className="student-owner-tools"><header><QrCode /><div><h2>Share your approved profile</h2><p>This QR opens only your public student record. Share it with friends, sensei, other dojos, or training partners.</p></div></header><div className="student-owner-tools__grid">{qr ? <img src={qr} alt="Shareable student-profile QR code" /> : null}<div><label>Public profile link<input readOnly value={result.shareUrl} onFocus={(event) => event.currentTarget.select()} /></label><div><button className="btn-secondary" onClick={() => void copyLink()}><Copy size={16} /> Copy link</button><button className="btn-secondary" onClick={() => void shareLink()}><Share2 size={16} /> Share</button><a className="btn-secondary" download={`${result.record.studentId}-profile-qr.png`} href={qr}><Download size={16} /> Download QR</a><button className="btn-secondary" onClick={() => window.print()}><Printer size={16} /> Print</button></div></div></div>{result.selfServiceAvailable ? <form className="student-hours-form" onSubmit={submitHours}><div><h3>Submit additional training hours</h3><p>A sensei or administrator will review them before they change your approved total.</p></div><label>Hours to add<input type="number" min="0.25" max="1000" step="0.25" value={hours} onChange={(event) => setHours(event.target.value)} required /></label><label>Secure student PIN<input type="password" inputMode="numeric" pattern="[0-9]{6,12}" value={pin} onChange={(event) => setPin(event.target.value)} required /></label><button className="btn-primary" disabled={busy || !(Number(hours) > 0)}>Submit for review</button></form> : <p className="record-privacy">Ask a sensei to set a secure student PIN if you want to submit hours online.</p>}{hoursMessage ? <p className="form-success"><CheckCircle2 /> {hoursMessage}</p> : null}</section> : null}</>;
+}
+
+function ProfileWorkflow() {
+  const [draft, setDraft] = useState({ displayName: "", currentRank: "Unranked", practiceDuration: "", profileBio: "", pin: "" });
+  const [file, setFile] = useState<File | null>(null); const [preview, setPreview] = useState(""); const [token, setToken] = useState(""); const [reset, setReset] = useState(0); const [error, setError] = useState(""); const [busy, setBusy] = useState(false); const [done, setDone] = useState(false);
+  const onToken = useCallback((value: string) => setToken(value), []);
+  async function choose(input?: File) { if (!input) return; try { const prepared = await profileWebp(input); setFile(prepared); if (preview) URL.revokeObjectURL(preview); setPreview(URL.createObjectURL(prepared)); setError(""); } catch (reason) { setError(reason instanceof Error ? reason.message : "The photo could not be prepared."); } }
+  async function submit(event: FormEvent) { event.preventDefault(); if (!file || !token) { setError("Choose a profile photo and complete Cloudflare verification."); return; } setBusy(true); setError(""); try { const data = new FormData(); data.set("payload", JSON.stringify({ ...draft, turnstileToken: token })); data.set("file", file); const response = await fetch("/api/records/profile-requests", { method: "POST", headers: { "X-Request-ID": crypto.randomUUID() }, body: data }); await responseBody(response); setDone(true); } catch (reason) { setError(reason instanceof Error ? reason.message : "The profile request could not be submitted."); setReset((value) => value + 1); setToken(""); } finally { setBusy(false); } }
+  if (done) return <div className="record-success-panel"><CheckCircle2 /><p className="eyebrow">Request received</p><h2>Your profile is pending administrator approval</h2><p>It is not searchable, active, public, or QR-enabled yet. A sensei will review the details and photo before activating the official student record.</p></div>;
+  return <form className="student-long-form" onSubmit={submit}><header><div><p className="eyebrow">New student profile</p><h2>Request an official record</h2></div><span className="admin-status is-pending">Pending until approved</span></header><div className="student-form-grid"><label>Student name <small>Required · use the name you will use for record lookup.</small><input value={draft.displayName} onChange={(event) => setDraft({ ...draft, displayName: event.target.value })} required /></label><label>Current kyu<select value={draft.currentRank} onChange={(event) => setDraft({ ...draft, currentRank: event.target.value })}>{RANKS.map((rank) => <option key={rank}>{rank}</option>)}</select></label><label>How long have you practiced aikido? <small>Example: “18 months” or “since 2021”.</small><input value={draft.practiceDuration} onChange={(event) => setDraft({ ...draft, practiceDuration: event.target.value })} required /></label><label>Secure student PIN <small>Required · 6–12 digits; use this later for verified self-service.</small><input type="password" inputMode="numeric" pattern="[0-9]{6,12}" value={draft.pin} onChange={(event) => setDraft({ ...draft, pin: event.target.value })} required /></label><label className="admin-span-2">Additional information for your profile <small>Optional · do not include private contact or payment details.</small><textarea maxLength={2000} value={draft.profileBio} onChange={(event) => setDraft({ ...draft, profileBio: event.target.value })} /></label></div><label className="student-photo-field"><span>{preview ? <img src={preview} alt="Profile preview" /> : <Camera />}</span><strong>{preview ? "Replace profile photo" : "Add profile photo"}</strong><small>JPEG, PNG, or WebP; at least 128 × 128 pixels. Mobile camera photos are supported.</small><input type="file" accept="image/jpeg,image/png,image/webp" capture="user" onChange={(event) => void choose(event.target.files?.[0])} required /></label><TurnstileWidget onToken={onToken} resetSignal={reset} />{error ? <p className="form-error">{error}</p> : null}<button className="btn-primary" disabled={busy}>{busy ? "Submitting…" : "Send profile for approval"}</button></form>;
+}
+
+function ExamWorkflow() {
+  const stored = useMemo(() => { try { return { ...EMPTY_EXAM, ...JSON.parse(localStorage.getItem("rsk-exam-draft") || "{}") as Partial<ExamDraft>, pin: "" }; } catch { return EMPTY_EXAM; } }, []);
+  const [draft, setDraft] = useState<ExamDraft>(stored); const [stage, setStage] = useState<"form" | "review" | "done">("form"); const [token, setToken] = useState(""); const [reset, setReset] = useState(0); const [error, setError] = useState(""); const [busy, setBusy] = useState(false); const [applicationId, setApplicationId] = useState("");
+  const onToken = useCallback((value: string) => setToken(value), []);
+  useEffect(() => { const safe = { ...draft, pin: "" }; localStorage.setItem("rsk-exam-draft", JSON.stringify(safe)); }, [draft]);
+  function set<K extends keyof ExamDraft>(key: K, value: ExamDraft[K]) { setDraft((current) => ({ ...current, [key]: value })); }
+  function review(event: FormEvent) { event.preventDefault(); setError(""); setStage("review"); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  async function submit() { if (!token) { setError("Complete Cloudflare verification before submitting."); return; } setBusy(true); setError(""); try { const response = await fetch("/api/records/examination-applications", { method: "POST", headers: { "Content-Type": "application/json", "X-Request-ID": crypto.randomUUID() }, body: JSON.stringify({ ...draft, turnstileToken: token }) }); const body = await responseBody<{ applicationId: string }>(response); setApplicationId(body.applicationId); localStorage.removeItem("rsk-exam-draft"); setStage("done"); } catch (reason) { setError(reason instanceof Error ? reason.message : "The application could not be submitted."); setToken(""); setReset((value) => value + 1); } finally { setBusy(false); } }
+  if (stage === "done") return <div className="exam-payment-panel"><AlertMark /><p className="eyebrow">Application {applicationId.slice(0, 8)}</p><h2>Your application is submitted, but you are not finished yet</h2><p>You must still make the examination payment and have a sensei confirm it. Your payment status is <strong>pending</strong>.</p><div><img src="/images/promptpay-qr.png" alt="Bank payment QR code" /><section><h3>Pay and confirm with your sensei</h3><ol><li>Scan this bank-payment QR code and make the examination payment.</li><li>Send the payment confirmation to a sensei.</li><li>A sensei or administrator must mark the payment as paid.</li></ol><p><strong>This is the bank-payment QR code.</strong> It is different from your shareable student-profile QR code.</p></section></div></div>;
+  if (stage === "review") return <div className="student-long-form exam-review"><header><div><p className="eyebrow">Step 2 of 2</p><h2>Review the official application</h2></div><button className="btn-secondary" onClick={() => setStage("form")}>Edit answers</button></header><dl>{Object.entries(draft).filter(([key]) => key !== "pin" && key !== "promiseAccepted").map(([key, value]) => <div key={key}><dt>{key.replace(/([A-Z])/g, " $1")}</dt><dd>{String(value) || "—"}</dd></div>)}</dl><TurnstileWidget onToken={onToken} resetSignal={reset} />{error ? <p className="form-error">{error}</p> : null}<button className="btn-primary" disabled={busy || !token} onClick={() => void submit()}>{busy ? "Submitting…" : "Submit application and continue to payment"}</button></div>;
+  return <form className="student-long-form exam-application-form" onSubmit={review}><header><div><p className="eyebrow">Step 1 of 2 · Aikido Association Thailand</p><h2>Belt-examination application</h2><p>Every applicant field from the original PDF is included. Official rank-result fields are reserved for administrators.</p></div><span className="admin-status is-neutral">Draft saved on this device</span></header><fieldset><legend>Verify your approved student record</legend><label>Exact record name<input value={draft.verificationName} onChange={(event) => set("verificationName", event.target.value)} required /></label><label>Student ID<input value={draft.studentId} onChange={(event) => set("studentId", event.target.value.toUpperCase())} required /></label><label>Secure student PIN<input type="password" inputMode="numeric" pattern="[0-9]{6,12}" value={draft.pin} onChange={(event) => set("pin", event.target.value)} required /></label><label>Rank attempting<select value={draft.attemptedRank} onChange={(event) => set("attemptedRank", event.target.value)}>{RANKS.slice(1).map((rank) => <option key={rank}>{rank}</option>)}</select></label></fieldset><fieldset><legend>Applicant identity</legend><label>AAT number <small>Optional if not yet assigned.</small><input value={draft.aatNumber} onChange={(event) => set("aatNumber", event.target.value)} /></label><label>First name<input value={draft.firstName} onChange={(event) => set("firstName", event.target.value)} required /></label><label>Surname<input value={draft.surname} onChange={(event) => set("surname", event.target.value)} required /></label><label>Nationality<input value={draft.nationality} onChange={(event) => set("nationality", event.target.value)} required /></label><label>Sex<input value={draft.sex} onChange={(event) => set("sex", event.target.value)} required /></label><label>Date of birth<input type="date" value={draft.dateOfBirth} onChange={(event) => set("dateOfBirth", event.target.value)} required /></label></fieldset><fieldset><legend>Address and contact</legend><label>Permanent address<textarea value={draft.permanentAddress} onChange={(event) => set("permanentAddress", event.target.value)} required /></label><label>Present address<textarea value={draft.presentAddress} onChange={(event) => set("presentAddress", event.target.value)} required /></label><label>Telephone<input type="tel" value={draft.phone} onChange={(event) => set("phone", event.target.value)} required /></label></fieldset><fieldset><legend>School or employment</legend><label>School<input value={draft.school} onChange={(event) => set("school", event.target.value)} /></label><label>Class<input value={draft.classLevel} onChange={(event) => set("classLevel", event.target.value)} /></label><label>Office<input value={draft.office} onChange={(event) => set("office", event.target.value)} /></label><label>Position<input value={draft.position} onChange={(event) => set("position", event.target.value)} /></label></fieldset><fieldset><legend>Qualifications and experience</legend><label>Certificate<input value={draft.certificate} onChange={(event) => set("certificate", event.target.value)} /></label><label>Games experience<textarea value={draft.gamesExperience} onChange={(event) => set("gamesExperience", event.target.value)} /></label></fieldset><fieldset><legend>Promise and signatures</legend><p>I promise to observe the rules of the Aikido Association Thailand and accept responsibility for the information in this application.</p><label>Applicant signature (type full name)<input value={draft.applicantSignature} onChange={(event) => set("applicantSignature", event.target.value)} required /></label><label>Guarantor signature (type full name)<input value={draft.guarantorSignature} onChange={(event) => set("guarantorSignature", event.target.value)} required /></label><label>Guarantor name in parentheses<input value={draft.guarantorName} onChange={(event) => set("guarantorName", event.target.value)} required /></label><label className="exam-promise"><input type="checkbox" checked={draft.promiseAccepted} onChange={(event) => set("promiseAccepted", event.target.checked)} required /> I accept the Aikido Association Thailand promise.</label></fieldset>{error ? <p className="form-error">{error}</p> : null}<button className="btn-primary">Review every answer</button></form>;
+}
+
+function AlertMark() { return <div className="exam-alert-mark"><Clock3 /></div>; }

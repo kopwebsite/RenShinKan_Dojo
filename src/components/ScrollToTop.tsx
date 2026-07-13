@@ -15,12 +15,28 @@ export function ScrollToTop() {
 
   useEffect(() => {
     if (hash) {
-      window.requestAnimationFrame(() => {
-        document
-          .getElementById(decodeURIComponent(hash.slice(1)))
-          ?.scrollIntoView({ block: "start" });
-      });
-      return;
+      const targetId = decodeURIComponent(hash.slice(1));
+      let frameId = 0;
+      let attempts = 0;
+
+      const scrollToTarget = () => {
+        const target = document.getElementById(targetId);
+
+        if (target) {
+          target.scrollIntoView({ block: "start" });
+          return;
+        }
+
+        // Lazy route chunks can mount after this effect first runs. Retry for
+        // roughly two seconds so copied section links remain dependable.
+        if (attempts < 120) {
+          attempts += 1;
+          frameId = window.requestAnimationFrame(scrollToTarget);
+        }
+      };
+
+      frameId = window.requestAnimationFrame(scrollToTarget);
+      return () => window.cancelAnimationFrame(frameId);
     }
 
     window.scrollTo({ top: 0, left: 0 });

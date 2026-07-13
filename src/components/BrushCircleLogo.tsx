@@ -42,11 +42,11 @@ export function BrushCircleLogo({
 }: BrushCircleLogoProps) {
   const [useFallback, setUseFallback] = useState(false);
   const [shouldPlay, setShouldPlay] = useState(false);
+  const [hasPainted, setHasPainted] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const shouldReduceMotion = usePrefersReducedMotion();
   const paintId = useId().replace(/:/g, "");
   const maskId = `renshinkan-paint-${paintId}`;
-  const roughId = `renshinkan-rough-${paintId}`;
   const shouldPaintOn = paintOn && !shouldReduceMotion && !useFallback;
 
   useEffect(() => {
@@ -76,7 +76,16 @@ export function BrushCircleLogo({
     return () => observer.disconnect();
   }, [shouldPaintOn]);
 
-  const showPaintLayer = shouldPaintOn;
+  useEffect(() => {
+    if (!shouldPlay) {
+      return undefined;
+    }
+
+    const finishTimer = window.setTimeout(() => setHasPainted(true), 2800);
+    return () => window.clearTimeout(finishTimer);
+  }, [shouldPlay]);
+
+  const showPaintLayer = shouldPaintOn && shouldPlay && !hasPainted;
   const showFinishedImage = !useFallback && !showPaintLayer;
 
   return (
@@ -139,17 +148,6 @@ export function BrushCircleLogo({
           aria-label={decorative ? undefined : label}
         >
           <defs>
-            <filter
-              id={roughId}
-              filterUnits="userSpaceOnUse"
-              x="-20"
-              y="-20"
-              width="140"
-              height="140"
-            >
-              <feTurbulence baseFrequency="0.9" numOctaves={2} seed={3} />
-              <feDisplacementMap in="SourceGraphic" scale={0.6} />
-            </filter>
             <mask id={maskId} maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
               <rect width="100" height="100" fill="black" />
               <path
@@ -164,7 +162,6 @@ export function BrushCircleLogo({
                 strokeDasharray={1}
                 strokeDashoffset={1}
                 opacity={0}
-                filter={`url(#${roughId})`}
               />
               <path
                 className="renshinkan-logo-mask-top"
@@ -178,7 +175,6 @@ export function BrushCircleLogo({
                 strokeDasharray={1}
                 strokeDashoffset={1}
                 opacity={0}
-                filter={`url(#${roughId})`}
               />
               <path
                 className="renshinkan-logo-mask-left"
@@ -192,7 +188,6 @@ export function BrushCircleLogo({
                 strokeDasharray={1}
                 strokeDashoffset={1}
                 opacity={0}
-                filter={`url(#${roughId})`}
               />
               <path
                 className="renshinkan-logo-mask-center"
@@ -206,7 +201,6 @@ export function BrushCircleLogo({
                 strokeDasharray={1}
                 strokeDashoffset={1}
                 opacity={0}
-                filter={`url(#${roughId})`}
               />
             </mask>
           </defs>

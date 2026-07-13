@@ -28,10 +28,8 @@ export function DojoPage() {
 
         <div className="container-shell koi-hero__inner">
           <p className="koi-hero__place">{t("home.hero.place")}</p>
-          <BrushCircleLogo className="koi-hero__crest" decorative />
+          <BrushCircleLogo className="koi-hero__crest" decorative paintOn />
           <h1>{t("common.brand")}</h1>
-          <p className="koi-hero__line">{t("home.hero.tagline")}</p>
-          <p className="koi-hero__support">{t("home.hero.support")}</p>
           <div className="koi-hero__actions">
             <Link to="/classes#schedule" className="btn-primary">{t("home.hero.cta")}</Link>
             <Link to="/classes#first-visit" className="text-link">

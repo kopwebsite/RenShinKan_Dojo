@@ -194,10 +194,13 @@
   },
   "classes": {
     "intro": {
+      "folio": "稽古の手記 · 01",
       "eyebrow": "クラスと保護者の方へのご案内",
       "title": "始めて、続けて、また来たくなる。そんな居心地のよい場所です。",
       "copy": "クラスは、初めての方、お子さま、経験豊富な合気道家、Chiang Mai を訪れる方に開かれています。各クラスは二つの時間に分かれています。最初の1時間は初心者と子ども向け、最後の30分は中級者、大人、武器稽古向けです。いつでもお越しください。質問があれば事前にご連絡ください。",
-      "imageAlt": "白い稽古着を着た生徒たちが、緑の帯を中心にして畳の上で輪になっている様子。"
+      "imageAlt": "白い稽古着を着た生徒たちが、緑の帯を中心にして畳の上で輪になっている様子。",
+      "imageCaption": "子どもも大人も、相手を大切にする稽古を通して学びます。",
+      "visitCta": "見学について問い合わせる"
     },
     "halves": {
       "firstEyebrow": "第1部",
@@ -208,9 +211,23 @@
       "secondCopy": "最後の30分は、さらに先へ進む準備ができた大人や生徒に向けて、より歯ごたえのある技の稽古、組み合わせ、相対稽古、武器の練習へと進みます。"
     },
     "schedule": {
+      "ariaLabel": "週間の稽古時間",
       "eyebrow": "週間スケジュール",
       "title": "毎週、週に4回の稽古。",
       "copy": "火曜と木曜の夕方、土曜と日曜の午前に稽古があります。各クラスは前半1時間、後半30分です。稽古前には早めに来て、道場の清掃と準備を手伝うことを強く勧めています。ここは私たちの地域の場であり、みんなで大切にしていく場所です。",
+      "days": {
+        "tuesday": "火曜日",
+        "thursday": "木曜日",
+        "saturday": "土曜日",
+        "sunday": "日曜日"
+      },
+      "allLevelsTime": "最初の60分",
+      "allLevelsTitle": "すべてのレベルに開かれた稽古",
+      "allLevelsCopy": "子ども、初心者、見学者、経験を問わずどなたでも参加できます。",
+      "advancedTime": "最後の30分",
+      "advancedTitle": "上級・武器稽古",
+      "advancedCopy": "武器を中心とした、より高度な稽古を行います。",
+      "arrivalNote": "少し早めに到着し、みんなで使う道場の清掃と準備にご協力ください。",
       "imageAlt": "週の稽古スケジュール: 火曜と木曜 17:30〜19:00、土曜と日曜 9:00〜10:30"
     },
     "firstVisit": {
@@ -232,6 +249,17 @@
       "applicationTitle": "帯審査の申込書をダウンロード。",
       "applicationCopy": "PDF申込書をダウンロードして印刷し、記入してから帯審査の前に先生へ提出してください。",
       "applicationCta": "PDF申込書をダウンロード",
+      "progression": {
+        "guidance": "最低稽古日数は目安です。受審の準備が整った時期は指導者が判断します。",
+        "print": "昇級表を印刷",
+        "requirements": "技法要件",
+        "beginningTitle": "入門",
+        "beginningNote": "基礎、安全な受身、明確な姿勢",
+        "developingTitle": "発展",
+        "developingNote": "より幅広い攻撃、抑え、動き",
+        "advancedTitle": "上級",
+        "advancedNote": "自由な動き、武器稽古、総合的な実践"
+      },
       "graduationEyebrow": "昇級のひととき",
       "graduationTitle": "審査に合格した生徒たち。",
       "donationCta": "寄付ページへ"
@@ -551,6 +579,33 @@
       "eyebrow": "ニュースレター",
       "title": "家族や学生向けの優しい最新情報。",
       "copy": "初心者向けのガイダンス、保護者向けの注意事項、ワークショップのお知らせ、落ち着いた練習についての振り返りを受け取るためにサインアップしてください。"
+    },
+    "archive": {
+      "folio": "RenShinKan 道場だより · アーカイブ",
+      "title": "道場からの便り。",
+      "searchLabel": "道場だよりを検索",
+      "searchPlaceholder": "記事を検索",
+      "featured": "注目の記事",
+      "readEntry": "記事を読む",
+      "emptyTitle": "今はまだ静かな道場だよりです。",
+      "emptyCopy": "道場からの便り、審査情報、ワークショップのお知らせをここに掲載します。",
+      "previousEntries": "これまでの記事",
+      "categories": {
+        "examinations": "昇級審査",
+        "workshops": "ワークショップ",
+        "visiting": "招聘指導者",
+        "news": "道場ニュース"
+      }
+    },
+    "article": {
+      "missingEyebrow": "道場だより",
+      "missingTitle": "この記事は現在ご覧いただけません。",
+      "returnArchive": "アーカイブへ戻る",
+      "archiveLink": "記事アーカイブ",
+      "translate": "翻訳",
+      "navigationLabel": "記事のナビゲーション",
+      "older": "前の記事",
+      "newer": "次の記事"
     },
     "recent": {
       "eyebrow": "最近の出来事",

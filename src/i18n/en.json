@@ -194,10 +194,13 @@
   },
   "classes": {
     "intro": {
+      "folio": "Practice notes · 01",
       "eyebrow": "Classes & Parent Guide",
       "title": "A welcoming place to start, grow, and keep showing up.",
       "copy": "Classes are open to complete beginners, children, experienced aikidoka, and visitors passing through Chiang Mai. Each class is split into two sessions: the first session is 1 hour for beginners and kids, and the second session is 30 minutes for intermediate students, adults, and weapons practice. Drop in anytime or reach out first if you have questions.",
-      "imageAlt": "Students in white uniforms lying in a circle on the mat with green belts in the centre."
+      "imageAlt": "Students in white uniforms lying in a circle on the mat with green belts in the centre.",
+      "imageCaption": "Children and adults learn through careful partner practice.",
+      "visitCta": "Ask about visiting"
     },
     "halves": {
       "firstEyebrow": "First Session",
@@ -208,9 +211,23 @@
       "secondCopy": "The final 30 minutes moves into more demanding technique work, combinations, partner drills, and weapons practice suited to adults and students who are ready to push further."
     },
     "schedule": {
+      "ariaLabel": "Weekly class times",
       "eyebrow": "Weekly Schedule",
       "title": "Four sessions a week, every week.",
-      "copy": "Tuesday and Thursday evenings, Saturday and Sunday mornings. Each class has a 1 hour first session and a 30 minute second session. Students are strongly encouraged to arrive early to help clean and prepare the dojo. It is our community space, and we need to take care of it together.",
+      "copy": "Tuesday and Thursday evenings, Saturday and Sunday mornings. The ledger below shows how every 90-minute class is shared.",
+      "days": {
+        "tuesday": "Tuesday",
+        "thursday": "Thursday",
+        "saturday": "Saturday",
+        "sunday": "Sunday"
+      },
+      "allLevelsTime": "First 60 minutes",
+      "allLevelsTitle": "Open practice",
+      "allLevelsCopy": "Kids, beginners, visitors, and all levels are welcome.",
+      "advancedTime": "Final 30 minutes",
+      "advancedTitle": "Advanced + weapons",
+      "advancedCopy": "More advanced practice with a weapons focus.",
+      "arrivalNote": "Please arrive early to help clean and prepare our shared dojo.",
       "imageAlt": "Weekly class schedule: Tuesday and Thursday 17:30-19:00, Saturday and Sunday 9:00-10:30"
     },
     "firstVisit": {
@@ -233,6 +250,17 @@
       "applicationTitle": "Download the belt exam application form.",
       "applicationCopy": "Download and print the PDF application form, fill it out, then hand it to a sensei before your belt exam.",
       "applicationCta": "Download PDF form",
+      "progression": {
+        "guidance": "Minimum practice days are guidance. The instructor decides when a student is ready to examine.",
+        "print": "Print progression",
+        "requirements": "Technique requirements",
+        "beginningTitle": "Beginning",
+        "beginningNote": "Foundations, safe falling, and clear posture",
+        "developingTitle": "Developing",
+        "developingNote": "A broader range of attacks, pins, and movement",
+        "advancedTitle": "Advanced",
+        "advancedNote": "Free movement, weapons work, and integrated practice"
+      },
       "graduationEyebrow": "Graduation Moments",
       "graduationTitle": "Students who've passed the test."
     },
@@ -551,6 +579,33 @@
       "eyebrow": "Newsletter",
       "title": "Gentle updates for families and students.",
       "copy": "Receive class notices, workshop announcements, examination news and occasional notes from the dojo."
+    },
+    "archive": {
+      "folio": "RenShinKan journal · Archive",
+      "title": "Notes from the dojo.",
+      "searchLabel": "Search the journal",
+      "searchPlaceholder": "Search articles",
+      "featured": "Featured",
+      "readEntry": "Read the entry",
+      "emptyTitle": "The journal is quiet for now.",
+      "emptyCopy": "New dojo notes, examinations and workshop announcements will be published here.",
+      "previousEntries": "Previous entries",
+      "categories": {
+        "examinations": "Belt examinations",
+        "workshops": "Workshops",
+        "visiting": "Visiting instructors",
+        "news": "Dojo news"
+      }
+    },
+    "article": {
+      "missingEyebrow": "Dojo journal",
+      "missingTitle": "That journal entry is not available.",
+      "returnArchive": "Return to the archive",
+      "archiveLink": "Journal archive",
+      "translate": "Translate",
+      "navigationLabel": "Journal entry navigation",
+      "older": "Older",
+      "newer": "Newer"
     },
     "recent": {
       "eyebrow": "Recent Events",

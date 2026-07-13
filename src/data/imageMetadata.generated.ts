@@ -139,6 +139,14 @@ export const imageMetadata = {
       1600
     ]
   ],
+  "/dojo-photos/aikido-seminar-sumi-v2": [
+    1254,
+    1254,
+    [
+      640,
+      1254
+    ]
+  ],
   "/dojo-photos/aikido-tanto-technique": [
     1600,
     1067,

@@ -194,10 +194,13 @@
   },
   "classes": {
     "intro": {
+      "folio": "练习手记 · 01",
       "eyebrow": "课程与家长指南",
       "title": "一个适合开始、成长，也让你愿意一直来的地方。",
       "copy": "课程欢迎完全初学者、孩子、有经验的合气道练习者，以及路过 Chiang Mai 的访客。每节课分为两个时段：前 1 小时面向初学者和孩子，后 30 分钟面向中级学员、成人和武器练习。您可以随时来，也可以先联系我们询问。",
-      "imageAlt": "身穿白色道服的学员在垫子上围成一圈，中间放着绿带。"
+      "imageAlt": "身穿白色道服的学员在垫子上围成一圈，中间放着绿带。",
+      "imageCaption": "儿童与成人在细心照顾同伴的练习中共同学习。",
+      "visitCta": "咨询来访事宜"
     },
     "halves": {
       "firstEyebrow": "第一时段",
@@ -208,9 +211,23 @@
       "secondCopy": "最后 30 分钟进入更有难度的技法练习、组合、对练，以及武器练习，适合准备再往前走一步的成人和学员。"
     },
     "schedule": {
+      "ariaLabel": "每周上课时间",
       "eyebrow": "每周课表",
       "title": "每周四节课，风雨无阻。",
       "copy": "周二、周四晚上，周六、周日上午上课。每节课前半段 1 小时，后半段 30 分钟。我们非常鼓励学员提前到场，帮忙清洁和准备道场。这是我们的社区空间，需要大家一起照顾。",
+      "days": {
+        "tuesday": "周二",
+        "thursday": "周四",
+        "saturday": "周六",
+        "sunday": "周日"
+      },
+      "allLevelsTime": "前60分钟",
+      "allLevelsTitle": "开放练习",
+      "allLevelsCopy": "欢迎儿童、初学者、访客以及所有水平的学员参加。",
+      "advancedTime": "最后30分钟",
+      "advancedTitle": "进阶与武器练习",
+      "advancedCopy": "进行更深入的练习，并以武器训练为重点。",
+      "arrivalNote": "请提前到场，帮助清洁和准备我们共同使用的道场。",
       "imageAlt": "每周上课时间：周二、周四 17:30至19:00，周六、周日 9:00至10:30"
     },
     "firstVisit": {
@@ -232,6 +249,17 @@
       "applicationTitle": "下载腰带考试申请表。",
       "applicationCopy": "请下载并打印 PDF 申请表，填写后在腰带考试前交给老师。",
       "applicationCta": "下载 PDF 表格",
+      "progression": {
+        "guidance": "最低练习天数仅供参考，学员何时适合参加考试由教练决定。",
+        "print": "打印晋级表",
+        "requirements": "技法要求",
+        "beginningTitle": "入门",
+        "beginningNote": "基础、安全受身与清晰姿势",
+        "developingTitle": "进阶",
+        "developingNote": "更丰富的攻击、控制与移动练习",
+        "advancedTitle": "高级",
+        "advancedNote": "自由移动、武器练习与综合训练"
+      },
       "graduationEyebrow": "升级的时刻",
       "graduationTitle": "通过考试的学员。",
       "donationCta": "前往捐款页面"
@@ -551,6 +579,33 @@
       "eyebrow": "时事通讯",
       "title": "为家庭和学生提供温和的更新。",
       "copy": "报名参加初学者指导、家长笔记、研讨会公告以及冷静练习反思。"
+    },
+    "archive": {
+      "folio": "RenShinKan 道场刊物 · 文章存档",
+      "title": "道场手记。",
+      "searchLabel": "搜索道场刊物",
+      "searchPlaceholder": "搜索文章",
+      "featured": "精选",
+      "readEntry": "阅读全文",
+      "emptyTitle": "刊物暂时还很安静。",
+      "emptyCopy": "新的道场手记、考试消息和工作坊公告将在这里发布。",
+      "previousEntries": "往期文章",
+      "categories": {
+        "examinations": "级位考试",
+        "workshops": "工作坊",
+        "visiting": "来访教练",
+        "news": "道场消息"
+      }
+    },
+    "article": {
+      "missingEyebrow": "道场刊物",
+      "missingTitle": "该文章暂时无法查看。",
+      "returnArchive": "返回文章存档",
+      "archiveLink": "文章存档",
+      "translate": "翻译",
+      "navigationLabel": "文章导航",
+      "older": "较早",
+      "newer": "较新"
     },
     "recent": {
       "eyebrow": "近期活动",

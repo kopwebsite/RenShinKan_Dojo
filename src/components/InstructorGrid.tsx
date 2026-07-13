@@ -24,7 +24,7 @@ export function InstructorGrid() {
             ) : (
               <div className="ink-wash h-full w-full" role="img" aria-label={t("a11y.portraitPlaceholder", { name: instructor.name })} />
             )}
-            <figcaption>{instructor.rank}</figcaption>
+            <figcaption className="rank-seal">{instructor.rank}</figcaption>
           </figure>
           <div className="instructor-profile__text">
             <p className="folio-mark">{instructor.role}</p>

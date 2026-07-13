@@ -1,5 +1,6 @@
 import { ArrowRight, ExternalLink, HandCoins, MapPin, MessageCircle } from "lucide-react";
 import { Link } from "react-router-dom";
+import { ClassStructureLegend } from "../components/ClassStructureLegend";
 import { DojoJourney } from "../components/DojoJourney";
 import { FacilityGrid } from "../components/FacilityGrid";
 import { InstructorLine } from "../components/InstructorLine";
@@ -88,11 +89,12 @@ export function DojoPageSections() {
           <div className="schedule-ledger__rows">
             {classSchedule.map((session) => (
               <div className="schedule-ledger__row" key={session.day}>
-                <span>{session.day}</span>
+                <span>{t(session.labelKey)}</span>
                 <time>{session.time.replace("-", " — ")}</time>
               </div>
             ))}
           </div>
+          <ClassStructureLegend compact />
           <p className="marginal-note">{t("home.visitNotes.scheduleNote")}</p>
         </div>
       </MotionSection>

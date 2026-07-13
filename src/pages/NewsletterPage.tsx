@@ -5,23 +5,26 @@ import { EventBodyRenderer } from "../components/EventBodyRenderer";
 import { NewsletterSignup } from "../components/NewsletterSignup";
 import { MotionSection } from "../components/MotionSection";
 import { ResponsiveImage } from "../components/ResponsiveImage";
-import { useTranslation, type Language } from "../i18n";
+import { useTranslation, type Language, type TranslationKey } from "../i18n";
 import { getPublishedRecentEvents, useEditableContent } from "../lib/content";
 import { assetPath } from "../utils/assetPath";
 
 const googleTranslateTarget: Record<Language, string> = { en: "en", th: "th", "zh-CN": "zh-CN", ja: "ja" };
+const dateLocale: Record<Language, string> = { en: "en-GB", th: "th-TH", "zh-CN": "zh-CN", ja: "ja-JP" };
 
-function formatDate(value: string) {
+function formatDate(value: string, language: Language) {
   const date = new Date(`${value}T12:00:00`);
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long", year: "numeric" }).format(date);
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat(dateLocale[language], { day: "numeric", month: "long", year: "numeric" }).format(date);
 }
 
-function categoryFor(title: string) {
+function categoryKeyFor(title: string): TranslationKey {
   const value = title.toLowerCase();
-  if (value.includes("belt") || value.includes("exam")) return "Belt examinations";
-  if (value.includes("workshop") || value.includes("seminar")) return "Workshops";
-  if (value.includes("visit")) return "Visiting instructors";
-  return "Dojo news";
+  if (value.includes("belt") || value.includes("exam")) return "newsletter.archive.categories.examinations";
+  if (value.includes("workshop") || value.includes("seminar")) return "newsletter.archive.categories.workshops";
+  if (value.includes("visit")) return "newsletter.archive.categories.visiting";
+  return "newsletter.archive.categories.news";
 }
 
 export function NewsletterPage() {
@@ -53,7 +56,7 @@ export function NewsletterPage() {
 
   if (slug) {
     if (!article) {
-      return <section className="container-shell journal-empty-page"><p className="eyebrow">Dojo journal</p><h1>That journal entry is not available.</h1><Link to="/newsletter" className="text-link"><ArrowLeft size={16} /> Return to the archive</Link></section>;
+      return <section className="container-shell journal-empty-page"><p className="eyebrow">{t("newsletter.article.missingEyebrow")}</p><h1>{t("newsletter.article.missingTitle")}</h1><Link to="/newsletter" className="text-link"><ArrowLeft size={16} /> {t("newsletter.article.returnArchive")}</Link></section>;
     }
     const media = article.media?.length ? article.media : article.image ? [article.image] : [];
     const translateText = [article.title, article.summary, article.body].join("\n\n");
@@ -62,18 +65,18 @@ export function NewsletterPage() {
     return (
       <article className="journal-entry">
         <header className="container-shell journal-entry__header">
-          <Link to="/newsletter" className="text-link"><ArrowLeft size={16} /> Journal archive</Link>
-          <p className="folio-mark">{categoryFor(article.title)} · {formatDate(article.date)}</p>
+          <Link to="/newsletter" className="text-link"><ArrowLeft size={16} /> {t("newsletter.article.archiveLink")}</Link>
+          <p className="folio-mark">{t(categoryKeyFor(article.title))} · {formatDate(article.date, language)}</p>
           <h1>{article.title}</h1>
           <p className="journal-entry__dek">{article.summary}</p>
-          <div className="journal-entry__byline"><span>RenShinKan Dojo</span><a href={translateUrl} target="_blank" rel="noopener noreferrer"><Languages size={15} /> Translate</a></div>
+          <div className="journal-entry__byline"><span>{t("common.brand")}</span><a href={translateUrl} target="_blank" rel="noopener noreferrer"><Languages size={15} /> {t("newsletter.article.translate")}</a></div>
         </header>
         <div className="container-shell journal-entry__body">
           <EventBodyRenderer body={article.body} media={media} fallbackTitle={article.title} />
         </div>
-        <nav className="container-shell journal-entry__nav" aria-label="Journal entry navigation">
-          {updates[index + 1] ? <Link to={`/newsletter/${updates[index + 1].slug}`}><ArrowLeft size={16} /> Older<br /><strong>{updates[index + 1].title}</strong></Link> : <span />}
-          {updates[index - 1] ? <Link to={`/newsletter/${updates[index - 1].slug}`}>Newer <ArrowRight size={16} /><br /><strong>{updates[index - 1].title}</strong></Link> : null}
+        <nav className="container-shell journal-entry__nav" aria-label={t("newsletter.article.navigationLabel")}>
+          {updates[index + 1] ? <Link to={`/newsletter/${updates[index + 1].slug}`}><ArrowLeft size={16} /> {t("newsletter.article.older")}<br /><strong>{updates[index + 1].title}</strong></Link> : <span />}
+          {updates[index - 1] ? <Link to={`/newsletter/${updates[index - 1].slug}`}>{t("newsletter.article.newer")} <ArrowRight size={16} /><br /><strong>{updates[index - 1].title}</strong></Link> : null}
         </nav>
       </article>
     );
@@ -83,17 +86,17 @@ export function NewsletterPage() {
   return (
     <>
       <MotionSection className="container-shell journal-opening">
-        <div><p className="folio-mark">RenShinKan journal · Archive</p><p className="eyebrow">{t("newsletter.intro.eyebrow")}</p><h1>Notes from the dojo.</h1><p>{t("newsletter.intro.copy")}</p></div>
-        <label className="journal-search"><Search size={17} aria-hidden="true" /><span className="sr-only">Search the journal</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search articles" /></label>
+        <div><p className="folio-mark">{t("newsletter.archive.folio")}</p><p className="eyebrow">{t("newsletter.intro.eyebrow")}</p><h1>{t("newsletter.archive.title")}</h1><p>{t("newsletter.intro.copy")}</p></div>
+        <label className="journal-search" htmlFor="journal-search"><Search size={17} aria-hidden="true" /><span className="sr-only">{t("newsletter.archive.searchLabel")}</span><input id="journal-search" name="journal-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("newsletter.archive.searchPlaceholder")} /></label>
       </MotionSection>
       <MotionSection className="container-shell journal-archive">
         {featured ? (
           <article className="journal-archive__featured">
             <ResponsiveImage src={featured.image?.src || featured.media?.find((item) => item.type === "image")?.src || assetPath("/dojo-photos/aikido-hero-new.webp")} alt={featured.image?.alt || featured.title} imgClassName="h-full w-full object-cover" loading="eager" />
-            <div><p className="folio-mark">Featured · {formatDate(featured.date)}</p><h2>{featured.title}</h2><p>{featured.summary}</p><Link to={`/newsletter/${featured.slug}`} className="text-link">Read the entry <ArrowRight size={16} /></Link></div>
+            <div><p className="folio-mark">{t("newsletter.archive.featured")} · {formatDate(featured.date, language)}</p><h2>{featured.title}</h2><p>{featured.summary}</p><Link to={`/newsletter/${featured.slug}`} className="text-link">{t("newsletter.archive.readEntry")} <ArrowRight size={16} /></Link></div>
           </article>
-        ) : <div className="journal-empty"><h2>The journal is quiet for now.</h2><p>New dojo notes, examinations and workshop announcements will be published here.</p></div>}
-        {filtered.length > 1 ? <div className="journal-index"><h2>Previous entries</h2><ol>{filtered.slice(1).map((item, index) => <li key={item.id}><span>{String(index + 1).padStart(2, "0")}</span><time>{formatDate(item.date)}</time><div><p>{categoryFor(item.title)}</p><h3><Link to={`/newsletter/${item.slug}`}>{item.title}</Link></h3><p>{item.summary}</p></div></li>)}</ol></div> : null}
+        ) : <div className="journal-empty"><h2>{t("newsletter.archive.emptyTitle")}</h2><p>{t("newsletter.archive.emptyCopy")}</p></div>}
+        {filtered.length > 1 ? <div className="journal-index"><h2>{t("newsletter.archive.previousEntries")}</h2><ol>{filtered.slice(1).map((item, index) => <li key={item.id}><span>{String(index + 1).padStart(2, "0")}</span><time>{formatDate(item.date, language)}</time><div><p>{t(categoryKeyFor(item.title))}</p><h3><Link to={`/newsletter/${item.slug}`}>{item.title}</Link></h3><p>{item.summary}</p></div></li>)}</ol></div> : null}
       </MotionSection>
       <MotionSection id="newsletter-signup" className="container-shell journal-signup scroll-mt-24"><NewsletterSignup idPrefix="journal-newsletter" /></MotionSection>
     </>

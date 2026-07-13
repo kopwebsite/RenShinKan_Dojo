@@ -744,7 +744,7 @@ export const aikidoActionImages = {
     alt: "A young aikido student holding a calm, controlled pin on a partner on the tatami mat.",
   },
   seminar: {
-    src: assetPath("/dojo-photos/aikido-seminar-demo.webp"),
+    src: assetPath("/dojo-photos/aikido-seminar-sumi-v2.png"),
     alt: "An instructor demonstrating an aikido technique in front of a large seated group of students of all ages during a seminar.",
   },
   trainingPin: {

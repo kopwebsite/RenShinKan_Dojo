@@ -132,7 +132,7 @@ Do not create this as a Worker project or set the deploy command to `npx wrangle
 ## Admin Edit Flow
 
 1. Admin visits `/admin`.
-2. The React route loads through `public/_redirects`.
+2. Cloudflare Pages serves the React route through its built-in SPA fallback.
 3. Login posts to `/api/admin/login`.
 4. Pages Functions verify the password hash and set an HttpOnly session cookie.
 5. The editor loads current content from `/api/content`, backed by KV.
@@ -178,7 +178,7 @@ npx wrangler d1 migrations apply renshinkan-student-records --local
 npx wrangler d1 migrations apply renshinkan-student-records --remote
 ```
 
-Migration `0002_student_management.sql` is additive. It preserves legacy private-code hashes and belt-colour values, adds admin notes and a training-hours adjustment field, and seeds the Student ID sequence from the highest existing `RSK-` number. Existing private lookup codes continue to work as legacy credentials, while the current Student ID also works for lookup. Back up the production database before applying the remote migration:
+Migration `0002_student_management.sql` introduced the Student ID sequence, administrator notes, and training-hour adjustments. Migration `0004_student_cycles_and_contributions.sql` adds archived students, examination-cycle and monthly-contribution snapshots, and their permanent status histories. It also scrubs the retired private lookup-code and student-PIN hashes. Public record access now uses Student ID as the primary match and the student's name as a secondary match, protected by Turnstile and a short-lived one-use access session; old codes and PINs are not accepted. Back up the production database before applying remote migrations:
 
 ```bash
 npx wrangler d1 export renshinkan-student-records --remote --output renshinkan-student-records-backup.sql

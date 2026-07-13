@@ -18,7 +18,7 @@ npm run build
 npm run preview
 ```
 
-The production build is written to `dist/`. `public/_redirects` rewrites direct navigation for the React routes, including `/admin`, back to `index.html` on Cloudflare Pages.
+The production build is written to `dist/`. Cloudflare Pages serves direct React-route navigation through its built-in SPA fallback, so no `_redirects` file is required.
 
 ## Cloudflare Pages
 

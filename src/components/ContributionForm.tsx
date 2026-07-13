@@ -97,15 +97,15 @@ export function ContributionForm() {
     <form onSubmit={submit} className="contribution-database-form__fields" noValidate>
       <label>
         <span>Student ID <b aria-hidden="true">*</b></span>
-        <input value={studentId} onChange={(event) => setStudentId(event.target.value.toUpperCase())} placeholder="RSK-0001" autoComplete="off" required />
+        <input id="contribution-student-id" name="studentId" value={studentId} onChange={(event) => setStudentId(event.target.value.toUpperCase())} placeholder="RSK-0001" autoComplete="off" required />
       </label>
       <label>
         <span>Student name as shown on the record <b aria-hidden="true">*</b></span>
-        <input value={studentName} onChange={(event) => setStudentName(event.target.value)} autoComplete="name" required />
+        <input id="contribution-student-name" name="studentName" value={studentName} onChange={(event) => setStudentName(event.target.value)} autoComplete="name" required />
       </label>
       <label>
         <span>Contribution month</span>
-        <input type="month" value={month} readOnly aria-readonly="true" />
+        <input id="contribution-month" name="month" type="month" value={month} readOnly aria-readonly="true" />
         <small>Each month is stored separately. A paid status is never copied into the next month.</small>
       </label>
       <TurnstileWidget onToken={onToken} resetSignal={turnstileReset} />

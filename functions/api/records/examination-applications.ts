@@ -91,8 +91,6 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
       certificate: text(body.certificate, 200),
       games_experience: text(body.gamesExperience, 1000),
       applicant_signature: text(body.applicantSignature, 160, true),
-      guarantor_signature: text(body.guarantorSignature, 160, true),
-      signature_parenthetical: text(body.guarantorName, 160, true),
       promise_accepted: true,
       current_rank: currentRank,
       attempted_rank: attemptedRank,

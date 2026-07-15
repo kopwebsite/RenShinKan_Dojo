@@ -183,7 +183,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         }
         statements.push(auditStatement(db, {
           actorType: "administrator", actorIdentifier: "primary_admin", action: "student_created", entityType: "student", entityId: id,
-          studentId: id, previousValues: null, newValues: { studentId, displayName, currentBelt, currentTrainingHours, active: true },
+          studentId: id, previousValues: null, newValues: { studentId, displayName, currentBelt, currentTrainingHours, dojoName, profileImageUrl, profileImageConsent: Boolean(body.profileImageConsent && profileImageUrl), active: true },
           studentPublicId: studentId, studentNameSnapshot: displayName,
           source: "admin_students", requestId, summary: `Created student record ${studentId}`, createdAt: now,
         }));

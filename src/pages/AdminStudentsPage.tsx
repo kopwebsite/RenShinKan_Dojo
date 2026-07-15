@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
-  AlertCircle, Archive, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Database, Eye, GraduationCap,
+  AlertCircle, Archive, Camera, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Database, Eye, GraduationCap,
   History, LoaderCircle, Lock, LogOut, Plus, ReceiptText, RotateCcw, Save, Search, ShieldCheck, Trash2, UserRound, Users, X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -8,6 +8,7 @@ import { RANKS } from "../../shared/ranks";
 import { BeltMark } from "../components/BeltMark";
 import { AdminExamApplications } from "../components/admin/AdminExamApplications";
 import { AdminMonthlyContributions } from "../components/admin/AdminMonthlyContributions";
+import { prepareProfilePhoto } from "../utils/profilePhoto";
 
 type StudentSummary = {
   id: string; public_student_id: string; display_name: string; current_belt: string; profile_image_url: string | null;
@@ -259,7 +260,7 @@ export function AdminStudentsPage() {
 
     {(detailLoading || detail) ? <StudentDrawer detail={detail} loading={detailLoading} close={() => setDetail(null)} refresh={async () => { if (detail) await openStudent(detail.student.id); await load(); }} report={(message, isError = false) => isError ? setError(message) : setNotice(message)} /> : null}
     {bulk ? <BulkModal bulk={bulk} setBulk={setBulk} students={bulk.type === "approve_hours" ? selectedPendingRows : selectedRows} close={() => setBulk(null)} confirm={() => void runBulk()} busy={loading} /> : null}
-    {createOpen ? <CreateStudentModal suggestedId={suggestedId} close={() => setCreateOpen(false)} complete={async (message) => { setCreateOpen(false); setNotice(message); await load(1); }} report={setError} /> : null}
+    {createOpen ? <CreateStudentModal suggestedId={suggestedId} close={() => setCreateOpen(false)} complete={async (message) => { setCreateOpen(false); setNotice(message); await load(1); }} /> : null}
     {studentAction ? <div className="admin-confirm-backdrop"><section className="admin-confirm" role="alertdialog" aria-modal="true" aria-labelledby="student-action-title">
       {studentAction.action === "delete" ? <Trash2 /> : studentAction.action === "restore" ? <RotateCcw /> : <Archive />}
       <h2 id="student-action-title">{studentAction.action === "archive" ? "Archive" : studentAction.action === "restore" ? "Restore" : "Permanently delete"} {studentAction.student.display_name}?</h2>
@@ -283,10 +284,74 @@ function BulkModal({ bulk, setBulk, students, close, confirm, busy }: { bulk: Bu
   return <div className="admin-confirm-backdrop"><section className="admin-bulk-modal"><header><div><p className="eyebrow">Bulk action</p><h2>{title}</h2></div><button onClick={close}><X /></button></header>{!preview ? <div className="admin-bulk-form">{bulk.type === "hours" ? <label>Hours to add to each student<input type="number" min="0.25" step="0.25" value={bulk.hours} onChange={(event) => setBulk({ ...bulk, hours: event.target.value })} autoFocus /></label> : <><label>Examination location<input value={bulk.location} onChange={(event) => setBulk({ ...bulk, location: event.target.value })} autoFocus /></label><label>Rank levels promoted<input type="number" min="1" step="1" value={bulk.levels} onChange={(event) => setBulk({ ...bulk, levels: event.target.value })} /></label></>}<p>{students.length} selected student{students.length === 1 ? "" : "s"}</p><footer><button className="btn-secondary" onClick={close}>Cancel</button><button className="btn-primary" disabled={!valid} onClick={() => setBulk({ ...bulk, preview: true })}>Review changes</button></footer></div> : <div className="admin-bulk-preview"><p>{bulk.type === "approve_hours" ? "Every pending request for these students will be approved, added once to verified training hours, and recorded with an individual audit entry." : "Confirm this single atomic operation. Every student receives an individual audit entry sharing one bulk-operation ID."}</p>{bulk.type === "approve_hours" ? <table><thead><tr><th>Student</th><th>Current total</th><th>Pending requests</th><th>Result</th></tr></thead><tbody>{students.map((student) => <tr key={student.id}><td>{student.display_name}</td><td>{student.total_hours} hr</td><td>{student.pending_hours}</td><td>Approve and add submitted hours</td></tr>)}</tbody></table> : <table><thead><tr><th>Student</th><th>Current</th><th>Change</th><th>Result</th></tr></thead><tbody>{students.map((student) => <tr key={student.id}><td>{student.display_name}</td><td>{bulk.type === "hours" ? `${student.total_hours} hr` : student.current_belt}</td><td>{bulk.type === "hours" ? `+${hours} hr` : `+${levels} level${levels === 1 ? "" : "s"}`}</td><td>{bulk.type === "hours" ? `${Number(student.total_hours) + hours} hr` : "Validated by official progression on save"}</td></tr>)}</tbody></table>}<footer>{bulk.type !== "approve_hours" ? <button className="btn-secondary" onClick={() => setBulk({ ...bulk, preview: false })}>Back</button> : <button className="btn-secondary" onClick={close}>Cancel</button>}<button className="btn-primary" disabled={busy || !valid} onClick={confirm}>{busy ? <LoaderCircle className="spin" size={16} /> : <Check size={16} />} Confirm {students.length} student{students.length === 1 ? "" : "s"}</button></footer></div>}</section></div>;
 }
 
-function CreateStudentModal({ suggestedId, close, complete, report }: { suggestedId: string; close: () => void; complete: (message: string) => void; report: (message: string) => void }) {
-  const [draft, setDraft] = useState({ name: "", studentId: suggestedId, rank: "Unranked", hours: "0", notes: "" }); const [busy, setBusy] = useState(false);
-  async function submit(event: FormEvent) { event.preventDefault(); setBusy(true); try { const result = await api<{ studentId: string }>("/api/admin/students", { method: "POST", body: JSON.stringify({ displayName: draft.name, studentId: draft.studentId, manualStudentId: draft.studentId !== suggestedId, currentBelt: draft.rank, currentTrainingHours: Number(draft.hours), adminNotes: draft.notes }) }); await complete(`Created ${result.studentId}.`); } catch (reason) { report(reason instanceof Error ? reason.message : "Could not create student."); } finally { setBusy(false); } }
-  return <div className="admin-confirm-backdrop"><section className="admin-bulk-modal"><header><div><p className="eyebrow">Official profile</p><h2>Add student</h2></div><button onClick={close}><X /></button></header><form className="admin-bulk-form" onSubmit={submit}><label>Name<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required /></label><label>Student ID<input value={draft.studentId} onChange={(event) => setDraft({ ...draft, studentId: event.target.value.toUpperCase() })} required /></label><label>Current kyu<select value={draft.rank} onChange={(event) => setDraft({ ...draft, rank: event.target.value })}>{RANKS.map((item) => <option key={item}>{item}</option>)}</select></label><label>Current total hours<input type="number" min="0" step="0.25" value={draft.hours} onChange={(event) => setDraft({ ...draft, hours: event.target.value })} /></label><label>Administrator note<textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} /></label><footer><button type="button" className="btn-secondary" onClick={close}>Cancel</button><button className="btn-primary" disabled={busy}>{busy ? <LoaderCircle className="spin" size={16} /> : <Plus size={16} />} Create student</button></footer></form></section></div>;
+function CreateStudentModal({ suggestedId, close, complete }: { suggestedId: string; close: () => void; complete: (message: string) => void }) {
+  const [draft, setDraft] = useState({ name: "", studentId: suggestedId, rank: "Unranked", hours: "0", notes: "" });
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [preview, setPreview] = useState("");
+  const [formError, setFormError] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+
+  async function choosePhoto(input?: File) {
+    if (!input) return;
+    try {
+      const prepared = await prepareProfilePhoto(input);
+      setPhoto(prepared);
+      setPreview(URL.createObjectURL(prepared));
+      setFormError("");
+    } catch (reason) {
+      setPhoto(null);
+      setPreview("");
+      setFormError(reason instanceof Error ? reason.message : "The photo could not be prepared.");
+    }
+  }
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setFormError("");
+    let uploadedUrl = "";
+    try {
+      if (photo) {
+        const data = new FormData();
+        data.set("file", photo);
+        const uploaded = await api<{ url: string }>("/api/admin/students/upload", { method: "POST", body: data });
+        uploadedUrl = uploaded.url;
+      }
+      const result = await api<{ studentId: string }>("/api/admin/students", {
+        method: "POST",
+        body: JSON.stringify({
+          displayName: draft.name,
+          studentId: draft.studentId,
+          manualStudentId: draft.studentId !== suggestedId,
+          currentBelt: draft.rank,
+          currentTrainingHours: Number(draft.hours),
+          adminNotes: draft.notes,
+          profileImageUrl: uploadedUrl || null,
+          profileImageConsent: Boolean(uploadedUrl),
+        }),
+      });
+      await complete(`Created ${result.studentId}${uploadedUrl ? " with a profile photo" : ""}.`);
+    } catch (reason) {
+      if (uploadedUrl) {
+        await api("/api/admin/students/upload", { method: "DELETE", body: JSON.stringify({ url: uploadedUrl }) }).catch(() => undefined);
+      }
+      setFormError(reason instanceof Error ? reason.message : "Could not create student.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <div className="admin-confirm-backdrop"><section className="admin-bulk-modal"><header><div><p className="eyebrow">Official profile</p><h2>Add student</h2></div><button onClick={close}><X /></button></header><form className="admin-bulk-form" onSubmit={submit}>
+    <label>Name<input autoComplete="name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required /></label>
+    <label>Student ID<input value={draft.studentId} onChange={(event) => setDraft({ ...draft, studentId: event.target.value.toUpperCase() })} required /></label>
+    <label>Current kyu<select value={draft.rank} onChange={(event) => setDraft({ ...draft, rank: event.target.value })}>{RANKS.map((item) => <option key={item}>{item}</option>)}</select></label>
+    <label>Current total hours<input type="number" min="0" step="0.25" value={draft.hours} onChange={(event) => setDraft({ ...draft, hours: event.target.value })} /></label>
+    <label className="student-photo-field"><span>{preview ? <img src={preview} alt="New student profile preview" /> : <Camera />}</span><strong>{preview ? "Replace profile photo" : "Add profile photo (optional)"}</strong><small>JPEG, PNG, or WebP; at least 128 × 128 pixels. The photo will appear on the approved student profile.</small><input type="file" accept="image/jpeg,image/png,image/webp" capture="user" onChange={(event) => void choosePhoto(event.target.files?.[0])} /></label>
+    <label>Administrator note<textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} /></label>
+    {formError ? <p className="form-error" role="alert">{formError}</p> : null}
+    <footer><button type="button" className="btn-secondary" onClick={close}>Cancel</button><button className="btn-primary" disabled={busy}>{busy ? <LoaderCircle className="spin" size={16} /> : <Plus size={16} />} {busy ? "Creating…" : "Create student"}</button></footer>
+  </form></section></div>;
 }
 
 function StudentDrawer({ detail, loading, close, refresh, report }: { detail: Detail | null; loading: boolean; close: () => void; refresh: () => Promise<void>; report: (message: string, error?: boolean) => void }) {

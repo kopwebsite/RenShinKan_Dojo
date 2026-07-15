@@ -42,7 +42,7 @@ describe("database safety and audit contracts", () => {
   });
 
   it("protects every administrator mutation server-side", () => {
-    const endpoints = ["functions/api/admin/students/index.ts", "functions/api/admin/students/[id].ts", "functions/api/admin/students/[id]/inline.ts", "functions/api/admin/students/[id]/hours.ts", "functions/api/admin/students/[id]/exam.ts", "functions/api/admin/students/bulk.ts", "functions/api/admin/examinations.ts", "functions/api/admin/contributions.ts"];
+    const endpoints = ["functions/api/admin/students/index.ts", "functions/api/admin/students/upload.ts", "functions/api/admin/students/[id].ts", "functions/api/admin/students/[id]/inline.ts", "functions/api/admin/students/[id]/hours.ts", "functions/api/admin/students/[id]/exam.ts", "functions/api/admin/students/bulk.ts", "functions/api/admin/examinations.ts", "functions/api/admin/contributions.ts"];
     endpoints.forEach((path) => { const source = file(path); expect(source).toContain("hasValidAdminSession"); expect(source).toContain("isSameOriginRequest"); });
   });
 
@@ -61,8 +61,10 @@ describe("database safety and audit contracts", () => {
 describe("student workflow contracts", () => {
   const application = file("functions/api/records/examination-applications.ts");
 
-  it("saves every applicant questionnaire field from the original PDF", () => {
-    for (const key of ["aat_number", "date", "name", "surname", "nationality", "sex", "dob", "age", "permanent_address", "present_address", "tel", "school", "class", "office", "position", "certificate", "games_experience", "applicant_signature", "guarantor_signature", "signature_parenthetical", "official_note"]) expect(application).toContain(`${key}:`);
+  it("saves the revised applicant questionnaire without guarantor fields", () => {
+    for (const key of ["aat_number", "date", "name", "surname", "nationality", "sex", "dob", "age", "permanent_address", "present_address", "tel", "school", "class", "office", "position", "certificate", "games_experience", "applicant_signature", "official_note"]) expect(application).toContain(`${key}:`);
+    expect(application).not.toContain("guarantor_signature");
+    expect(application).not.toContain("signature_parenthetical");
     expect(application).toContain("official_rank_${index}");
   });
 
@@ -81,6 +83,8 @@ describe("student workflow contracts", () => {
   it("keeps pending profiles private until an administrator approves them", () => {
     const submit = file("functions/api/records/profile-requests.ts"); const approval = file("functions/api/admin/students/[id]/profile-status.ts");
     expect(submit).toContain("'pending_admin_approval'"); expect(submit).toContain("NULL, 1, 0, 0, 0");
+    expect(submit).toContain("const dojoName = clean(payload.dojoName, 120)");
+    expect(submit).toContain("JSON.stringify(DEFAULT_SHARE_FIELDS), dojoName");
     expect(approval).toContain("profile_status = 'approved', active = 1, public_visible = 1"); expect(approval).toContain("profile_status = 'rejected', active = 0, public_visible = 0");
   });
 
@@ -122,13 +126,23 @@ describe("UI and responsive workflow contracts", () => {
   it("shows three task choices, pending payment, existing bank QR, owner QR tools, and mobile layouts", () => {
     const page = file("src/pages/StudentRecordsPage.tsx"); const css = file("src/index.css");
     for (const text of ["Find my record", "Create a profile", "Apply for an exam", "/images/promptpay-qr.png", "payment status is", "Copy link", "Download QR", "Submit for review"]) expect(page).toContain(text);
+    expect(page).toContain("Current dojo");
+    expect(page).not.toMatch(/guarantor/i);
     expect(css).toContain(".record-task-picker { display: grid; grid-template-columns: repeat(3, 1fr)"); expect(css).toContain(".record-task-picker { grid-template-columns: 1fr");
+  });
+
+  it("lets administrators prepare and upload an optional student profile photo", () => {
+    const admin = file("src/pages/AdminStudentsPage.tsx");
+    const upload = file("functions/api/admin/students/upload.ts");
+    for (const value of ["prepareProfilePhoto", "/api/admin/students/upload", "profileImageUrl", "profileImageConsent", "Add profile photo (optional)"]) expect(admin).toContain(value);
+    expect(upload).toContain("onRequestDelete");
+    expect(upload).toContain("await env.MEDIA_BUCKET.delete(key)");
   });
 
   it("uses an optional present address and country-aware telephone control", () => {
     const page = file("src/pages/StudentRecordsPage.tsx");
-    for (const value of ["Leave blank if same as permanent address", "Telephone country / calling code", "PHONE_COUNTRIES", "tel-national"]) expect(page).toContain(value);
-    expect(page).not.toMatch(/Present address<[^>]*>.*required/);
+    for (const value of ["Leave blank if it is the same as your permanent address", "Country calling code", "PHONE_COUNTRIES", "tel-national"]) expect(page).toContain(value);
+    expect(page).not.toMatch(/Current address<[^>]*>.*required/);
   });
 
   it("keeps personal exam answers out of persistent browser storage and removes the retired extra credential", () => {

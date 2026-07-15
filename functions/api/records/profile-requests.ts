@@ -1,7 +1,6 @@
 import { jsonResponse } from "../../_lib/auth";
 import {
   auditStatement,
-  DEFAULT_DOJO,
   DEFAULT_SHARE_FIELDS,
   enforceLookupRateLimit,
   nextStudentId,
@@ -19,6 +18,7 @@ type Env = StudentEnv & { MEDIA_BUCKET?: R2Bucket };
 type ProfilePayload = {
   displayName?: unknown;
   currentRank?: unknown;
+  dojoName?: unknown;
   practiceDuration?: unknown;
   profileBio?: unknown;
   turnstileToken?: unknown;
@@ -45,10 +45,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (typeof payloadValue !== "string" || !(file instanceof File)) return jsonResponse({ error: "Complete the form and choose a profile picture." }, 400);
     const payload = JSON.parse(payloadValue) as ProfilePayload;
     const displayName = clean(payload.displayName, 120);
+    const dojoName = clean(payload.dojoName, 120);
     const practiceDuration = clean(payload.practiceDuration, 160);
     const profileBio = typeof payload.profileBio === "string" ? payload.profileBio.normalize("NFKC").trim().slice(0, 2001) : "";
     const turnstileToken = typeof payload.turnstileToken === "string" ? payload.turnstileToken : "";
     if (!displayName || displayName.length > 120) return jsonResponse({ error: "Enter the student's full name." }, 400);
+    if (!dojoName || dojoName.length > 120) return jsonResponse({ error: "Enter the dojo where the student currently trains." }, 400);
     if (!practiceDuration || practiceDuration.length > 160) return jsonResponse({ error: "Tell us how long the student has practiced aikido." }, 400);
     if (profileBio.length > 2000) return jsonResponse({ error: "Additional profile information must be 2,000 characters or fewer." }, 400);
     if (!(await verifyTurnstile(request, env, turnstileToken))) return jsonResponse({ error: "Cloudflare verification failed. Please try again." }, 400);
@@ -74,7 +76,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 1, 0, 0, 0, ?, ?, '', 0, ?, ?, 'pending_admin_approval', ?, ?, ?)`)
         .bind(
           studentUuid, studentId, "", nameHash, displayName, rank, rankColor(rank),
-          JSON.stringify(DEFAULT_SHARE_FIELDS), DEFAULT_DOJO, now, now, practiceDuration, profileBio, pendingKey,
+          JSON.stringify(DEFAULT_SHARE_FIELDS), dojoName, now, now, practiceDuration, profileBio, pendingKey,
         ),
       auditStatement(db, {
         actorType: "student",
@@ -84,7 +86,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         entityId: studentUuid,
         studentId: studentUuid,
         previousValues: null,
-        newValues: { studentId, displayName, currentRank: rank, practiceDuration, profileBio, profileStatus: "pending_admin_approval", profileImage: "submitted" },
+        newValues: { studentId, displayName, currentRank: rank, dojoName, practiceDuration, profileBio, profileStatus: "pending_admin_approval", profileImage: "submitted" },
         source: "student_profile_request",
         requestId,
         summary: `Submitted a new profile request for ${displayName}`,

@@ -5,6 +5,7 @@ import { RANKS } from "../../shared/ranks";
 import { StudentRecordCard } from "../components/StudentRecordCard";
 import { TurnstileWidget } from "../components/TurnstileWidget";
 import type { PublicStudentRecord } from "../types/studentRecord";
+import { prepareProfilePhoto } from "../utils/profilePhoto";
 
 type Task = "lookup" | "profile" | "exam";
 type LookupResult = { record: PublicStudentRecord; shareUrl: string; accessToken: string };
@@ -13,10 +14,10 @@ type ExamDraft = {
   nationality: string; sex: string; dateOfBirth: string; permanentAddress: string; presentAddress: string;
   phoneCountry: string; phoneCallingCode: string; phone: string;
   school: string; classLevel: string; office: string; position: string; certificate: string; gamesExperience: string;
-  applicantSignature: string; guarantorSignature: string; guarantorName: string; promiseAccepted: boolean;
+  applicantSignature: string; promiseAccepted: boolean;
 };
 
-const EMPTY_EXAM: ExamDraft = { verificationName: "", studentId: "", attemptedRank: "10 Kyu", aatNumber: "", firstName: "", surname: "", nationality: "", sex: "", dateOfBirth: "", permanentAddress: "", presentAddress: "", phoneCountry: "Thailand", phoneCallingCode: "+66", phone: "", school: "", classLevel: "", office: "", position: "", certificate: "", gamesExperience: "", applicantSignature: "", guarantorSignature: "", guarantorName: "", promiseAccepted: false };
+const EMPTY_EXAM: ExamDraft = { verificationName: "", studentId: "", attemptedRank: "10 Kyu", aatNumber: "", firstName: "", surname: "", nationality: "", sex: "", dateOfBirth: "", permanentAddress: "", presentAddress: "", phoneCountry: "Thailand", phoneCallingCode: "+66", phone: "", school: "", classLevel: "", office: "", position: "", certificate: "", gamesExperience: "", applicantSignature: "", promiseAccepted: false };
 
 const PHONE_COUNTRIES = [
   ["Thailand", "+66"], ["Argentina", "+54"], ["Australia", "+61"], ["Austria", "+43"],
@@ -33,23 +34,30 @@ const PHONE_COUNTRIES = [
   ["United Kingdom", "+44"], ["United States", "+1"], ["Vietnam", "+84"],
 ] as const;
 
+const EXAM_REVIEW_LABELS: Partial<Record<keyof ExamDraft, string>> = {
+  verificationName: "Student name on approved record",
+  studentId: "Student ID",
+  attemptedRank: "Kyu rank applying to test for",
+  aatNumber: "AAT membership number",
+  firstName: "Given name",
+  surname: "Family name / surname",
+  dateOfBirth: "Date of birth",
+  permanentAddress: "Permanent (registered) address",
+  presentAddress: "Current address",
+  phoneCountry: "Country calling code",
+  phone: "Telephone number",
+  classLevel: "Class / year level",
+  office: "Employer / office",
+  position: "Position / job title",
+  certificate: "Relevant certificates or qualifications",
+  gamesExperience: "Aikido, martial arts, or sports experience",
+  applicantSignature: "Applicant signature",
+};
+
 async function responseBody<T>(response: Response) {
   const body = await response.json() as T & { error?: string };
   if (!response.ok) throw new Error(body.error || "Please check the form and try again.");
   return body;
-}
-
-async function profileWebp(file: File) {
-  if (!new Set(["image/jpeg", "image/png", "image/webp"]).has(file.type)) throw new Error("Choose a JPEG, PNG, or WebP profile photo.");
-  if (file.size > 8 * 1024 * 1024) throw new Error("The original photo must be 8 MB or smaller.");
-  const bitmap = await createImageBitmap(file);
-  if (bitmap.width < 128 || bitmap.height < 128) { bitmap.close(); throw new Error("The photo must be at least 128 × 128 pixels."); }
-  const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas"); canvas.width = Math.round(bitmap.width * scale); canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height); bitmap.close();
-  const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("The photo could not be prepared.")), "image/webp", .84));
-  if (blob.size > 3 * 1024 * 1024) throw new Error("The prepared photo is still larger than 3 MB. Choose a smaller photo.");
-  return new File([blob], "profile.webp", { type: "image/webp" });
 }
 
 export function StudentRecordsPage() {
@@ -80,13 +88,27 @@ function LookupWorkflow() {
 }
 
 function ProfileWorkflow() {
-  const [draft, setDraft] = useState({ displayName: "", currentRank: "Unranked", practiceDuration: "", profileBio: "" });
+  const [draft, setDraft] = useState({ displayName: "", currentRank: "Unranked", dojoName: "", practiceDuration: "", profileBio: "" });
   const [file, setFile] = useState<File | null>(null); const [preview, setPreview] = useState(""); const [token, setToken] = useState(""); const [reset, setReset] = useState(0); const [error, setError] = useState(""); const [busy, setBusy] = useState(false); const [done, setDone] = useState(false);
   const onToken = useCallback((value: string) => setToken(value), []);
-  async function choose(input?: File) { if (!input) return; try { const prepared = await profileWebp(input); setFile(prepared); if (preview) URL.revokeObjectURL(preview); setPreview(URL.createObjectURL(prepared)); setError(""); } catch (reason) { setError(reason instanceof Error ? reason.message : "The photo could not be prepared."); } }
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+  async function choose(input?: File) { if (!input) return; try { const prepared = await prepareProfilePhoto(input); setFile(prepared); setPreview(URL.createObjectURL(prepared)); setError(""); } catch (reason) { setError(reason instanceof Error ? reason.message : "The photo could not be prepared."); } }
   async function submit(event: FormEvent) { event.preventDefault(); if (!file || !token) { setError("Choose a profile photo and complete Cloudflare verification."); return; } setBusy(true); setError(""); try { const data = new FormData(); data.set("payload", JSON.stringify({ ...draft, turnstileToken: token })); data.set("file", file); const response = await fetch("/api/records/profile-requests", { method: "POST", headers: { "X-Request-ID": crypto.randomUUID() }, body: data }); await responseBody(response); setDone(true); } catch (reason) { setError(reason instanceof Error ? reason.message : "The profile request could not be submitted."); setReset((value) => value + 1); setToken(""); } finally { setBusy(false); } }
   if (done) return <div className="record-success-panel"><CheckCircle2 /><p className="eyebrow">Request received</p><h2>Your profile is pending administrator approval</h2><p>It is not searchable, active, public, or QR-enabled yet. A sensei will review the details and photo before activating the official student record.</p></div>;
-  return <form className="student-long-form" onSubmit={submit}><header><div><p className="eyebrow">New student profile</p><h2>Request an official record</h2></div><span className="admin-status is-pending">Pending until approved</span></header><div className="student-form-grid"><label><span className="student-field-copy">Student name <small>Required · use the name you will use for record lookup.</small></span><input value={draft.displayName} onChange={(event) => setDraft({ ...draft, displayName: event.target.value })} required /></label><label><span className="student-field-copy">Current kyu</span><select value={draft.currentRank} onChange={(event) => setDraft({ ...draft, currentRank: event.target.value })}>{RANKS.map((rank) => <option key={rank}>{rank}</option>)}</select></label><label><span className="student-field-copy">How long have you practiced aikido? <small>Example: “18 months” or “since 2021”.</small></span><input value={draft.practiceDuration} onChange={(event) => setDraft({ ...draft, practiceDuration: event.target.value })} required /></label><label className="admin-span-2"><span className="student-field-copy">Additional information for your profile <small>Optional · do not include private contact or payment details.</small></span><textarea maxLength={2000} value={draft.profileBio} onChange={(event) => setDraft({ ...draft, profileBio: event.target.value })} /></label></div><label className="student-photo-field"><span>{preview ? <img src={preview} alt="Profile preview" /> : <Camera />}</span><strong>{preview ? "Replace profile photo" : "Add profile photo"}</strong><small>JPEG, PNG, or WebP; at least 128 × 128 pixels. Mobile camera photos are supported.</small><input type="file" accept="image/jpeg,image/png,image/webp" capture="user" onChange={(event) => void choose(event.target.files?.[0])} required /></label><TurnstileWidget onToken={onToken} resetSignal={reset} />{error ? <p className="form-error">{error}</p> : null}<button className="btn-primary" disabled={busy}>{busy ? "Submitting…" : "Send profile for approval"}</button></form>;
+  return <form className="student-long-form" onSubmit={submit}>
+    <header><div><p className="eyebrow">New student profile</p><h2>Request an official record</h2></div><span className="admin-status is-pending">Pending until approved</span></header>
+    <div className="student-form-grid">
+      <label><span className="student-field-copy">Student name <small>Required · use the name you will use for record lookup.</small></span><input autoComplete="name" value={draft.displayName} onChange={(event) => setDraft({ ...draft, displayName: event.target.value })} required /></label>
+      <label><span className="student-field-copy">Current kyu</span><select value={draft.currentRank} onChange={(event) => setDraft({ ...draft, currentRank: event.target.value })}>{RANKS.map((rank) => <option key={rank}>{rank}</option>)}</select></label>
+      <label><span className="student-field-copy">Current dojo <small>Enter the dojo where you currently study or train.</small></span><input maxLength={120} value={draft.dojoName} onChange={(event) => setDraft({ ...draft, dojoName: event.target.value })} required /></label>
+      <label><span className="student-field-copy">How long have you practiced aikido? <small>Example: “18 months” or “since 2021”.</small></span><input value={draft.practiceDuration} onChange={(event) => setDraft({ ...draft, practiceDuration: event.target.value })} required /></label>
+      <label className="admin-span-2"><span className="student-field-copy">Additional information for your profile <small>Optional · do not include private contact or payment details.</small></span><textarea maxLength={2000} value={draft.profileBio} onChange={(event) => setDraft({ ...draft, profileBio: event.target.value })} /></label>
+    </div>
+    <label className="student-photo-field"><span>{preview ? <img src={preview} alt="Profile preview" /> : <Camera />}</span><strong>{preview ? "Replace profile photo" : "Add profile photo"}</strong><small>JPEG, PNG, or WebP; at least 128 × 128 pixels. Mobile camera photos are supported.</small><input type="file" accept="image/jpeg,image/png,image/webp" capture="user" onChange={(event) => void choose(event.target.files?.[0])} required /></label>
+    <TurnstileWidget onToken={onToken} resetSignal={reset} />
+    {error ? <p className="form-error">{error}</p> : null}
+    <button className="btn-primary" disabled={busy}>{busy ? "Submitting…" : "Send profile for approval"}</button>
+  </form>;
 }
 
 function ExamWorkflow() {
@@ -96,8 +118,52 @@ function ExamWorkflow() {
   function review(event: FormEvent) { event.preventDefault(); setError(""); setStage("review"); window.scrollTo({ top: 0, behavior: "smooth" }); }
   async function submit() { if (!token) { setError("Complete Cloudflare verification before submitting."); return; } setBusy(true); setError(""); try { const response = await fetch("/api/records/examination-applications", { method: "POST", headers: { "Content-Type": "application/json", "X-Request-ID": crypto.randomUUID() }, body: JSON.stringify({ ...draft, turnstileToken: token }) }); const body = await responseBody<{ applicationId: string }>(response); setApplicationId(body.applicationId); setStage("done"); } catch (reason) { setError(reason instanceof Error ? reason.message : "The application could not be submitted."); setToken(""); setReset((value) => value + 1); } finally { setBusy(false); } }
   if (stage === "done") return <div className="exam-payment-panel"><AlertMark /><p className="eyebrow">Application {applicationId.slice(0, 8)}</p><h2>Your application is submitted, but you are not finished yet</h2><p>You must still make the examination payment and have a sensei confirm it. Your payment status is <strong>pending</strong>.</p><div><img src="/images/promptpay-qr.png" alt="Bank payment QR code" /><section><h3>Pay and confirm with your sensei</h3><ol><li>Scan this bank-payment QR code and make the examination payment.</li><li>Send the payment confirmation to a sensei.</li><li>A sensei or administrator must mark the payment as paid.</li></ol><p><strong>This is the bank-payment QR code.</strong> It is different from your shareable student-profile QR code.</p></section></div></div>;
-  if (stage === "review") return <div className="student-long-form exam-review"><header><div><p className="eyebrow">Step 2 of 2</p><h2>Review the official application</h2></div><button className="btn-secondary" onClick={() => setStage("form")}>Edit answers</button></header><dl>{Object.entries({ ...draft, phoneCountry: `${draft.phoneCountry} (${draft.phoneCallingCode})`, phone: `${draft.phoneCallingCode} ${draft.phone}` }).filter(([key]) => key !== "promiseAccepted" && key !== "phoneCallingCode").map(([key, value]) => <div key={key}><dt>{key.replace(/([A-Z])/g, " $1")}</dt><dd>{String(value) || "—"}</dd></div>)}</dl><TurnstileWidget onToken={onToken} resetSignal={reset} />{error ? <p className="form-error">{error}</p> : null}<button className="btn-primary" disabled={busy || !token} onClick={() => void submit()}>{busy ? "Submitting…" : "Submit application and continue to payment"}</button></div>;
-  return <form className="student-long-form exam-application-form" onSubmit={review}><header><div><p className="eyebrow">Step 1 of 2 · Aikido Association Thailand</p><h2>Belt-examination application</h2><p>Every applicant field from the original PDF is included. Official rank-result fields are reserved for administrators.</p></div><span className="admin-status is-neutral">Draft kept in this tab only</span></header><fieldset><legend>Verify your approved student record</legend><label>Exact record name<input value={draft.verificationName} onChange={(event) => set("verificationName", event.target.value)} required /></label><label>Student ID<input value={draft.studentId} onChange={(event) => set("studentId", event.target.value.toUpperCase())} required /></label><label>Rank attempting<select value={draft.attemptedRank} onChange={(event) => set("attemptedRank", event.target.value)}>{RANKS.slice(1).map((rank) => <option key={rank}>{rank}</option>)}</select></label></fieldset><fieldset><legend>Applicant identity</legend><label>AAT number <small>Optional if not yet assigned.</small><input value={draft.aatNumber} onChange={(event) => set("aatNumber", event.target.value)} /></label><label>First name<input value={draft.firstName} onChange={(event) => set("firstName", event.target.value)} required /></label><label>Surname<input value={draft.surname} onChange={(event) => set("surname", event.target.value)} required /></label><label>Nationality<input value={draft.nationality} onChange={(event) => set("nationality", event.target.value)} required /></label><label>Sex<input value={draft.sex} onChange={(event) => set("sex", event.target.value)} required /></label><label>Date of birth<input type="date" value={draft.dateOfBirth} onChange={(event) => set("dateOfBirth", event.target.value)} required /></label></fieldset><fieldset><legend>Address and contact</legend><label>Permanent address<textarea value={draft.permanentAddress} onChange={(event) => set("permanentAddress", event.target.value)} required /></label><label>Present address <small>Leave blank if same as permanent address.</small><textarea value={draft.presentAddress} onChange={(event) => set("presentAddress", event.target.value)} /></label><label>Telephone country / calling code<select value={draft.phoneCountry} onChange={(event) => { const option = PHONE_COUNTRIES.find(([country]) => country === event.target.value); if (option) setDraft({ ...draft, phoneCountry: option[0], phoneCallingCode: option[1] }); }}>{PHONE_COUNTRIES.map(([country, callingCode]) => <option key={country} value={country}>{country} ({callingCode})</option>)}</select></label><label>Telephone number <small>Use a local number or include the selected international calling code.</small><input type="tel" inputMode="tel" autoComplete="tel-national" pattern="[0-9 ()+.-]{6,24}" maxLength={24} placeholder="81 234 5678" value={draft.phone} onChange={(event) => set("phone", event.target.value)} required /></label></fieldset><fieldset><legend>School or employment</legend><label>School<input value={draft.school} onChange={(event) => set("school", event.target.value)} /></label><label>Class<input value={draft.classLevel} onChange={(event) => set("classLevel", event.target.value)} /></label><label>Office<input value={draft.office} onChange={(event) => set("office", event.target.value)} /></label><label>Position<input value={draft.position} onChange={(event) => set("position", event.target.value)} /></label></fieldset><fieldset><legend>Qualifications and experience</legend><label>Certificate<input value={draft.certificate} onChange={(event) => set("certificate", event.target.value)} /></label><label>Games experience<textarea value={draft.gamesExperience} onChange={(event) => set("gamesExperience", event.target.value)} /></label></fieldset><fieldset><legend>Promise and signatures</legend><p>I promise to observe the rules of the Aikido Association Thailand and accept responsibility for the information in this application.</p><label>Applicant signature (type full name)<input value={draft.applicantSignature} onChange={(event) => set("applicantSignature", event.target.value)} required /></label><label>Guarantor signature (type full name)<input value={draft.guarantorSignature} onChange={(event) => set("guarantorSignature", event.target.value)} required /></label><label>Guarantor name in parentheses<input value={draft.guarantorName} onChange={(event) => set("guarantorName", event.target.value)} required /></label><label className="exam-promise"><input type="checkbox" checked={draft.promiseAccepted} onChange={(event) => set("promiseAccepted", event.target.checked)} required /> I accept the Aikido Association Thailand promise.</label></fieldset>{error ? <p className="form-error">{error}</p> : null}<button className="btn-primary">Review every answer</button></form>;
+  if (stage === "review") return <div className="student-long-form exam-review"><header><div><p className="eyebrow">Step 2 of 2</p><h2>Review your application</h2><p>Check each answer before submitting it to the dojo.</p></div><button className="btn-secondary" onClick={() => setStage("form")}>Edit answers</button></header><dl>{Object.entries({ ...draft, phoneCountry: `${draft.phoneCountry} (${draft.phoneCallingCode})`, phone: `${draft.phoneCallingCode} ${draft.phone}` }).filter(([key]) => key !== "promiseAccepted" && key !== "phoneCallingCode").map(([key, value]) => <div key={key}><dt>{EXAM_REVIEW_LABELS[key as keyof ExamDraft] || key.replace(/([A-Z])/g, " $1")}</dt><dd>{String(value) || "—"}</dd></div>)}</dl><TurnstileWidget onToken={onToken} resetSignal={reset} />{error ? <p className="form-error">{error}</p> : null}<button className="btn-primary" disabled={busy || !token} onClick={() => void submit()}>{busy ? "Submitting…" : "Submit application and continue to payment"}</button></div>;
+  return <form className="student-long-form exam-application-form" onSubmit={review}>
+    <header><div><p className="eyebrow">Step 1 of 2 · Aikido Association Thailand</p><h2>Belt-examination application</h2><p>Complete the applicant details below. Examination results and official notes are completed by administrators.</p></div><span className="admin-status is-neutral">Draft kept in this tab only</span></header>
+    <fieldset>
+      <legend>Verify your approved student record</legend>
+      <label>Student name on your approved record <small>Use the same name shown on your official student profile.</small><input autoComplete="name" value={draft.verificationName} onChange={(event) => set("verificationName", event.target.value)} required /></label>
+      <label>Student ID <small>Example: RSK-0001.</small><input value={draft.studentId} onChange={(event) => set("studentId", event.target.value.toUpperCase())} required /></label>
+      <label>Kyu rank you are applying to test for<select value={draft.attemptedRank} onChange={(event) => set("attemptedRank", event.target.value)}>{RANKS.slice(1).map((rank) => <option key={rank}>{rank}</option>)}</select></label>
+    </fieldset>
+    <fieldset>
+      <legend>Applicant details</legend>
+      <label>AAT membership number <small>Leave blank if you have not been assigned one.</small><input value={draft.aatNumber} onChange={(event) => set("aatNumber", event.target.value)} /></label>
+      <label>Given name<input autoComplete="given-name" value={draft.firstName} onChange={(event) => set("firstName", event.target.value)} required /></label>
+      <label>Family name / surname<input autoComplete="family-name" value={draft.surname} onChange={(event) => set("surname", event.target.value)} required /></label>
+      <label>Nationality<input autoComplete="country-name" value={draft.nationality} onChange={(event) => set("nationality", event.target.value)} required /></label>
+      <label>Sex / gender <small>Use the wording you want recorded on the association application.</small><input value={draft.sex} onChange={(event) => set("sex", event.target.value)} required /></label>
+      <label>Date of birth<input type="date" autoComplete="bday" value={draft.dateOfBirth} onChange={(event) => set("dateOfBirth", event.target.value)} required /></label>
+    </fieldset>
+    <fieldset>
+      <legend>Address and contact</legend>
+      <label>Permanent (registered) address<textarea autoComplete="street-address" value={draft.permanentAddress} onChange={(event) => set("permanentAddress", event.target.value)} required /></label>
+      <label>Current address <small>Leave blank if it is the same as your permanent address.</small><textarea value={draft.presentAddress} onChange={(event) => set("presentAddress", event.target.value)} /></label>
+      <label>Country calling code<select value={draft.phoneCountry} onChange={(event) => { const option = PHONE_COUNTRIES.find(([country]) => country === event.target.value); if (option) setDraft({ ...draft, phoneCountry: option[0], phoneCallingCode: option[1] }); }}>{PHONE_COUNTRIES.map(([country, callingCode]) => <option key={country} value={country}>{country} ({callingCode})</option>)}</select></label>
+      <label>Telephone number <small>Enter a local number, or a full international number using the selected calling code.</small><input type="tel" inputMode="tel" autoComplete="tel-national" pattern="[0-9 ()+.-]{6,24}" maxLength={24} placeholder="81 234 5678" value={draft.phone} onChange={(event) => set("phone", event.target.value)} required /></label>
+    </fieldset>
+    <fieldset>
+      <legend>School or employment <small>Complete whichever fields apply to you.</small></legend>
+      <label>School<input value={draft.school} onChange={(event) => set("school", event.target.value)} /></label>
+      <label>Class / year level<input value={draft.classLevel} onChange={(event) => set("classLevel", event.target.value)} /></label>
+      <label>Employer / office<input autoComplete="organization" value={draft.office} onChange={(event) => set("office", event.target.value)} /></label>
+      <label>Position / job title<input autoComplete="organization-title" value={draft.position} onChange={(event) => set("position", event.target.value)} /></label>
+    </fieldset>
+    <fieldset>
+      <legend>Qualifications and experience</legend>
+      <label>Relevant certificates or qualifications <small>Include aikido, martial arts, coaching, or related qualifications.</small><input value={draft.certificate} onChange={(event) => set("certificate", event.target.value)} /></label>
+      <label>Aikido, martial arts, or sports experience <small>Briefly describe relevant training, competitions, or events.</small><textarea value={draft.gamesExperience} onChange={(event) => set("gamesExperience", event.target.value)} /></label>
+    </fieldset>
+    <fieldset>
+      <legend>Declaration and signature</legend>
+      <p>I promise to observe the rules of the Aikido Association Thailand and confirm that the information in this application is accurate.</p>
+      <label>Applicant signature <small>Type your full name.</small><input autoComplete="name" value={draft.applicantSignature} onChange={(event) => set("applicantSignature", event.target.value)} required /></label>
+      <label className="exam-promise"><input type="checkbox" checked={draft.promiseAccepted} onChange={(event) => set("promiseAccepted", event.target.checked)} required /> I accept the declaration above.</label>
+    </fieldset>
+    {error ? <p className="form-error">{error}</p> : null}
+    <button className="btn-primary">Review every answer</button>
+  </form>;
 }
 
 function AlertMark() { return <div className="exam-alert-mark"><Clock3 /></div>; }

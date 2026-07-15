@@ -161,45 +161,50 @@ export function SupportPage() {
               src/components/ContributionForm.tsx so it is easy to edit later. */}
           <ContributionForm />
 
-          <article className="flex h-full flex-col">
-            <div>
+          <article className="contribution-breakdown flex h-full flex-col">
+            <header className="contribution-breakdown__intro">
               <h3 className="text-3xl text-ink">{t("support.monthly.coversTitle")}</h3>
               <p className="mt-4 text-sm leading-6 text-charcoal/75">
                 {t("support.monthly.coversCopy")}
               </p>
-            </div>
+            </header>
 
-            <div className="stat-ledger mt-7">
+            <div className="contribution-highlights" role="list" aria-label={t("support.monthly.coversTitle")}>
               {contributionHighlights.map((item) => (
-                <div key={item.labelKey}>
-                  <strong>{t(item.valueKey)}</strong>
-                  <p className="stat-ledger__label">{t(item.labelKey)}</p>
-                  <p className="stat-ledger__note">{t(item.noteKey)}</p>
+                <div className="contribution-highlight" role="listitem" key={item.labelKey}>
+                  <strong className="contribution-highlight__value">{t(item.valueKey)}</strong>
+                  <p className="contribution-highlight__label">{t(item.labelKey)}</p>
+                  <p className="contribution-highlight__note">{t(item.noteKey)}</p>
                 </div>
               ))}
             </div>
 
-            <ul className="ruled-list mt-7 flex-1">
-              {dojoExpenses.map((expense) => (
-                <li key={expense.labelKey}>
-                  <p className="text-sm font-bold text-ink">{t(expense.labelKey)}</p>
-                  <p className="mt-1 text-xs leading-5 text-charcoal/65">{t(expense.noteKey)}</p>
+            <ul className="contribution-expenses">
+              {dojoExpenses.map((expense, index) => (
+                <li className="contribution-expense" key={expense.labelKey}>
+                  <span className="contribution-expense__number" aria-hidden="true">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <div>
+                    <p className="contribution-expense__label">{t(expense.labelKey)}</p>
+                    <p className="contribution-expense__note">{t(expense.noteKey)}</p>
+                  </div>
                 </li>
               ))}
             </ul>
 
-            <div className="mt-8 grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-              <div className="border-l-2 border-bamboo/70 bg-bamboo/5 py-3 pl-4 pr-3">
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-bamboo/80">
+            <div className="contribution-callouts">
+              <div className="contribution-callout contribution-callout--why">
+                <p className="contribution-callout__eyebrow">
                   {t("support.monthly.whyTitle")}
                 </p>
-                <p className="mt-2 text-sm font-bold leading-6 text-ink">
+                <p className="contribution-callout__copy">
                   {t("support.monthly.whyCopy")}
                 </p>
               </div>
-              <div className="bg-ink/90 p-5 text-paper">
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-mist/70">{t("support.monthly.reminderEyebrow")}</p>
-                <p className="mt-2 text-sm font-bold leading-6">
+              <div className="contribution-callout contribution-callout--reminder">
+                <p className="contribution-callout__eyebrow">{t("support.monthly.reminderEyebrow")}</p>
+                <p className="contribution-callout__copy">
                   {t("support.monthly.reminderCopy")}
                 </p>
               </div>

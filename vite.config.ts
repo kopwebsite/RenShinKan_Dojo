@@ -11,8 +11,10 @@ const WRANGLER_PUBLIC_VARS = [
   "VITE_TURNSTILE_SITE_KEY",
 ] as const;
 
-function getCloudflarePagesBuildDefines() {
-  if (!process.env.CF_PAGES) {
+const TURNSTILE_TEST_SITE_KEY_PATTERN = /^[123]x0{20,}/;
+
+function getCloudflarePagesBuildDefines(useWranglerVars: boolean) {
+  if (!useWranglerVars) {
     return undefined;
   }
 
@@ -21,12 +23,12 @@ function getCloudflarePagesBuildDefines() {
   try {
     wranglerConfig = readFileSync("wrangler.toml", "utf8");
   } catch {
-    return undefined;
+    throw new Error("Production builds require wrangler.toml so Cloudflare public variables can be embedded safely.");
   }
 
   const varsBlock = getWranglerVarsBlock(wranglerConfig);
   if (!varsBlock) {
-    return undefined;
+    throw new Error("Production builds require a [vars] block in wrangler.toml.");
   }
 
   const define: Record<string, string> = {};
@@ -34,8 +36,19 @@ function getCloudflarePagesBuildDefines() {
   for (const key of WRANGLER_PUBLIC_VARS) {
     const match = varsBlock.match(new RegExp(`^${key}\\s*=\\s*"([^"]*)"`, "m"));
     if (match) {
+      if (
+        key === "VITE_TURNSTILE_SITE_KEY" &&
+        (TURNSTILE_TEST_SITE_KEY_PATTERN.test(match[1]) || match[1].startsWith("PLACEHOLDER_"))
+      ) {
+        throw new Error("Production builds require a real Cloudflare Turnstile site key in wrangler.toml.");
+      }
+
       define[`import.meta.env.${key}`] = JSON.stringify(match[1]);
     }
+  }
+
+  if (!define["import.meta.env.VITE_TURNSTILE_SITE_KEY"]) {
+    throw new Error("Production builds require VITE_TURNSTILE_SITE_KEY in wrangler.toml.");
   }
 
   return define;
@@ -62,7 +75,6 @@ function getWranglerVarsBlock(config: string) {
   return block.join("\n");
 }
 
-const cloudflarePagesBuildDefines = getCloudflarePagesBuildDefines();
 const SPA_ROUTES = new Set([
   "/aikido", "/classes", "/community", "/contact", "/instructors", "/newsletter",
   "/student-records", "/records", "/support", "/workshops", "/admin", "/admin/students", "/admin/audit",
@@ -98,21 +110,27 @@ function normalizeBasePath(basePath?: string) {
     : `${withLeadingSlash}/`;
 }
 
-export default defineConfig({
-  base: normalizeBasePath(process.env.BASE_PATH),
-  define: cloudflarePagesBuildDefines,
-  plugins: [spaRouteFallback(), react()],
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) {
-            return "react-vendor";
-          }
+export default defineConfig(({ command }) => {
+  const cloudflarePagesBuildDefines = getCloudflarePagesBuildDefines(
+    command === "build" || Boolean(process.env.CF_PAGES),
+  );
 
-          return undefined;
+  return {
+    base: normalizeBasePath(process.env.BASE_PATH),
+    define: cloudflarePagesBuildDefines,
+    plugins: [spaRouteFallback(), react()],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) {
+              return "react-vendor";
+            }
+
+            return undefined;
+          }
         },
       },
     },
-  },
+  };
 });

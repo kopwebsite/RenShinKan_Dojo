@@ -48,6 +48,7 @@ function Status({ value }: { value: ExamStatus }) {
 }
 
 export function AdminExamApplications({ report, admin, dojos }: { report: (message: string, isError?: boolean) => void; admin: AdminIdentity; dojos: AdminDojo[] }) {
+  const superAdmin = admin.permissionLevel === "renshinkan_super_admin";
   const [data, setData] = useState<Response>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [queryInput, setQueryInput] = useState("");
@@ -64,7 +65,7 @@ export function AdminExamApplications({ report, admin, dojos }: { report: (messa
   const [editingCycle, setEditingCycle] = useState(false);
   const [cycleName, setCycleName] = useState("");
   const [cycleForm, setCycleForm] = useState({ lifecycleStatus: "open", examinationType: "Belt promotion", rankCategory: "Kyu and Dan", applicationOpensAt: "", applicationClosesAt: "", examinationAt: "", venue: "", instructions: "", kyuExamFee: "0", danExamFee: "0", aatAnnualFee: "0" });
-  const [exportDojo, setExportDojo] = useState(admin.role === "dojo" ? admin.allowedDojoIds[0] || "" : "");
+  const [exportDojo, setExportDojo] = useState(superAdmin ? "" : admin.selectedDojoId || "");
   const [saving, setSaving] = useState(false);
 
   async function load() {
@@ -153,7 +154,7 @@ export function AdminExamApplications({ report, admin, dojos }: { report: (messa
   return <section className="admin-workspace-section" aria-busy={loading}>
     <header className="admin-workspace-heading">
       <div><p className="eyebrow">Cycle-based workflow</p><h2>Exam Applications</h2><p>Every active student appears in the current cycle. Closed cycles remain read-only.</p></div>
-      {admin.role === "central" ? <div className="flex flex-wrap gap-2"><button className="btn-secondary" disabled={!data.selectedCycle} onClick={() => { const cycle = data.selectedCycle; if (!cycle) return; setEditingCycle(true); setCycleName(cycle.title || cycle.name); setCycleForm({ lifecycleStatus: cycle.lifecycle_status, examinationType: cycle.examination_type, rankCategory: cycle.rank_category, applicationOpensAt: cycle.application_opens_at || "", applicationClosesAt: cycle.application_closes_at || "", examinationAt: cycle.examination_at || "", venue: cycle.venue, instructions: cycle.instructions, kyuExamFee: feeValue(cycle.rank_fee_config_json, "kyu"), danExamFee: feeValue(cycle.rank_fee_config_json, "dan"), aatAnnualFee: feeValue(cycle.annual_fee_config_json, "default") }); setCycleDialog(true); }}>Edit Cycle</button><button className="btn-primary" onClick={() => { setEditingCycle(false); setCycleName(""); setCycleForm({ lifecycleStatus: "open", examinationType: "Belt promotion", rankCategory: "Kyu and Dan", applicationOpensAt: "", applicationClosesAt: "", examinationAt: "", venue: "", instructions: "", kyuExamFee: "0", danExamFee: "0", aatAnnualFee: "0" }); setCycleDialog(true); }}><GraduationCap size={17} /> Start New Exam Cycle</button></div> : null}
+      {superAdmin ? <div className="flex flex-wrap gap-2"><button className="btn-secondary" disabled={!data.selectedCycle} onClick={() => { const cycle = data.selectedCycle; if (!cycle) return; setEditingCycle(true); setCycleName(cycle.title || cycle.name); setCycleForm({ lifecycleStatus: cycle.lifecycle_status, examinationType: cycle.examination_type, rankCategory: cycle.rank_category, applicationOpensAt: cycle.application_opens_at || "", applicationClosesAt: cycle.application_closes_at || "", examinationAt: cycle.examination_at || "", venue: cycle.venue, instructions: cycle.instructions, kyuExamFee: feeValue(cycle.rank_fee_config_json, "kyu"), danExamFee: feeValue(cycle.rank_fee_config_json, "dan"), aatAnnualFee: feeValue(cycle.annual_fee_config_json, "default") }); setCycleDialog(true); }}>Edit Cycle</button><button className="btn-primary" onClick={() => { setEditingCycle(false); setCycleName(""); setCycleForm({ lifecycleStatus: "open", examinationType: "Belt promotion", rankCategory: "Kyu and Dan", applicationOpensAt: "", applicationClosesAt: "", examinationAt: "", venue: "", instructions: "", kyuExamFee: "0", danExamFee: "0", aatAnnualFee: "0" }); setCycleDialog(true); }}><GraduationCap size={17} /> Start New Exam Cycle</button></div> : null}
     </header>
 
     <div className="admin-workspace-toolbar">
@@ -164,7 +165,7 @@ export function AdminExamApplications({ report, admin, dojos }: { report: (messa
     </div>
 
     {data.selectedCycle ? <div className="admin-workspace-toolbar" aria-label="Report export">
-      {admin.role === "central" ? <label>Report scope<select value={exportDojo} onChange={(event) => setExportDojo(event.target.value)}><option value="">All Dojos</option>{dojos.map((dojo) => <option key={dojo.id} value={dojo.id}>{dojo.official_name}</option>)}</select></label> : <p><strong>{dojos.find((dojo) => dojo.id === admin.allowedDojoIds[0])?.official_name || "Your dojo"}</strong><br /><small>Exports are securely limited to your dojo.</small></p>}
+      {superAdmin ? <label>Report scope<select value={exportDojo} onChange={(event) => setExportDojo(event.target.value)}><option value="">All Dojos</option>{dojos.map((dojo) => <option key={dojo.id} value={dojo.id}>{dojo.official_name}</option>)}</select></label> : <p><strong>{dojos.find((dojo) => dojo.id === admin.selectedDojoId)?.official_name || "Your dojo"}</strong><br /><small>Exports are securely limited to your dojo.</small></p>}
       <button type="button" className="btn-secondary" onClick={() => download("pdf")}><Download size={16} /> PDF</button>
       <button type="button" className="btn-secondary" onClick={() => download("pdf", true)}><Download size={16} /> Print-friendly PDF</button>
       <button type="button" className="btn-secondary" onClick={() => download("xlsx")}><FileSpreadsheet size={16} /> Excel</button>

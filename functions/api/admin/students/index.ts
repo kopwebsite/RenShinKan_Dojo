@@ -1,6 +1,6 @@
 import { RANKS, normalizeRank } from "../../../../shared/ranks";
 import { addOneCalendarYear } from "../../../../shared/membership";
-import { canAccessDojo, getAdminSession, isSameOriginRequest, jsonResponse } from "../../../_lib/auth";
+import { canAccessDojo, getAuthorizedAdminSession, isRenShinKanSuperAdmin, isSameOriginRequest, jsonResponse } from "../../../_lib/auth";
 import {
   activeDojo,
   adminAuditMetadata,
@@ -15,6 +15,7 @@ import {
   requireStudentDb,
   studentNameVerificationHash,
   suggestedStudentId,
+  syncStudentIdSequenceStatement,
   type StudentEnv,
 } from "../../../_lib/studentRecords";
 
@@ -36,7 +37,7 @@ function validProfileUrl(value: unknown) {
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
 
   const db = requireStudentDb(env);
@@ -48,7 +49,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const profileStatus = (url.searchParams.get("profileStatus") || "").trim();
   const examinationStatus = (url.searchParams.get("examinationStatus") || "").trim();
   const paymentStatus = (url.searchParams.get("paymentStatus") || "").trim();
-  const status = url.searchParams.get("status") || "active";
+  const hoursStatus = (url.searchParams.get("hoursStatus") || "").trim();
+  const requestedStatus = url.searchParams.get("status");
+  const status = requestedStatus === "active" || requestedStatus === "archived" ? requestedStatus : "all";
   const dojoId = (url.searchParams.get("dojoId") || "").trim();
   const aatStatus = (url.searchParams.get("aatStatus") || "").trim();
   const sort = url.searchParams.get("sort") || "name";
@@ -70,9 +73,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const conditions: string[] = [];
   const bindings: unknown[] = [];
 
-  if (session.role === "dojo") {
+  if (!isRenShinKanSuperAdmin(session)) {
     conditions.push("s.dojo_id = ?");
-    bindings.push(session.allowedDojoIds[0] || "__none__");
+    bindings.push(session.selectedDojoId || "__none__");
   } else if (dojoId) {
     conditions.push("s.dojo_id = ?");
     bindings.push(dojoId);
@@ -86,21 +89,26 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   if (profileStatus) { conditions.push("s.profile_status = ?"); bindings.push(profileStatus); }
   if (examinationStatus) { conditions.push(`${applicationStatusExpression} = ?`); bindings.push(examinationStatus); }
   if (paymentStatus) { conditions.push(`${paymentStatusExpression} = ?`); bindings.push(paymentStatus); }
+  if (hoursStatus === "pending") conditions.push("EXISTS (SELECT 1 FROM training_hour_requests phr WHERE phr.student_id = s.id AND phr.status = 'pending')");
   if (aatStatus === "new") conditions.push("s.aat_number IS NULL");
   else if (aatStatus === "unpaid") conditions.push("s.aat_number IS NOT NULL AND s.aat_last_paid_date IS NULL");
   else if (aatStatus === "expired") conditions.push("s.aat_number IS NOT NULL AND s.aat_last_paid_date IS NOT NULL AND date(s.aat_last_paid_date, '+1 year') < date('now')");
   else if (aatStatus === "current") conditions.push("s.aat_number IS NOT NULL AND s.aat_last_paid_date IS NOT NULL AND date(s.aat_last_paid_date, '+1 year') >= date('now')");
-  if (status === "deleted") conditions.push("s.deleted_at IS NOT NULL");
-  else {
-    conditions.push("s.deleted_at IS NULL");
-    if (status === "archived") conditions.push("s.archived_at IS NOT NULL");
-    else if (status !== "all") conditions.push("s.active = 1");
+  conditions.push("s.deleted_at IS NULL");
+  if (status === "archived") conditions.push("s.archived_at IS NOT NULL");
+  else if (status === "active") conditions.push("s.active = 1");
+
+  const summaryConditions = ["s.deleted_at IS NULL"];
+  const summaryBindings: unknown[] = [];
+  if (!isRenShinKanSuperAdmin(session)) {
+    summaryConditions.push("s.dojo_id = ?");
+    summaryBindings.push(session.selectedDojoId || "__none__");
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const [countResult, rowsResult, summaryResult] = await db.batch([
     db.prepare(`SELECT COUNT(*) AS total FROM students s ${where}`).bind(...bindings),
-    db.prepare(`SELECT s.id, s.public_student_id, s.display_name, s.current_belt, s.profile_image_url, s.active,
+    db.prepare(`SELECT s.id, s.public_student_id, s.display_name, s.current_belt, s.profile_image_url, s.active, s.archived_at,
       s.dojo_id, d.official_name AS dojo_name, s.aat_number, s.aat_last_paid_date,
       s.updated_at, s.profile_status, ${totalExpression} AS total_hours,
       ${applicationStatusExpression} AS examination_status, ${paymentStatusExpression} AS payment_status,
@@ -112,7 +120,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       SUM(CASE WHEN active = 1 THEN 1 ELSE 0 END) AS active,
       SUM(CASE WHEN archived_at IS NOT NULL THEN 1 ELSE 0 END) AS archived,
       SUM(CASE WHEN profile_status = 'pending_admin_approval' THEN 1 ELSE 0 END) AS pending_profiles
-      FROM students s ${session.role === "dojo" ? "WHERE s.dojo_id = ?" : ""}`).bind(...(session.role === "dojo" ? [session.allowedDojoIds[0] || "__none__"] : [])),
+      FROM students s WHERE ${summaryConditions.join(" AND ")}`).bind(...summaryBindings),
   ]);
 
   const total = Number((countResult.results?.[0] as { total?: number } | undefined)?.total || 0);
@@ -121,21 +129,26 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     pagination: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) },
     summary: summaryResult.results?.[0] || { total: 0, active: 0, archived: 0, pending_profiles: 0 },
     ranks: RANKS,
-    suggestedStudentId: await suggestedStudentId(db, session.role === "dojo" ? session.allowedDojoIds[0] : session.selectedDojoId || DEFAULT_DOJO_ID),
-    dojos: (await db.prepare("SELECT id, official_name, short_name, code, logo_url, slug, active, sort_order FROM dojos WHERE active = 1 ORDER BY sort_order").all()).results || [],
+    suggestedStudentId: await suggestedStudentId(db, isRenShinKanSuperAdmin(session) ? session.selectedDojoId || DEFAULT_DOJO_ID : session.selectedDojoId || "__none__"),
+    dojos: (await db.prepare(`SELECT id, official_name, short_name, code, logo_url, slug, active, sort_order
+      FROM dojos WHERE active = 1 ${isRenShinKanSuperAdmin(session) ? "" : "AND id = ?"}
+      ORDER BY sort_order, official_name COLLATE NOCASE`)
+      .bind(...(isRenShinKanSuperAdmin(session) ? [] : [session.selectedDojoId || "__none__"])).all()).results || [],
   }, 200, { "Cache-Control": "no-store" });
 };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const requestId = requestIdentifier(request);
   try {
     const body = await request.json<Record<string, unknown>>();
     const displayName = String(body.displayName || "").normalize("NFKC").trim().replace(/\s+/g, " ");
     const currentBelt = normalizeRank(body.currentBelt || "Unranked");
-    const dojoId = String(body.dojoId || session.selectedDojoId || "").trim();
+    const dojoId = isRenShinKanSuperAdmin(session)
+      ? String(body.dojoId || session.selectedDojoId || "").trim()
+      : session.selectedDojoId || "";
     const adminNotes = String(body.adminNotes || "").trim();
     const currentTrainingHours = Number(body.currentTrainingHours ?? 0);
     const profileImageUrl = validProfileUrl(body.profileImageUrl);
@@ -154,7 +167,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const aatNumber = String(body.aatNumber || "").normalize("NFKC").trim().slice(0, 40) || null;
     const aatLastPaidDate = typeof body.aatLastPaidDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.aatLastPaidDate) ? body.aatLastPaidDate : null;
     const requestedId = normalizeStudentId(String(body.studentId || ""));
-    if (manualStudentId && !isValidStudentId(requestedId)) return jsonResponse({ error: "Student ID must use the format RSK-00001." }, 400);
+    if (manualStudentId && !isValidStudentId(requestedId)) return jsonResponse({ error: "Student ID must use a format such as RSK-6901." }, 400);
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     const shareFields = JSON.stringify(body.shareFields && typeof body.shareFields === "object" ? body.shareFields : DEFAULT_SHARE_FIELDS);
@@ -198,7 +211,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
             ) VALUES (?, ?, ?, ?, ?, ?, 1, ?)`)
               .bind(crypto.randomUUID(), currentMonth, id, displayName, studentId, currentBelt, now),
             db.prepare(`UPDATE contribution_periods SET active_student_count_snapshot = (
-              SELECT COUNT(*) FROM contribution_period_students WHERE month_key = ? AND active_at_period_start = 1
+              SELECT COUNT(*) FROM contribution_period_students r
+              JOIN students s ON s.id = r.student_id
+              WHERE r.month_key = ? AND r.active_at_period_start = 1 AND s.dojo_id = 'dojo-rsk'
             ) WHERE month_key = ?`).bind(currentMonth, currentMonth),
           );
         }
@@ -208,7 +223,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
             db.prepare(`INSERT INTO aat_membership_payments (id, student_id, dojo_id, payment_date,
               renewal_due_date, amount, currency, notes, recorded_by, recorded_by_role, recorded_by_dojo_id, created_at)
               VALUES (?, ?, ?, ?, ?, NULL, 'THB', 'Recorded during student creation', ?, ?, ?, ?)`)
-              .bind(membershipPaymentId, id, dojo.id, aatLastPaidDate, addOneCalendarYear(aatLastPaidDate), session.adminName, session.role, session.selectedDojoId, now),
+              .bind(membershipPaymentId, id, dojo.id, aatLastPaidDate, addOneCalendarYear(aatLastPaidDate), session.adminName, isRenShinKanSuperAdmin(session) ? "central" : "dojo", session.selectedDojoId, now),
             db.prepare(`INSERT INTO payments (id, student_id, dojo_id, payment_type, amount, currency, payment_date,
               status, reference, notes, recorded_by, created_at, updated_at)
               VALUES (?, ?, ?, 'aat_annual', NULL, 'THB', ?, 'paid', ?, 'Recorded during student creation', ?, ?, ?)`)
@@ -219,9 +234,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           );
         }
         if (manualStudentId) {
-          const numericPart = Number(studentId.split("-").pop());
-          if (studentId.startsWith(`${dojo.code}-`) && Number.isFinite(numericPart)) statements.push(db.prepare("UPDATE dojo_student_sequences SET last_number = MAX(last_number, ?), updated_at = ? WHERE dojo_id = ?")
-            .bind(numericPart, now, dojo.id));
+          const sequenceStatement = syncStudentIdSequenceStatement(db, dojo.id, dojo.code, studentId, now);
+          if (sequenceStatement) statements.push(sequenceStatement);
         }
         statements.push(auditStatement(db, {
           actorType: "administrator", ...adminAuditMetadata(session, request), action: "student_created", entityType: "student", entityId: id,

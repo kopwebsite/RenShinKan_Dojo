@@ -1,5 +1,5 @@
 import { normalizeRank } from "../../../../shared/ranks";
-import { canAccessDojo, getAdminSession, isSameOriginRequest, jsonResponse } from "../../../_lib/auth";
+import { canAccessDojo, getAuthorizedAdminSession, isRenShinKanSuperAdmin, isSameOriginRequest, jsonResponse } from "../../../_lib/auth";
 import {
   activeDojo,
   adminAuditMetadata,
@@ -13,6 +13,7 @@ import {
   requestIdentifier,
   requireStudentDb,
   studentNameVerificationHash,
+  syncStudentIdSequenceStatement,
   type StudentEnv,
 } from "../../../_lib/studentRecords";
 import type { R2Bucket } from "../../../_lib/storage";
@@ -38,7 +39,7 @@ function profileUrl(value: unknown) {
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env, params }) => {
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const db = requireStudentDb(env);
   const id = String(params.id);
@@ -71,7 +72,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
       COALESCE(examination_timestamp, created_at) AS examination_timestamp,
       bulk_operation_id, created_at FROM belt_examinations WHERE student_id = ?
       ORDER BY COALESCE(examination_timestamp, created_at) DESC, examination_date DESC`).bind(id),
-    db.prepare("SELECT id, entry_date, period_end, verified_hours, source, internal_note, created_at FROM training_hours WHERE student_id = ? ORDER BY created_at DESC").bind(id),
+    db.prepare("SELECT id, entry_date, period_end, verified_hours, source, internal_note, training_location, created_at FROM training_hours WHERE student_id = ? ORDER BY created_at DESC").bind(id),
     db.prepare(`SELECT ea.*, ec.name AS cycle_name,
       (SELECT json_group_array(json_object('id', h.id, 'previousStatus', h.previous_status, 'newStatus', h.new_status,
         'previousPaymentStatus', h.previous_payment_status, 'newPaymentStatus', h.new_payment_status,
@@ -94,7 +95,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
 
 export const onRequestPut: PagesFunction<Env> = async ({ request, env, params }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const requestId = requestIdentifier(request);
   try {
@@ -112,10 +113,12 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, params })
     const name = String(body.displayName ?? existing.display_name).normalize("NFKC").trim().replace(/\s+/g, " ");
     const studentId = normalizeStudentId(String(body.studentId ?? existing.public_student_id));
     const currentBelt = normalizeRank(body.currentBelt ?? existing.current_belt);
-    const requestedDojoId = String(body.dojoId ?? (existing as ExistingStudent & { dojo_id?: string }).dojo_id ?? "").trim();
+    const requestedDojoId = isRenShinKanSuperAdmin(session)
+      ? String(body.dojoId ?? (existing as ExistingStudent & { dojo_id?: string }).dojo_id ?? "").trim()
+      : existing.dojo_id;
     const dojo = await activeDojo(db, requestedDojoId);
     if (!dojo || !canAccessDojo(session, dojo.id)) return jsonResponse({ error: "Choose a dojo you are authorized to manage." }, 403);
-    if (session.role === "dojo" && dojo.id !== (existing as ExistingStudent & { dojo_id?: string }).dojo_id) return jsonResponse({ error: "Only the RenShinKan administrator may transfer a student between dojos." }, 403);
+    if (!isRenShinKanSuperAdmin(session) && dojo.id !== (existing as ExistingStudent & { dojo_id?: string }).dojo_id) return jsonResponse({ error: "Only the RenShinKan administrator may transfer a student between dojos." }, 403);
     const dojoName = dojo.official_name;
     const aatNumber = body.aatNumber === undefined ? (existing as ExistingStudent & { aat_number?: string | null }).aat_number : String(body.aatNumber || "").trim().slice(0, 40) || null;
     const aatLastPaidDate = body.aatLastPaidDate === undefined ? (existing as ExistingStudent & { aat_last_paid_date?: string | null }).aat_last_paid_date : typeof body.aatLastPaidDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.aatLastPaidDate) ? body.aatLastPaidDate : null;
@@ -135,7 +138,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, params })
     if (adminNotes.length > 5_000 || aatNotes.length > 2_000 || profileBio.length > 2_000 || practiceDuration.length > 120) return jsonResponse({ error: "One or more text fields are too long." }, 400);
     if (!Number.isFinite(currentTrainingHours) || currentTrainingHours < 0 || currentTrainingHours > 1_000_000) return jsonResponse({ error: "Current training hours must be zero or a positive number." }, 400);
     if (image === undefined) return jsonResponse({ error: "The profile image location is invalid." }, 400);
-    if (studentId !== existing.public_student_id && !isValidStudentId(studentId)) return jsonResponse({ error: "Student ID must use the format RSK-00001." }, 400);
+    if (studentId !== existing.public_student_id && !isValidStudentId(studentId)) return jsonResponse({ error: "Student ID must use a format such as RSK-6901." }, 400);
     if (studentId !== existing.public_student_id) {
       const duplicate = await db.prepare("SELECT id FROM students WHERE UPPER(public_student_id) = ? AND id <> ? LIMIT 1").bind(studentId, id).first();
       if (duplicate) return jsonResponse({ error: "That Student ID is already in use." }, 409);
@@ -169,8 +172,8 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, params })
         .bind(crypto.randomUUID(), id, existing.dojo_id, dojo.id, session.adminName, "Administrator transfer", now));
     }
     if (studentId !== existing.public_student_id && isValidStudentId(studentId)) {
-      const numericPart = Number(studentId.split("-").pop());
-      if (studentId.startsWith(`${dojo.code}-`) && Number.isFinite(numericPart)) statements.push(db.prepare("UPDATE dojo_student_sequences SET last_number = MAX(last_number, ?), updated_at = ? WHERE dojo_id = ?").bind(numericPart, now, dojo.id));
+      const sequenceStatement = syncStudentIdSequenceStatement(db, dojo.id, dojo.code, studentId, now);
+      if (sequenceStatement) statements.push(sequenceStatement);
     }
     statements.push(auditStatement(db, {
       actorType: "administrator", ...adminAuditMetadata(session, request), action: "student_updated", entityType: "student", entityId: id,
@@ -191,7 +194,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, params })
 
 export const onRequestDelete: PagesFunction<Env> = async ({ request, env, params }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const db = requireStudentDb(env);
   const id = String(params.id);
@@ -206,6 +209,7 @@ export const onRequestDelete: PagesFunction<Env> = async ({ request, env, params
   const now = new Date().toISOString();
 
   if (body.action === "delete_permanently" || body.action === "soft_delete") {
+    if (!existing.archived_at) return jsonResponse({ error: "Only an archived student can be deleted." }, 409);
     const expectedConfirmation = `DELETE ${existing.public_student_id}`;
     if (body.confirmed !== true || normalizeStudentId(String(body.studentId || "")) !== existing.public_student_id || String(body.confirmationText || "").trim() !== expectedConfirmation) {
       return jsonResponse({ error: `Type ${expectedConfirmation} to confirm soft deletion.` }, 400);
@@ -246,7 +250,7 @@ export const onRequestDelete: PagesFunction<Env> = async ({ request, env, params
 
 export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const db = requireStudentDb(env);
   const id = String(params.id);
@@ -278,7 +282,9 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params 
       ) VALUES (?, ?, ?, ?, ?, ?, 1, ?)`)
         .bind(crypto.randomUUID(), currentMonth, id, existing.display_name, existing.public_student_id, existing.current_belt, now),
       db.prepare(`UPDATE contribution_periods SET active_student_count_snapshot = (
-        SELECT COUNT(*) FROM contribution_period_students WHERE month_key = ? AND active_at_period_start = 1
+        SELECT COUNT(*) FROM contribution_period_students r
+        JOIN students s ON s.id = r.student_id
+        WHERE r.month_key = ? AND r.active_at_period_start = 1 AND s.dojo_id = 'dojo-rsk'
       ) WHERE month_key = ?`).bind(currentMonth, currentMonth),
     ] : []),
     auditStatement(db, {

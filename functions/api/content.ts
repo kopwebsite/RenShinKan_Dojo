@@ -1,7 +1,7 @@
 import { jsonResponse } from "../_lib/auth";
 import { type StorageEnv, readEditableContentFromStorage } from "../_lib/storage";
 
-export async function onRequestGet({ env }: { env: StorageEnv }) {
+export const onRequestGet: PagesFunction<StorageEnv> = async ({ env }) => {
   if (!env.CONTENT_KV) {
     return jsonResponse(
       { ok: false, error: "Cloudflare CONTENT_KV binding is not configured" },
@@ -20,4 +20,4 @@ export async function onRequestGet({ env }: { env: StorageEnv }) {
       { "Cache-Control": "no-store" },
     );
   }
-}
+};

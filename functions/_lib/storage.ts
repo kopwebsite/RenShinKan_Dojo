@@ -8,6 +8,7 @@ export type KvNamespace = {
 export type R2ObjectBody = {
   body: ReadableStream;
   httpEtag?: string;
+  customMetadata?: Record<string, string>;
   writeHttpMetadata(headers: Headers): void;
 };
 

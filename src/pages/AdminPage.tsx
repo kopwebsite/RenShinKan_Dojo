@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { AdminAlerts } from "../components/AdminAlerts";
-import { AdminDojoSelector, AdminLoginFields, type AdminDojo, type AdminIdentity, type AdminSessionResponse } from "../components/admin/AdminAccess";
+import { AdminDojoSelector, AdminLoginFields, AdminRenshinKanVerification, type AdminDojo, type AdminIdentity, type AdminSessionResponse } from "../components/admin/AdminAccess";
 import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { EventBodyRenderer } from "../components/EventBodyRenderer";
@@ -441,13 +441,15 @@ function CollapsibleEditorSection({
 
 export function AdminPage() {
   const [sessionChecked, setSessionChecked] = useState(false);
-  const [isAuthed, setIsAuthed] = useState(() => sessionStorage.getItem("renshinkan-admin-hint") === "true");
+  const [isAuthed, setIsAuthed] = useState(false);
   const [adminName, setAdminName] = useState("");
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState("");
   const [admin, setAdmin] = useState<AdminIdentity | null>(null);
   const [dojos, setDojos] = useState<AdminDojo[]>([]);
   const [selectingDojo, setSelectingDojo] = useState("");
+  const [secondaryPassword, setSecondaryPassword] = useState("");
+  const [verifying, setVerifying] = useState(false);
   const [draft, setDraft] = useState<EditableContent>(emptyEditableContent);
   const [baseline, setBaseline] = useState<EditableContent>(emptyEditableContent);
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
@@ -472,17 +474,15 @@ export function AdminPage() {
         setIsAuthed(authenticated);
         setAdmin(result.admin || null);
         setDojos(result.dojos || []);
-        sessionStorage.setItem("renshinkan-admin-hint", authenticated ? "true" : "false");
       })
       .catch(() => {
         setIsAuthed(false);
-        sessionStorage.removeItem("renshinkan-admin-hint");
       })
       .finally(() => setSessionChecked(true));
   }, []);
 
   useEffect(() => {
-    if (!isAuthed) {
+    if (!isAuthed || admin?.permissionLevel !== "renshinkan_super_admin") {
       return;
     }
 
@@ -501,7 +501,7 @@ export function AdminPage() {
       setDraft(seeded);
       setBaseline(seeded);
     });
-  }, [isAuthed]);
+  }, [isAuthed, admin?.permissionLevel]);
 
   const pendingById = useMemo(() => {
     return new Map(pendingUploads.map((upload) => [upload.id, upload]));
@@ -569,7 +569,6 @@ export function AdminPage() {
     }
 
     if (response.ok) {
-      sessionStorage.setItem("renshinkan-admin-hint", "true");
       setIsAuthed(true);
       const session = await fetch("/api/admin/session", { credentials: "include", cache: "no-store" }).then((result) => result.json() as Promise<AdminSessionResponse>);
       setAdmin(session.admin);
@@ -583,9 +582,12 @@ export function AdminPage() {
 
   const logout = async () => {
     await fetch("/api/admin/logout", { method: "POST", credentials: "include" });
-    sessionStorage.removeItem("renshinkan-admin-hint");
     setIsAuthed(false);
     setAdmin(null);
+    setAdminName("");
+    setPassword("");
+    setSecondaryPassword("");
+    setAuthError("");
     setDraft(emptyEditableContent);
     setBaseline(emptyEditableContent);
   };
@@ -954,14 +956,35 @@ export function AdminPage() {
         method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "X-Request-ID": crypto.randomUUID() },
         body: JSON.stringify({ dojoId }),
       });
-      const result = await response.json() as { error?: string };
+      const result = await response.json() as { error?: string; admin?: AdminIdentity };
       if (!response.ok) throw new Error(result.error || "The dojo could not be selected.");
-      setAdmin((current) => current ? { ...current, selectedDojoId: dojoId } : current);
+      if (result.admin) {
+        setAdmin(result.admin);
+        if (result.admin.selectedDojoId !== "dojo-rsk") window.location.assign("/admin/students");
+      }
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "The dojo could not be selected.");
     } finally {
       setSelectingDojo("");
     }
+  };
+
+  const verifyRenshinKan = async (event: FormEvent) => {
+    event.preventDefault(); setVerifying(true); setAuthError("");
+    try {
+      const response = await fetch("/api/admin/verify-renshinkan", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "X-Request-ID": crypto.randomUUID() }, body: JSON.stringify({ password: secondaryPassword }) });
+      const result = await response.json() as { error?: string; admin?: AdminIdentity };
+      if (!response.ok || !result.admin) throw new Error(result.error || "RenShinKan access could not be verified.");
+      setSecondaryPassword(""); setAdmin(result.admin);
+    } catch (error) { setAuthError(error instanceof Error ? error.message : "RenShinKan access could not be verified."); }
+    finally { setVerifying(false); }
+  };
+
+  const switchDojo = async () => {
+    const response = await fetch("/api/admin/switch-dojo", { method: "POST", credentials: "include", headers: { "X-Request-ID": crypto.randomUUID() } });
+    const result = await response.json() as { error?: string; admin?: AdminIdentity };
+    if (!response.ok || !result.admin) { setAuthError(result.error || "The dojo context could not be cleared."); return; }
+    setAdmin(result.admin); setSecondaryPassword(""); setDraft(emptyEditableContent); setBaseline(emptyEditableContent);
   };
 
   const deleteGalleryPhoto = (key: "historyMedia" | "onTheMatMedia", id: string) => {
@@ -1137,9 +1160,15 @@ export function AdminPage() {
     return <AdminDojoSelector dojos={dojos} admin={admin} busyId={selectingDojo} error={authError} onSelect={(dojoId) => void selectDojo(dojoId)} />;
   }
 
-  if (admin?.role === "dojo") {
+  if (!admin) return <section className="container-shell py-20"><p className="form-error">The administrator session could not be loaded. Please sign in again.</p></section>;
+
+  if (admin?.renshinkanVerificationRequired) {
+    return <AdminRenshinKanVerification password={secondaryPassword} error={authError} busy={verifying} setPassword={setSecondaryPassword} onSubmit={verifyRenshinKan} onCancel={() => void switchDojo()} />;
+  }
+
+  if (admin.permissionLevel !== "renshinkan_super_admin") {
     const selected = dojos.find((dojo) => dojo.id === admin.selectedDojoId);
-    return <section className="container-shell py-16"><div className="admin-login-card"><p className="eyebrow">{selected?.official_name}</p><h1>Dojo workspace ready</h1><p>You can manage students, examination applications, and AAT annual membership records for this dojo.</p><div className="admin-header-actions"><Link className="btn-primary" to="/admin/students">Open student management</Link><Link className="btn-secondary" to="/admin/memberships">AAT membership</Link><button className="btn-secondary" onClick={logout}><LogOut size={17} /> Sign out</button></div></div></section>;
+    return <section className="container-shell py-16"><div className="admin-login-card">{selected?.logo_url ? <img className="admin-selected-dojo-logo" src={selected.logo_url} alt="" /> : null}<p className="eyebrow">{selected?.official_name} / ADMIN</p><h1>Student administration</h1><p>Student records, examinations, hours, AAT annual membership, and submitted payslips.</p><div className="admin-action-board"><Link to="/admin/students"><UsersRound size={22} /><span><strong>Manage Students</strong><small>Review and update students for this dojo</small></span></Link></div><div className="admin-header-actions"><button className="btn-secondary" onClick={() => void switchDojo()}><RefreshCw size={17} /> Switch dojo</button><a className="btn-secondary" href="/" target="_blank" rel="noopener noreferrer"><ExternalLink size={17} /> Public website</a><button className="btn-secondary" onClick={logout}><LogOut size={17} /> Sign out</button></div></div><AdminAlerts /></section>;
   }
 
   const renderMediaGallery = (key: "historyMedia" | "onTheMatMedia", title: string, copy: string) => {
@@ -1204,18 +1233,20 @@ export function AdminPage() {
     <section className="container-shell py-12 sm:py-16">
       <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="eyebrow">Admin</p>
+          {dojos.find((dojo) => dojo.id === admin.selectedDojoId)?.logo_url ? <img className="admin-selected-dojo-logo" src={dojos.find((dojo) => dojo.id === admin.selectedDojoId)?.logo_url} alt="" /> : null}
+          <p className="eyebrow">{dojos.find((dojo) => dojo.id === admin.selectedDojoId)?.official_name} / ADMIN</p>
           <h1 className="section-title">Dojo administration</h1>
           <p className="section-copy">
             Publish dojo updates, manage the photographic archive, and keep public information current.
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <button type="button" onClick={logout} className="btn-secondary">
+        <div className="grid grid-cols-3 gap-3">
+          <button type="button" onClick={() => void switchDojo()} className="btn-secondary justify-center whitespace-nowrap"><RefreshCw size={17} aria-hidden="true" /> Switch dojo</button>
+          <button type="button" onClick={logout} className="btn-secondary justify-center whitespace-nowrap">
             <LogOut size={17} aria-hidden="true" />
             Log out
           </button>
-          <button type="button" onClick={() => setConfirmOpen(true)} className="btn-primary">
+          <button type="button" onClick={() => setConfirmOpen(true)} className="btn-primary justify-center whitespace-nowrap">
             <Save size={18} aria-hidden="true" />
             Review Publish
           </button>
@@ -1224,10 +1255,7 @@ export function AdminPage() {
 
       <nav className="admin-action-board" aria-label="Admin areas">
         <a href="#admin-recent-events"><FileText size={22} /><span><strong>Create a dojo update</strong><small>Write, preview and publish journal entries</small></span></a>
-        <Link to="/admin/students"><UsersRound size={22} /><span><strong>Manage students</strong><small>Hours, examinations, privacy and QR sharing</small></span></Link>
-        <Link to="/admin/memberships"><UsersRound size={22} /><span><strong>AAT annual membership</strong><small>Renewals, expiration warnings and payment history</small></span></Link>
-        <Link to="/admin/site-editor"><Presentation size={22} /><span><strong>Full website editor</strong><small>Structured multilingual pages, drafts and revisions</small></span></Link>
-        <Link to="/admin/dojos"><UsersRound size={22} /><span><strong>Dojo settings</strong><small>Names, codes, logos and active status</small></span></Link>
+        <Link to="/admin/students"><UsersRound size={22} /><span><strong>Manage Students</strong><small>Records, examinations, AAT membership, hours, and contributions</small></span></Link>
         <a href="/" target="_blank" rel="noopener noreferrer"><ExternalLink size={22} /><span><strong>Preview the website</strong><small>Open the public site in a new tab</small></span></a>
       </nav>
 

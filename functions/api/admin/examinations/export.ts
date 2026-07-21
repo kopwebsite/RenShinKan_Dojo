@@ -1,4 +1,4 @@
-import { canAccessDojo, getAdminSession, jsonResponse } from "../../../_lib/auth";
+import { canAccessDojo, getAuthorizedAdminSession, isRenShinKanSuperAdmin, jsonResponse } from "../../../_lib/auth";
 import { buildExamPdf, buildExamXlsx, type ExamExportCycle, type ExamExportRow } from "../../../_lib/examExports";
 import { adminAuditMetadata, auditStatement, requestIdentifier, requireStudentDb, type StudentEnv } from "../../../_lib/studentRecords";
 
@@ -7,7 +7,7 @@ function clean(value: string | null, max = 100) { return (value || "").trim().sl
 function filename(value: string) { return value.normalize("NFKD").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80) || "exam-report"; }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const url = new URL(request.url);
   const format = url.searchParams.get("format") === "xlsx" ? "xlsx" : url.searchParams.get("format") === "pdf" ? "pdf" : "";
@@ -20,7 +20,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   if (!cycle) return jsonResponse({ error: "Examination cycle not found." }, 404);
   const requestedDojo = clean(url.searchParams.get("dojoId"));
   if (requestedDojo && !canAccessDojo(session, requestedDojo)) return jsonResponse({ error: "You cannot export another dojo's records." }, 403);
-  const dojoId = session.role === "dojo" ? session.allowedDojoIds[0] || "__none__" : requestedDojo;
+  const dojoId = isRenShinKanSuperAdmin(session) ? requestedDojo : session.selectedDojoId || "__none__";
   if (dojoId && !canAccessDojo(session, dojoId)) return jsonResponse({ error: "You cannot export another dojo's records." }, 403);
   const scope = dojoId ? await db.prepare("SELECT id, official_name FROM dojos WHERE id = ? LIMIT 1").bind(dojoId).first<{ id: string; official_name: string }>() : null;
   if (dojoId && !scope) return jsonResponse({ error: "Dojo not found." }, 404);

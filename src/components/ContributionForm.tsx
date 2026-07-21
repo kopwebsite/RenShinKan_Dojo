@@ -3,6 +3,7 @@ import { FormEvent, useCallback, useState } from "react";
 import { TurnstileWidget } from "./TurnstileWidget";
 import { useTranslation } from "../i18n";
 import { assetPath } from "../utils/assetPath";
+import { PaymentProofUpload, type PaymentProofAccess } from "./PaymentProofUpload";
 
 const PROMPTPAY_QR_IMAGE = "/images/promptpay-qr.png";
 
@@ -23,7 +24,7 @@ function monthLabel(value: string) {
     .format(new Date(Date.UTC(year, month - 1, 1)));
 }
 
-type SubmissionResult = { contributionId: string; month: string; status: "awaiting_payment"; contributionType: "aat_annual" | "renshinkan_monthly" };
+type SubmissionResult = { contributionId: string; month: string; status: "awaiting_payment"; contributionType: "aat_annual" | "renshinkan_monthly" } & PaymentProofAccess;
 
 export function ContributionForm() {
   const { t } = useTranslation();
@@ -77,12 +78,13 @@ export function ContributionForm() {
           <h4><QrCode size={20} /> What to do next</h4>
           <ol>
             <li>Scan the existing RenShinKan PromptPay QR code and complete the payment.</li>
-            <li>Send your payment proof directly to the instructor.</li>
-            <li>Wait for the instructor to confirm this month as paid in the student database.</li>
+            <li>Upload your payslip below so the dojo can review the payment.</li>
+            <li>Wait for a sensei to approve the payslip and confirm the payment.</li>
           </ol>
           <p><ShieldCheck size={17} /> Only an authenticated administrator can mark a contribution as paid.</p>
         </section>
       </div>
+      <PaymentProofUpload access={result} paymentLabel={result.contributionType === "aat_annual" ? "AAT annual contribution" : "monthly contribution"} />
       <button className="btn-secondary" type="button" onClick={() => { setResult(null); setStudentId(""); setStudentName(""); setTurnstileReset((value) => value + 1); }}>
         Record another student
       </button>
@@ -106,7 +108,7 @@ export function ContributionForm() {
       </label>
       <label>
         <span>Student ID <b aria-hidden="true">*</b></span>
-        <input id="contribution-student-id" name="studentId" value={studentId} onChange={(event) => setStudentId(event.target.value.toUpperCase())} placeholder="RSK-00001" autoComplete="off" required />
+        <input id="contribution-student-id" name="studentId" value={studentId} onChange={(event) => setStudentId(event.target.value.toUpperCase())} placeholder="RSK-6901" autoComplete="off" required />
       </label>
       <label>
         <span>Student name as shown on the record <b aria-hidden="true">*</b></span>

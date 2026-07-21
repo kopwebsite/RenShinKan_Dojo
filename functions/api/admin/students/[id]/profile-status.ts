@@ -1,4 +1,4 @@
-import { getAdminSession, isSameOriginRequest, jsonResponse } from "../../../../_lib/auth";
+import { getAuthorizedAdminSession, isSameOriginRequest, jsonResponse } from "../../../../_lib/auth";
 import {
   adminAuditMetadata,
   assertStudentAccess,
@@ -17,7 +17,7 @@ type Env = StudentEnv & { SESSION_SECRET?: string; MEDIA_BUCKET?: R2Bucket };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const requestId = requestIdentifier(request);
   let approvedKey = "";
@@ -31,8 +31,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     const id = String(params.id);
     const access = await assertStudentAccess(db, session, id);
     if (!access.ok) return jsonResponse({ error: access.error }, access.status);
-    const existing = await db.prepare("SELECT id, public_student_id, display_name, current_belt, profile_status, pending_profile_image_key, profile_image_url FROM students WHERE id = ? LIMIT 1")
-      .bind(id).first<{ id: string; public_student_id: string; display_name: string; current_belt: string; profile_status: string; pending_profile_image_key: string | null; profile_image_url: string | null }>();
+    const existing = await db.prepare("SELECT id, public_student_id, display_name, current_belt, profile_status, pending_profile_image_key, profile_image_url, dojo_id FROM students WHERE id = ? LIMIT 1")
+      .bind(id).first<{ id: string; public_student_id: string; display_name: string; current_belt: string; profile_status: string; pending_profile_image_key: string | null; profile_image_url: string | null; dojo_id: string }>();
     if (!existing) return jsonResponse({ error: "Profile request not found." }, 404);
     if (existing.profile_status !== "pending_admin_approval") return jsonResponse({ error: "This profile request has already been reviewed." }, 409);
     const now = new Date().toISOString();
@@ -51,14 +51,18 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
       return jsonResponse({ ok: true, status: "rejected" });
     }
 
-    if (!env.MEDIA_BUCKET || !existing.pending_profile_image_key) return jsonResponse({ error: "The submitted profile picture is unavailable." }, 409);
-    const pendingObject = await env.MEDIA_BUCKET.get(existing.pending_profile_image_key);
-    if (!pendingObject) return jsonResponse({ error: "The submitted profile picture is unavailable." }, 409);
-    approvedKey = datedProfileKey("student-profiles");
-    await env.MEDIA_BUCKET.put(approvedKey, pendingObject.body, {
-      httpMetadata: { contentType: "image/webp", cacheControl: "private, max-age=3600" },
-      customMetadata: { approvedAt: now, purpose: "student-profile", source: "profile-request" },
-    });
+    let approvedImageUrl = existing.profile_image_url;
+    if (existing.pending_profile_image_key) {
+      if (!env.MEDIA_BUCKET) return jsonResponse({ error: "The submitted profile picture is unavailable." }, 409);
+      const pendingObject = await env.MEDIA_BUCKET.get(existing.pending_profile_image_key);
+      if (!pendingObject) return jsonResponse({ error: "The submitted profile picture is unavailable." }, 409);
+      approvedKey = datedProfileKey("student-profiles");
+      await env.MEDIA_BUCKET.put(approvedKey, pendingObject.body, {
+        httpMetadata: { contentType: "image/webp", cacheControl: "private, max-age=3600" },
+        customMetadata: { approvedAt: now, purpose: "student-profile", source: "profile-request" },
+      });
+      approvedImageUrl = `/uploads/${approvedKey}`;
+    }
     const token = randomToken();
     const cycle = await db.prepare("SELECT id FROM examination_cycles WHERE status = 'active' ORDER BY created_at DESC LIMIT 1")
       .first<{ id: string }>();
@@ -69,7 +73,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
       db.prepare(`UPDATE students SET profile_status = 'approved', active = 1, public_visible = 1,
         profile_image_url = ?, pending_profile_image_key = NULL, profile_review_note = ?, profile_reviewed_at = ?,
         profile_reviewed_by = ?, updated_at = ? WHERE id = ?`)
-        .bind(`/uploads/${approvedKey}`, note, now, session.adminName, now, id),
+        .bind(approvedImageUrl, note, now, session.adminName, now, id),
       db.prepare("INSERT INTO share_tokens (id, token_hash, student_id, active, created_at, token_ciphertext, purpose) VALUES (?, ?, ?, 1, ?, ?, 'owner')")
         .bind(crypto.randomUUID(), await sha256Hex(token), id, now, await encryptCapabilityToken(env, token)),
       ...(cycle ? [db.prepare(`INSERT OR IGNORE INTO exam_cycle_student_status (
@@ -77,21 +81,23 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
         current_rank_snapshot, status, updated_at, updated_by
       ) VALUES (?, ?, ?, ?, ?, ?, 'not_signed_up', ?, ?)`)
         .bind(crypto.randomUUID(), id, cycle.id, existing.display_name, existing.public_student_id, existing.current_belt, now, session.adminName)] : []),
-      ...(contributionPeriod ? [
+      ...(contributionPeriod && existing.dojo_id === "dojo-rsk" ? [
         db.prepare(`INSERT OR IGNORE INTO contribution_period_students (
           id, month_key, student_id, student_name_snapshot, student_public_id_snapshot,
           current_rank_snapshot, active_at_period_start, created_at
         ) VALUES (?, ?, ?, ?, ?, ?, 1, ?)`)
           .bind(crypto.randomUUID(), currentMonth, id, existing.display_name, existing.public_student_id, existing.current_belt, now),
         db.prepare(`UPDATE contribution_periods SET active_student_count_snapshot = (
-          SELECT COUNT(*) FROM contribution_period_students WHERE month_key = ? AND active_at_period_start = 1
+          SELECT COUNT(*) FROM contribution_period_students r
+          JOIN students s ON s.id = r.student_id
+          WHERE r.month_key = ? AND r.active_at_period_start = 1 AND s.dojo_id = 'dojo-rsk'
         ) WHERE month_key = ?`).bind(currentMonth, currentMonth),
       ] : []),
       auditStatement(db, {
         actorType: "administrator", ...adminAuditMetadata(session, request), action: "profile_approved", entityType: "student", entityId: id, studentId: id,
         studentPublicId: existing.public_student_id, studentNameSnapshot: existing.display_name,
         previousValues: { profileStatus: existing.profile_status, active: false, publicVisible: false },
-        newValues: { profileStatus: "approved", active: true, publicVisible: true, profileImageUrl: `/uploads/${approvedKey}` },
+        newValues: { profileStatus: "approved", active: true, publicVisible: true, profileImageUrl: approvedImageUrl },
         source: "admin_profile_review", requestId, administratorNote: note || null,
         summary: `Approved profile request ${existing.public_student_id}`, createdAt: now,
       }),
@@ -103,7 +109,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
       }),
     ]);
     approvedKey = "";
-    await env.MEDIA_BUCKET.delete(existing.pending_profile_image_key).catch(() => undefined);
+    if (env.MEDIA_BUCKET && existing.pending_profile_image_key) await env.MEDIA_BUCKET.delete(existing.pending_profile_image_key).catch(() => undefined);
     return jsonResponse({ ok: true, status: "approved" });
   } catch (error) {
     if (approvedKey && env.MEDIA_BUCKET) await env.MEDIA_BUCKET.delete(approvedKey).catch(() => undefined);

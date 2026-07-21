@@ -1,5 +1,5 @@
 import { aatMembershipStatus, addOneCalendarYear } from "../../../shared/membership";
-import { canAccessDojo, getAdminSession, isSameOriginRequest, jsonResponse } from "../../_lib/auth";
+import { canAccessDojo, getAuthorizedAdminSession, isRenShinKanSuperAdmin, isSameOriginRequest, jsonResponse } from "../../_lib/auth";
 import { adminAuditMetadata, assertStudentAccess, auditStatement, requestIdentifier, requireStudentDb, type StudentEnv } from "../../_lib/studentRecords";
 
 type Env = StudentEnv & { SESSION_SECRET?: string };
@@ -13,7 +13,7 @@ function escapeLike(value: string) {
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const db = requireStudentDb(env);
   const url = new URL(request.url);
@@ -21,7 +21,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const pageSize = 40;
   const query = clean(url.searchParams.get("query"), 120);
   const requestedDojoId = clean(url.searchParams.get("dojoId"), 80);
-  const dojoId = session.role === "dojo" ? session.allowedDojoIds[0] : requestedDojoId;
+  const dojoId = isRenShinKanSuperAdmin(session) ? requestedDojoId : session.selectedDojoId;
   if (dojoId && !canAccessDojo(session, dojoId)) return jsonResponse({ error: "You do not have access to that dojo." }, 403);
   const conditions = ["s.deleted_at IS NULL"];
   const bindings: unknown[] = [];
@@ -33,6 +33,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   }
   const rows = (await db.prepare(`SELECT s.id, s.display_name, s.public_student_id, s.current_belt,
       s.dojo_id, d.official_name AS dojo_name, s.aat_number, s.aat_last_paid_date, s.aat_notes,
+      EXISTS(SELECT 1 FROM payments pending WHERE pending.student_id = s.id
+        AND pending.payment_type = 'aat_annual' AND pending.status = 'awaiting_payment') AS payment_awaiting_review,
       (SELECT json_group_array(json_object('id', p.id, 'paymentDate', p.payment_date,
         'renewalDueDate', p.renewal_due_date, 'amount', p.amount, 'currency', p.currency,
         'notes', p.notes, 'recordedBy', p.recorded_by, 'createdAt', p.created_at))
@@ -45,7 +47,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     let history: unknown[] = [];
     try { history = JSON.parse(String(row.history_json || "[]")); } catch { history = []; }
     return { ...row, aatDisplay: row.aat_number || "NEW", membership, history, history_json: undefined };
-  }).filter((row) => !statusFilter || row.membership.state === statusFilter);
+  }).filter((row) => !statusFilter
+    || (statusFilter === "pending_payment" ? Number(row.payment_awaiting_review) === 1 : row.membership.state === statusFilter));
   const total = mapped.length;
   return jsonResponse({
     memberships: mapped.slice((page - 1) * pageSize, page * pageSize),
@@ -55,7 +58,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   try {
     const body = await request.json<Record<string, unknown>>();
@@ -89,7 +92,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         (id, student_id, dojo_id, payment_date, renewal_due_date, amount, currency, notes,
          recorded_by, recorded_by_role, recorded_by_dojo_id, created_at)
         VALUES (?, ?, ?, ?, ?, ?, 'THB', ?, ?, ?, ?, ?)`)
-        .bind(paymentId, studentId, student.dojo_id, paymentDate, dueDate, amount, notes, session.adminName, session.role, session.selectedDojoId, now),
+        .bind(paymentId, studentId, student.dojo_id, paymentDate, dueDate, amount, notes, session.adminName, isRenShinKanSuperAdmin(session) ? "central" : "dojo", session.selectedDojoId, now),
       db.prepare(`INSERT INTO payments
         (id, student_id, dojo_id, payment_type, amount, currency, payment_date, status, reference, notes, recorded_by, created_at, updated_at)
         VALUES (?, ?, ?, 'aat_annual', ?, 'THB', ?, 'paid', ?, ?, ?, ?, ?)

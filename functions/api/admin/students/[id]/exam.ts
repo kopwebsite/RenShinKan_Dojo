@@ -1,16 +1,16 @@
 import { rankIndex } from "../../../../../shared/ranks";
-import { getAdminSession, isSameOriginRequest, jsonResponse } from "../../../../_lib/auth";
+import { getAuthorizedAdminSession, isSameOriginRequest, jsonResponse } from "../../../../_lib/auth";
 import { adminAuditMetadata, assertStudentAccess, auditStatement, normalizedRankOrError, rankColor, requestIdentifier, requireStudentDb, type StudentEnv } from "../../../../_lib/studentRecords";
 
 type Env = StudentEnv & { SESSION_SECRET?: string };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const requestId = requestIdentifier(request);
   try {
-    const body = await request.json<{ currentRank?: unknown; attemptedRank?: unknown; passed?: unknown; location?: unknown }>();
+    const body = await request.json<{ currentRank?: unknown; attemptedRank?: unknown; passed?: unknown; location?: unknown; examinationDate?: unknown }>();
     const db = requireStudentDb(env);
     const studentId = String(params.id);
     const access = await assertStudentAccess(db, session, studentId);
@@ -21,9 +21,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     const attemptedRank = normalizedRankOrError(body.attemptedRank);
     const passed = body.passed === true;
     const location = typeof body.location === "string" ? body.location.normalize("NFKC").trim().replace(/\s+/g, " ") : "";
+    const examinationDate = typeof body.examinationDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.examinationDate) ? body.examinationDate : "";
+    const parsedExaminationDate = examinationDate ? new Date(`${examinationDate}T12:00:00.000Z`) : null;
     if (currentRank !== normalizedRankOrError(student.current_belt)) return jsonResponse({ error: "The student's current rank changed. Refresh and try again." }, 409);
     if (rankIndex(attemptedRank) <= rankIndex(currentRank)) return jsonResponse({ error: "The attempted rank must be higher than the current rank." }, 400);
     if (!location || location.length > 200) return jsonResponse({ error: "Enter the examination location." }, 400);
+    if (!parsedExaminationDate || Number.isNaN(parsedExaminationDate.getTime()) || parsedExaminationDate.toISOString().slice(0, 10) !== examinationDate) return jsonResponse({ error: "Choose a valid examination date." }, 400);
     const rankAfter = passed ? attemptedRank : currentRank;
     const examId = crypto.randomUUID();
     const now = new Date().toISOString();
@@ -36,13 +39,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
         (id, student_id, examination_date, belt_awarded, belt_color, rank, examiner, public_notes, internal_notes, created_at,
          rank_before, rank_attempted, passed, examination_location, rank_after, administrator_id, examination_timestamp)
         VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .bind(examId, studentId, now.slice(0, 10), attemptedRank, rankColor(attemptedRank), attemptedRank, now, currentRank, attemptedRank, passed ? 1 : 0, location, rankAfter, session.adminName, now),
+        .bind(examId, studentId, examinationDate, attemptedRank, rankColor(attemptedRank), attemptedRank, now, currentRank, attemptedRank, passed ? 1 : 0, location, rankAfter, session.adminName, parsedExaminationDate.toISOString()),
       db.prepare("UPDATE students SET current_belt = ?, belt_color = ?, updated_at = ? WHERE id = ?")
         .bind(rankAfter, rankColor(rankAfter), now, studentId),
       auditStatement(db, {
         actorType: "administrator", ...adminAuditMetadata(session, request), action: passed ? "examination_passed" : "examination_failed",
         entityType: "belt_examination", entityId: examId, studentId,
-        previousValues: { currentRank }, newValues: { attemptedRank, passed, location, rankAfter }, source: "admin_student_edit", requestId,
+        previousValues: { currentRank }, newValues: { attemptedRank, passed, location, examinationDate, rankAfter }, source: "admin_student_edit", requestId,
         summary: `Recorded ${passed ? "passed" : "failed"} examination: ${currentRank} → ${rankAfter}`, createdAt: now,
       }),
       db.prepare("INSERT INTO mutation_requests (request_id, actor_type, action, response_json, created_at) VALUES (?, 'administrator', ?, ?, ?)")

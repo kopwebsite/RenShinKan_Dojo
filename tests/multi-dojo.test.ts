@@ -6,7 +6,7 @@ import { unzipSync, strFromU8 } from "fflate";
 import { authenticateAdminPassword, canAccessDojo, createSessionCookie, getAdminSession, requiresCentralAdmin, type AdminSession } from "../functions/_lib/auth";
 import { buildExamPdf, buildExamXlsx } from "../functions/_lib/examExports";
 import { validateEditableContent } from "../functions/_lib/content";
-import { formatStudentId } from "../functions/_lib/studentRecords";
+import { formatStudentId, studentIdSequenceForCurrentYear, thaiBuddhistYear } from "../functions/_lib/studentRecords";
 import { aatMembershipStatus, addOneCalendarYear } from "../shared/membership";
 import { onRequestGet as getStudent, onRequestPut as putStudent } from "../functions/api/admin/students/[id]";
 
@@ -18,8 +18,8 @@ async function hmac(secret: string, value: string) {
   return [...new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value)))].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-function session(role: "central" | "dojo", allowedDojoIds: string[] = []): AdminSession {
-  return { sub: "admin", iat: 1, exp: 9_999_999_999, sessionId: "session", adminName: "Test administrator", role, allowedDojoIds, selectedDojoId: allowedDojoIds[0] || "dojo-rsk" };
+function session(role: "central" | "dojo", allowedDojoIds: string[] = [], selectedDojoId = allowedDojoIds[0] || "dojo-rsk", renshinkanVerified = role === "central" && selectedDojoId === "dojo-rsk"): AdminSession {
+  return { sub: "admin", iat: 1, exp: 9_999_999_999, sessionId: "session", adminName: "Test administrator", role, allowedDojoIds, selectedDojoId, renshinkanVerified };
 }
 
 describe("multi-dojo authentication and authorization", () => {
@@ -33,12 +33,13 @@ describe("multi-dojo authentication and authorization", () => {
   });
 
   it("keeps selected dojo separate from allowed dojo and rejects a cross-dojo request", () => {
-    const central = session("central"); const cmu = session("dojo", ["dojo-cmu"]);
+    const central = session("central"); const centralAtCmu = session("central", [], "dojo-cmu", false); const cmu = session("dojo", ["dojo-cmu"]);
     expect(requiresCentralAdmin(central)).toBe(true); expect(requiresCentralAdmin(cmu)).toBe(false);
     expect(canAccessDojo(cmu, "dojo-cmu")).toBe(true); expect(canAccessDojo(cmu, "dojo-nu")).toBe(false);
     expect(canAccessDojo(central, "dojo-nu")).toBe(true);
+    expect(canAccessDojo(centralAtCmu, "dojo-cmu")).toBe(true); expect(canAccessDojo(centralAtCmu, "dojo-nu")).toBe(false);
     const selection = file("functions/api/admin/select-dojo.ts");
-    expect(selection).toContain("canAccessDojo"); expect(selection).toContain("does not have access to that dojo");
+    expect(selection).toContain("canSelectDojo"); expect(selection).toContain("does not have access to that dojo");
   });
 
   it("signs role, allowed dojos, administrator name, and selection into a tamper-evident cookie", async () => {
@@ -68,9 +69,19 @@ describe("multi-dojo data model and workflows", () => {
     expect(migration).toContain("UPDATE students"); expect(migration).toContain("ELSE 'dojo-rsk'");
   });
 
-  it("generates dojo-prefixed five-digit IDs and preserves per-dojo atomic sequences", () => {
-    expect(formatStudentId(1, "CMU")).toBe("CMU-00001"); expect(formatStudentId(42, "mhs")).toBe("MHS-00042");
-    const records = file("functions/_lib/studentRecords.ts"); expect(records).toContain("UPDATE dojo_student_sequences SET last_number = last_number + 1"); expect(records).toContain("RETURNING last_number");
+  it("generates dojo-prefixed Buddhist-year IDs with a sequence that resets each year", () => {
+    expect(thaiBuddhistYear(new Date("2026-07-22T00:00:00Z"))).toBe(2569);
+    expect(formatStudentId(1, "RSK", 2569)).toBe("RSK-6901");
+    expect(formatStudentId(2, "cmu", 2569)).toBe("CMU-6902");
+    expect(formatStudentId(1, "RSK", 2570)).toBe("RSK-7001");
+    expect(studentIdSequenceForCurrentYear("RSK-6912", "RSK", new Date("2026-07-22T00:00:00Z"))).toEqual({ buddhistYear: 2569, sequence: 12 });
+    expect(studentIdSequenceForCurrentYear("RSK-6809", "RSK", new Date("2026-07-22T00:00:00Z"))).toBeNull();
+    const records = file("functions/_lib/studentRecords.ts");
+    expect(records).toContain("ON CONFLICT(dojo_id, buddhist_year)");
+    expect(records).toContain("RETURNING last_number");
+    const yearlyMigration = file("migrations/0011_buddhist_year_student_ids.sql");
+    expect(yearlyMigration).toContain("PRIMARY KEY (dojo_id, buddhist_year)");
+    expect(yearlyMigration).not.toMatch(/DROP\s+TABLE|UPDATE\s+students/i);
   });
 
   it("requires dojo assignment for admin creation and self-registration, leaving AAT number nullable", () => {
@@ -89,14 +100,18 @@ describe("multi-dojo data model and workflows", () => {
   });
 
   it("keeps AAT payments immutable and monthly contributions RenShinKan-only", () => {
-    const memberships = file("functions/api/admin/memberships.ts"); const publicContribution = file("functions/api/contributions.ts"); const adminContribution = file("functions/api/admin/contributions.ts");
+    const memberships = file("functions/api/admin/memberships.ts"); const publicContribution = file("functions/api/contributions.ts"); const adminContribution = file("functions/api/admin/contributions.ts"); const profileApproval = file("functions/api/admin/students/[id]/profile-status.ts");
     expect(memberships).toContain("INSERT INTO aat_membership_payments"); expect(memberships).toContain("INSERT INTO payment_history");
-    expect(publicContribution).toContain("student.dojo_id !== \"dojo-rsk\""); expect(adminContribution).toContain("requiresCentralAdmin"); expect(adminContribution).toContain("dojo_id = 'dojo-rsk'");
+    expect(publicContribution).toContain("student.dojo_id !== \"dojo-rsk\""); expect(adminContribution).toContain("requiresCentralAdmin");
+    expect(adminContribution).toContain("JOIN students s ON s.id = r.student_id AND s.dojo_id = 'dojo-rsk'");
+    expect(adminContribution).toContain("c.student_id = r.student_id AND c.month_key = r.month_key");
+    expect(adminContribution).toContain("s.dojo_id = 'dojo-rsk' AND c.status = 'paid'");
+    expect(profileApproval).toContain('contributionPeriod && existing.dojo_id === "dojo-rsk"');
   });
 
   it("enforces dojo scoping in student, application, membership, dashboard, and report APIs", () => {
     for (const path of ["functions/api/admin/students/index.ts", "functions/api/admin/students/[id].ts", "functions/api/admin/memberships.ts", "functions/api/admin/dashboard.ts", "functions/api/admin/examinations.ts", "functions/api/admin/examinations/export.ts"]) {
-      expect(file(path)).toMatch(/canAccessDojo|session\.role === "dojo"|assertStudentAccess/);
+      expect(file(path)).toMatch(/canAccessDojo|isRenShinKanSuperAdmin|assertStudentAccess/);
     }
     expect(file("functions/api/admin/audit.ts")).toContain("requiresCentralAdmin");
   });

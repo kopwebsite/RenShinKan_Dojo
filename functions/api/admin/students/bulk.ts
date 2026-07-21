@@ -1,14 +1,14 @@
 import { promoteRank } from "../../../../shared/ranks";
-import { canAccessDojo, getAdminSession, isSameOriginRequest, jsonResponse } from "../../../_lib/auth";
+import { canAccessDojo, getAuthorizedAdminSession, isSameOriginRequest, jsonResponse } from "../../../_lib/auth";
 import { adminAuditMetadata, auditStatement, rankColor, requestIdentifier, requireStudentDb, type D1PreparedStatement, type StudentEnv } from "../../../_lib/studentRecords";
 
 type Env = StudentEnv & { SESSION_SECRET?: string };
-type Student = { id: string; display_name: string; current_belt: string; total_hours: number; dojo_id: string };
+type Student = { id: string; display_name: string; current_belt: string; total_hours: number; dojo_id: string; active: number; profile_status: string; archived_at: string | null };
 type PendingHourRequest = { id: string; student_id: string; submitted_hours: number; previous_total: number; requested_total: number };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const requestId = requestIdentifier(request);
   const bulkOperationId = crypto.randomUUID();
@@ -24,32 +24,37 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       : [];
     if (!action || studentIds.length === 0) return jsonResponse({ error: "Select at least one student and choose a bulk action." }, 400);
     const placeholders = studentIds.map(() => "?").join(",");
-    const students = (await db.prepare(`SELECT s.id, s.display_name, s.current_belt, s.dojo_id,
+    const students = (await db.prepare(`SELECT s.id, s.display_name, s.current_belt, s.dojo_id, s.active, s.profile_status, s.archived_at,
       COALESCE((SELECT SUM(verified_hours) FROM training_hours h WHERE h.student_id = s.id), 0) + s.training_hours_adjustment AS total_hours
       FROM students s WHERE s.id IN (${placeholders})`).bind(...studentIds).all<Student>()).results || [];
     if (students.length !== studentIds.length) return jsonResponse({ error: "One or more selected students no longer exist. Refresh and try again." }, 409);
     if (students.some((student) => !canAccessDojo(session, student.dojo_id))) return jsonResponse({ error: "One or more selected students belongs to another dojo." }, 403);
+    if (students.some((student) => student.active !== 1 || student.archived_at || student.profile_status !== "approved")) {
+      return jsonResponse({ error: "Active-student actions can only be applied to active, approved records. Refresh the selection and try again." }, 409);
+    }
     const now = new Date().toISOString();
     const statements: D1PreparedStatement[] = [];
     const results: Array<Record<string, unknown>> = [];
 
     if (action === "add_hours") {
       const hours = Number(body.hours);
+      const location = typeof body.location === "string" ? body.location.normalize("NFKC").trim().replace(/\s+/g, " ") : "";
       if (!Number.isFinite(hours) || hours <= 0 || hours > 1000) return jsonResponse({ error: "Enter a positive number of hours, up to 1,000." }, 400);
+      if (location.length > 200) return jsonResponse({ error: "Training location must be 200 characters or fewer." }, 400);
       for (const student of students) {
         const recordId = crypto.randomUUID();
         const previous = Number(student.total_hours || 0);
         const next = previous + hours;
         statements.push(
           db.prepare(`INSERT INTO training_hours
-            (id, student_id, entry_date, verified_hours, source, internal_note, created_at)
-            VALUES (?, ?, ?, ?, 'admin_bulk_hours', NULL, ?)`)
-            .bind(recordId, student.id, now.slice(0, 10), hours, now),
+            (id, student_id, entry_date, verified_hours, source, internal_note, training_location, created_at)
+            VALUES (?, ?, ?, ?, 'admin_bulk_hours', NULL, ?, ?)`)
+            .bind(recordId, student.id, now.slice(0, 10), hours, location || null, now),
           db.prepare("UPDATE students SET updated_at = ? WHERE id = ?").bind(now, student.id),
           auditStatement(db, {
             actorType: "administrator", ...adminAuditMetadata(session, request), action: "bulk_training_hours_added", entityType: "training_hours",
-            entityId: recordId, studentId: student.id, previousValues: { totalHours: previous }, newValues: { hoursAdded: hours, totalHours: next },
-            source: "admin_bulk_hours", bulkOperationId, requestId, summary: `Bulk added ${hours} hours (${previous} → ${next})`, createdAt: now,
+            entityId: recordId, studentId: student.id, previousValues: { totalHours: previous }, newValues: { hoursAdded: hours, location: location || null, totalHours: next },
+            source: "admin_bulk_hours", bulkOperationId, requestId, summary: `Bulk added ${hours} hours${location ? ` at ${location}` : ""} (${previous} → ${next})`, createdAt: now,
           }),
         );
         results.push({ studentId: student.id, name: student.display_name, previousTotal: previous, newTotal: next });

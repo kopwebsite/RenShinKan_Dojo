@@ -1,5 +1,6 @@
 import { rankIndex } from "../../../shared/ranks";
 import { jsonResponse } from "../../_lib/auth";
+import { createPaymentProofDraft } from "../../_lib/paymentProofs";
 import {
   auditStatement,
   enforceLookupRateLimit,
@@ -121,7 +122,10 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
     const examFee = fee(cycle.rank_fee_config_json, attemptedRank);
     const aatAnnualFee = fee(cycle.annual_fee_config_json, attemptedRank);
     const lastExam = await db.prepare("SELECT MAX(examination_date) AS date FROM belt_examinations WHERE student_id = ?").bind(student.id).first<{ date: string | null }>();
-    const response = { ok: true, applicationId, status: "application_submitted", paymentStatus: "payment_pending", cycle: cycle.name };
+    const proof = await createPaymentProofDraft(db, {
+      studentId: student.id, dojoId: student.dojo_id, paymentType: "exam", paymentReferenceId: applicationId, createdAt: now,
+    });
+    const response = { ok: true, applicationId, status: "application_submitted", paymentStatus: "payment_pending", cycle: cycle.name, proofId: proof.proofId, uploadToken: proof.uploadToken };
     await db.batch([
       db.prepare(`INSERT INTO examination_applications
         (id, student_id, cycle_id, answers_json, current_rank, attempted_rank, status, payment_status,
@@ -131,6 +135,7 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
         .bind(applicationId, student.id, cycle.id, JSON.stringify(answers), currentRank, attemptedRank, now, now,
           student.display_name, student.public_student_id, student.dojo_id, lastExam?.date || null,
           text(body.gamesExperience, 1000), examFee, aatAnnualFee, examFee + aatAnnualFee),
+      proof.statement,
       db.prepare(`INSERT INTO exam_cycle_student_status (
           id, student_id, cycle_id, application_id, student_name_snapshot, student_public_id_snapshot,
           current_rank_snapshot, requested_rank_snapshot, status, application_date, updated_at, updated_by

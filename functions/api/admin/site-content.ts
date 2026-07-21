@@ -1,4 +1,4 @@
-import { getAdminSession, isSameOriginRequest, jsonResponse, requiresCentralAdmin } from "../../_lib/auth";
+import { getAuthorizedAdminSession, isSameOriginRequest, jsonResponse, requiresCentralAdmin } from "../../_lib/auth";
 import { validateEditableContent, type EditableContent } from "../../_lib/content";
 import { readEditableContentFromStorage, writeEditableContentToStorage, type StorageEnv } from "../../_lib/storage";
 import { adminAuditMetadata, auditStatement, requestIdentifier, requireStudentDb, type StudentEnv } from "../../_lib/studentRecords";
@@ -20,7 +20,7 @@ function mergeSiteContent(base: EditableContent, input: unknown) {
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!requiresCentralAdmin(session)) return jsonResponse({ error: "Only the RenShinKan administrator may edit the website." }, session ? 403 : 401);
   const db = requireStudentDb(env);
   const [draft, revisions] = await Promise.all([
@@ -34,7 +34,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
 export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!requiresCentralAdmin(session)) return jsonResponse({ error: "Only the RenShinKan administrator may edit the website." }, session ? 403 : 401);
   try {
     const body = await request.json<{ content?: unknown }>();
@@ -62,7 +62,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!requiresCentralAdmin(session)) return jsonResponse({ error: "Only the RenShinKan administrator may publish the website." }, session ? 403 : 401);
   try {
     const body = await request.json<{ action?: unknown; confirmed?: unknown; revisionId?: unknown; note?: unknown }>();

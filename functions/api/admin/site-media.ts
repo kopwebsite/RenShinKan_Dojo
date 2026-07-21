@@ -1,4 +1,4 @@
-import { getAdminSession, isSameOriginRequest, jsonResponse, requiresCentralAdmin } from "../../_lib/auth";
+import { getAuthorizedAdminSession, isSameOriginRequest, jsonResponse, requiresCentralAdmin } from "../../_lib/auth";
 import { getUploadFiles, uploadFilesToR2, type StorageEnv } from "../../_lib/storage";
 import { adminAuditMetadata, auditStatement, requestIdentifier, requireStudentDb, type StudentEnv } from "../../_lib/studentRecords";
 
@@ -6,7 +6,7 @@ type Env = StudentEnv & StorageEnv & { SESSION_SECRET?: string };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!requiresCentralAdmin(session)) return jsonResponse({ error: "Only the RenShinKan administrator may upload website media." }, session ? 403 : 401);
   try {
     const files = getUploadFiles(await request.formData());

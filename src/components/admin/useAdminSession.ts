@@ -8,6 +8,7 @@ export function useAdminSession() {
   const [dojos, setDojos] = useState<AdminDojo[]>([]);
   const [name, setName] = useState(""); const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false); const [selecting, setSelecting] = useState(""); const [error, setError] = useState("");
+  const [secondaryPassword, setSecondaryPassword] = useState(""); const [verifying, setVerifying] = useState(false);
 
   async function refresh() {
     try {
@@ -26,10 +27,27 @@ export function useAdminSession() {
   }
   async function selectDojo(dojoId: string) {
     setSelecting(dojoId); setError("");
-    try { const result = await adminApi<{ admin: AdminIdentity }>("/api/admin/select-dojo", { method: "POST", body: JSON.stringify({ dojoId }) }); setAdmin(result.admin); }
+    try {
+      const result = await adminApi<{ admin: AdminIdentity }>("/api/admin/select-dojo", { method: "POST", body: JSON.stringify({ dojoId }) });
+      setAdmin(result.admin);
+      if (result.admin.selectedDojoId !== "dojo-rsk") window.location.assign("/admin/students");
+    }
     catch (reason) { setError(reason instanceof Error ? reason.message : "The dojo could not be selected."); }
     finally { setSelecting(""); }
   }
-  async function logout() { try { await adminApi("/api/admin/logout", { method: "POST" }); } finally { setAdmin(null); setName(""); } }
-  return { checked, admin, dojos, name, password, busy, selecting, error, setName, setPassword, setError, login, selectDojo, logout, refresh };
+  async function verifyRenshinKan(event: FormEvent) {
+    event.preventDefault(); setVerifying(true); setError("");
+    try {
+      const result = await adminApi<{ admin: AdminIdentity }>("/api/admin/verify-renshinkan", { method: "POST", body: JSON.stringify({ password: secondaryPassword }) });
+      setSecondaryPassword(""); setAdmin(result.admin);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "RenShinKan access could not be verified."); }
+    finally { setVerifying(false); }
+  }
+  async function switchDojo() {
+    setError(""); setSecondaryPassword("");
+    const result = await adminApi<{ admin: AdminIdentity }>("/api/admin/switch-dojo", { method: "POST" });
+    setAdmin(result.admin);
+  }
+  async function logout() { try { await adminApi("/api/admin/logout", { method: "POST" }); } finally { setAdmin(null); setName(""); setPassword(""); setSecondaryPassword(""); } }
+  return { checked, admin, dojos, name, password, secondaryPassword, busy, selecting, verifying, error, setName, setPassword, setSecondaryPassword, setError, login, selectDojo, verifyRenshinKan, switchDojo, logout, refresh };
 }

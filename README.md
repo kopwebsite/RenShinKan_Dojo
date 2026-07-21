@@ -58,7 +58,7 @@ The repository should include source files, package manifests, public site asset
 
 ## Admin Page
 
-Open `/admin` to enter the admin editor. Login is handled by Cloudflare Pages Functions with an HttpOnly signed session cookie. The admin API routes also verify the session server-side; the frontend page alone is not treated as a security boundary.
+Open `/admin` to enter the admin editor. Login, selected-dojo context, and effective permissions are stored in an HttpOnly signed session cookie and validated by Cloudflare Pages Functions. Selecting RenShinKan requires the additional `RSK_ADMIN_SECONDARY_PASSWORD` secret before full-site administration is enabled. Selecting any other dojo creates a student-only context scoped to that dojo, including for a central account. API handlers and direct admin page routes validate this context server-side; the frontend is not treated as a security boundary.
 
 The current admin UI exposes:
 
@@ -76,6 +76,8 @@ The current admin UI exposes:
 ## Student records
 
 Structured student data is stored in the `renshinkan-student-records` D1 database through the `STUDENT_DB` Pages Functions binding. Apply the checked-in SQL migrations before using `/admin/students`. The public `/student-records` form requires a normalized student name plus the current Student ID and Cloudflare verification; successful lookup creates a short-lived capability for student submissions. Shared QR links contain a 256-bit random token; only its SHA-256 hash is stored.
+
+Payment payslips are stored privately under the `payment-proofs/` prefix in the `MEDIA_BUCKET` R2 bucket and are available only through an authenticated, dojo-scoped admin endpoint. Before publishing this feature, apply `migrations/0010_payment_proofs.sql` and run `npm run r2:lifecycle:payslips` once for the production bucket. The R2 lifecycle rule deletes stored images after 60 days; the application also removes expired database references during payslip activity.
 
 `STUDENT_LOOKUP_PEPPER` may be configured as a dedicated Pages secret. If it is omitted, the existing `SESSION_SECRET` is used as the HMAC key with separate purpose prefixes. Never rotate either key without rebuilding the derived student-name verification hashes.
 
@@ -95,6 +97,7 @@ Required Cloudflare configuration:
 - `MEDIA_BUCKET` R2 bucket binding
 - `ADMIN_PASSWORD_HASH` secret
 - `SESSION_SECRET` secret
+- `RSK_ADMIN_SECONDARY_PASSWORD` secret (set the production value through the Cloudflare Pages secret manager; never use a `VITE_` prefix)
 - `SITE_URL` Pages Function variable or secret
 - `VITE_TURNSTILE_SITE_KEY` Pages build variable for the public `/support` Turnstile widget
 - `TURNSTILE_SECRET_KEY` Pages Function secret matching that Turnstile widget

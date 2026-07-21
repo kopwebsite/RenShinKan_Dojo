@@ -75,7 +75,7 @@ export function AdminStudentsPage() {
   const [students, setStudents] = useState<StudentSummary[]>([]);
   const [pagination, setPagination] = useState(EMPTY_PAGE);
   const [summary, setSummary] = useState(EMPTY_SUMMARY);
-  const [suggestedId, setSuggestedId] = useState("RSK-0001");
+  const [suggestedId, setSuggestedId] = useState("RSK-00001");
   const [queryInput, setQueryInput] = useState("");
   const [query, setQuery] = useState("");
   const [rank, setRank] = useState("");

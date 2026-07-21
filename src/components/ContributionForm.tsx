@@ -106,7 +106,7 @@ export function ContributionForm() {
       </label>
       <label>
         <span>Student ID <b aria-hidden="true">*</b></span>
-        <input id="contribution-student-id" name="studentId" value={studentId} onChange={(event) => setStudentId(event.target.value.toUpperCase())} placeholder="RSK-0001" autoComplete="off" required />
+        <input id="contribution-student-id" name="studentId" value={studentId} onChange={(event) => setStudentId(event.target.value.toUpperCase())} placeholder="RSK-00001" autoComplete="off" required />
       </label>
       <label>
         <span>Student name as shown on the record <b aria-hidden="true">*</b></span>

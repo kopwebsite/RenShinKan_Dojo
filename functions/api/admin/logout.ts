@@ -3,7 +3,7 @@ import { adminAuditMetadata, auditStatement, requestIdentifier, requireStudentDb
 
 type Env = StudentEnv & { SESSION_SECRET?: string };
 
-export async function onRequestPost({ request, env }: { request: Request; env: Env }) {
+export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!isSameOriginRequest(request)) {
     return jsonResponse({ ok: false, error: "Forbidden" }, 403);
   }
@@ -22,4 +22,4 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
       "Set-Cookie": clearSessionCookie(),
     },
   );
-}
+};

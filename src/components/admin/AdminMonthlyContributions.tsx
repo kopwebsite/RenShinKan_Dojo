@@ -50,7 +50,10 @@ export function AdminMonthlyContributions({ report }: { report: (message: string
   const [month, setMonth] = useState("");
   const [queryInput, setQueryInput] = useState("");
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState<ContributionStatus | "">(() => {
+    const value = new URLSearchParams(window.location.search).get("status") || "";
+    return value === "no_submission" || value === "awaiting_payment" || value === "paid" ? value : "";
+  });
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pending, setPending] = useState<PendingChange | null>(null);

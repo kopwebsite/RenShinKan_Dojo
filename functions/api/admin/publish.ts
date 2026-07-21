@@ -1,4 +1,4 @@
-import { getAdminSession, isSameOriginRequest, jsonResponse, requiresCentralAdmin } from "../../_lib/auth";
+import { getAuthorizedAdminSession, isSameOriginRequest, jsonResponse, requiresCentralAdmin } from "../../_lib/auth";
 import { createAndSendRecentEventCampaign, missingBrevoEnv } from "../../_lib/brevo";
 import {
   type EditableContent,
@@ -137,12 +137,12 @@ async function publishNewsletterCandidates(env: Env, content: EditableContent, c
   return { content: nextContent, warnings };
 }
 
-export async function onRequestPost({ request, env }: { request: Request; env: Env }) {
+export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!isSameOriginRequest(request)) {
     return jsonResponse({ ok: false, error: "Forbidden" }, 403);
   }
 
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!requiresCentralAdmin(session)) return jsonResponse({ ok: false, error: "Only the RenShinKan administrator may publish website content or newsletters." }, session ? 403 : 401);
 
   if (!env.CONTENT_KV) {
@@ -225,4 +225,4 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
       500,
     );
   }
-}
+};

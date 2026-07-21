@@ -1,4 +1,4 @@
-import { getAdminSession, isSameOriginRequest, jsonResponse, requiresCentralAdmin } from "../../_lib/auth";
+import { getAuthorizedAdminSession, isSameOriginRequest, jsonResponse, requiresCentralAdmin } from "../../_lib/auth";
 import { adminAuditMetadata, auditStatement, requestIdentifier, requireStudentDb, type StudentEnv } from "../../_lib/studentRecords";
 
 type Env = StudentEnv & { SESSION_SECRET?: string };
@@ -8,7 +8,7 @@ function clean(value: unknown, max: number) {
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!requiresCentralAdmin(session)) return jsonResponse({ error: "Only the RenShinKan administrator may manage dojos." }, session ? 403 : 401);
   const db = requireStudentDb(env);
   const rows = (await db.prepare(`SELECT d.*,
@@ -24,7 +24,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
 export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!requiresCentralAdmin(session)) return jsonResponse({ error: "Only the RenShinKan administrator may manage dojos." }, session ? 403 : 401);
   try {
     const body = await request.json<Record<string, unknown>>();

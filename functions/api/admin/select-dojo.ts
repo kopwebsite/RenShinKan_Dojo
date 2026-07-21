@@ -1,4 +1,12 @@
-import { canAccessDojo, getAdminSession, isSameOriginRequest, jsonResponse, updateSelectedDojoCookie } from "../../_lib/auth";
+import {
+  canSelectDojo,
+  effectivePermissionLevel,
+  getAdminSession,
+  isSameOriginRequest,
+  jsonResponse,
+  RENSHINKAN_DOJO_ID,
+  updateSelectedDojoCookie,
+} from "../../_lib/auth";
 import { requestIdentifier, requireStudentDb, type StudentEnv } from "../../_lib/studentRecords";
 
 type Env = StudentEnv & { SESSION_SECRET?: string };
@@ -14,9 +22,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const dojo = await db.prepare("SELECT id, official_name FROM dojos WHERE id = ? AND active = 1 LIMIT 1")
       .bind(dojoId).first<{ id: string; official_name: string }>();
     if (!dojo) return jsonResponse({ error: "Choose an active dojo." }, 404);
-    if (!canAccessDojo(session, dojo.id)) return jsonResponse({ error: "Your administrator account does not have access to that dojo." }, 403);
+    if (!canSelectDojo(session, dojo.id)) return jsonResponse({ error: "Your administrator account does not have access to that dojo." }, 403);
+    if (dojo.id === RENSHINKAN_DOJO_ID && session.role !== "central") {
+      return jsonResponse({ error: "RenShinKan administration requires the central administrator account." }, 403);
+    }
     const now = new Date().toISOString();
     const auditId = crypto.randomUUID();
+    const selectedSession = { ...session, selectedDojoId: dojo.id, renshinkanVerified: false };
     await db.prepare(`INSERT INTO audit_log (
       id, admin_action, record_type, record_id, action_summary, created_at,
       actor_type, actor_identifier, action, entity_type, entity_id, source, request_id,
@@ -25,11 +37,22 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       'dojo', ?, 'admin_login', ?, ?, ?, ?, ?, ?, ?)`)
       .bind(
         auditId, dojo.id, `${session.adminName} selected ${dojo.official_name}`, now, session.sessionId, dojo.id,
-        requestIdentifier(request), session.adminName, session.role, dojo.id,
+        requestIdentifier(request), session.adminName, effectivePermissionLevel(selectedSession), dojo.id,
         request.headers.get("CF-Connecting-IP"), request.headers.get("CF-IPCountry"),
         (request.headers.get("User-Agent") || "").slice(0, 500),
       ).run();
-    return jsonResponse({ ok: true, selectedDojoId: dojo.id }, 200, {
+    return jsonResponse({
+      ok: true,
+      verificationRequired: dojo.id === RENSHINKAN_DOJO_ID,
+      admin: {
+        name: selectedSession.adminName,
+        role: selectedSession.role,
+        allowedDojoIds: selectedSession.allowedDojoIds,
+        selectedDojoId: selectedSession.selectedDojoId,
+        permissionLevel: effectivePermissionLevel(selectedSession),
+        renshinkanVerificationRequired: dojo.id === RENSHINKAN_DOJO_ID,
+      },
+    }, 200, {
       "Set-Cookie": await updateSelectedDojoCookie(env, session, dojo.id),
       "Cache-Control": "no-store",
     });

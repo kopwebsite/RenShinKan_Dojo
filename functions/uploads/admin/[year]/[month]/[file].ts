@@ -66,10 +66,10 @@ async function getMediaResponse(env: Env, params: Params, includeBody: boolean) 
   return new Response(includeBody ? object.body : null, { headers });
 }
 
-export async function onRequestGet({ env, params }: { env: Env; params: Params }) {
+export const onRequestGet: PagesFunction<Env> = async ({ env, params }) => {
   return getMediaResponse(env, params, true);
-}
+};
 
-export async function onRequestHead({ env, params }: { env: Env; params: Params }) {
+export const onRequestHead: PagesFunction<Env> = async ({ env, params }) => {
   return getMediaResponse(env, params, false);
-}
+};

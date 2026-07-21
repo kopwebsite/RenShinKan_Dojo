@@ -1,11 +1,11 @@
-import { getAdminSession, isSameOriginRequest, jsonResponse } from "../../../../_lib/auth";
+import { getAuthorizedAdminSession, isSameOriginRequest, jsonResponse } from "../../../../_lib/auth";
 import { adminAuditMetadata, assertStudentAccess, audit, ensureOwnerShareUrl, requestIdentifier, requireStudentDb, type StudentEnv } from "../../../../_lib/studentRecords";
 
 type Env = StudentEnv & { SESSION_SECRET?: string; SITE_URL?: string };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const db = requireStudentDb(env);
   const studentId = String(params.id);
@@ -28,7 +28,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
 
 export const onRequestDelete: PagesFunction<Env> = async ({ request, env, params }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const db = requireStudentDb(env);
   const studentId = String(params.id);

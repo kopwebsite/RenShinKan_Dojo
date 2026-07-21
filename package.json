@@ -17,6 +17,7 @@
     "test:unit": "vitest run tests/ranks-and-security.test.ts",
     "test:integration": "vitest run tests/workflow-contracts.test.ts",
     "check": "npm run lint && npm run test && npm run build",
+    "r2:lifecycle:payslips": "wrangler r2 bucket lifecycle add renshinkan-dojo-media payment-proofs-60-days payment-proofs/ --expire-days 60",
     "deploy": "npm run build && wrangler pages deploy dist --project-name renshinkan-dojo --branch main",
     "preview": "vite preview"
   },

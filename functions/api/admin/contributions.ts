@@ -1,4 +1,4 @@
-import { getAdminSession, isSameOriginRequest, jsonResponse, requiresCentralAdmin, type AdminSession } from "../../_lib/auth";
+import { getAuthorizedAdminSession, isSameOriginRequest, jsonResponse, requiresCentralAdmin, type AdminSession } from "../../_lib/auth";
 import {
   adminAuditMetadata,
   auditStatement,
@@ -48,8 +48,9 @@ async function ensureCurrentPeriod(db: D1Database, month: string, requestId: str
       current_belt, 1, ? FROM students WHERE active = 1 AND profile_status = 'approved' AND dojo_id = 'dojo-rsk'`)
       .bind(month, now),
     db.prepare(`UPDATE contribution_periods SET active_student_count_snapshot = (
-      SELECT COUNT(*) FROM contribution_period_students
-      WHERE month_key = ? AND active_at_period_start = 1
+      SELECT COUNT(*) FROM contribution_period_students r
+      JOIN students s ON s.id = r.student_id
+      WHERE r.month_key = ? AND r.active_at_period_start = 1 AND s.dojo_id = 'dojo-rsk'
     ) WHERE month_key = ?`).bind(month, month),
   ];
   if (!existing) {
@@ -65,7 +66,7 @@ async function ensureCurrentPeriod(db: D1Database, month: string, requestId: str
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!requiresCentralAdmin(session)) return jsonResponse({ error: "Only the RenShinKan administrator may manage monthly RenShinKan contributions." }, session ? 403 : 401);
   const db = requireStudentDb(env);
   const url = new URL(request.url);
@@ -89,6 +90,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         c.status_updated_at,
         c.internal_note
       FROM contribution_period_students r
+      JOIN students s ON s.id = r.student_id AND s.dojo_id = 'dojo-rsk'
       LEFT JOIN monthly_contributions c ON c.student_id = r.student_id AND c.month_key = r.month_key
       WHERE r.month_key = ? AND r.active_at_period_start = 1
       ORDER BY r.student_name_snapshot COLLATE NOCASE, r.student_public_id_snapshot COLLATE NOCASE`)
@@ -136,11 +138,13 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const months = Array.from(new Set([...recentMonthKeys(12), ...storedMonths])).sort().reverse();
   const graphRows = (await db.prepare(`SELECT
       p.month_key,
-      p.active_student_count_snapshot AS total_active,
-      SUM(CASE WHEN c.status = 'paid' THEN 1 ELSE 0 END) AS paid
+      COUNT(DISTINCT CASE WHEN r.active_at_period_start = 1 AND s.dojo_id = 'dojo-rsk' THEN r.student_id END) AS total_active,
+      COUNT(DISTINCT CASE WHEN r.active_at_period_start = 1 AND s.dojo_id = 'dojo-rsk' AND c.status = 'paid' THEN r.student_id END) AS paid
     FROM contribution_periods p
-    LEFT JOIN monthly_contributions c ON c.month_key = p.month_key
-    GROUP BY p.month_key, p.active_student_count_snapshot
+    LEFT JOIN contribution_period_students r ON r.month_key = p.month_key
+    LEFT JOIN students s ON s.id = r.student_id
+    LEFT JOIN monthly_contributions c ON c.student_id = r.student_id AND c.month_key = r.month_key
+    GROUP BY p.month_key
     ORDER BY p.month_key DESC LIMIT 12`).all<{ month_key: string; total_active: number; paid: number }>()).results || [];
   const graph = [...graphRows].reverse().map((row) => ({
     month: row.month_key,
@@ -161,7 +165,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!requiresCentralAdmin(session)) return jsonResponse({ error: "Only the RenShinKan administrator may manage monthly RenShinKan contributions." }, session ? 403 : 401);
   const db = requireStudentDb(env);
   const requestId = requestIdentifier(request);

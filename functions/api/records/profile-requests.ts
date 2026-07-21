@@ -36,7 +36,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   let pendingKey = "";
   try {
     if (!(await enforceLookupRateLimit(request, env))) return jsonResponse({ error: "Too many requests. Please wait and try again." }, 429);
-    if (!env.MEDIA_BUCKET) return jsonResponse({ error: "Profile image storage is temporarily unavailable." }, 503);
     const db = requireStudentDb(env);
     const replay = await db.prepare("SELECT response_json FROM mutation_requests WHERE request_id = ? LIMIT 1").bind(requestId)
       .first<{ response_json: string | null }>();
@@ -44,8 +43,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     const form = await request.formData();
     const payloadValue = form.get("payload");
-    const file = form.get("file");
-    if (typeof payloadValue !== "string" || !(file instanceof File)) return jsonResponse({ error: "Complete the form and choose a profile picture." }, 400);
+    const fileValue = form.get("file");
+    const file = fileValue instanceof File && fileValue.size > 0 ? fileValue : null;
+    if (typeof payloadValue !== "string") return jsonResponse({ error: "Complete the profile form." }, 400);
+    if (file && !env.MEDIA_BUCKET) return jsonResponse({ error: "Profile image storage is temporarily unavailable. Remove the optional photo and try again." }, 503);
     const payload = JSON.parse(payloadValue) as ProfilePayload;
     const displayName = clean(payload.displayName, 120);
     const dojoId = clean(payload.dojoId, 80);
@@ -61,16 +62,18 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (profileBio.length > 2000) return jsonResponse({ error: "Additional profile information must be 2,000 characters or fewer." }, 400);
     if (!(await verifyTurnstile(request, env, turnstileToken))) return jsonResponse({ error: "Cloudflare verification failed. Please try again." }, 400);
     const rank = normalizedRankOrError(payload.currentRank);
-    const image = await validateProfileWebp(file);
     const studentId = await nextStudentId(db, dojo.id);
     const studentUuid = crypto.randomUUID();
     const nameHash = await studentNameVerificationHash(env, displayName);
     const now = new Date().toISOString();
-    pendingKey = datedProfileKey("pending-student-profiles");
-    await env.MEDIA_BUCKET.put(pendingKey, image.bytes, {
-      httpMetadata: { contentType: "image/webp", cacheControl: "private, no-store" },
-      customMetadata: { uploadedAt: now, purpose: "pending-student-profile", width: String(image.width), height: String(image.height) },
-    });
+    if (file && env.MEDIA_BUCKET) {
+      const image = await validateProfileWebp(file);
+      pendingKey = datedProfileKey("pending-student-profiles");
+      await env.MEDIA_BUCKET.put(pendingKey, image.bytes, {
+        httpMetadata: { contentType: "image/webp", cacheControl: "private, no-store" },
+        customMetadata: { uploadedAt: now, purpose: "pending-student-profile", width: String(image.width), height: String(image.height) },
+      });
+    }
 
     const response = { ok: true, requestId: studentUuid, status: "pending_admin_approval" };
     await db.batch([
@@ -79,10 +82,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         profile_image_url, profile_image_consent, guardian_consent, public_visible, active, share_fields, dojo_name,
         admin_notes, training_hours_adjustment, created_at, updated_at, profile_status, practice_duration,
         profile_bio, pending_profile_image_key, dojo_id, aat_number, aat_last_paid_date
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 1, 0, 0, 0, ?, ?, '', 0, ?, ?, 'pending_admin_approval', ?, ?, ?, ?, ?, ?)`)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, 0, 0, 0, ?, ?, '', 0, ?, ?, 'pending_admin_approval', ?, ?, ?, ?, ?, ?)`)
         .bind(
           studentUuid, studentId, "", nameHash, displayName, rank, rankColor(rank),
-          JSON.stringify(DEFAULT_SHARE_FIELDS), dojo.official_name, now, now, practiceDuration, profileBio, pendingKey,
+          file ? 1 : 0, JSON.stringify(DEFAULT_SHARE_FIELDS), dojo.official_name, now, now, practiceDuration, profileBio, pendingKey || null,
           dojo.id, aatNumber, aatLastPaidDate,
         ),
       auditStatement(db, {
@@ -93,7 +96,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         entityId: studentUuid,
         studentId: studentUuid,
         previousValues: null,
-        newValues: { studentId, displayName, currentRank: rank, dojoId: dojo.id, dojoName: dojo.official_name, aatNumber, aatLastPaidDate, practiceDuration, profileBio, profileStatus: "pending_admin_approval", profileImage: "submitted" },
+        newValues: { studentId, displayName, currentRank: rank, dojoId: dojo.id, dojoName: dojo.official_name, aatNumber, aatLastPaidDate, practiceDuration, profileBio, profileStatus: "pending_admin_approval", profileImage: file ? "submitted" : "not_submitted" },
         source: "student_profile_request",
         requestId,
         summary: `Submitted a new profile request for ${displayName}`,

@@ -1,4 +1,4 @@
-import { canAccessDojo, getAdminSession, isSameOriginRequest, jsonResponse, requiresCentralAdmin } from "../../_lib/auth";
+import { canAccessDojo, getAuthorizedAdminSession, isRenShinKanSuperAdmin, isSameOriginRequest, jsonResponse, requiresCentralAdmin } from "../../_lib/auth";
 import {
   adminAuditMetadata,
   auditStatement,
@@ -45,7 +45,7 @@ function replayResponse(value: string | null | undefined) {
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const db = requireStudentDb(env);
   const url = new URL(request.url);
@@ -76,9 +76,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         s.profile_image_url, s.dojo_id
       FROM students s
       LEFT JOIN exam_cycle_student_status ecs ON ecs.student_id = s.id AND ecs.cycle_id = ?
-      WHERE s.active = 1 AND s.profile_status = 'approved' ${session.role === "dojo" ? "AND s.dojo_id = ?" : ""}
+      WHERE s.active = 1 AND s.profile_status = 'approved' ${isRenShinKanSuperAdmin(session) ? "" : "AND s.dojo_id = ?"}
       ORDER BY s.display_name COLLATE NOCASE, s.public_student_id COLLATE NOCASE`)
-      .bind(selectedCycle.id, ...(session.role === "dojo" ? [session.allowedDojoIds[0] || "__none__"] : [])).all<RosterRow>()).results || []);
+      .bind(selectedCycle.id, ...(isRenShinKanSuperAdmin(session) ? [] : [session.selectedDojoId || "__none__"])).all<RosterRow>()).results || []);
   } else {
     roster = ((await db.prepare(`SELECT
         ecs.id AS status_id, ecs.student_id,
@@ -92,9 +92,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         s.profile_image_url, s.dojo_id
       FROM exam_cycle_student_status ecs
       LEFT JOIN students s ON s.id = ecs.student_id
-      WHERE ecs.cycle_id = ? ${session.role === "dojo" ? "AND s.dojo_id = ?" : ""}
+      WHERE ecs.cycle_id = ? ${isRenShinKanSuperAdmin(session) ? "" : "AND s.dojo_id = ?"}
       ORDER BY ecs.student_name_snapshot COLLATE NOCASE, ecs.student_public_id_snapshot COLLATE NOCASE`)
-      .bind(selectedCycle.id, ...(session.role === "dojo" ? [session.allowedDojoIds[0] || "__none__"] : [])).all<RosterRow>()).results || []);
+      .bind(selectedCycle.id, ...(isRenShinKanSuperAdmin(session) ? [] : [session.selectedDojoId || "__none__"])).all<RosterRow>()).results || []);
   }
 
   const summary = roster.reduce((counts, row) => {
@@ -125,7 +125,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const db = requireStudentDb(env);
   const requestId = requestIdentifier(request);

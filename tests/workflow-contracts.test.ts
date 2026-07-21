@@ -43,7 +43,7 @@ describe("database safety and audit contracts", () => {
 
   it("protects every administrator mutation server-side", () => {
     const endpoints = ["functions/api/admin/students/index.ts", "functions/api/admin/students/upload.ts", "functions/api/admin/students/[id].ts", "functions/api/admin/students/[id]/inline.ts", "functions/api/admin/students/[id]/hours.ts", "functions/api/admin/students/[id]/exam.ts", "functions/api/admin/students/bulk.ts", "functions/api/admin/examinations.ts", "functions/api/admin/contributions.ts"];
-    endpoints.forEach((path) => { const source = file(path); expect(source).toMatch(/getAdminSession|hasValidAdminSession/); expect(source).toContain("isSameOriginRequest"); });
+    endpoints.forEach((path) => { const source = file(path); expect(source).toMatch(/getAdminSession|getAuthorizedAdminSession|hasValidAdminSession/); expect(source).toContain("isSameOriginRequest"); });
   });
 
   it("logs every new student-data mutation source", () => {
@@ -80,12 +80,15 @@ describe("student workflow contracts", () => {
     expect(application).not.toContain("verifyStudentPin");
   });
 
-  it("keeps pending profiles private until an administrator approves them", () => {
+  it("keeps pending profiles private and permits an optional photo until an administrator approves them", () => {
     const submit = file("functions/api/records/profile-requests.ts"); const approval = file("functions/api/admin/students/[id]/profile-status.ts");
-    expect(submit).toContain("'pending_admin_approval'"); expect(submit).toContain("NULL, 1, 0, 0, 0");
+    expect(submit).toContain("'pending_admin_approval'"); expect(submit).toContain("NULL, ?, 0, 0, 0");
+    expect(submit).toContain("file ? 1 : 0"); expect(submit).toContain("pendingKey || null");
     expect(submit).toContain("const dojoId = clean(payload.dojoId");
     expect(submit).toContain("Choose the dojo where the student currently trains");
     expect(submit).toContain("dojo.official_name"); expect(submit).toContain("dojo.id, aatNumber");
+    expect(approval).toContain("let approvedImageUrl = existing.profile_image_url");
+    expect(approval).toContain("if (existing.pending_profile_image_key)");
     expect(approval).toContain("profile_status = 'approved', active = 1, public_visible = 1"); expect(approval).toContain("profile_status = 'rejected', active = 0, public_visible = 0");
   });
 
@@ -124,9 +127,46 @@ describe("UI and responsive workflow contracts", () => {
     expect(admin).toContain("admin-select-box"); expect(admin).toContain("DELETE ${studentAction.student.public_student_id}");
   });
 
+  it("shows compact status-aware selection actions and scopes normal bulk work to active students", () => {
+    const admin = file("src/pages/AdminStudentsPage.tsx");
+    const bulk = file("functions/api/admin/students/bulk.ts");
+    const student = file("functions/api/admin/students/[id].ts");
+    for (const value of ["selectedActiveRows", "selectedPendingProfiles", "selectedArchivedRows", "Only eligible selected records were changed", "Unarchive", "Deny pending profiles", "Delete archived students"]) expect(admin).toContain(value);
+    expect(admin).toContain('const targets = bulk.type === "approve_hours" ? selectedPendingRows : selectedActiveRows');
+    expect(admin).toContain('student.profile_status === "pending_admin_approval" ? <Status value={student.profile_status} />');
+    expect(bulk).toContain('student.active !== 1 || student.archived_at || student.profile_status !== "approved"');
+    expect(student).toContain('Only an archived student can be deleted.');
+  });
+
+  it("supports compact AAT membership selection and collapses empty payment history", () => {
+    const memberships = file("src/components/admin/AdminAatMemberships.tsx");
+    const css = file("src/index.css");
+    for (const value of ["selectedIds", "Select all visible AAT memberships", "Select AAT membership for", "openPayment(selectedRows)", "Each student keeps their existing AAT membership number", "No payments"]) expect(memberships).toContain(value);
+    expect(memberships).toContain("row.history.length ? <details");
+    expect(css).toContain(".admin-aat-history-empty");
+    expect(css).toContain(".admin-aat-bulk-bar");
+  });
+
+  it("records optional training locations and administrator-selected examination dates", () => {
+    const admin = file("src/pages/AdminStudentsPage.tsx");
+    const hours = file("functions/api/admin/students/[id]/hours.ts");
+    const exam = file("functions/api/admin/students/[id]/exam.ts");
+    const bulk = file("functions/api/admin/students/bulk.ts");
+    const detail = file("functions/api/admin/students/[id].ts");
+    const migration = file("migrations/0009_training_hour_locations.sql");
+    for (const value of ["Training location", "hoursLocation", "training_location", "Examination date", "examinationDate", "formatDay(entry.entry_date", "formatDay(entry.examination_date"]) expect(admin).toContain(value);
+    expect(hours).toContain("Training location must be 200 characters or fewer.");
+    expect(hours).toContain("training_location");
+    expect(detail).toContain("training_location");
+    expect(migration).toContain("ADD COLUMN training_location TEXT");
+    expect(exam).toContain("Choose a valid examination date.");
+    expect(exam).toContain(".bind(examId, studentId, examinationDate");
+    expect(bulk).toContain("training_location");
+  });
+
   it("shows three task choices, pending payment, existing bank QR, owner QR tools, and mobile layouts", () => {
     const page = file("src/pages/StudentRecordsPage.tsx"); const css = file("src/index.css");
-    for (const text of ["Find my record", "Create a profile", "Apply for an exam", "/images/promptpay-qr.png", "payment status is", "Copy link", "Download QR", "Submit for review"]) expect(page).toContain(text);
+    for (const text of ["Find my record", "Create a profile", "Apply for an exam", "/images/promptpay-qr.png", "cannot confirm your payment", "Copy link", "Download QR", "Submit for review"]) expect(page).toContain(text);
     expect(page).toContain("Current dojo");
     expect(page).not.toMatch(/guarantor/i);
     expect(css).toContain(".record-task-picker { display: grid; grid-template-columns: repeat(3, 1fr)"); expect(css).toContain(".record-task-picker { grid-template-columns: 1fr");
@@ -161,8 +201,47 @@ describe("UI and responsive workflow contracts", () => {
   it("uses the existing PromptPay QR, records an attempt first, and displays original dojo artwork", () => {
     const form = file("src/components/ContributionForm.tsx");
     const support = file("src/pages/SupportPage.tsx");
-    for (const value of ["/api/contributions", "/images/promptpay-qr.png", "awaiting payment", "Displaying this QR code does not mean", "Send your payment proof"]) expect(form).toContain(value);
+    for (const value of ["/api/contributions", "/images/promptpay-qr.png", "awaiting payment", "Displaying this QR code does not mean", "Upload your payslip below"]) expect(form).toContain(value);
     expect(support).toContain("support-dojo-art");
     expect(support).not.toContain("/dojo-photos/support.avif");
+  });
+
+  it("requires private payslip submission after each PromptPay flow", () => {
+    const upload = file("src/components/PaymentProofUpload.tsx");
+    const contributions = file("src/components/ContributionForm.tsx");
+    const records = file("src/pages/StudentRecordsPage.tsx");
+    const examApi = file("functions/api/records/examination-applications.ts");
+    const contributionApi = file("functions/api/contributions.ts");
+    for (const value of ["The dojo cannot confirm your", "send it directly to a sensei of RenShinKan Dojo", "automatically deleted after 60 days", "/api/payment-proofs"]) expect(upload).toContain(value);
+    expect(contributions).toContain("PaymentProofUpload");
+    expect(records).toContain("PaymentProofUpload");
+    for (const source of [examApi, contributionApi]) {
+      expect(source).toContain("createPaymentProofDraft");
+      expect(source).toContain("proofId");
+      expect(source).toContain("uploadToken");
+    }
+  });
+
+  it("provides scoped individual and bulk payslip review with 60-day private retention", () => {
+    const migration = file("migrations/0010_payment_proofs.sql");
+    const uploadApi = file("functions/api/payment-proofs.ts");
+    const adminApi = file("functions/api/admin/payment-proofs.ts");
+    const imageApi = file("functions/api/admin/payment-proofs/[id].ts");
+    const adminPage = file("src/pages/AdminStudentsPage.tsx");
+    const adminProofs = file("src/components/admin/AdminPaymentProofs.tsx");
+    const packageJson = file("package.json");
+    expect(migration).toContain("TABLE IF NOT EXISTS payment_proofs");
+    expect(migration).toContain("'exam', 'aat_annual', 'renshinkan_monthly'");
+    expect(uploadApi).toContain("paymentProofExpiry");
+    expect(uploadApi).toContain("payment-proofs/");
+    expect(adminApi).toContain("isRenShinKanSuperAdmin");
+    expect(adminApi).toContain("s.dojo_id = ?");
+    expect(adminApi).toContain("pending_review");
+    expect(adminApi).toContain('action === "approve"');
+    expect(adminApi).toContain('action === "deny"');
+    expect(imageApi).toContain('"Cache-Control": "private, no-store"');
+    expect(adminPage).toContain("Submitted Payslip");
+    for (const value of ["Select every pending payslip", "Approve payslip", "Deny payslip", "Payslip submitted by", "Payment for"]) expect(adminProofs).toContain(value);
+    expect(packageJson).toContain("payment-proofs-60-days payment-proofs/ --expire-days 60");
   });
 });

@@ -1,9 +1,17 @@
-import { CheckCircle2, LoaderCircle, LockKeyhole } from "lucide-react";
+import { CheckCircle2, KeyRound, LoaderCircle, LockKeyhole } from "lucide-react";
+import type { FormEvent } from "react";
 
 export type AdminDojo = {
   id: string; official_name: string; short_name: string; code: string; logo_url: string; slug: string; active: number; sort_order: number;
 };
-export type AdminIdentity = { name: string; role: "central" | "dojo"; allowedDojoIds: string[]; selectedDojoId: string | null };
+export type AdminIdentity = {
+  name: string;
+  role: "central" | "dojo";
+  allowedDojoIds: string[];
+  selectedDojoId: string | null;
+  permissionLevel: "renshinkan_super_admin" | "dojo_admin";
+  renshinkanVerificationRequired: boolean;
+};
 export type AdminSessionResponse = { authenticated: boolean; admin: AdminIdentity | null; dojos: AdminDojo[] };
 
 export function AdminCheckingSession() {
@@ -38,8 +46,8 @@ export function AdminDojoSelector({
     <header><p className="eyebrow">Welcome, {admin.name}</p><h1>Choose a dojo</h1><p>Select the dojo you are working with. Access is checked again by the server for every record and action.</p></header>
     {error ? <p className="form-error" role="alert">{error}</p> : null}
     <div className="admin-dojo-grid">
-      {dojos.map((dojo) => {
-        const allowed = admin.role === "central" || admin.allowedDojoIds.includes(dojo.id);
+      {[...dojos].sort((left, right) => left.id === "dojo-rsk" ? -1 : right.id === "dojo-rsk" ? 1 : left.sort_order - right.sort_order || left.official_name.localeCompare(right.official_name)).map((dojo) => {
+        const allowed = admin.role === "central" || (dojo.id !== "dojo-rsk" && admin.allowedDojoIds.includes(dojo.id));
         return <article className={`admin-dojo-card${allowed ? "" : " is-locked"}`} key={dojo.id}>
           <img src={dojo.logo_url} alt={`${dojo.official_name} logo`} />
           <div><span>{dojo.code}</span><h2>{dojo.official_name}</h2></div>
@@ -51,4 +59,25 @@ export function AdminDojoSelector({
       })}
     </div>
   </section>;
+}
+
+export function AdminRenshinKanVerification({
+  password, error, busy, setPassword, onSubmit, onCancel,
+}: {
+  password: string;
+  error: string;
+  busy?: boolean;
+  setPassword: (value: string) => void;
+  onSubmit: (event: FormEvent) => void;
+  onCancel: () => void;
+}) {
+  return <main className="admin-gate"><form className="admin-login-card" onSubmit={onSubmit}>
+    <KeyRound size={34} aria-hidden="true" />
+    <p className="eyebrow">RenShinKan verification</p>
+    <h1>Enter the RenShinKan access password</h1>
+    <p>This additional server-side check is required before the full administration workspace is unlocked.</p>
+    <label htmlFor="renshinkan-secondary-password">RenShinKan access password<input id="renshinkan-secondary-password" name="rsk-secondary-verification" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="off" spellCheck={false} required autoFocus /></label>
+    {error ? <p className="form-error" role="alert">{error}</p> : null}
+    <div className="admin-header-actions"><button type="button" className="btn-secondary" onClick={onCancel}>Choose another dojo</button><button className="btn-primary" disabled={busy || !password}><KeyRound size={17} /> {busy ? "Verifying…" : "Verify access"}</button></div>
+  </form></main>;
 }

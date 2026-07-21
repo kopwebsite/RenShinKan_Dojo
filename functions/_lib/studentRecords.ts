@@ -1,5 +1,5 @@
 import { beltKeyForRank, normalizeRank } from "../../shared/ranks";
-import { canAccessDojo, jsonResponse, type AdminSession } from "./auth";
+import { canAccessDojo, effectivePermissionLevel, jsonResponse, type AdminSession } from "./auth";
 
 export type D1Result<T = unknown> = {
   results?: T[];
@@ -170,29 +170,72 @@ export function isValidStudentId(value: string) {
   return STUDENT_ID_PATTERN.test(normalizeStudentId(value));
 }
 
-export function formatStudentId(sequence: number, code = "RSK") {
-  return `${code.toLocaleUpperCase("en-US")}-${String(sequence).padStart(5, "0")}`;
+export function bangkokGregorianYear(date = new Date()) {
+  const year = new Intl.DateTimeFormat("en-CA-u-ca-gregory", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+  }).formatToParts(date).find((part) => part.type === "year")?.value;
+  if (!year) throw new Error("The current Thailand year could not be determined.");
+  return Number(year);
+}
+
+export function thaiBuddhistYear(date = new Date()) {
+  return bangkokGregorianYear(date) + 543;
+}
+
+export function formatStudentId(sequence: number, code = "RSK", buddhistYear = thaiBuddhistYear()) {
+  const normalizedSequence = Math.max(1, Math.trunc(sequence));
+  const yearSuffix = String(buddhistYear).slice(-2).padStart(2, "0");
+  return `${code.toLocaleUpperCase("en-US")}-${yearSuffix}${String(normalizedSequence).padStart(2, "0")}`;
+}
+
+export function studentIdSequenceForCurrentYear(studentId: string, code: string, date = new Date()) {
+  const buddhistYear = thaiBuddhistYear(date);
+  const prefix = `${code.toLocaleUpperCase("en-US")}-${String(buddhistYear).slice(-2).padStart(2, "0")}`;
+  const normalized = normalizeStudentId(studentId);
+  if (!normalized.startsWith(prefix)) return null;
+  const sequenceText = normalized.slice(prefix.length);
+  if (!/^\d{2,}$/.test(sequenceText)) return null;
+  const sequence = Number(sequenceText);
+  return Number.isSafeInteger(sequence) && sequence > 0 ? { buddhistYear, sequence } : null;
+}
+
+export function syncStudentIdSequenceStatement(db: D1Database, dojoId: string, dojoCode: string, studentId: string, updatedAt: string) {
+  const parsed = studentIdSequenceForCurrentYear(studentId, dojoCode, new Date(updatedAt));
+  if (!parsed) return null;
+  return db.prepare(`INSERT INTO dojo_student_year_sequences (dojo_id, buddhist_year, last_number, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(dojo_id, buddhist_year) DO UPDATE SET
+        last_number = MAX(dojo_student_year_sequences.last_number, excluded.last_number),
+        updated_at = excluded.updated_at`)
+    .bind(dojoId, parsed.buddhistYear, parsed.sequence, updatedAt);
 }
 
 export function rankColor(rank: string, fallback = "white") {
   return beltKeyForRank(rank) || fallback || "white";
 }
 
-export async function nextStudentId(db: D1Database, dojoId = DEFAULT_DOJO_ID) {
-  const row = await db.prepare(`UPDATE dojo_student_sequences SET last_number = last_number + 1,
-      updated_at = ? WHERE dojo_id = ? RETURNING last_number,
-      (SELECT code FROM dojos WHERE id = ?) AS code`)
-    .bind(new Date().toISOString(), dojoId, dojoId).first<{ last_number: number; code: string }>();
+export async function nextStudentId(db: D1Database, dojoId = DEFAULT_DOJO_ID, date = new Date()) {
+  const buddhistYear = thaiBuddhistYear(date);
+  const row = await db.prepare(`INSERT INTO dojo_student_year_sequences (dojo_id, buddhist_year, last_number, updated_at)
+      SELECT id, ?, 1, ? FROM dojos WHERE id = ? AND active = 1
+      ON CONFLICT(dojo_id, buddhist_year) DO UPDATE SET
+        last_number = dojo_student_year_sequences.last_number + 1,
+        updated_at = excluded.updated_at
+      RETURNING last_number, (SELECT code FROM dojos WHERE id = ?) AS code`)
+    .bind(buddhistYear, date.toISOString(), dojoId, dojoId).first<{ last_number: number; code: string }>();
   if (!row?.code) throw new Error("The dojo Student ID sequence is not configured");
-  return formatStudentId(Number(row.last_number), row.code);
+  return formatStudentId(Number(row.last_number), row.code, buddhistYear);
 }
 
-export async function suggestedStudentId(db: D1Database, dojoId = DEFAULT_DOJO_ID) {
+export async function suggestedStudentId(db: D1Database, dojoId = DEFAULT_DOJO_ID, date = new Date()) {
+  const buddhistYear = thaiBuddhistYear(date);
   const row = await db.prepare(`SELECT d.code, COALESCE(seq.last_number, 0) AS last_number
-    FROM dojos d LEFT JOIN dojo_student_sequences seq ON seq.dojo_id = d.id WHERE d.id = ? AND d.active = 1`)
-    .bind(dojoId).first<{ code: string; last_number: number }>();
-  if (!row) return formatStudentId(1);
-  return formatStudentId(Number(row.last_number || 0) + 1, row.code);
+    FROM dojos d LEFT JOIN dojo_student_year_sequences seq ON seq.dojo_id = d.id AND seq.buddhist_year = ?
+    WHERE d.id = ? AND d.active = 1`)
+    .bind(buddhistYear, dojoId).first<{ code: string; last_number: number }>();
+  if (!row) return formatStudentId(1, "RSK", buddhistYear);
+  return formatStudentId(Number(row.last_number || 0) + 1, row.code, buddhistYear);
 }
 
 export type DojoRow = {
@@ -392,13 +435,14 @@ export type AuditInput = {
   ipAddress?: string | null;
   countryCode?: string | null;
   userAgent?: string | null;
+  outcome?: "success" | "failure";
 };
 
 export function adminAuditMetadata(session: AdminSession, request: Request) {
   return {
     actorIdentifier: session.sessionId,
     administratorName: session.adminName,
-    administratorRole: session.role,
+    administratorRole: effectivePermissionLevel(session),
     selectedDojoId: session.selectedDojoId,
     ipAddress: request.headers.get("CF-Connecting-IP"),
     countryCode: request.headers.get("CF-IPCountry"),
@@ -417,8 +461,8 @@ export function auditStatement(db: D1Database, input: AuditInput) {
       actor_type, actor_identifier, action, entity_type, entity_id, student_id,
       previous_values, new_values, source, bulk_operation_id, request_id, administrator_note,
       student_public_id_snapshot, student_name_snapshot, exam_cycle_id, contribution_month,
-      administrator_name, administrator_role, selected_dojo_id, ip_address, country_code, user_agent
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      administrator_name, administrator_role, selected_dojo_id, ip_address, country_code, user_agent, outcome
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .bind(
       crypto.randomUUID(), input.action, input.entityType, input.entityId, input.summary.slice(0, 300), createdAt,
       input.actorType, input.actorIdentifier.slice(0, 160), input.action, input.entityType, input.entityId,
@@ -429,6 +473,7 @@ export function auditStatement(db: D1Database, input: AuditInput) {
       input.administratorName?.slice(0, 120) || null, input.administratorRole || null,
       input.selectedDojoId || null, input.ipAddress || null, input.countryCode?.slice(0, 8) || null,
       input.userAgent?.slice(0, 500) || null,
+      input.outcome || "success",
     );
 }
 

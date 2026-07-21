@@ -1,9 +1,11 @@
 const COOKIE_NAME = "rsk_admin_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
+export const RENSHINKAN_DOJO_ID = "dojo-rsk";
 
 type AuthEnv = {
   ADMIN_PASSWORD_HASH?: string;
   DOJO_ADMIN_PASSWORD_HASHES?: string;
+  RSK_ADMIN_SECONDARY_PASSWORD?: string;
   SESSION_SECRET?: string;
   STUDENT_DB?: {
     prepare(query: string): {
@@ -16,6 +18,7 @@ type AuthEnv = {
 };
 
 export type AdminRole = "central" | "dojo";
+export type AdminPermissionLevel = "renshinkan_super_admin" | "dojo_admin";
 
 export type AdminSession = {
   sub: "admin";
@@ -26,6 +29,7 @@ export type AdminSession = {
   role: AdminRole;
   allowedDojoIds: string[];
   selectedDojoId: string | null;
+  renshinkanVerified: boolean;
 };
 
 export function jsonResponse(data: unknown, status = 200, headers: HeadersInit = {}) {
@@ -92,15 +96,26 @@ function base64UrlToBytes(value: string) {
   return bytes;
 }
 
-function timingSafeEqual(a: string, b: string) {
-  const maxLength = Math.max(a.length, b.length);
-  let result = a.length ^ b.length;
+function timingSafeEqualBytes(a: Uint8Array, b: Uint8Array) {
+  if (a.byteLength !== b.byteLength) return false;
+  const subtle = crypto.subtle as SubtleCrypto & {
+    timingSafeEqual?: (left: ArrayBufferView, right: ArrayBufferView) => boolean;
+  };
+  if (typeof subtle.timingSafeEqual === "function") return subtle.timingSafeEqual(a, b);
 
-  for (let index = 0; index < maxLength; index += 1) {
-    result |= (a.charCodeAt(index) || 0) ^ (b.charCodeAt(index) || 0);
-  }
-
+  // Node's Web Crypto used by the unit tests does not yet expose the Workers
+  // timingSafeEqual extension. Both inputs are fixed-size digests here.
+  let result = 0;
+  for (let index = 0; index < a.byteLength; index += 1) result |= a[index] ^ b[index];
   return result === 0;
+}
+
+async function timingSafeEqual(a: string, b: string) {
+  const [left, right] = await Promise.all([
+    crypto.subtle.digest("SHA-256", textToBytes(a)),
+    crypto.subtle.digest("SHA-256", textToBytes(b)),
+  ]);
+  return timingSafeEqualBytes(new Uint8Array(left), new Uint8Array(right));
 }
 
 async function hmacSha256(secret: string, value: string) {
@@ -124,8 +139,8 @@ async function hmacSha256Hex(secret: string, value: string) {
     .join("");
 }
 
-async function loginActorHash(request: Request) {
-  const value = `${request.headers.get("CF-Connecting-IP") || "unknown"}:${request.headers.get("User-Agent") || ""}`;
+async function loginActorHash(request: Request, purpose = "login") {
+  const value = `${purpose}:${request.headers.get("CF-Connecting-IP") || "unknown"}:${request.headers.get("User-Agent") || ""}`;
   const digest = await crypto.subtle.digest("SHA-256", textToBytes(value));
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
@@ -157,6 +172,41 @@ export async function recordFailedAdminLoginAttempt(request: Request, env: AuthE
 export async function clearAdminLoginAttempts(request: Request, env: AuthEnv) {
   if (!env.STUDENT_DB) return;
   await env.STUDENT_DB.prepare("DELETE FROM admin_login_attempts WHERE actor_hash = ?").bind(await loginActorHash(request)).run();
+}
+
+export async function allowRenshinKanVerificationAttempt(request: Request, env: AuthEnv) {
+  if (!env.STUDENT_DB) return true;
+  const actor = await loginActorHash(request, "renshinkan-secondary");
+  const row = await env.STUDENT_DB.prepare("SELECT locked_until FROM admin_rsk_verification_attempts WHERE actor_hash = ?")
+    .bind(actor).first<{ locked_until: string | null }>();
+  return !(row?.locked_until && Date.parse(row.locked_until) > Date.now());
+}
+
+export async function recordFailedRenshinKanVerificationAttempt(request: Request, env: AuthEnv) {
+  if (!env.STUDENT_DB) return true;
+  const actor = await loginActorHash(request, "renshinkan-secondary");
+  const now = Date.now();
+  const row = await env.STUDENT_DB.prepare("SELECT window_started_at, attempts FROM admin_rsk_verification_attempts WHERE actor_hash = ?")
+    .bind(actor).first<{ window_started_at: string; attempts: number }>();
+  const expired = !row || now - Date.parse(row.window_started_at) > 15 * 60 * 1000;
+  const attempts = expired ? 1 : Number(row.attempts || 0) + 1;
+  const lockedUntil = attempts >= 6 ? new Date(now + 15 * 60 * 1000).toISOString() : null;
+  await env.STUDENT_DB.prepare(`INSERT INTO admin_rsk_verification_attempts (actor_hash, window_started_at, attempts, locked_until)
+    VALUES (?, ?, ?, ?) ON CONFLICT(actor_hash) DO UPDATE SET window_started_at = excluded.window_started_at,
+    attempts = excluded.attempts, locked_until = excluded.locked_until`)
+    .bind(actor, expired ? new Date(now).toISOString() : row!.window_started_at, attempts, lockedUntil).run();
+  return !lockedUntil;
+}
+
+export async function clearRenshinKanVerificationAttempts(request: Request, env: AuthEnv) {
+  if (!env.STUDENT_DB) return;
+  await env.STUDENT_DB.prepare("DELETE FROM admin_rsk_verification_attempts WHERE actor_hash = ?")
+    .bind(await loginActorHash(request, "renshinkan-secondary")).run();
+}
+
+export async function verifyRenshinKanSecondaryPassword(password: string, env: AuthEnv) {
+  if (!isConfigured(env.RSK_ADMIN_SECONDARY_PASSWORD)) return false;
+  return timingSafeEqual(password, env.RSK_ADMIN_SECONDARY_PASSWORD!);
 }
 
 function normalizeHash(value: string) {
@@ -193,14 +243,14 @@ export async function authenticateAdminPassword(password: string, env: AuthEnv) 
   if (!isConfigured(env.SESSION_SECRET)) return null;
   const submittedHash = await hmacSha256Hex(env.SESSION_SECRET!, password);
   for (const [dojoId, expectedHash] of configuredDojoPasswordHashes(env)) {
-    if (timingSafeEqual(submittedHash, expectedHash)) {
+    if (await timingSafeEqual(submittedHash, expectedHash)) {
       return { role: "dojo" as const, allowedDojoIds: [dojoId] };
     }
   }
   return null;
 }
 
-type NewSession = Partial<Pick<AdminSession, "sessionId" | "adminName" | "role" | "allowedDojoIds" | "selectedDojoId">>;
+type NewSession = Partial<Pick<AdminSession, "sessionId" | "adminName" | "role" | "allowedDojoIds" | "selectedDojoId" | "renshinkanVerified">>;
 
 export async function createSessionCookie(env: AuthEnv, session: NewSession = {}) {
   if (!isConfigured(env.SESSION_SECRET)) {
@@ -217,6 +267,7 @@ export async function createSessionCookie(env: AuthEnv, session: NewSession = {}
     role: session.role === "dojo" ? "dojo" : "central",
     allowedDojoIds: session.role === "dojo" ? Array.from(new Set(session.allowedDojoIds || [])).slice(0, 3) : [],
     selectedDojoId: session.selectedDojoId || null,
+    renshinkanVerified: session.selectedDojoId === RENSHINKAN_DOJO_ID && session.role === "central" && session.renshinkanVerified === true,
   };
   const encodedPayload = bytesToBase64Url(textToBytes(JSON.stringify(payload)));
   const encodedSignature = bytesToBase64Url(await hmacSha256(env.SESSION_SECRET!, encodedPayload));
@@ -252,7 +303,7 @@ export async function getAdminSession(request: Request, env: AuthEnv): Promise<A
 
   const expectedSignature = bytesToBase64Url(await hmacSha256(env.SESSION_SECRET!, encodedPayload));
 
-  if (!timingSafeEqual(encodedSignature, expectedSignature)) {
+  if (!(await timingSafeEqual(encodedSignature, expectedSignature))) {
     return null;
   }
 
@@ -276,6 +327,7 @@ export async function getAdminSession(request: Request, env: AuthEnv): Promise<A
       role,
       allowedDojoIds,
       selectedDojoId: typeof payload.selectedDojoId === "string" ? payload.selectedDojoId : null,
+      renshinkanVerified: payload.renshinkanVerified === true,
     };
     return result;
   } catch {
@@ -287,20 +339,57 @@ export async function hasValidAdminSession(request: Request, env: AuthEnv) {
   return Boolean(await getAdminSession(request, env));
 }
 
+export function canSelectDojo(session: AdminSession, dojoId: string | null | undefined) {
+  if (!dojoId) return false;
+  if (session.role === "central") return true;
+  return dojoId !== RENSHINKAN_DOJO_ID && session.allowedDojoIds.includes(dojoId);
+}
+
+export function isRenShinKanSuperAdmin(session: AdminSession | null | undefined) {
+  return Boolean(session && session.role === "central" && session.selectedDojoId === RENSHINKAN_DOJO_ID && session.renshinkanVerified);
+}
+
+export function effectivePermissionLevel(session: AdminSession): AdminPermissionLevel {
+  return isRenShinKanSuperAdmin(session) ? "renshinkan_super_admin" : "dojo_admin";
+}
+
+export function hasSelectedDojoAccess(session: AdminSession | null | undefined): session is AdminSession {
+  if (!session?.selectedDojoId || !canSelectDojo(session, session.selectedDojoId)) return false;
+  return session.selectedDojoId !== RENSHINKAN_DOJO_ID || isRenShinKanSuperAdmin(session);
+}
+
+export async function getAuthorizedAdminSession(request: Request, env: AuthEnv) {
+  const session = await getAdminSession(request, env);
+  return hasSelectedDojoAccess(session) ? session : null;
+}
+
 export function canAccessDojo(session: AdminSession, dojoId: string | null | undefined) {
-  return session.role === "central" || Boolean(dojoId && session.allowedDojoIds.includes(dojoId));
+  if (!dojoId || !hasSelectedDojoAccess(session)) return false;
+  return isRenShinKanSuperAdmin(session) || dojoId === session.selectedDojoId;
 }
 
 export function requiresCentralAdmin(session: AdminSession | null) {
-  return Boolean(session && session.role === "central");
+  return isRenShinKanSuperAdmin(session);
 }
 
-export async function updateSelectedDojoCookie(env: AuthEnv, session: AdminSession, selectedDojoId: string) {
+export async function updateSelectedDojoCookie(env: AuthEnv, session: AdminSession, selectedDojoId: string | null) {
   return createSessionCookie(env, {
     sessionId: session.sessionId,
     adminName: session.adminName,
     role: session.role,
     allowedDojoIds: session.allowedDojoIds,
     selectedDojoId,
+    renshinkanVerified: false,
+  });
+}
+
+export async function updateRenshinKanVerifiedCookie(env: AuthEnv, session: AdminSession) {
+  return createSessionCookie(env, {
+    sessionId: session.sessionId,
+    adminName: session.adminName,
+    role: session.role,
+    allowedDojoIds: session.allowedDojoIds,
+    selectedDojoId: RENSHINKAN_DOJO_ID,
+    renshinkanVerified: true,
   });
 }

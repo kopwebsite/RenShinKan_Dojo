@@ -1,13 +1,15 @@
 import { promoteRank } from "../../../../shared/ranks";
-import { hasValidAdminSession, isSameOriginRequest, jsonResponse } from "../../../_lib/auth";
-import { auditStatement, rankColor, requestIdentifier, requireStudentDb, type D1PreparedStatement, type StudentEnv } from "../../../_lib/studentRecords";
+import { canAccessDojo, getAdminSession, isSameOriginRequest, jsonResponse } from "../../../_lib/auth";
+import { adminAuditMetadata, auditStatement, rankColor, requestIdentifier, requireStudentDb, type D1PreparedStatement, type StudentEnv } from "../../../_lib/studentRecords";
 
 type Env = StudentEnv & { SESSION_SECRET?: string };
-type Student = { id: string; display_name: string; current_belt: string; total_hours: number };
+type Student = { id: string; display_name: string; current_belt: string; total_hours: number; dojo_id: string };
 type PendingHourRequest = { id: string; student_id: string; submitted_hours: number; previous_total: number; requested_total: number };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
-  if (!isSameOriginRequest(request) || !(await hasValidAdminSession(request, env))) return jsonResponse({ error: "Unauthorized" }, 401);
+  if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
+  const session = await getAdminSession(request, env);
+  if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const requestId = requestIdentifier(request);
   const bulkOperationId = crypto.randomUUID();
   const db = requireStudentDb(env);
@@ -22,10 +24,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       : [];
     if (!action || studentIds.length === 0) return jsonResponse({ error: "Select at least one student and choose a bulk action." }, 400);
     const placeholders = studentIds.map(() => "?").join(",");
-    const students = (await db.prepare(`SELECT s.id, s.display_name, s.current_belt,
+    const students = (await db.prepare(`SELECT s.id, s.display_name, s.current_belt, s.dojo_id,
       COALESCE((SELECT SUM(verified_hours) FROM training_hours h WHERE h.student_id = s.id), 0) + s.training_hours_adjustment AS total_hours
       FROM students s WHERE s.id IN (${placeholders})`).bind(...studentIds).all<Student>()).results || [];
     if (students.length !== studentIds.length) return jsonResponse({ error: "One or more selected students no longer exist. Refresh and try again." }, 409);
+    if (students.some((student) => !canAccessDojo(session, student.dojo_id))) return jsonResponse({ error: "One or more selected students belongs to another dojo." }, 403);
     const now = new Date().toISOString();
     const statements: D1PreparedStatement[] = [];
     const results: Array<Record<string, unknown>> = [];
@@ -44,7 +47,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
             .bind(recordId, student.id, now.slice(0, 10), hours, now),
           db.prepare("UPDATE students SET updated_at = ? WHERE id = ?").bind(now, student.id),
           auditStatement(db, {
-            actorType: "administrator", actorIdentifier: "primary_admin", action: "bulk_training_hours_added", entityType: "training_hours",
+            actorType: "administrator", ...adminAuditMetadata(session, request), action: "bulk_training_hours_added", entityType: "training_hours",
             entityId: recordId, studentId: student.id, previousValues: { totalHours: previous }, newValues: { hoursAdded: hours, totalHours: next },
             source: "admin_bulk_hours", bulkOperationId, requestId, summary: `Bulk added ${hours} hours (${previous} → ${next})`, createdAt: now,
           }),
@@ -76,10 +79,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
             (id, student_id, entry_date, verified_hours, source, internal_note, created_at, hour_request_id)
             VALUES (?, ?, ?, ?, 'student_self_service_bulk_approved', 'Approved through the administrator bulk review', ?, ?)`)
             .bind(hourId, student.id, now.slice(0, 10), pending.submitted_hours, now, pending.id),
-          db.prepare("UPDATE training_hour_requests SET status = 'approved', reviewed_at = ?, reviewed_by = 'primary_admin', review_note = 'Approved through the administrator bulk review' WHERE id = ? AND status = 'pending'")
-            .bind(now, pending.id),
+          db.prepare("UPDATE training_hour_requests SET status = 'approved', reviewed_at = ?, reviewed_by = ?, review_note = 'Approved through the administrator bulk review' WHERE id = ? AND status = 'pending'")
+            .bind(now, session.adminName, pending.id),
           auditStatement(db, {
-            actorType: "administrator", actorIdentifier: "primary_admin", action: "bulk_student_hours_approved", entityType: "training_hour_request",
+            actorType: "administrator", ...adminAuditMetadata(session, request), action: "bulk_student_hours_approved", entityType: "training_hour_request",
             entityId: pending.id, studentId: student.id,
             previousValues: { status: "pending", submittedHours: pending.submitted_hours, previousTotal: pending.previous_total, requestedTotal: pending.requested_total, currentTotalAtReview: previous },
             newValues: { status: "approved", resultingTotal: next, trainingHourId: hourId }, source: "admin_bulk_hours_approval",
@@ -108,12 +111,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           db.prepare(`INSERT INTO belt_examinations
             (id, student_id, examination_date, belt_awarded, belt_color, rank, created_at, rank_before, rank_attempted,
              passed, examination_location, rank_after, administrator_id, examination_timestamp, bulk_operation_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 'primary_admin', ?, ?)`)
-            .bind(examId, student.id, now.slice(0, 10), nextRank, rankColor(nextRank), nextRank, now, student.current_belt, nextRank, location, nextRank, now, bulkOperationId),
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)`)
+            .bind(examId, student.id, now.slice(0, 10), nextRank, rankColor(nextRank), nextRank, now, student.current_belt, nextRank, location, nextRank, session.adminName, now, bulkOperationId),
           db.prepare("UPDATE students SET current_belt = ?, belt_color = ?, updated_at = ? WHERE id = ?")
             .bind(nextRank, rankColor(nextRank), now, student.id),
           auditStatement(db, {
-            actorType: "administrator", actorIdentifier: "primary_admin", action: "mass_promotion", entityType: "belt_examination", entityId: examId,
+            actorType: "administrator", ...adminAuditMetadata(session, request), action: "mass_promotion", entityType: "belt_examination", entityId: examId,
             studentId: student.id, previousValues: { currentRank: student.current_belt },
             newValues: { levels, rankAfter: nextRank, passed: true, location }, source: "admin_mass_promotion", bulkOperationId, requestId,
             summary: `Mass promotion: ${student.current_belt} → ${nextRank}`, createdAt: now,

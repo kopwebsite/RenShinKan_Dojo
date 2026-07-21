@@ -43,12 +43,12 @@ describe("database safety and audit contracts", () => {
 
   it("protects every administrator mutation server-side", () => {
     const endpoints = ["functions/api/admin/students/index.ts", "functions/api/admin/students/upload.ts", "functions/api/admin/students/[id].ts", "functions/api/admin/students/[id]/inline.ts", "functions/api/admin/students/[id]/hours.ts", "functions/api/admin/students/[id]/exam.ts", "functions/api/admin/students/bulk.ts", "functions/api/admin/examinations.ts", "functions/api/admin/contributions.ts"];
-    endpoints.forEach((path) => { const source = file(path); expect(source).toContain("hasValidAdminSession"); expect(source).toContain("isSameOriginRequest"); });
+    endpoints.forEach((path) => { const source = file(path); expect(source).toMatch(/getAdminSession|hasValidAdminSession/); expect(source).toContain("isSameOriginRequest"); });
   });
 
   it("logs every new student-data mutation source", () => {
     const all = ["functions/api/records/profile-requests.ts", "functions/api/records/hours.ts", "functions/api/records/examination-applications.ts", "functions/api/contributions.ts", "functions/api/admin/students/[id].ts", "functions/api/admin/students/[id]/inline.ts", "functions/api/admin/students/[id]/hours.ts", "functions/api/admin/students/[id]/exam.ts", "functions/api/admin/students/bulk.ts", "functions/api/admin/students/[id]/application.ts", "functions/api/admin/examinations.ts", "functions/api/admin/contributions.ts"].map(file).join("\n");
-    for (const source of ["student_profile_request", "student_self_service", "student_examination_application", "monthly_contribution_form", "admin_inline_edit", "admin_student_edit", "admin_bulk_hours", "admin_bulk_hours_approval", "admin_mass_promotion", "admin_examination_application", "admin_exam_applications", "admin_monthly_contributions", "student_archived", "student_restored", "student_permanently_deleted"]) expect(all).toContain(source);
+    for (const source of ["student_profile_request", "student_self_service", "student_examination_application", "monthly_contribution_form", "admin_inline_edit", "admin_student_edit", "admin_bulk_hours", "admin_bulk_hours_approval", "admin_mass_promotion", "admin_examination_application", "admin_exam_applications", "admin_monthly_contributions", "student_archived", "student_restored", "student_soft_deleted"]) expect(all).toContain(source);
   });
 
   it("prevents duplicate public submissions and mass-action replay", () => {
@@ -83,8 +83,9 @@ describe("student workflow contracts", () => {
   it("keeps pending profiles private until an administrator approves them", () => {
     const submit = file("functions/api/records/profile-requests.ts"); const approval = file("functions/api/admin/students/[id]/profile-status.ts");
     expect(submit).toContain("'pending_admin_approval'"); expect(submit).toContain("NULL, 1, 0, 0, 0");
-    expect(submit).toContain("const dojoName = clean(payload.dojoName, 120)");
-    expect(submit).toContain("JSON.stringify(DEFAULT_SHARE_FIELDS), dojoName");
+    expect(submit).toContain("const dojoId = clean(payload.dojoId");
+    expect(submit).toContain("Choose the dojo where the student currently trains");
+    expect(submit).toContain("dojo.official_name"); expect(submit).toContain("dojo.id, aatNumber");
     expect(approval).toContain("profile_status = 'approved', active = 1, public_visible = 1"); expect(approval).toContain("profile_status = 'rejected', active = 0, public_visible = 0");
   });
 
@@ -116,7 +117,7 @@ describe("UI and responsive workflow contracts", () => {
     const admin = file("src/pages/AdminStudentsPage.tsx");
     const exams = file("src/components/admin/AdminExamApplications.tsx");
     const contributions = file("src/components/admin/AdminMonthlyContributions.tsx");
-    for (const value of ["Student Database", "Exam Applications", "Monthly Contributions", "current_rank", "Add hours", "Approve pending hours", "Mass promotion", "Confirm archive", "Confirm restore", "Delete permanently"]) expect(admin).toContain(value);
+    for (const value of ["Student Database", "Exam Applications", "Monthly Contributions", "current_rank", "Add hours", "Approve pending hours", "Mass promotion", "Confirm archive", "Confirm restore", "Confirm soft-delete"]) expect(admin).toContain(value);
     for (const value of ["Start New Exam Cycle", "Not signed up", "Read-only historical cycle", "Confirm status change"]) expect(exams).toContain(value);
     for (const value of ["Awaiting payment", "Paid rate", "Last 12 months", "Internal note", "Accessible monthly contribution totals"]) expect(contributions).toContain(value);
     expect(admin).toContain("onWheel"); expect(admin).toContain("Review changes");

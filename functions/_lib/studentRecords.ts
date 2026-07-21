@@ -1,5 +1,5 @@
 import { beltKeyForRank, normalizeRank } from "../../shared/ranks";
-import { jsonResponse } from "./auth";
+import { canAccessDojo, jsonResponse, type AdminSession } from "./auth";
 
 export type D1Result<T = unknown> = {
   results?: T[];
@@ -26,8 +26,9 @@ export type StudentEnv = {
 };
 
 export const DEFAULT_DOJO = "RenShinKan Dojo";
+export const DEFAULT_DOJO_ID = "dojo-rsk";
 export const DEFAULT_SHARE_FIELDS = { photo: true, trainingHours: true, examinations: true, lastUpdated: true };
-const STUDENT_ID_PATTERN = /^RSK-\d{4,}$/;
+const STUDENT_ID_PATTERN = /^[A-Z0-9]{2,8}-\d{4,}$/;
 const ACCESS_SESSION_MINUTES = 20;
 const encoder = new TextEncoder();
 
@@ -169,24 +170,54 @@ export function isValidStudentId(value: string) {
   return STUDENT_ID_PATTERN.test(normalizeStudentId(value));
 }
 
-export function formatStudentId(sequence: number) {
-  return `RSK-${String(sequence).padStart(4, "0")}`;
+export function formatStudentId(sequence: number, code = "RSK") {
+  return `${code.toLocaleUpperCase("en-US")}-${String(sequence).padStart(5, "0")}`;
 }
 
 export function rankColor(rank: string, fallback = "white") {
   return beltKeyForRank(rank) || fallback || "white";
 }
 
-export async function nextStudentId(db: D1Database) {
-  const row = await db.prepare("UPDATE student_id_sequence SET last_number = last_number + 1 WHERE sequence_name = 'student' RETURNING last_number")
-    .first<{ last_number: number }>();
-  if (!row) throw new Error("Student ID sequence is not configured");
-  return formatStudentId(Number(row.last_number));
+export async function nextStudentId(db: D1Database, dojoId = DEFAULT_DOJO_ID) {
+  const row = await db.prepare(`UPDATE dojo_student_sequences SET last_number = last_number + 1,
+      updated_at = ? WHERE dojo_id = ? RETURNING last_number,
+      (SELECT code FROM dojos WHERE id = ?) AS code`)
+    .bind(new Date().toISOString(), dojoId, dojoId).first<{ last_number: number; code: string }>();
+  if (!row?.code) throw new Error("The dojo Student ID sequence is not configured");
+  return formatStudentId(Number(row.last_number), row.code);
 }
 
-export async function suggestedStudentId(db: D1Database) {
-  const row = await db.prepare("SELECT last_number FROM student_id_sequence WHERE sequence_name = 'student'").first<{ last_number: number }>();
-  return formatStudentId(Number(row?.last_number || 0) + 1);
+export async function suggestedStudentId(db: D1Database, dojoId = DEFAULT_DOJO_ID) {
+  const row = await db.prepare(`SELECT d.code, COALESCE(seq.last_number, 0) AS last_number
+    FROM dojos d LEFT JOIN dojo_student_sequences seq ON seq.dojo_id = d.id WHERE d.id = ? AND d.active = 1`)
+    .bind(dojoId).first<{ code: string; last_number: number }>();
+  if (!row) return formatStudentId(1);
+  return formatStudentId(Number(row.last_number || 0) + 1, row.code);
+}
+
+export type DojoRow = {
+  id: string;
+  official_name: string;
+  short_name: string;
+  code: string;
+  logo_url: string;
+  slug: string;
+  active: number;
+  sort_order: number;
+  contact_json?: string;
+};
+
+export async function activeDojo(db: D1Database, dojoId: string) {
+  return db.prepare(`SELECT id, official_name, short_name, code, logo_url, slug, active, sort_order, contact_json
+    FROM dojos WHERE id = ? AND active = 1 LIMIT 1`).bind(dojoId).first<DojoRow>();
+}
+
+export async function assertStudentAccess(db: D1Database, session: AdminSession, studentId: string) {
+  const student = await db.prepare("SELECT id, dojo_id FROM students WHERE id = ? LIMIT 1")
+    .bind(studentId).first<{ id: string; dojo_id: string | null }>();
+  if (!student) return { ok: false as const, status: 404, error: "Student not found" };
+  if (!canAccessDojo(session, student.dojo_id)) return { ok: false as const, status: 403, error: "You do not have access to this student's dojo." };
+  return { ok: true as const, student };
 }
 
 export function requireStudentDb(env: StudentEnv) {
@@ -355,7 +386,25 @@ export type AuditInput = {
   administratorNote?: string | null;
   summary: string;
   createdAt?: string;
+  administratorName?: string | null;
+  administratorRole?: string | null;
+  selectedDojoId?: string | null;
+  ipAddress?: string | null;
+  countryCode?: string | null;
+  userAgent?: string | null;
 };
+
+export function adminAuditMetadata(session: AdminSession, request: Request) {
+  return {
+    actorIdentifier: session.sessionId,
+    administratorName: session.adminName,
+    administratorRole: session.role,
+    selectedDojoId: session.selectedDojoId,
+    ipAddress: request.headers.get("CF-Connecting-IP"),
+    countryCode: request.headers.get("CF-IPCountry"),
+    userAgent: (request.headers.get("User-Agent") || "").slice(0, 500),
+  };
+}
 
 function structuredValue(value: unknown) {
   return value === undefined ? null : JSON.stringify(value);
@@ -367,8 +416,9 @@ export function auditStatement(db: D1Database, input: AuditInput) {
       id, admin_action, record_type, record_id, action_summary, created_at,
       actor_type, actor_identifier, action, entity_type, entity_id, student_id,
       previous_values, new_values, source, bulk_operation_id, request_id, administrator_note,
-      student_public_id_snapshot, student_name_snapshot, exam_cycle_id, contribution_month
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      student_public_id_snapshot, student_name_snapshot, exam_cycle_id, contribution_month,
+      administrator_name, administrator_role, selected_dojo_id, ip_address, country_code, user_agent
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .bind(
       crypto.randomUUID(), input.action, input.entityType, input.entityId, input.summary.slice(0, 300), createdAt,
       input.actorType, input.actorIdentifier.slice(0, 160), input.action, input.entityType, input.entityId,
@@ -376,6 +426,9 @@ export function auditStatement(db: D1Database, input: AuditInput) {
       input.bulkOperationId || null, input.requestId, input.administratorNote?.slice(0, 2000) || null,
       input.studentPublicId?.slice(0, 80) || null, input.studentNameSnapshot?.slice(0, 160) || null,
       input.examCycleId || null, input.contributionMonth || null,
+      input.administratorName?.slice(0, 120) || null, input.administratorRole || null,
+      input.selectedDojoId || null, input.ipAddress || null, input.countryCode?.slice(0, 8) || null,
+      input.userAgent?.slice(0, 500) || null,
     );
 }
 

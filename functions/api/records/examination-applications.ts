@@ -48,11 +48,11 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
     const publicStudentId = normalizeStudentId(text(body.studentId, 40, true));
     const turnstileToken = text(body.turnstileToken, 2048, true);
     if (!(await verifyTurnstile(request, env, turnstileToken))) return jsonResponse({ error: "Cloudflare verification failed. Please try again." }, 400);
-    const student = await db.prepare(`SELECT id, public_student_id, display_name, current_belt FROM students
+    const student = await db.prepare(`SELECT id, public_student_id, display_name, current_belt, dojo_id, aat_number, aat_last_paid_date FROM students
       WHERE UPPER(public_student_id) = ?
       AND active = 1 AND public_visible = 1 AND profile_status = 'approved' LIMIT 1`)
       .bind(publicStudentId)
-      .first<{ id: string; public_student_id: string; display_name: string; current_belt: string }>();
+      .first<{ id: string; public_student_id: string; display_name: string; current_belt: string; dojo_id: string; aat_number: string | null; aat_last_paid_date: string | null }>();
     if (!student || !namesLikelyMatch(verificationName, student.display_name)) {
       return jsonResponse({ error: "The student verification details do not match an approved record." }, 403);
     }
@@ -98,9 +98,13 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
     };
     for (let index = 1; index <= 13; index += 1) answers[`official_rank_${index}`] = "";
 
-    const cycle = await db.prepare("SELECT id, name FROM examination_cycles WHERE status = 'active' ORDER BY created_at DESC LIMIT 1")
-      .first<{ id: string; name: string }>();
+    const cycle = await db.prepare(`SELECT id, name, lifecycle_status, application_opens_at, application_closes_at,
+      rank_fee_config_json, annual_fee_config_json FROM examination_cycles WHERE status = 'active' ORDER BY created_at DESC LIMIT 1`)
+      .first<{ id: string; name: string; lifecycle_status: string; application_opens_at: string | null; application_closes_at: string | null; rank_fee_config_json: string; annual_fee_config_json: string }>();
     if (!cycle) return jsonResponse({ error: "There is no open examination cycle. Please contact a sensei." }, 409);
+    if (cycle.lifecycle_status !== "open" || (cycle.application_opens_at && now < cycle.application_opens_at) || (cycle.application_closes_at && now > cycle.application_closes_at)) {
+      return jsonResponse({ error: "Examination applications are not open at this time." }, 409);
+    }
     const existing = await db.prepare(`SELECT id FROM examination_applications
       WHERE student_id = ? AND cycle_id = ? AND status IN ('application_submitted', 'examination_completed') LIMIT 1`)
       .bind(student.id, cycle.id).first<{ id: string }>();
@@ -113,13 +117,20 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
     const applicationId = crypto.randomUUID();
     const historyId = crypto.randomUUID();
     const cycleStatusId = existingCycleStatus?.id || crypto.randomUUID();
+    const fee = (json: string, key: string) => { try { const config = JSON.parse(json) as Record<string, unknown>; const category = key.toLocaleLowerCase("en").includes("dan") ? "dan" : "kyu"; const value = Number(config[key] ?? config[category] ?? config.default ?? 0); return Number.isFinite(value) && value >= 0 ? value : 0; } catch { return 0; } };
+    const examFee = fee(cycle.rank_fee_config_json, attemptedRank);
+    const aatAnnualFee = fee(cycle.annual_fee_config_json, attemptedRank);
+    const lastExam = await db.prepare("SELECT MAX(examination_date) AS date FROM belt_examinations WHERE student_id = ?").bind(student.id).first<{ date: string | null }>();
     const response = { ok: true, applicationId, status: "application_submitted", paymentStatus: "payment_pending", cycle: cycle.name };
     await db.batch([
       db.prepare(`INSERT INTO examination_applications
         (id, student_id, cycle_id, answers_json, current_rank, attempted_rank, status, payment_status,
-         submitted_at, updated_at, student_name_snapshot, student_public_id_snapshot)
-        VALUES (?, ?, ?, ?, ?, ?, 'application_submitted', 'payment_pending', ?, ?, ?, ?)`)
-        .bind(applicationId, student.id, cycle.id, JSON.stringify(answers), currentRank, attemptedRank, now, now, student.display_name, student.public_student_id),
+         submitted_at, updated_at, student_name_snapshot, student_public_id_snapshot, dojo_id,
+         last_examination_date, practice_period, exam_fee, aat_annual_fee, other_fees, total_fee)
+        VALUES (?, ?, ?, ?, ?, ?, 'application_submitted', 'payment_pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`)
+        .bind(applicationId, student.id, cycle.id, JSON.stringify(answers), currentRank, attemptedRank, now, now,
+          student.display_name, student.public_student_id, student.dojo_id, lastExam?.date || null,
+          text(body.gamesExperience, 1000), examFee, aatAnnualFee, examFee + aatAnnualFee),
       db.prepare(`INSERT INTO exam_cycle_student_status (
           id, student_id, cycle_id, application_id, student_name_snapshot, student_public_id_snapshot,
           current_rank_snapshot, requested_rank_snapshot, status, application_date, updated_at, updated_by

@@ -1,10 +1,12 @@
-import { hasValidAdminSession, isSameOriginRequest, jsonResponse } from "../../../../_lib/auth";
-import { auditStatement, requestIdentifier, requireStudentDb, studentTotal, type StudentEnv } from "../../../../_lib/studentRecords";
+import { getAdminSession, isSameOriginRequest, jsonResponse } from "../../../../_lib/auth";
+import { adminAuditMetadata, assertStudentAccess, auditStatement, requestIdentifier, requireStudentDb, studentTotal, type StudentEnv } from "../../../../_lib/studentRecords";
 
 type Env = StudentEnv & { SESSION_SECRET?: string };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }) => {
-  if (!isSameOriginRequest(request) || !(await hasValidAdminSession(request, env))) return jsonResponse({ error: "Unauthorized" }, 401);
+  if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
+  const session = await getAdminSession(request, env);
+  if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const requestId = requestIdentifier(request);
   try {
     const body = await request.json<{ hours?: unknown }>();
@@ -12,6 +14,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     if (!Number.isFinite(hours) || hours <= 0 || hours > 1000) return jsonResponse({ error: "Enter a positive number of hours, up to 1,000." }, 400);
     const db = requireStudentDb(env);
     const studentId = String(params.id);
+    const access = await assertStudentAccess(db, session, studentId);
+    if (!access.ok) return jsonResponse({ error: access.error }, access.status);
     const previousTotal = await studentTotal(db, studentId);
     if (previousTotal === null) return jsonResponse({ error: "Student not found." }, 404);
     const recordId = crypto.randomUUID();
@@ -25,7 +29,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
         .bind(recordId, studentId, now.slice(0, 10), hours, now),
       db.prepare("UPDATE students SET updated_at = ? WHERE id = ?").bind(now, studentId),
       auditStatement(db, {
-        actorType: "administrator", actorIdentifier: "primary_admin", action: "training_hours_added", entityType: "training_hours", entityId: recordId,
+        actorType: "administrator", ...adminAuditMetadata(session, request), action: "training_hours_added", entityType: "training_hours", entityId: recordId,
         studentId, previousValues: { totalHours: previousTotal }, newValues: { hoursAdded: hours, totalHours: newTotal },
         source: "admin_student_edit", requestId, summary: `Added ${hours} training hours (${previousTotal} → ${newTotal})`, createdAt: now,
       }),

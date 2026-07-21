@@ -1,4 +1,4 @@
-import { hasValidAdminSession, isSameOriginRequest, jsonResponse } from "../../../_lib/auth";
+import { getAdminSession, isSameOriginRequest, jsonResponse, requiresCentralAdmin } from "../../../_lib/auth";
 import { datedProfileKey, validateProfileWebp, type R2Bucket } from "../../../_lib/storage";
 
 type Env = { SESSION_SECRET?: string; MEDIA_BUCKET?: R2Bucket };
@@ -10,7 +10,8 @@ function uploadedProfileKey(value: unknown) {
 }
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
-  if (!isSameOriginRequest(request) || !(await hasValidAdminSession(request, env))) return jsonResponse({ error: "Unauthorized" }, 401);
+  if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
+  if (!(await getAdminSession(request, env))) return jsonResponse({ error: "Unauthorized" }, 401);
   if (!env.MEDIA_BUCKET) return jsonResponse({ error: "Profile image storage is not configured." }, 503);
   try {
     const form = await request.formData();
@@ -29,7 +30,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 };
 
 export const onRequestDelete: PagesFunction<Env> = async ({ request, env }) => {
-  if (!isSameOriginRequest(request) || !(await hasValidAdminSession(request, env))) return jsonResponse({ error: "Unauthorized" }, 401);
+  if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
+  const session = await getAdminSession(request, env);
+  if (!requiresCentralAdmin(session)) return jsonResponse({ error: "Only the RenShinKan administrator may remove an unassigned uploaded image." }, session ? 403 : 401);
   if (!env.MEDIA_BUCKET) return jsonResponse({ error: "Profile image storage is not configured." }, 503);
   try {
     const body = await request.json<{ url?: unknown }>();

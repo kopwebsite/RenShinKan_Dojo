@@ -1,5 +1,7 @@
-import { hasValidAdminSession, isSameOriginRequest, jsonResponse } from "../../../../_lib/auth";
+import { getAdminSession, isSameOriginRequest, jsonResponse } from "../../../../_lib/auth";
 import {
+  adminAuditMetadata,
+  assertStudentAccess,
   auditStatement,
   currentBangkokMonthKey,
   encryptCapabilityToken,
@@ -14,7 +16,9 @@ import { datedProfileKey, type R2Bucket } from "../../../../_lib/storage";
 type Env = StudentEnv & { SESSION_SECRET?: string; MEDIA_BUCKET?: R2Bucket };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }) => {
-  if (!isSameOriginRequest(request) || !(await hasValidAdminSession(request, env))) return jsonResponse({ error: "Unauthorized" }, 401);
+  if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
+  const session = await getAdminSession(request, env);
+  if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const requestId = requestIdentifier(request);
   let approvedKey = "";
   try {
@@ -25,6 +29,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     if (action === "reject" && !note) return jsonResponse({ error: "Add a short note explaining the rejection." }, 400);
     const db = requireStudentDb(env);
     const id = String(params.id);
+    const access = await assertStudentAccess(db, session, id);
+    if (!access.ok) return jsonResponse({ error: access.error }, access.status);
     const existing = await db.prepare("SELECT id, public_student_id, display_name, current_belt, profile_status, pending_profile_image_key, profile_image_url FROM students WHERE id = ? LIMIT 1")
       .bind(id).first<{ id: string; public_student_id: string; display_name: string; current_belt: string; profile_status: string; pending_profile_image_key: string | null; profile_image_url: string | null }>();
     if (!existing) return jsonResponse({ error: "Profile request not found." }, 404);
@@ -33,10 +39,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
 
     if (action === "reject") {
       await db.batch([
-        db.prepare("UPDATE students SET profile_status = 'rejected', active = 0, public_visible = 0, profile_review_note = ?, profile_reviewed_at = ?, profile_reviewed_by = 'primary_admin', updated_at = ? WHERE id = ?")
-          .bind(note, now, now, id),
+        db.prepare("UPDATE students SET profile_status = 'rejected', active = 0, public_visible = 0, profile_review_note = ?, profile_reviewed_at = ?, profile_reviewed_by = ?, updated_at = ? WHERE id = ?")
+          .bind(note, now, session.adminName, now, id),
         auditStatement(db, {
-          actorType: "administrator", actorIdentifier: "primary_admin", action: "profile_rejected", entityType: "student", entityId: id, studentId: id,
+          actorType: "administrator", ...adminAuditMetadata(session, request), action: "profile_rejected", entityType: "student", entityId: id, studentId: id,
           studentPublicId: existing.public_student_id, studentNameSnapshot: existing.display_name,
           previousValues: { profileStatus: existing.profile_status }, newValues: { profileStatus: "rejected" }, source: "admin_profile_review", requestId,
           administratorNote: note, summary: `Rejected profile request ${existing.public_student_id}`, createdAt: now,
@@ -62,15 +68,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     await db.batch([
       db.prepare(`UPDATE students SET profile_status = 'approved', active = 1, public_visible = 1,
         profile_image_url = ?, pending_profile_image_key = NULL, profile_review_note = ?, profile_reviewed_at = ?,
-        profile_reviewed_by = 'primary_admin', updated_at = ? WHERE id = ?`)
-        .bind(`/uploads/${approvedKey}`, note, now, now, id),
+        profile_reviewed_by = ?, updated_at = ? WHERE id = ?`)
+        .bind(`/uploads/${approvedKey}`, note, now, session.adminName, now, id),
       db.prepare("INSERT INTO share_tokens (id, token_hash, student_id, active, created_at, token_ciphertext, purpose) VALUES (?, ?, ?, 1, ?, ?, 'owner')")
         .bind(crypto.randomUUID(), await sha256Hex(token), id, now, await encryptCapabilityToken(env, token)),
       ...(cycle ? [db.prepare(`INSERT OR IGNORE INTO exam_cycle_student_status (
         id, student_id, cycle_id, student_name_snapshot, student_public_id_snapshot,
         current_rank_snapshot, status, updated_at, updated_by
-      ) VALUES (?, ?, ?, ?, ?, ?, 'not_signed_up', ?, 'primary_admin')`)
-        .bind(crypto.randomUUID(), id, cycle.id, existing.display_name, existing.public_student_id, existing.current_belt, now)] : []),
+      ) VALUES (?, ?, ?, ?, ?, ?, 'not_signed_up', ?, ?)`)
+        .bind(crypto.randomUUID(), id, cycle.id, existing.display_name, existing.public_student_id, existing.current_belt, now, session.adminName)] : []),
       ...(contributionPeriod ? [
         db.prepare(`INSERT OR IGNORE INTO contribution_period_students (
           id, month_key, student_id, student_name_snapshot, student_public_id_snapshot,
@@ -82,7 +88,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
         ) WHERE month_key = ?`).bind(currentMonth, currentMonth),
       ] : []),
       auditStatement(db, {
-        actorType: "administrator", actorIdentifier: "primary_admin", action: "profile_approved", entityType: "student", entityId: id, studentId: id,
+        actorType: "administrator", ...adminAuditMetadata(session, request), action: "profile_approved", entityType: "student", entityId: id, studentId: id,
         studentPublicId: existing.public_student_id, studentNameSnapshot: existing.display_name,
         previousValues: { profileStatus: existing.profile_status, active: false, publicVisible: false },
         newValues: { profileStatus: "approved", active: true, publicVisible: true, profileImageUrl: `/uploads/${approvedKey}` },

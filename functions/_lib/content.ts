@@ -52,6 +52,44 @@ export type RecentEvent = {
   updatedAt: string;
 };
 
+export const SITE_LOCALES = ["en", "th", "ja", "zh-CN"] as const;
+export type SiteLocale = typeof SITE_LOCALES[number];
+export type SiteBlockType = "hero" | "richText" | "image" | "imageText" | "gallery" | "schedule"
+  | "instructorCard" | "cta" | "contact" | "announcement" | "divider" | "video" | "faq";
+export type SiteBlockTranslation = {
+  title: string;
+  text: string;
+  buttonLabel: string;
+  buttonUrl: string;
+  imageUrl: string;
+  imageAlt: string;
+};
+export type SiteBlock = {
+  id: string;
+  type: SiteBlockType;
+  visible: boolean;
+  align: "left" | "center" | "right";
+  textColor: "ink" | "paper" | "bamboo" | "vermillion";
+  background: "transparent" | "paper" | "mist" | "ink" | "bamboo";
+  font: "sans" | "serif";
+  fontSize: "small" | "normal" | "large";
+  spacing: "compact" | "normal" | "spacious";
+  imagePlacement: "left" | "right" | "above";
+  translations: Record<SiteLocale, SiteBlockTranslation>;
+};
+export type SitePage = {
+  id: string;
+  route: string;
+  status: "draft" | "published";
+  translations: Record<SiteLocale, { title: string; seoTitle: string; seoDescription: string }>;
+  blocks: SiteBlock[];
+  publishedAt: string | null;
+  publishedBy: string | null;
+};
+export type SiteSettings = {
+  translations: Record<SiteLocale, { footerText: string; notice: string; navigation: Record<string, string> }>;
+};
+
 export type EditableContent = {
   version: number;
   lastPublishedAt: string | null;
@@ -60,6 +98,8 @@ export type EditableContent = {
   historyMedia: MediaItem[];
   onTheMatMedia: MediaItem[];
   passedTestStudents: Array<Record<string, unknown>>;
+  sitePages: SitePage[];
+  siteSettings: SiteSettings;
 };
 
 const allowedNewsletterStatuses = new Set<NewsletterStatus>(["not_sent", "pending", "sent", "failed"]);
@@ -67,6 +107,82 @@ const allowedBodyMediaAligns = new Set<BodyMediaAlign>(["left", "center", "right
 const allowedDocumentKinds = new Set<DocumentMediaKind>(["pdf", "docx", "ppt"]);
 const allowedDocumentDisplayModes = new Set<DocumentDisplayMode>(["inline", "link"]);
 const MAX_RECENT_EVENT_PHOTOS = 6;
+const siteBlockTypes = new Set<SiteBlockType>(["hero", "richText", "image", "imageText", "gallery", "schedule", "instructorCard", "cta", "contact", "announcement", "divider", "video", "faq"]);
+
+const emptyBlockTranslation = (): SiteBlockTranslation => ({ title: "", text: "", buttonLabel: "", buttonUrl: "", imageUrl: "", imageAlt: "" });
+
+function safeInternalOrHttpsUrl(value: unknown, max = 500) {
+  if (typeof value !== "string") return "";
+  const clean = value.trim().slice(0, max);
+  if (!clean) return "";
+  if (clean.startsWith("/") && !clean.startsWith("//") && !/[<>"']/.test(clean)) return clean;
+  try { return new URL(clean).protocol === "https:" ? clean : ""; } catch { return ""; }
+}
+
+function localizedRecord<T>(value: unknown, normalize: (entry: Record<string, unknown>) => T, fallback: () => T) {
+  const record = isRecord(value) ? value : {};
+  return Object.fromEntries(SITE_LOCALES.map((locale) => [locale, isRecord(record[locale]) ? normalize(record[locale] as Record<string, unknown>) : fallback()])) as Record<SiteLocale, T>;
+}
+
+function validateSiteBlock(value: unknown, index: number): SiteBlock {
+  if (!isRecord(value)) throw new Error(`site block ${index + 1} must be an object`);
+  const type = siteBlockTypes.has(value.type as SiteBlockType) ? value.type as SiteBlockType : null;
+  if (!type) throw new Error(`site block ${index + 1} has an unsupported type`);
+  const id = typeof value.id === "string" && /^[A-Za-z0-9_-]{4,100}$/.test(value.id) ? value.id : crypto.randomUUID();
+  const translations = localizedRecord(value.translations, (entry) => ({
+    title: typeof entry.title === "string" ? entry.title.slice(0, 200) : "",
+    text: typeof entry.text === "string" ? entry.text.slice(0, 12_000) : "",
+    buttonLabel: typeof entry.buttonLabel === "string" ? entry.buttonLabel.slice(0, 100) : "",
+    buttonUrl: safeInternalOrHttpsUrl(entry.buttonUrl),
+    imageUrl: safeInternalOrHttpsUrl(entry.imageUrl),
+    imageAlt: typeof entry.imageAlt === "string" ? entry.imageAlt.slice(0, 300) : "",
+  }), emptyBlockTranslation);
+  return {
+    id, type, visible: value.visible !== false,
+    align: value.align === "center" || value.align === "right" ? value.align : "left",
+    textColor: value.textColor === "paper" || value.textColor === "bamboo" || value.textColor === "vermillion" ? value.textColor : "ink",
+    background: value.background === "paper" || value.background === "mist" || value.background === "ink" || value.background === "bamboo" ? value.background : "transparent",
+    font: value.font === "serif" ? "serif" : "sans",
+    fontSize: value.fontSize === "small" || value.fontSize === "large" ? value.fontSize : "normal",
+    spacing: value.spacing === "compact" || value.spacing === "spacious" ? value.spacing : "normal",
+    imagePlacement: value.imagePlacement === "right" || value.imagePlacement === "above" ? value.imagePlacement : "left",
+    translations,
+  };
+}
+
+function validateSitePage(value: unknown, index: number): SitePage {
+  if (!isRecord(value)) throw new Error(`sitePages[${index}] must be an object`);
+  const route = typeof value.route === "string" ? value.route.trim().replace(/\/$/, "") || "/" : "/";
+  if (!/^\/(?:[a-z0-9-]+)?$/.test(route) || route.startsWith("/admin")) throw new Error(`sitePages[${index}].route is invalid`);
+  const translations = localizedRecord(value.translations, (entry) => ({
+    title: typeof entry.title === "string" ? entry.title.slice(0, 200) : "",
+    seoTitle: typeof entry.seoTitle === "string" ? entry.seoTitle.slice(0, 70) : "",
+    seoDescription: typeof entry.seoDescription === "string" ? entry.seoDescription.slice(0, 180) : "",
+  }), () => ({ title: "", seoTitle: "", seoDescription: "" }));
+  return {
+    id: typeof value.id === "string" && /^[A-Za-z0-9_-]{4,100}$/.test(value.id) ? value.id : crypto.randomUUID(),
+    route,
+    status: value.status === "published" ? "published" : "draft",
+    translations,
+    blocks: Array.isArray(value.blocks) ? value.blocks.slice(0, 80).map(validateSiteBlock) : [],
+    publishedAt: typeof value.publishedAt === "string" ? value.publishedAt : null,
+    publishedBy: typeof value.publishedBy === "string" ? value.publishedBy.slice(0, 120) : null,
+  };
+}
+
+function validateSiteSettings(value: unknown): SiteSettings {
+  const record = isRecord(value) ? value : {};
+  return { translations: localizedRecord(record.translations, (entry) => {
+    const navigation = isRecord(entry.navigation) ? Object.fromEntries(Object.entries(entry.navigation)
+      .filter((item): item is [string, string] => /^[a-zA-Z0-9_-]{1,80}$/.test(item[0]) && typeof item[1] === "string")
+      .map(([key, label]) => [key, label.slice(0, 100)])) : {};
+    return {
+      footerText: typeof entry.footerText === "string" ? entry.footerText.slice(0, 1_000) : "",
+      notice: typeof entry.notice === "string" ? entry.notice.slice(0, 500) : "",
+      navigation,
+    };
+  }, () => ({ footerText: "", notice: "", navigation: {} })) };
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -311,6 +427,8 @@ export function validateEditableContent(value: unknown): EditableContent {
     passedTestStudents: Array.isArray(value.passedTestStudents)
       ? value.passedTestStudents.filter(isRecord)
       : [],
+    sitePages: Array.isArray(value.sitePages) ? value.sitePages.slice(0, 40).map(validateSitePage) : [],
+    siteSettings: validateSiteSettings(value.siteSettings),
   };
 }
 

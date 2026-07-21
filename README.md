@@ -68,6 +68,10 @@ The current admin UI exposes:
 - private student records with belt examinations and verified training hours
 - opt-in profile photos, lookup visibility, and guardian-consent status
 - revocable public share links and printable QR codes
+- six-dojo role-scoped administration and dojo-specific student IDs
+- AAT annual membership renewal and immutable payment history
+- examination cycles plus scoped PDF and real XLSX reports
+- a structured four-language website editor with drafts, responsive preview, revisions, publishing, and rollback
 
 ## Student records
 

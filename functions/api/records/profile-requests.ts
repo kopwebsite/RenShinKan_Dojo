@@ -1,5 +1,6 @@
 import { jsonResponse } from "../../_lib/auth";
 import {
+  activeDojo,
   auditStatement,
   DEFAULT_SHARE_FIELDS,
   enforceLookupRateLimit,
@@ -18,7 +19,9 @@ type Env = StudentEnv & { MEDIA_BUCKET?: R2Bucket };
 type ProfilePayload = {
   displayName?: unknown;
   currentRank?: unknown;
-  dojoName?: unknown;
+  dojoId?: unknown;
+  aatNumber?: unknown;
+  aatLastPaidDate?: unknown;
   practiceDuration?: unknown;
   profileBio?: unknown;
   turnstileToken?: unknown;
@@ -45,18 +48,21 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (typeof payloadValue !== "string" || !(file instanceof File)) return jsonResponse({ error: "Complete the form and choose a profile picture." }, 400);
     const payload = JSON.parse(payloadValue) as ProfilePayload;
     const displayName = clean(payload.displayName, 120);
-    const dojoName = clean(payload.dojoName, 120);
+    const dojoId = clean(payload.dojoId, 80);
+    const dojo = await activeDojo(db, dojoId);
+    const aatNumber = clean(payload.aatNumber, 40) || null;
+    const aatLastPaidDate = typeof payload.aatLastPaidDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(payload.aatLastPaidDate) ? payload.aatLastPaidDate : null;
     const practiceDuration = clean(payload.practiceDuration, 160);
     const profileBio = typeof payload.profileBio === "string" ? payload.profileBio.normalize("NFKC").trim().slice(0, 2001) : "";
     const turnstileToken = typeof payload.turnstileToken === "string" ? payload.turnstileToken : "";
     if (!displayName || displayName.length > 120) return jsonResponse({ error: "Enter the student's full name." }, 400);
-    if (!dojoName || dojoName.length > 120) return jsonResponse({ error: "Enter the dojo where the student currently trains." }, 400);
+    if (!dojo) return jsonResponse({ error: "Choose the dojo where the student currently trains." }, 400);
     if (!practiceDuration || practiceDuration.length > 160) return jsonResponse({ error: "Tell us how long the student has practiced aikido." }, 400);
     if (profileBio.length > 2000) return jsonResponse({ error: "Additional profile information must be 2,000 characters or fewer." }, 400);
     if (!(await verifyTurnstile(request, env, turnstileToken))) return jsonResponse({ error: "Cloudflare verification failed. Please try again." }, 400);
     const rank = normalizedRankOrError(payload.currentRank);
     const image = await validateProfileWebp(file);
-    const studentId = await nextStudentId(db);
+    const studentId = await nextStudentId(db, dojo.id);
     const studentUuid = crypto.randomUUID();
     const nameHash = await studentNameVerificationHash(env, displayName);
     const now = new Date().toISOString();
@@ -72,11 +78,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         id, public_student_id, lookup_code_hash, name_verification_hash, display_name, current_belt, belt_color,
         profile_image_url, profile_image_consent, guardian_consent, public_visible, active, share_fields, dojo_name,
         admin_notes, training_hours_adjustment, created_at, updated_at, profile_status, practice_duration,
-        profile_bio, pending_profile_image_key
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 1, 0, 0, 0, ?, ?, '', 0, ?, ?, 'pending_admin_approval', ?, ?, ?)`)
+        profile_bio, pending_profile_image_key, dojo_id, aat_number, aat_last_paid_date
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 1, 0, 0, 0, ?, ?, '', 0, ?, ?, 'pending_admin_approval', ?, ?, ?, ?, ?, ?)`)
         .bind(
           studentUuid, studentId, "", nameHash, displayName, rank, rankColor(rank),
-          JSON.stringify(DEFAULT_SHARE_FIELDS), dojoName, now, now, practiceDuration, profileBio, pendingKey,
+          JSON.stringify(DEFAULT_SHARE_FIELDS), dojo.official_name, now, now, practiceDuration, profileBio, pendingKey,
+          dojo.id, aatNumber, aatLastPaidDate,
         ),
       auditStatement(db, {
         actorType: "student",
@@ -86,7 +93,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         entityId: studentUuid,
         studentId: studentUuid,
         previousValues: null,
-        newValues: { studentId, displayName, currentRank: rank, dojoName, practiceDuration, profileBio, profileStatus: "pending_admin_approval", profileImage: "submitted" },
+        newValues: { studentId, displayName, currentRank: rank, dojoId: dojo.id, dojoName: dojo.official_name, aatNumber, aatLastPaidDate, practiceDuration, profileBio, profileStatus: "pending_admin_approval", profileImage: "submitted" },
         source: "student_profile_request",
         requestId,
         summary: `Submitted a new profile request for ${displayName}`,

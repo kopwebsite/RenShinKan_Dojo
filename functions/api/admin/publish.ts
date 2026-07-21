@@ -1,4 +1,4 @@
-import { hasValidAdminSession, isSameOriginRequest, jsonResponse } from "../../_lib/auth";
+import { getAdminSession, isSameOriginRequest, jsonResponse, requiresCentralAdmin } from "../../_lib/auth";
 import { createAndSendRecentEventCampaign, missingBrevoEnv } from "../../_lib/brevo";
 import {
   type EditableContent,
@@ -14,8 +14,9 @@ import {
   uploadFilesToR2,
   writeEditableContentToStorage,
 } from "../../_lib/storage";
+import { adminAuditMetadata, auditStatement, requestIdentifier, requireStudentDb, type StudentEnv } from "../../_lib/studentRecords";
 
-type Env = StorageEnv & {
+type Env = StorageEnv & StudentEnv & {
   SESSION_SECRET?: string;
   SITE_URL?: string;
   BREVO_API_KEY?: string;
@@ -141,9 +142,8 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
     return jsonResponse({ ok: false, error: "Forbidden" }, 403);
   }
 
-  if (!await hasValidAdminSession(request, env)) {
-    return jsonResponse({ ok: false, error: "Unauthorized" }, 401);
-  }
+  const session = await getAdminSession(request, env);
+  if (!requiresCentralAdmin(session)) return jsonResponse({ ok: false, error: "Only the RenShinKan administrator may publish website content or newsletters." }, session ? 403 : 401);
 
   if (!env.CONTENT_KV) {
     return jsonResponse({ ok: false, error: "Cloudflare CONTENT_KV binding is not configured" }, 500);
@@ -199,6 +199,19 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
     content = newsletterResult.content;
 
     await writeEditableContentToStorage(env, content);
+
+    const now = new Date().toISOString();
+    const db = requireStudentDb(env);
+    await db.batch([
+      auditStatement(db, { actorType: "administrator", ...adminAuditMetadata(session!, request), action: "public_content_published",
+        entityType: "site_content", entityId: "legacy-editor", previousValues: { lastPublishedAt: previousContent.lastPublishedAt },
+        newValues: { lastPublishedAt: content.lastPublishedAt, uploaded: uploaded.length, newsletterCandidates: candidates.length },
+        source: "admin_content_publish", requestId: requestIdentifier(request), summary: `Published public content; ${uploaded.length} upload(s), ${candidates.length} newsletter candidate(s)`, createdAt: now }),
+      ...candidates.map((event) => auditStatement(db, { actorType: "administrator", ...adminAuditMetadata(session!, request),
+        action: "newsletter_send_attempted", entityType: "recent_event", entityId: event.id,
+        newValues: content.recentEvents.find((item) => item.id === event.id)?.newsletter || null,
+        source: "admin_content_publish", requestId: requestIdentifier(request), summary: `Newsletter send attempted for ${event.title}`, createdAt: now })),
+    ]);
 
     return jsonResponse({
       ok: true,

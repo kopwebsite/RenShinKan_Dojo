@@ -3,6 +3,7 @@ const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 
 type AuthEnv = {
   ADMIN_PASSWORD_HASH?: string;
+  DOJO_ADMIN_PASSWORD_HASHES?: string;
   SESSION_SECRET?: string;
   STUDENT_DB?: {
     prepare(query: string): {
@@ -14,10 +15,17 @@ type AuthEnv = {
   };
 };
 
-type SessionPayload = {
+export type AdminRole = "central" | "dojo";
+
+export type AdminSession = {
   sub: "admin";
   iat: number;
   exp: number;
+  sessionId: string;
+  adminName: string;
+  role: AdminRole;
+  allowedDojoIds: string[];
+  selectedDojoId: string | null;
 };
 
 export function jsonResponse(data: unknown, status = 200, headers: HeadersInit = {}) {
@@ -166,26 +174,59 @@ export async function verifyAdminPassword(password: string, env: AuthEnv) {
   return timingSafeEqual(submittedHash, expectedHash);
 }
 
-export async function createSessionCookie(env: AuthEnv) {
+function configuredDojoPasswordHashes(env: AuthEnv) {
+  if (!isConfigured(env.DOJO_ADMIN_PASSWORD_HASHES)) return new Map<string, string>();
+  try {
+    const parsed = JSON.parse(env.DOJO_ADMIN_PASSWORD_HASHES!) as Record<string, unknown>;
+    return new Map(Object.entries(parsed)
+      .filter((entry): entry is [string, string] => /^dojo-[a-z0-9-]+$/.test(entry[0]) && typeof entry[1] === "string")
+      .map(([dojoId, hash]) => [dojoId, normalizeHash(hash)]));
+  } catch {
+    return new Map<string, string>();
+  }
+}
+
+export async function authenticateAdminPassword(password: string, env: AuthEnv) {
+  if (await verifyAdminPassword(password, env)) {
+    return { role: "central" as const, allowedDojoIds: [] };
+  }
+  if (!isConfigured(env.SESSION_SECRET)) return null;
+  const submittedHash = await hmacSha256Hex(env.SESSION_SECRET!, password);
+  for (const [dojoId, expectedHash] of configuredDojoPasswordHashes(env)) {
+    if (timingSafeEqual(submittedHash, expectedHash)) {
+      return { role: "dojo" as const, allowedDojoIds: [dojoId] };
+    }
+  }
+  return null;
+}
+
+type NewSession = Partial<Pick<AdminSession, "sessionId" | "adminName" | "role" | "allowedDojoIds" | "selectedDojoId">>;
+
+export async function createSessionCookie(env: AuthEnv, session: NewSession = {}) {
   if (!isConfigured(env.SESSION_SECRET)) {
     throw new Error("SESSION_SECRET is not configured");
   }
 
   const now = Math.floor(Date.now() / 1000);
-  const payload: SessionPayload = {
+  const payload: AdminSession = {
     sub: "admin",
     iat: now,
     exp: now + SESSION_TTL_SECONDS,
+    sessionId: session.sessionId || crypto.randomUUID(),
+    adminName: (session.adminName || "Administrator").normalize("NFKC").trim().replace(/\s+/g, " ").slice(0, 120),
+    role: session.role === "dojo" ? "dojo" : "central",
+    allowedDojoIds: session.role === "dojo" ? Array.from(new Set(session.allowedDojoIds || [])).slice(0, 3) : [],
+    selectedDojoId: session.selectedDojoId || null,
   };
   const encodedPayload = bytesToBase64Url(textToBytes(JSON.stringify(payload)));
   const encodedSignature = bytesToBase64Url(await hmacSha256(env.SESSION_SECRET!, encodedPayload));
   const token = `${encodedPayload}.${encodedSignature}`;
 
-  return `${COOKIE_NAME}=${token}; Max-Age=${SESSION_TTL_SECONDS}; Path=/; HttpOnly; Secure; SameSite=Lax`;
+  return `${COOKIE_NAME}=${token}; Max-Age=${SESSION_TTL_SECONDS}; Path=/; HttpOnly; Secure; SameSite=Strict`;
 }
 
 export function clearSessionCookie() {
-  return `${COOKIE_NAME}=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax`;
+  return `${COOKIE_NAME}=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict`;
 }
 
 function getCookie(request: Request, name: string) {
@@ -197,29 +238,69 @@ function getCookie(request: Request, name: string) {
   return match ? decodeURIComponent(match.slice(prefix.length)) : "";
 }
 
-export async function hasValidAdminSession(request: Request, env: AuthEnv) {
+export async function getAdminSession(request: Request, env: AuthEnv): Promise<AdminSession | null> {
   if (!isConfigured(env.SESSION_SECRET)) {
-    return false;
+    return null;
   }
 
   const token = getCookie(request, COOKIE_NAME);
   const [encodedPayload, encodedSignature] = token.split(".");
 
   if (!encodedPayload || !encodedSignature) {
-    return false;
+    return null;
   }
 
   const expectedSignature = bytesToBase64Url(await hmacSha256(env.SESSION_SECRET!, encodedPayload));
 
   if (!timingSafeEqual(encodedSignature, expectedSignature)) {
-    return false;
+    return null;
   }
 
   try {
     const payloadJson = new TextDecoder().decode(base64UrlToBytes(encodedPayload));
-    const payload = JSON.parse(payloadJson) as Partial<SessionPayload>;
-    return payload.sub === "admin" && typeof payload.exp === "number" && payload.exp > Math.floor(Date.now() / 1000);
+    const payload = JSON.parse(payloadJson) as Partial<AdminSession>;
+    if (payload.sub !== "admin" || typeof payload.exp !== "number" || payload.exp <= Math.floor(Date.now() / 1000)
+      || (payload.role !== "central" && payload.role !== "dojo") || typeof payload.sessionId !== "string"
+      || typeof payload.adminName !== "string" || !payload.adminName.trim()) return null;
+    const role = payload.role;
+    const allowedDojoIds = role === "dojo" && Array.isArray(payload.allowedDojoIds)
+      ? payload.allowedDojoIds.filter((value): value is string => typeof value === "string" && /^dojo-[a-z0-9-]+$/.test(value)).slice(0, 3)
+      : [];
+    if (role === "dojo" && allowedDojoIds.length === 0) return null;
+    const result: AdminSession = {
+      sub: "admin",
+      iat: typeof payload.iat === "number" ? payload.iat : 0,
+      exp: payload.exp,
+      sessionId: payload.sessionId.slice(0, 120),
+      adminName: payload.adminName.trim().slice(0, 120),
+      role,
+      allowedDojoIds,
+      selectedDojoId: typeof payload.selectedDojoId === "string" ? payload.selectedDojoId : null,
+    };
+    return result;
   } catch {
-    return false;
+    return null;
   }
+}
+
+export async function hasValidAdminSession(request: Request, env: AuthEnv) {
+  return Boolean(await getAdminSession(request, env));
+}
+
+export function canAccessDojo(session: AdminSession, dojoId: string | null | undefined) {
+  return session.role === "central" || Boolean(dojoId && session.allowedDojoIds.includes(dojoId));
+}
+
+export function requiresCentralAdmin(session: AdminSession | null) {
+  return Boolean(session && session.role === "central");
+}
+
+export async function updateSelectedDojoCookie(env: AuthEnv, session: AdminSession, selectedDojoId: string) {
+  return createSessionCookie(env, {
+    sessionId: session.sessionId,
+    adminName: session.adminName,
+    role: session.role,
+    allowedDojoIds: session.allowedDojoIds,
+    selectedDojoId,
+  });
 }

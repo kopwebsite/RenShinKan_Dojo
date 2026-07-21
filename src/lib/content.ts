@@ -9,7 +9,13 @@ import type {
   NewsletterStatus,
   PassedTestStudent,
   RecentEvent,
+  SiteBlock,
+  SiteBlockTranslation,
+  SiteLocale,
+  SitePage,
+  SiteSettings,
 } from "../types/editableContent";
+import { SITE_LOCALES } from "../types/editableContent";
 import { assetPath } from "../utils/assetPath";
 import {
   clampBodyMediaPosition,
@@ -26,6 +32,10 @@ export const emptyEditableContent: EditableContent = {
   historyMedia: [],
   onTheMatMedia: [],
   passedTestStudents: [],
+  sitePages: [],
+  siteSettings: {
+    translations: Object.fromEntries(SITE_LOCALES.map((locale) => [locale, { footerText: "", notice: "", navigation: {} }])) as SiteSettings["translations"],
+  },
 };
 
 type RecordValue = Record<string, unknown>;
@@ -213,6 +223,51 @@ function normalizePassedTestStudent(value: unknown): PassedTestStudent | null {
   };
 }
 
+function localizedRecord<T>(value: unknown, normalize: (entry: RecordValue) => T, fallback: () => T) {
+  const record = isRecord(value) ? value : {};
+  return Object.fromEntries(SITE_LOCALES.map((locale) => [locale, isRecord(record[locale]) ? normalize(record[locale] as RecordValue) : fallback()])) as Record<SiteLocale, T>;
+}
+
+function normalizeSiteBlock(value: unknown): SiteBlock | null {
+  if (!isRecord(value) || typeof value.id !== "string" || typeof value.type !== "string") return null;
+  const validTypes = ["hero", "richText", "image", "imageText", "gallery", "schedule", "instructorCard", "cta", "contact", "announcement", "divider", "video", "faq"];
+  if (!validTypes.includes(value.type)) return null;
+  const translations = localizedRecord<SiteBlockTranslation>(value.translations, (entry) => ({
+    title: asString(entry.title), text: asString(entry.text), buttonLabel: asString(entry.buttonLabel),
+    buttonUrl: asString(entry.buttonUrl), imageUrl: asString(entry.imageUrl), imageAlt: asString(entry.imageAlt),
+  }), () => ({ title: "", text: "", buttonLabel: "", buttonUrl: "", imageUrl: "", imageAlt: "" }));
+  return {
+    id: value.id, type: value.type as SiteBlock["type"], visible: value.visible !== false,
+    align: value.align === "center" || value.align === "right" ? value.align : "left",
+    textColor: value.textColor === "paper" || value.textColor === "bamboo" || value.textColor === "vermillion" ? value.textColor : "ink",
+    background: value.background === "paper" || value.background === "mist" || value.background === "ink" || value.background === "bamboo" ? value.background : "transparent",
+    font: value.font === "serif" ? "serif" : "sans",
+    fontSize: value.fontSize === "small" || value.fontSize === "large" ? value.fontSize : "normal",
+    spacing: value.spacing === "compact" || value.spacing === "spacious" ? value.spacing : "normal",
+    imagePlacement: value.imagePlacement === "right" || value.imagePlacement === "above" ? value.imagePlacement : "left",
+    translations,
+  };
+}
+
+function normalizeSitePage(value: unknown): SitePage | null {
+  if (!isRecord(value) || typeof value.id !== "string" || typeof value.route !== "string") return null;
+  return {
+    id: value.id, route: value.route, status: value.status === "published" ? "published" : "draft",
+    translations: localizedRecord(value.translations, (entry) => ({ title: asString(entry.title), seoTitle: asString(entry.seoTitle), seoDescription: asString(entry.seoDescription) }), () => ({ title: "", seoTitle: "", seoDescription: "" })),
+    blocks: Array.isArray(value.blocks) ? value.blocks.map(normalizeSiteBlock).filter((block): block is SiteBlock => Boolean(block)) : [],
+    publishedAt: typeof value.publishedAt === "string" ? value.publishedAt : null,
+    publishedBy: typeof value.publishedBy === "string" ? value.publishedBy : null,
+  };
+}
+
+function normalizeSiteSettings(value: unknown): SiteSettings {
+  const record = isRecord(value) ? value : {};
+  return { translations: localizedRecord(record.translations, (entry) => ({
+    footerText: asString(entry.footerText), notice: asString(entry.notice),
+    navigation: isRecord(entry.navigation) ? Object.fromEntries(Object.entries(entry.navigation).filter((item): item is [string, string] => typeof item[1] === "string")) : {},
+  }), () => ({ footerText: "", notice: "", navigation: {} })) };
+}
+
 export function normalizeEditableContent(value: unknown): EditableContent {
   if (!isRecord(value)) {
     return emptyEditableContent;
@@ -232,6 +287,8 @@ export function normalizeEditableContent(value: unknown): EditableContent {
           .map(normalizePassedTestStudent)
           .filter((student): student is PassedTestStudent => Boolean(student))
       : [],
+    sitePages: Array.isArray(value.sitePages) ? value.sitePages.map(normalizeSitePage).filter((page): page is SitePage => Boolean(page)) : [],
+    siteSettings: normalizeSiteSettings(value.siteSettings),
   };
 }
 
@@ -256,7 +313,9 @@ function isViteLocalHost() {
   return ["5173", "4173"].includes(window.location.port);
 }
 
-export async function loadEditableContent() {
+let sharedContentRequest: Promise<EditableContent> | null = null;
+
+async function fetchFirstEditableContent() {
   const staticContentUrl = assetPath("/content/editableContent.json");
   const urls = isViteLocalHost() ? [staticContentUrl] : ["/api/content", staticContentUrl];
 
@@ -273,6 +332,11 @@ export async function loadEditableContent() {
   }
 
   return emptyEditableContent;
+}
+
+export function loadEditableContent() {
+  sharedContentRequest ||= fetchFirstEditableContent();
+  return sharedContentRequest;
 }
 
 export function useEditableContent() {

@@ -62,7 +62,7 @@ describe("student and administrator security", () => {
   it("creates signed secure admin sessions and rejects tampering", async () => {
     const env = { SESSION_SECRET: "test-secret-that-is-not-used-in-production" };
     const cookie = await createSessionCookie(env);
-    expect(cookie).toContain("HttpOnly"); expect(cookie).toContain("Secure"); expect(cookie).toContain("SameSite=Lax");
+    expect(cookie).toContain("HttpOnly"); expect(cookie).toContain("Secure"); expect(cookie).toContain("SameSite=Strict");
     expect(await hasValidAdminSession(new Request("https://example.test/admin", { headers: { Cookie: cookie.split(";")[0] } }), env)).toBe(true);
     expect(await hasValidAdminSession(new Request("https://example.test/admin", { headers: { Cookie: `${cookie.split(";")[0]}x` } }), env)).toBe(false);
   });

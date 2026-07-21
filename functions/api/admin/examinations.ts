@@ -1,5 +1,6 @@
-import { hasValidAdminSession, isSameOriginRequest, jsonResponse } from "../../_lib/auth";
+import { canAccessDojo, getAdminSession, isSameOriginRequest, jsonResponse, requiresCentralAdmin } from "../../_lib/auth";
 import {
+  adminAuditMetadata,
   auditStatement,
   requestIdentifier,
   requireStudentDb,
@@ -8,7 +9,7 @@ import {
 } from "../../_lib/studentRecords";
 
 type Env = StudentEnv & { SESSION_SECRET?: string };
-type Cycle = { id: string; name: string; status: "active" | "closed"; created_at: string; closed_at: string | null };
+type Cycle = { id: string; name: string; title: string; status: "active" | "closed"; lifecycle_status: string; rank_category: string; examination_type: string; application_opens_at: string | null; application_closes_at: string | null; examination_at: string | null; venue: string; instructions: string; rank_fee_config_json: string; annual_fee_config_json: string; created_at: string; closed_at: string | null };
 type RosterRow = {
   status_id: string | null;
   student_id: string;
@@ -20,10 +21,22 @@ type RosterRow = {
   application_date: string | null;
   status: "not_signed_up" | "unpaid" | "paid";
   profile_image_url: string | null;
+  dojo_id: string;
 };
 
 function cleanText(value: unknown, max: number) {
   return typeof value === "string" ? value.normalize("NFKC").trim().replace(/\s+/g, " ").slice(0, max + 1) : "";
+}
+
+function cleanFeeConfig(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const result: Record<string, number> = {};
+  for (const [key, rawAmount] of Object.entries(value)) {
+    const safeKey = cleanText(key, 40);
+    const amount = Number(rawAmount);
+    if (safeKey && Number.isFinite(amount) && amount >= 0 && amount <= 1_000_000) result[safeKey] = Math.round(amount * 100) / 100;
+  }
+  return result;
 }
 
 function replayResponse(value: string | null | undefined) {
@@ -32,10 +45,13 @@ function replayResponse(value: string | null | undefined) {
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
-  if (!(await hasValidAdminSession(request, env))) return jsonResponse({ error: "Unauthorized" }, 401);
+  const session = await getAdminSession(request, env);
+  if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const db = requireStudentDb(env);
   const url = new URL(request.url);
-  const cycles = (await db.prepare(`SELECT id, name, status, created_at, closed_at
+  const cycles = (await db.prepare(`SELECT id, name, title, status, lifecycle_status, rank_category, examination_type,
+    application_opens_at, application_closes_at, examination_at, venue, instructions,
+    rank_fee_config_json, annual_fee_config_json, created_at, closed_at
     FROM examination_cycles ORDER BY created_at DESC`).all<Cycle>()).results || [];
   const requestedCycleId = cleanText(url.searchParams.get("cycleId"), 100);
   const selectedCycle = cycles.find((cycle) => cycle.id === requestedCycleId)
@@ -57,12 +73,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         ecs.application_id,
         ecs.application_date,
         COALESCE(ecs.status, 'not_signed_up') AS status,
-        s.profile_image_url
+        s.profile_image_url, s.dojo_id
       FROM students s
       LEFT JOIN exam_cycle_student_status ecs ON ecs.student_id = s.id AND ecs.cycle_id = ?
-      WHERE s.active = 1 AND s.profile_status = 'approved'
+      WHERE s.active = 1 AND s.profile_status = 'approved' ${session.role === "dojo" ? "AND s.dojo_id = ?" : ""}
       ORDER BY s.display_name COLLATE NOCASE, s.public_student_id COLLATE NOCASE`)
-      .bind(selectedCycle.id).all<RosterRow>()).results || []);
+      .bind(selectedCycle.id, ...(session.role === "dojo" ? [session.allowedDojoIds[0] || "__none__"] : [])).all<RosterRow>()).results || []);
   } else {
     roster = ((await db.prepare(`SELECT
         ecs.id AS status_id, ecs.student_id,
@@ -73,12 +89,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         ecs.application_id,
         ecs.application_date,
         ecs.status,
-        s.profile_image_url
+        s.profile_image_url, s.dojo_id
       FROM exam_cycle_student_status ecs
       LEFT JOIN students s ON s.id = ecs.student_id
-      WHERE ecs.cycle_id = ?
+      WHERE ecs.cycle_id = ? ${session.role === "dojo" ? "AND s.dojo_id = ?" : ""}
       ORDER BY ecs.student_name_snapshot COLLATE NOCASE, ecs.student_public_id_snapshot COLLATE NOCASE`)
-      .bind(selectedCycle.id).all<RosterRow>()).results || []);
+      .bind(selectedCycle.id, ...(session.role === "dojo" ? [session.allowedDojoIds[0] || "__none__"] : [])).all<RosterRow>()).results || []);
   }
 
   const summary = roster.reduce((counts, row) => {
@@ -108,7 +124,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
-  if (!isSameOriginRequest(request) || !(await hasValidAdminSession(request, env))) return jsonResponse({ error: "Unauthorized" }, 401);
+  if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
+  const session = await getAdminSession(request, env);
+  if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const db = requireStudentDb(env);
   const requestId = requestIdentifier(request);
   try {
@@ -119,6 +137,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const body = await request.json<Record<string, unknown>>();
     const action = body.action;
     if (action === "start_cycle") {
+      if (!requiresCentralAdmin(session)) return jsonResponse({ error: "Only the RenShinKan administrator may start an examination cycle." }, 403);
       if (body.confirmed !== true) return jsonResponse({ error: "Confirm that the current cycle will become read-only history." }, 400);
       const name = cleanText(body.name, 120);
       if (!name || name.length > 120) return jsonResponse({ error: "Enter a cycle name of 120 characters or fewer." }, 400);
@@ -127,24 +146,38 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const rosterCount = Number((await db.prepare(`SELECT COUNT(*) AS count FROM students
         WHERE active = 1 AND profile_status = 'approved'`).first<{ count: number }>())?.count || 0);
       const now = new Date().toISOString();
+      const examinationType = cleanText(body.examinationType, 80) || "Belt promotion";
+      const rankCategory = cleanText(body.rankCategory, 40) || "Kyu and Dan";
+      const applicationOpensAt = cleanText(body.applicationOpensAt, 30) || null;
+      const applicationClosesAt = cleanText(body.applicationClosesAt, 30) || null;
+      const examinationAt = cleanText(body.examinationAt, 30) || null;
+      const venue = cleanText(body.venue, 240);
+      const instructions = typeof body.instructions === "string" ? body.instructions.trim().slice(0, 4_000) : "";
+      const rankFees = JSON.stringify(cleanFeeConfig(body.rankFees));
+      const annualFees = JSON.stringify(cleanFeeConfig(body.annualFees));
       const cycleId = crypto.randomUUID();
       const bulkOperationId = crypto.randomUUID();
       const statements: D1PreparedStatement[] = [];
-      if (current) statements.push(db.prepare("UPDATE examination_cycles SET status = 'closed', closed_at = ?, closed_by = 'primary_admin' WHERE status = 'active'").bind(now));
-      statements.push(db.prepare("INSERT INTO examination_cycles (id, name, status, created_at) VALUES (?, ?, 'active', ?)").bind(cycleId, name, now));
+      if (current) statements.push(db.prepare("UPDATE examination_cycles SET status = 'closed', lifecycle_status = 'closed', closed_at = ?, closed_by = ?, updated_at = ? WHERE status = 'active'").bind(now, session.adminName, now));
+      statements.push(db.prepare(`INSERT INTO examination_cycles (id, name, title, status, lifecycle_status, examination_type,
+        rank_category, application_opens_at, application_closes_at, examination_at, venue, instructions,
+        rank_fee_config_json, annual_fee_config_json, created_by, created_at, updated_at)
+        VALUES (?, ?, ?, 'active', 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .bind(cycleId, name, name, examinationType, rankCategory, applicationOpensAt, applicationClosesAt, examinationAt,
+          venue, instructions, rankFees, annualFees, session.adminName, now, now));
       statements.push(db.prepare(`INSERT INTO exam_cycle_student_status (
           id, student_id, cycle_id, student_name_snapshot, student_public_id_snapshot,
           current_rank_snapshot, status, updated_at, updated_by
         ) SELECT lower(hex(randomblob(16))), id, ?, display_name, public_student_id,
-          current_belt, 'not_signed_up', ?, 'primary_admin'
+          current_belt, 'not_signed_up', ?, ?
         FROM students WHERE active = 1 AND profile_status = 'approved'`)
-        .bind(cycleId, now));
+        .bind(cycleId, now, session.adminName));
       const response = { ok: true, action, cycleId, name, rosterCount, previousCycleId: current?.id || null };
       statements.push(
         auditStatement(db, {
-          actorType: "administrator", actorIdentifier: "primary_admin", action: "exam_cycle_created", entityType: "examination_cycle", entityId: cycleId,
+          actorType: "administrator", ...adminAuditMetadata(session, request), action: "exam_cycle_created", entityType: "examination_cycle", entityId: cycleId,
           previousValues: current ? { cycleId: current.id, cycleName: current.name, status: "active" } : null,
-          newValues: { cycleId, cycleName: name, status: "active", rosterCount },
+          newValues: { cycleId, cycleName: name, status: "active", rosterCount, examinationType, rankCategory, applicationOpensAt, applicationClosesAt, examinationAt, venue },
           source: "admin_exam_cycles", bulkOperationId, requestId, examCycleId: cycleId,
           summary: `Started ${name}; the previous cycle is read-only history`, createdAt: now,
         }),
@@ -153,6 +186,35 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       );
       await db.batch(statements);
       return jsonResponse(response, 201, { "Cache-Control": "no-store" });
+    }
+
+    if (action === "update_cycle") {
+      if (!requiresCentralAdmin(session)) return jsonResponse({ error: "Only the RenShinKan administrator may edit an examination cycle." }, 403);
+      if (body.confirmed !== true) return jsonResponse({ error: "Confirm the examination-cycle changes." }, 400);
+      const cycleId = cleanText(body.cycleId, 100); const name = cleanText(body.name, 120);
+      const lifecycle = ["draft", "open", "closed", "completed", "archived"].includes(String(body.lifecycleStatus)) ? String(body.lifecycleStatus) : "";
+      if (!cycleId || !name || !lifecycle) return jsonResponse({ error: "Choose a cycle, title, and valid lifecycle state." }, 400);
+      const before = await db.prepare("SELECT * FROM examination_cycles WHERE id = ? LIMIT 1").bind(cycleId).first<Record<string, unknown>>();
+      if (!before) return jsonResponse({ error: "Examination cycle not found." }, 404);
+      const now = new Date().toISOString();
+      const next = {
+        name, examinationType: cleanText(body.examinationType, 80) || "Belt promotion",
+        rankCategory: cleanText(body.rankCategory, 40) || "Kyu and Dan", applicationOpensAt: cleanText(body.applicationOpensAt, 30) || null,
+        applicationClosesAt: cleanText(body.applicationClosesAt, 30) || null, examinationAt: cleanText(body.examinationAt, 30) || null,
+        venue: cleanText(body.venue, 240), instructions: typeof body.instructions === "string" ? body.instructions.trim().slice(0, 4_000) : "", lifecycleStatus: lifecycle,
+        rankFees: cleanFeeConfig(body.rankFees), annualFees: cleanFeeConfig(body.annualFees),
+      };
+      await db.batch([
+        db.prepare(`UPDATE examination_cycles SET name = ?, title = ?, examination_type = ?, rank_category = ?,
+          application_opens_at = ?, application_closes_at = ?, examination_at = ?, venue = ?, instructions = ?,
+          rank_fee_config_json = ?, annual_fee_config_json = ?, lifecycle_status = ?, updated_at = ? WHERE id = ?`)
+          .bind(next.name, next.name, next.examinationType, next.rankCategory, next.applicationOpensAt, next.applicationClosesAt, next.examinationAt, next.venue, next.instructions,
+            JSON.stringify(next.rankFees), JSON.stringify(next.annualFees), next.lifecycleStatus, now, cycleId),
+        auditStatement(db, { actorType: "administrator", ...adminAuditMetadata(session, request), action: "exam_cycle_updated",
+          entityType: "examination_cycle", entityId: cycleId, previousValues: before, newValues: next,
+          source: "admin_exam_cycles", requestId, examCycleId: cycleId, summary: `Updated examination cycle ${name}`, createdAt: now }),
+      ]);
+      return jsonResponse({ ok: true, action, cycleId }, 200, { "Cache-Control": "no-store" });
     }
 
     if (action !== "update_status") return jsonResponse({ error: "Choose an examination action." }, 400);
@@ -170,7 +232,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (cycle.status !== "active") return jsonResponse({ error: "Historical examination cycles are read-only." }, 409);
     const placeholders = studentIds.map(() => "?").join(",");
     const students = (await db.prepare(`SELECT
-        s.id, s.display_name, s.public_student_id, s.current_belt,
+        s.id, s.display_name, s.public_student_id, s.current_belt, s.dojo_id,
         ecs.id AS status_id, COALESCE(ecs.status, 'not_signed_up') AS status,
         ecs.application_id, ecs.requested_rank_snapshot,
         COALESCE(ecs.application_date, ea.submitted_at) AS application_date,
@@ -181,11 +243,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       LEFT JOIN examination_applications ea ON ea.student_id = s.id AND ea.cycle_id = ? AND ea.status <> 'archived'
       WHERE s.id IN (${placeholders}) AND s.active = 1`)
       .bind(cycleId, cycleId, ...studentIds).all<{
-        id: string; display_name: string; public_student_id: string; current_belt: string;
+        id: string; display_name: string; public_student_id: string; current_belt: string; dojo_id: string;
         status_id: string | null; status: string; application_id: string | null; requested_rank_snapshot: string | null;
         application_date: string | null; resolved_application_id: string | null; current_payment_status: string | null;
       }>()).results || [];
     if (students.length !== studentIds.length) return jsonResponse({ error: "One or more selected students are unavailable. Refresh and try again." }, 409);
+    if (students.some((student) => !canAccessDojo(session, student.dojo_id))) return jsonResponse({ error: "One or more selected students belongs to another dojo." }, 403);
     const now = new Date().toISOString();
     const bulkOperationId = crypto.randomUUID();
     const statements: D1PreparedStatement[] = [];
@@ -195,7 +258,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         db.prepare(`INSERT INTO exam_cycle_student_status (
           id, student_id, cycle_id, application_id, student_name_snapshot, student_public_id_snapshot,
           current_rank_snapshot, requested_rank_snapshot, status, application_date, updated_at, updated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'primary_admin')
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(student_id, cycle_id) DO UPDATE SET
           application_id = COALESCE(excluded.application_id, exam_cycle_student_status.application_id),
           student_name_snapshot = excluded.student_name_snapshot,
@@ -206,13 +269,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           application_date = COALESCE(excluded.application_date, exam_cycle_student_status.application_date),
           updated_at = excluded.updated_at, updated_by = excluded.updated_by`)
           .bind(statusId, student.id, cycleId, student.resolved_application_id, student.display_name, student.public_student_id,
-            student.current_belt, student.requested_rank_snapshot, newStatus, student.application_date, now),
+            student.current_belt, student.requested_rank_snapshot, newStatus, student.application_date, now, session.adminName),
         db.prepare(`INSERT INTO exam_cycle_status_history
           (id, cycle_status_id, previous_status, new_status, actor_identifier, bulk_operation_id, request_id, note, created_at)
-          VALUES (?, ?, ?, ?, 'primary_admin', ?, ?, 'Administrator status change', ?)`)
-          .bind(crypto.randomUUID(), statusId, student.status, newStatus, bulkOperationId, requestId, now),
+          VALUES (?, ?, ?, ?, ?, ?, ?, 'Administrator status change', ?)`)
+          .bind(crypto.randomUUID(), statusId, student.status, newStatus, session.adminName, bulkOperationId, requestId, now),
         auditStatement(db, {
-          actorType: "administrator", actorIdentifier: "primary_admin",
+          actorType: "administrator", ...adminAuditMetadata(session, request),
           action: students.length > 1 ? "exam_status_changed_bulk" : "exam_status_changed",
           entityType: "exam_cycle_student_status", entityId: statusId, studentId: student.id,
           studentPublicId: student.public_student_id, studentNameSnapshot: student.display_name,
@@ -225,12 +288,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         const paymentStatus = newStatus === "paid" ? "paid" : "payment_pending";
         statements.push(
           db.prepare(`UPDATE examination_applications SET payment_status = ?, paid_at = ?, paid_by = ?, updated_at = ? WHERE id = ?`)
-            .bind(paymentStatus, newStatus === "paid" ? now : null, newStatus === "paid" ? "primary_admin" : null, now, student.resolved_application_id),
+            .bind(paymentStatus, newStatus === "paid" ? now : null, newStatus === "paid" ? session.adminName : null, now, student.resolved_application_id),
           db.prepare(`INSERT INTO application_status_history (
             id, application_id, previous_payment_status, new_payment_status, actor_identifier,
             note, bulk_operation_id, request_id, created_at
-          ) VALUES (?, ?, ?, ?, 'primary_admin', 'Synchronized with current-cycle status', ?, ?, ?)`)
-            .bind(crypto.randomUUID(), student.resolved_application_id, student.current_payment_status, paymentStatus, bulkOperationId, requestId, now),
+          ) VALUES (?, ?, ?, ?, ?, 'Synchronized with current-cycle status', ?, ?, ?)`)
+            .bind(crypto.randomUUID(), student.resolved_application_id, student.current_payment_status, paymentStatus, session.adminName, bulkOperationId, requestId, now),
         );
       }
     }

@@ -1,16 +1,20 @@
 import { rankIndex } from "../../../../../shared/ranks";
-import { hasValidAdminSession, isSameOriginRequest, jsonResponse } from "../../../../_lib/auth";
-import { auditStatement, normalizedRankOrError, rankColor, requestIdentifier, requireStudentDb, type StudentEnv } from "../../../../_lib/studentRecords";
+import { getAdminSession, isSameOriginRequest, jsonResponse } from "../../../../_lib/auth";
+import { adminAuditMetadata, assertStudentAccess, auditStatement, normalizedRankOrError, rankColor, requestIdentifier, requireStudentDb, type StudentEnv } from "../../../../_lib/studentRecords";
 
 type Env = StudentEnv & { SESSION_SECRET?: string };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }) => {
-  if (!isSameOriginRequest(request) || !(await hasValidAdminSession(request, env))) return jsonResponse({ error: "Unauthorized" }, 401);
+  if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
+  const session = await getAdminSession(request, env);
+  if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const requestId = requestIdentifier(request);
   try {
     const body = await request.json<{ currentRank?: unknown; attemptedRank?: unknown; passed?: unknown; location?: unknown }>();
     const db = requireStudentDb(env);
     const studentId = String(params.id);
+    const access = await assertStudentAccess(db, session, studentId);
+    if (!access.ok) return jsonResponse({ error: access.error }, access.status);
     const student = await db.prepare("SELECT current_belt FROM students WHERE id = ? LIMIT 1").bind(studentId).first<{ current_belt: string }>();
     if (!student) return jsonResponse({ error: "Student not found." }, 404);
     const currentRank = normalizedRankOrError(body.currentRank ?? student.current_belt);
@@ -31,12 +35,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
       db.prepare(`INSERT INTO belt_examinations
         (id, student_id, examination_date, belt_awarded, belt_color, rank, examiner, public_notes, internal_notes, created_at,
          rank_before, rank_attempted, passed, examination_location, rank_after, administrator_id, examination_timestamp)
-        VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, 'primary_admin', ?)`)
-        .bind(examId, studentId, now.slice(0, 10), attemptedRank, rankColor(attemptedRank), attemptedRank, now, currentRank, attemptedRank, passed ? 1 : 0, location, rankAfter, now),
+        VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .bind(examId, studentId, now.slice(0, 10), attemptedRank, rankColor(attemptedRank), attemptedRank, now, currentRank, attemptedRank, passed ? 1 : 0, location, rankAfter, session.adminName, now),
       db.prepare("UPDATE students SET current_belt = ?, belt_color = ?, updated_at = ? WHERE id = ?")
         .bind(rankAfter, rankColor(rankAfter), now, studentId),
       auditStatement(db, {
-        actorType: "administrator", actorIdentifier: "primary_admin", action: passed ? "examination_passed" : "examination_failed",
+        actorType: "administrator", ...adminAuditMetadata(session, request), action: passed ? "examination_passed" : "examination_failed",
         entityType: "belt_examination", entityId: examId, studentId,
         previousValues: { currentRank }, newValues: { attemptedRank, passed, location, rankAfter }, source: "admin_student_edit", requestId,
         summary: `Recorded ${passed ? "passed" : "failed"} examination: ${currentRank} → ${rankAfter}`, createdAt: now,
@@ -50,9 +54,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
           .bind(now, now, application.id),
         db.prepare(`INSERT INTO application_status_history
           (id, application_id, previous_status, new_status, previous_payment_status, new_payment_status,
-           actor_identifier, note, request_id, created_at) VALUES (?, ?, ?, 'examination_completed', ?, ?, 'primary_admin', ?, ?, ?)`)
+           actor_identifier, note, request_id, created_at) VALUES (?, ?, ?, 'examination_completed', ?, ?, ?, ?, ?, ?)`)
           .bind(crypto.randomUUID(), application.id, application.status, application.payment_status, application.payment_status,
-            passed ? `Examination passed: ${rankAfter}` : `Examination attempt recorded: ${attemptedRank}`, requestId, now),
+            session.adminName, passed ? `Examination passed: ${rankAfter}` : `Examination attempt recorded: ${attemptedRank}`, requestId, now),
       );
     }
     await db.batch(statements);

@@ -6,9 +6,11 @@ import { StudentRecordCard } from "../components/StudentRecordCard";
 import { TurnstileWidget } from "../components/TurnstileWidget";
 import type { PublicStudentRecord } from "../types/studentRecord";
 import { prepareProfilePhoto } from "../utils/profilePhoto";
+import { useTranslation, type Language } from "../i18n";
 
 type Task = "lookup" | "profile" | "exam";
 type LookupResult = { record: PublicStudentRecord; shareUrl: string; accessToken: string };
+type PublicDojo = { id: string; official_name: string; short_name: string; code: string; logo_url: string };
 type ExamDraft = {
   verificationName: string; studentId: string; attemptedRank: string; aatNumber: string; firstName: string; surname: string;
   nationality: string; sex: string; dateOfBirth: string; permanentAddress: string; presentAddress: string;
@@ -18,6 +20,13 @@ type ExamDraft = {
 };
 
 const EMPTY_EXAM: ExamDraft = { verificationName: "", studentId: "", attemptedRank: "10 Kyu", aatNumber: "", firstName: "", surname: "", nationality: "", sex: "", dateOfBirth: "", permanentAddress: "", presentAddress: "", phoneCountry: "Thailand", phoneCallingCode: "+66", phone: "", school: "", classLevel: "", office: "", position: "", certificate: "", gamesExperience: "", applicantSignature: "", promiseAccepted: false };
+
+const AAT_PAYMENT_HELP: Record<Language, { status: string; explanation: string }> = {
+  en: { status: "Not yet paid or payment date unknown.", explanation: "Aikido members from all participating dojos are requested to make an annual contribution to the Aikido Association of Thailand." },
+  th: { status: "ยังไม่ได้ชำระหรือไม่ทราบวันที่ชำระ", explanation: "สมาชิกไอคิโดจากโดโจที่เข้าร่วมทุกแห่งได้รับการขอความร่วมมือให้ชำระเงินสนับสนุนรายปีแก่สมาคมไอคิโดแห่งประเทศไทย" },
+  ja: { status: "未納、または支払日が不明です。", explanation: "参加するすべての道場の合気道会員には、タイ合気道協会への年会費の納付をお願いしています。" },
+  "zh-CN": { status: "尚未缴费或缴费日期未知。", explanation: "所有参与道场的合气道会员均需每年向泰国合气道协会缴纳会费。" },
+};
 
 const PHONE_COUNTRIES = [
   ["Thailand", "+66"], ["Argentina", "+54"], ["Australia", "+61"], ["Austria", "+43"],
@@ -88,19 +97,26 @@ function LookupWorkflow() {
 }
 
 function ProfileWorkflow() {
-  const [draft, setDraft] = useState({ displayName: "", currentRank: "Unranked", dojoName: "", practiceDuration: "", profileBio: "" });
+  const { language } = useTranslation();
+  const aatHelp = AAT_PAYMENT_HELP[language];
+  const [draft, setDraft] = useState({ displayName: "", currentRank: "Unranked", dojoId: "", aatNumber: "", aatLastPaidDate: "", aatPaidKnown: false, practiceDuration: "", profileBio: "" });
+  const [dojos, setDojos] = useState<PublicDojo[]>([]);
   const [file, setFile] = useState<File | null>(null); const [preview, setPreview] = useState(""); const [token, setToken] = useState(""); const [reset, setReset] = useState(0); const [error, setError] = useState(""); const [busy, setBusy] = useState(false); const [done, setDone] = useState(false);
   const onToken = useCallback((value: string) => setToken(value), []);
+  useEffect(() => { fetch("/api/dojos").then((response) => response.json() as Promise<{ dojos?: PublicDojo[] }>).then((body) => setDojos(body.dojos || [])).catch(() => setError("The dojo list could not be loaded. Please try again.")); }, []);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
   async function choose(input?: File) { if (!input) return; try { const prepared = await prepareProfilePhoto(input); setFile(prepared); setPreview(URL.createObjectURL(prepared)); setError(""); } catch (reason) { setError(reason instanceof Error ? reason.message : "The photo could not be prepared."); } }
-  async function submit(event: FormEvent) { event.preventDefault(); if (!file || !token) { setError("Choose a profile photo and complete Cloudflare verification."); return; } setBusy(true); setError(""); try { const data = new FormData(); data.set("payload", JSON.stringify({ ...draft, turnstileToken: token })); data.set("file", file); const response = await fetch("/api/records/profile-requests", { method: "POST", headers: { "X-Request-ID": crypto.randomUUID() }, body: data }); await responseBody(response); setDone(true); } catch (reason) { setError(reason instanceof Error ? reason.message : "The profile request could not be submitted."); setReset((value) => value + 1); setToken(""); } finally { setBusy(false); } }
+  async function submit(event: FormEvent) { event.preventDefault(); if (!draft.dojoId) { setError("Choose the student's dojo."); return; } if (!file || !token) { setError("Choose a profile photo and complete Cloudflare verification."); return; } setBusy(true); setError(""); try { const data = new FormData(); data.set("payload", JSON.stringify({ ...draft, aatLastPaidDate: draft.aatPaidKnown ? draft.aatLastPaidDate : null, turnstileToken: token })); data.set("file", file); const response = await fetch("/api/records/profile-requests", { method: "POST", headers: { "X-Request-ID": crypto.randomUUID() }, body: data }); await responseBody(response); setDone(true); } catch (reason) { setError(reason instanceof Error ? reason.message : "The profile request could not be submitted."); setReset((value) => value + 1); setToken(""); } finally { setBusy(false); } }
   if (done) return <div className="record-success-panel"><CheckCircle2 /><p className="eyebrow">Request received</p><h2>Your profile is pending administrator approval</h2><p>It is not searchable, active, public, or QR-enabled yet. A sensei will review the details and photo before activating the official student record.</p></div>;
   return <form className="student-long-form" onSubmit={submit}>
     <header><div><p className="eyebrow">New student profile</p><h2>Request an official record</h2></div><span className="admin-status is-pending">Pending until approved</span></header>
     <div className="student-form-grid">
       <label><span className="student-field-copy">Student name <small>Required · use the name you will use for record lookup.</small></span><input autoComplete="name" value={draft.displayName} onChange={(event) => setDraft({ ...draft, displayName: event.target.value })} required /></label>
       <label><span className="student-field-copy">Current kyu</span><select value={draft.currentRank} onChange={(event) => setDraft({ ...draft, currentRank: event.target.value })}>{RANKS.map((rank) => <option key={rank}>{rank}</option>)}</select></label>
-      <label><span className="student-field-copy">Current dojo <small>Enter the dojo where you currently study or train.</small></span><input maxLength={120} value={draft.dojoName} onChange={(event) => setDraft({ ...draft, dojoName: event.target.value })} required /></label>
+      <label><span className="student-field-copy">Current dojo <small>Choose the dojo where you currently study or train.</small></span><select value={draft.dojoId} onChange={(event) => setDraft({ ...draft, dojoId: event.target.value })} required><option value="">Choose a dojo</option>{dojos.map((dojo) => <option key={dojo.id} value={dojo.id}>{dojo.official_name}</option>)}</select></label>
+      <label><span className="student-field-copy">AAT membership number <small>Optional. Your record will show “NEW” until a number is assigned.</small></span><input maxLength={40} value={draft.aatNumber} onChange={(event) => setDraft({ ...draft, aatNumber: event.target.value })} /></label>
+      <label className="admin-checkbox-row"><input type="checkbox" checked={draft.aatPaidKnown} onChange={(event) => setDraft({ ...draft, aatPaidKnown: event.target.checked, aatLastPaidDate: event.target.checked ? draft.aatLastPaidDate : "" })} /> I know when this student last paid their AAT annual membership</label>
+      {draft.aatPaidKnown ? <label><span className="student-field-copy">Last AAT annual payment date <small>Renewal is normally due one year after this date.</small></span><input type="date" value={draft.aatLastPaidDate} onChange={(event) => setDraft({ ...draft, aatLastPaidDate: event.target.value })} required /></label> : <p className="admin-help-copy" title={aatHelp.explanation} aria-label={`${aatHelp.status} ${aatHelp.explanation}`}><span aria-hidden="true">?</span> {aatHelp.status} {aatHelp.explanation}</p>}
       <label><span className="student-field-copy">How long have you practiced aikido? <small>Example: “18 months” or “since 2021”.</small></span><input value={draft.practiceDuration} onChange={(event) => setDraft({ ...draft, practiceDuration: event.target.value })} required /></label>
       <label className="admin-span-2"><span className="student-field-copy">Additional information for your profile <small>Optional · do not include private contact or payment details.</small></span><textarea maxLength={2000} value={draft.profileBio} onChange={(event) => setDraft({ ...draft, profileBio: event.target.value })} /></label>
     </div>

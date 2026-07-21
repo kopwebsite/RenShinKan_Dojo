@@ -23,12 +23,13 @@ function monthLabel(value: string) {
     .format(new Date(Date.UTC(year, month - 1, 1)));
 }
 
-type SubmissionResult = { contributionId: string; month: string; status: "awaiting_payment" };
+type SubmissionResult = { contributionId: string; month: string; status: "awaiting_payment"; contributionType: "aat_annual" | "renshinkan_monthly" };
 
 export function ContributionForm() {
   const { t } = useTranslation();
   const [studentId, setStudentId] = useState("");
   const [studentName, setStudentName] = useState("");
+  const [contributionType, setContributionType] = useState<"aat_annual" | "renshinkan_monthly">("renshinkan_monthly");
   const [month] = useState(currentBangkokMonth);
   const [turnstileToken, setTurnstileToken] = useState("");
   const [turnstileReset, setTurnstileReset] = useState(0);
@@ -49,7 +50,7 @@ export function ContributionForm() {
       const response = await fetch("/api/contributions", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Request-ID": crypto.randomUUID() },
-        body: JSON.stringify({ studentId, studentName, month, turnstileToken }),
+        body: JSON.stringify({ studentId, studentName, month, contributionType, turnstileToken }),
       });
       const body = await response.json() as SubmissionResult & { error?: string };
       if (!response.ok) throw new Error(body.error || "The contribution attempt could not be recorded.");
@@ -67,7 +68,7 @@ export function ContributionForm() {
   if (result) {
     return <article className="surface contribution-confirmation rounded-[2rem] p-4 min-[380px]:p-6 sm:p-8 lg:p-10" aria-live="polite">
       <div className="contribution-confirmation__mark"><CheckCircle2 aria-hidden="true" /></div>
-      <p className="eyebrow">Attempt recorded · {monthLabel(result.month)}</p>
+      <p className="eyebrow">{result.contributionType === "aat_annual" ? "AAT Annual Contribution" : "Monthly RenShinKan Student Contribution"} · {monthLabel(result.month)}</p>
       <h3>Complete payment with PromptPay</h3>
       <p>Your contribution is <strong>awaiting payment</strong>. Displaying this QR code does not mean that payment has been completed or confirmed.</p>
       <div className="contribution-confirmation__layout">
@@ -95,6 +96,14 @@ export function ContributionForm() {
     <h3 className="mt-5 text-3xl text-ink">{t("support.contribution.title")}</h3>
     <p className="mt-4 text-sm leading-6 text-charcoal/75">Enter the student record details for this month. The Student ID is the primary match; small spacing or capitalization differences in the name are accepted.</p>
     <form onSubmit={submit} className="contribution-database-form__fields" noValidate>
+      <label>
+        <span>Contribution type <b aria-hidden="true">*</b></span>
+        <select value={contributionType} onChange={(event) => setContributionType(event.target.value as typeof contributionType)} required>
+          <option value="aat_annual">AAT Annual Contribution</option>
+          <option value="renshinkan_monthly">Monthly RenShinKan Student Contribution</option>
+        </select>
+        <small>AAT contributions are available to every participating dojo. Monthly contributions are for RenShinKan students only.</small>
+      </label>
       <label>
         <span>Student ID <b aria-hidden="true">*</b></span>
         <input id="contribution-student-id" name="studentId" value={studentId} onChange={(event) => setStudentId(event.target.value.toUpperCase())} placeholder="RSK-0001" autoComplete="off" required />

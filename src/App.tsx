@@ -4,6 +4,7 @@ import { Footer } from "./components/Footer";
 import { Navbar } from "./components/Navbar";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { Seo } from "./components/Seo";
+import { ManagedRoute } from "./components/ManagedRoute";
 import { useTranslation } from "./i18n";
 import { DojoPage } from "./pages/DojoPage";
 
@@ -21,6 +22,9 @@ const StudentRecordsPage = lazy(() => import("./pages/StudentRecordsPage").then(
 const SharedStudentRecordPage = lazy(() => import("./pages/SharedStudentRecordPage").then((module) => ({ default: module.SharedStudentRecordPage })));
 const AdminStudentsPage = lazy(() => import("./pages/AdminStudentsPage").then((module) => ({ default: module.AdminStudentsPage })));
 const AdminAuditPage = lazy(() => import("./pages/AdminAuditPage").then((module) => ({ default: module.AdminAuditPage })));
+const AdminMembershipsPage = lazy(() => import("./pages/AdminMembershipsPage").then((module) => ({ default: module.AdminMembershipsPage })));
+const AdminDojosPage = lazy(() => import("./pages/AdminDojosPage").then((module) => ({ default: module.AdminDojosPage })));
+const AdminSiteEditorPage = lazy(() => import("./pages/AdminSiteEditorPage").then((module) => ({ default: module.AdminSiteEditorPage })));
 
 function RouteFallback() {
   return (
@@ -59,21 +63,24 @@ export default function App() {
       <main id="main-content" tabIndex={-1} className="min-h-[var(--hero-viewport-height)]">
         <Suspense fallback={<RouteFallback />}>
           <Routes>
-            <Route path="/" element={<DojoPage />} />
+            <Route path="/" element={<ManagedRoute fallback={<DojoPage />} />} />
             <Route path="/dojo" element={<Navigate to="/" replace />} />
-            <Route path="/aikido" element={<AikidoPage />} />
-            <Route path="/instructors" element={<InstructorsPage />} />
-            <Route path="/classes" element={<ClassesPage />} />
-            <Route path="/workshops" element={<WorkshopsPage />} />
-            <Route path="/newsletter" element={<NewsletterPage />} />
+            <Route path="/aikido" element={<ManagedRoute fallback={<AikidoPage />} />} />
+            <Route path="/instructors" element={<ManagedRoute fallback={<InstructorsPage />} />} />
+            <Route path="/classes" element={<ManagedRoute fallback={<ClassesPage />} />} />
+            <Route path="/workshops" element={<ManagedRoute fallback={<WorkshopsPage />} />} />
+            <Route path="/newsletter" element={<ManagedRoute fallback={<NewsletterPage />} />} />
             <Route path="/newsletter/:slug" element={<NewsletterPage />} />
-            <Route path="/community" element={<CommunityPage />} />
-            <Route path="/support" element={<SupportPage />} />
-            <Route path="/contact" element={<ContactPage />} />
+            <Route path="/community" element={<ManagedRoute fallback={<CommunityPage />} />} />
+            <Route path="/support" element={<ManagedRoute fallback={<SupportPage />} />} />
+            <Route path="/contact" element={<ManagedRoute fallback={<ContactPage />} />} />
             <Route path="/visit" element={<Navigate to="/contact" replace />} />
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/admin/students" element={<AdminStudentsPage />} />
             <Route path="/admin/audit" element={<AdminAuditPage />} />
+            <Route path="/admin/memberships" element={<AdminMembershipsPage />} />
+            <Route path="/admin/dojos" element={<AdminDojosPage />} />
+            <Route path="/admin/site-editor" element={<AdminSiteEditorPage />} />
             <Route path="/student-records" element={<StudentRecordsPage />} />
             <Route path="/records" element={<Navigate to="/student-records" replace />} />
             <Route path="/records/share/:token" element={<SharedStudentRecordPage />} />

@@ -1,10 +1,12 @@
-import { hasValidAdminSession, isSameOriginRequest, jsonResponse } from "../../../../_lib/auth";
-import { auditStatement, requestIdentifier, requireStudentDb, studentTotal, type D1PreparedStatement, type StudentEnv } from "../../../../_lib/studentRecords";
+import { getAdminSession, isSameOriginRequest, jsonResponse } from "../../../../_lib/auth";
+import { adminAuditMetadata, assertStudentAccess, auditStatement, requestIdentifier, requireStudentDb, studentTotal, type D1PreparedStatement, type StudentEnv } from "../../../../_lib/studentRecords";
 
 type Env = StudentEnv & { SESSION_SECRET?: string };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }) => {
-  if (!isSameOriginRequest(request) || !(await hasValidAdminSession(request, env))) return jsonResponse({ error: "Unauthorized" }, 401);
+  if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
+  const session = await getAdminSession(request, env);
+  if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const operationRequestId = requestIdentifier(request);
   try {
     const body = await request.json<{ hourRequestId?: unknown; action?: unknown; note?: unknown }>();
@@ -14,6 +16,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     if (!hourRequestId || !action) return jsonResponse({ error: "Choose a pending request and review action." }, 400);
     const db = requireStudentDb(env);
     const studentId = String(params.id);
+    const access = await assertStudentAccess(db, session, studentId);
+    if (!access.ok) return jsonResponse({ error: access.error }, access.status);
     const pending = await db.prepare(`SELECT id, submitted_hours, previous_total, requested_total, status FROM training_hour_requests
       WHERE id = ? AND student_id = ? LIMIT 1`).bind(hourRequestId, studentId)
       .first<{ id: string; submitted_hours: number; previous_total: number; requested_total: number; status: string }>();
@@ -36,10 +40,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
       );
     }
     statements.push(
-      db.prepare("UPDATE training_hour_requests SET status = ?, reviewed_at = ?, reviewed_by = 'primary_admin', review_note = ? WHERE id = ?")
-        .bind(action === "approve" ? "approved" : "rejected", now, note || null, hourRequestId),
+      db.prepare("UPDATE training_hour_requests SET status = ?, reviewed_at = ?, reviewed_by = ?, review_note = ? WHERE id = ?")
+        .bind(action === "approve" ? "approved" : "rejected", now, session.adminName, note || null, hourRequestId),
       auditStatement(db, {
-        actorType: "administrator", actorIdentifier: "primary_admin", action: action === "approve" ? "student_hours_approved" : "student_hours_rejected",
+        actorType: "administrator", ...adminAuditMetadata(session, request), action: action === "approve" ? "student_hours_approved" : "student_hours_rejected",
         entityType: "training_hour_request", entityId: hourRequestId, studentId,
         previousValues: { status: "pending", submittedHours: pending.submitted_hours, previousTotal: pending.previous_total, requestedTotal: pending.requested_total },
         newValues: { status: action === "approve" ? "approved" : "rejected", resultingTotal }, source: "admin_student_hours_review",

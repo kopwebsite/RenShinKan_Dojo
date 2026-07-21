@@ -1,4 +1,4 @@
-import { hasValidAdminSession, jsonResponse } from "../../_lib/auth";
+import { getAdminSession, jsonResponse, requiresCentralAdmin } from "../../_lib/auth";
 import { requireStudentDb, type StudentEnv } from "../../_lib/studentRecords";
 
 type Env = StudentEnv & { SESSION_SECRET?: string };
@@ -8,7 +8,8 @@ function escapeLike(value: string) {
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
-  if (!(await hasValidAdminSession(request, env))) return jsonResponse({ error: "Unauthorized" }, 401);
+  const session = await getAdminSession(request, env);
+  if (!requiresCentralAdmin(session)) return jsonResponse({ error: "Only the RenShinKan administrator may view the full audit history." }, session ? 403 : 401);
   const db = requireStudentDb(env);
   const url = new URL(request.url);
   const page = Math.max(1, Math.min(1_000_000, Number.parseInt(url.searchParams.get("page") || "1", 10) || 1));
@@ -17,14 +18,16 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const bindings: unknown[] = [];
   const exactFilters = [
     ["actorType", "a.actor_type"], ["action", "a.action"], ["source", "a.source"], ["bulkOperationId", "a.bulk_operation_id"],
-    ["examCycleId", "a.exam_cycle_id"], ["month", "a.contribution_month"],
+    ["examCycleId", "a.exam_cycle_id"], ["month", "a.contribution_month"], ["dojoId", "a.selected_dojo_id"],
   ] as const;
   for (const [parameter, column] of exactFilters) {
     const value = (url.searchParams.get(parameter) || "").trim().slice(0, 160);
     if (value) { conditions.push(`${column} = ?`); bindings.push(value); }
   }
   const admin = (url.searchParams.get("administrator") || "").trim().slice(0, 160);
-  if (admin) { conditions.push("a.actor_identifier LIKE ? ESCAPE '\\' COLLATE NOCASE"); bindings.push(`%${escapeLike(admin)}%`); }
+  if (admin) { conditions.push("COALESCE(a.administrator_name, a.actor_identifier) LIKE ? ESCAPE '\\' COLLATE NOCASE"); bindings.push(`%${escapeLike(admin)}%`); }
+  const search = (url.searchParams.get("search") || "").trim().slice(0, 160);
+  if (search) { const value = `%${escapeLike(search)}%`; conditions.push("(a.action_summary LIKE ? ESCAPE '\\' COLLATE NOCASE OR a.entity_id LIKE ? ESCAPE '\\' COLLATE NOCASE OR COALESCE(a.administrator_note, '') LIKE ? ESCAPE '\\' COLLATE NOCASE)"); bindings.push(value, value, value); }
   const student = (url.searchParams.get("student") || "").trim().slice(0, 120);
   if (student) {
     conditions.push("(COALESCE(a.student_name_snapshot, s.display_name) LIKE ? ESCAPE '\\' COLLATE NOCASE OR COALESCE(a.student_public_id_snapshot, s.public_student_id) LIKE ? ESCAPE '\\' COLLATE NOCASE)");
@@ -38,7 +41,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const [rows, count] = await db.batch([
     db.prepare(`SELECT a.id, a.actor_type, a.actor_identifier, a.action, a.entity_type, a.entity_id, a.student_id,
       a.previous_values, a.new_values, a.source, a.bulk_operation_id, a.request_id, a.administrator_note,
-      a.action_summary, a.created_at,
+      a.action_summary, a.created_at, a.administrator_name, a.administrator_role, a.selected_dojo_id,
+      a.ip_address, a.country_code, a.user_agent,
       COALESCE(a.student_name_snapshot, s.display_name) AS student_name,
       COALESCE(a.student_public_id_snapshot, s.public_student_id) AS public_student_id,
       a.exam_cycle_id, a.contribution_month

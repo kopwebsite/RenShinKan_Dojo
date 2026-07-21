@@ -1,9 +1,11 @@
 import { normalizeRank } from "../../../../shared/ranks";
-import { hasValidAdminSession, isSameOriginRequest, jsonResponse } from "../../../_lib/auth";
+import { canAccessDojo, getAdminSession, isSameOriginRequest, jsonResponse } from "../../../_lib/auth";
 import {
+  activeDojo,
+  adminAuditMetadata,
+  assertStudentAccess,
   auditStatement,
   currentBangkokMonthKey,
-  DEFAULT_DOJO,
   DEFAULT_SHARE_FIELDS,
   isValidStudentId,
   normalizeStudentId,
@@ -22,11 +24,8 @@ type ExistingStudent = {
   active: number; share_fields: string; dojo_name: string; admin_notes: string; training_hours_adjustment: number;
   profile_status: string; practice_duration: string; profile_bio: string;
   pending_profile_image_key: string | null; profile_review_note: string;
+  dojo_id: string; aat_number: string | null; aat_last_paid_date: string | null; aat_notes: string;
 };
-
-async function allowed(request: Request, env: Env) {
-  return isSameOriginRequest(request) && await hasValidAdminSession(request, env);
-}
 
 function profileKey(value: string | null) {
   return value?.match(/^\/uploads\/(student-profiles\/\d{4}\/\d{2}\/[a-f0-9-]{36}\.webp)$/i)?.[1] || null;
@@ -39,13 +38,16 @@ function profileUrl(value: unknown) {
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env, params }) => {
-  if (!(await allowed(request, env))) return jsonResponse({ error: "Unauthorized" }, 401);
+  const session = await getAdminSession(request, env);
+  if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const db = requireStudentDb(env);
   const id = String(params.id);
+  const access = await assertStudentAccess(db, session, id);
+  if (!access.ok) return jsonResponse({ error: access.error }, access.status);
   const student = await db.prepare(`SELECT
     s.id, s.public_student_id, s.display_name, s.current_belt, s.belt_color,
     s.profile_image_url, s.profile_image_consent, s.guardian_consent,
-    s.public_visible, s.active, s.share_fields, s.dojo_name, s.admin_notes,
+    s.public_visible, s.active, s.share_fields, s.dojo_id, s.dojo_name, s.aat_number, s.aat_last_paid_date, s.aat_notes, s.deleted_at, s.admin_notes,
     s.training_hours_adjustment, s.created_at, s.updated_at, s.profile_status,
     s.practice_duration, s.profile_bio, s.pending_profile_image_key,
     s.profile_review_note, s.archived_at, s.archived_by,
@@ -91,22 +93,33 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
 };
 
 export const onRequestPut: PagesFunction<Env> = async ({ request, env, params }) => {
-  if (!(await allowed(request, env))) return jsonResponse({ error: "Unauthorized" }, 401);
+  if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
+  const session = await getAdminSession(request, env);
+  if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const requestId = requestIdentifier(request);
   try {
     const db = requireStudentDb(env);
     const id = String(params.id);
+    const access = await assertStudentAccess(db, session, id);
+    if (!access.ok) return jsonResponse({ error: access.error }, access.status);
     const body = await request.json<Record<string, unknown>>();
     const existing = await db.prepare(`SELECT id, public_student_id, display_name, current_belt, belt_color, profile_image_url,
       profile_image_consent, guardian_consent, public_visible, active, share_fields, dojo_name, admin_notes,
-      training_hours_adjustment, profile_status, practice_duration, profile_bio,
+      training_hours_adjustment, profile_status, practice_duration, profile_bio, dojo_id, aat_number, aat_last_paid_date, aat_notes,
       pending_profile_image_key, profile_review_note FROM students WHERE id = ?`).bind(id).first<ExistingStudent>();
     if (!existing) return jsonResponse({ error: "Student not found" }, 404);
 
     const name = String(body.displayName ?? existing.display_name).normalize("NFKC").trim().replace(/\s+/g, " ");
     const studentId = normalizeStudentId(String(body.studentId ?? existing.public_student_id));
     const currentBelt = normalizeRank(body.currentBelt ?? existing.current_belt);
-    const dojoName = String(body.dojoName ?? existing.dojo_name ?? DEFAULT_DOJO).normalize("NFKC").trim().replace(/\s+/g, " ");
+    const requestedDojoId = String(body.dojoId ?? (existing as ExistingStudent & { dojo_id?: string }).dojo_id ?? "").trim();
+    const dojo = await activeDojo(db, requestedDojoId);
+    if (!dojo || !canAccessDojo(session, dojo.id)) return jsonResponse({ error: "Choose a dojo you are authorized to manage." }, 403);
+    if (session.role === "dojo" && dojo.id !== (existing as ExistingStudent & { dojo_id?: string }).dojo_id) return jsonResponse({ error: "Only the RenShinKan administrator may transfer a student between dojos." }, 403);
+    const dojoName = dojo.official_name;
+    const aatNumber = body.aatNumber === undefined ? (existing as ExistingStudent & { aat_number?: string | null }).aat_number : String(body.aatNumber || "").trim().slice(0, 40) || null;
+    const aatLastPaidDate = body.aatLastPaidDate === undefined ? (existing as ExistingStudent & { aat_last_paid_date?: string | null }).aat_last_paid_date : typeof body.aatLastPaidDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.aatLastPaidDate) ? body.aatLastPaidDate : null;
+    const aatNotes = String(body.aatNotes ?? existing.aat_notes ?? "").trim();
     const adminNotes = String(body.adminNotes ?? existing.admin_notes ?? "").trim();
     const practiceDuration = String(body.practiceDuration ?? existing.practice_duration ?? "").trim();
     const profileBio = String(body.profileBio ?? existing.profile_bio ?? "").trim();
@@ -119,10 +132,10 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, params })
     if (!name || name.length > 120) return jsonResponse({ error: "Enter a student name of 120 characters or fewer." }, 400);
     if (!currentBelt) return jsonResponse({ error: "Choose a valid rank from the official progression." }, 400);
     if (!dojoName || dojoName.length > 120) return jsonResponse({ error: "Enter a dojo affiliation." }, 400);
-    if (adminNotes.length > 5_000 || profileBio.length > 2_000 || practiceDuration.length > 120) return jsonResponse({ error: "One or more text fields are too long." }, 400);
+    if (adminNotes.length > 5_000 || aatNotes.length > 2_000 || profileBio.length > 2_000 || practiceDuration.length > 120) return jsonResponse({ error: "One or more text fields are too long." }, 400);
     if (!Number.isFinite(currentTrainingHours) || currentTrainingHours < 0 || currentTrainingHours > 1_000_000) return jsonResponse({ error: "Current training hours must be zero or a positive number." }, 400);
     if (image === undefined) return jsonResponse({ error: "The profile image location is invalid." }, 400);
-    if (studentId !== existing.public_student_id && !isValidStudentId(studentId)) return jsonResponse({ error: "Student ID must use the format RSK-0001." }, 400);
+    if (studentId !== existing.public_student_id && !isValidStudentId(studentId)) return jsonResponse({ error: "Student ID must use the format RSK-00001." }, 400);
     if (studentId !== existing.public_student_id) {
       const duplicate = await db.prepare("SELECT id FROM students WHERE UPPER(public_student_id) = ? AND id <> ? LIMIT 1").bind(studentId, id).first();
       if (duplicate) return jsonResponse({ error: "That Student ID is already in use." }, 409);
@@ -139,21 +152,28 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, params })
       guardianConsent: body.guardianConsent === undefined ? existing.guardian_consent : body.guardianConsent ? 1 : 0,
       publicVisible: body.publicVisible === undefined ? existing.public_visible : body.publicVisible ? 1 : 0,
       active: body.active === undefined ? existing.active : body.active ? 1 : 0,
-      dojoName, adminNotes, practiceDuration, profileBio, totalHours: currentTrainingHours,
+      dojoId: dojo.id, dojoName, aatNumber, aatLastPaidDate, aatNotes, adminNotes, practiceDuration, profileBio, totalHours: currentTrainingHours,
     };
 
     const statements = [db.prepare(`UPDATE students SET public_student_id = ?, name_verification_hash = ?,
       display_name = ?, current_belt = ?, belt_color = ?, profile_image_url = ?, profile_image_consent = ?,
-      guardian_consent = ?, public_visible = ?, active = ?, share_fields = ?, dojo_name = ?, admin_notes = ?,
+      guardian_consent = ?, public_visible = ?, active = ?, share_fields = ?, dojo_id = ?, dojo_name = ?, aat_number = ?, aat_last_paid_date = ?, aat_notes = ?, admin_notes = ?,
       practice_duration = ?, profile_bio = ?, training_hours_adjustment = ?, updated_at = ? WHERE id = ?`)
       .bind(studentId, nameHash, name, currentBelt, rankColor(currentBelt, existing.belt_color), image,
-        next.profileImageConsent, next.guardianConsent, next.publicVisible, next.active, shareFields, dojoName, adminNotes,
+        next.profileImageConsent, next.guardianConsent, next.publicVisible, next.active, shareFields, dojo.id, dojoName, aatNumber, aatLastPaidDate, aatNotes, adminNotes,
         practiceDuration, profileBio, currentTrainingHours - recordedHours, now, id)];
+    if (dojo.id !== existing.dojo_id) {
+      statements.push(db.prepare(`INSERT INTO student_dojo_history
+        (id, student_id, previous_dojo_id, new_dojo_id, changed_by, reason, changed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`)
+        .bind(crypto.randomUUID(), id, existing.dojo_id, dojo.id, session.adminName, "Administrator transfer", now));
+    }
     if (studentId !== existing.public_student_id && isValidStudentId(studentId)) {
-      statements.push(db.prepare("UPDATE student_id_sequence SET last_number = MAX(last_number, ?) WHERE sequence_name = 'student'").bind(Number(studentId.slice(4))));
+      const numericPart = Number(studentId.split("-").pop());
+      if (studentId.startsWith(`${dojo.code}-`) && Number.isFinite(numericPart)) statements.push(db.prepare("UPDATE dojo_student_sequences SET last_number = MAX(last_number, ?), updated_at = ? WHERE dojo_id = ?").bind(numericPart, now, dojo.id));
     }
     statements.push(auditStatement(db, {
-      actorType: "administrator", actorIdentifier: "primary_admin", action: "student_updated", entityType: "student", entityId: id,
+      actorType: "administrator", ...adminAuditMetadata(session, request), action: "student_updated", entityType: "student", entityId: id,
       studentId: id, previousValues: { publicStudentId: existing.public_student_id, displayName: existing.display_name, currentRank: existing.current_belt,
         profileImageUrl: existing.profile_image_url, active: existing.active, totalHours: previousTotal }, newValues: next,
       studentPublicId: studentId, studentNameSnapshot: name,
@@ -170,70 +190,39 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, params })
 };
 
 export const onRequestDelete: PagesFunction<Env> = async ({ request, env, params }) => {
-  if (!(await allowed(request, env))) return jsonResponse({ error: "Unauthorized" }, 401);
+  if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
+  const session = await getAdminSession(request, env);
+  if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const db = requireStudentDb(env);
   const id = String(params.id);
+  const access = await assertStudentAccess(db, session, id);
+  if (!access.ok) return jsonResponse({ error: access.error }, access.status);
   const existing = await db.prepare(`SELECT public_student_id, display_name, active, public_visible, archived_at,
-    profile_image_url, pending_profile_image_key FROM students WHERE id = ?`).bind(id)
-    .first<{ public_student_id: string; display_name: string; active: number; public_visible: number; archived_at: string | null; profile_image_url: string | null; pending_profile_image_key: string | null }>();
+    deleted_at, profile_image_url, pending_profile_image_key FROM students WHERE id = ?`).bind(id)
+    .first<{ public_student_id: string; display_name: string; active: number; public_visible: number; archived_at: string | null; deleted_at: string | null; profile_image_url: string | null; pending_profile_image_key: string | null }>();
   if (!existing) return jsonResponse({ error: "Student not found" }, 404);
   const body = await request.json<{ action?: unknown; confirmed?: unknown; studentId?: unknown; confirmationText?: unknown }>().catch(() => ({}));
   const requestId = requestIdentifier(request);
   const now = new Date().toISOString();
 
-  if (body.action === "delete_permanently") {
+  if (body.action === "delete_permanently" || body.action === "soft_delete") {
     const expectedConfirmation = `DELETE ${existing.public_student_id}`;
-    if (existing.active || !existing.archived_at) return jsonResponse({ error: "Archive the student before permanently deleting the record." }, 409);
     if (body.confirmed !== true || normalizeStudentId(String(body.studentId || "")) !== existing.public_student_id || String(body.confirmationText || "").trim() !== expectedConfirmation) {
-      return jsonResponse({ error: `Type ${expectedConfirmation} to confirm permanent deletion.` }, 400);
+      return jsonResponse({ error: `Type ${expectedConfirmation} to confirm soft deletion.` }, 400);
     }
     await db.batch([
-      db.prepare(`DELETE FROM contribution_status_history WHERE contribution_id IN
-        (SELECT id FROM monthly_contributions WHERE student_id = ?)` ).bind(id),
-      db.prepare("DELETE FROM monthly_contributions WHERE student_id = ?").bind(id),
-      db.prepare("DELETE FROM contribution_period_students WHERE student_id = ?").bind(id),
-      db.prepare(`DELETE FROM exam_cycle_status_history WHERE cycle_status_id IN
-        (SELECT id FROM exam_cycle_student_status WHERE student_id = ?)` ).bind(id),
-      db.prepare("DELETE FROM exam_cycle_student_status WHERE student_id = ?").bind(id),
-      db.prepare(`DELETE FROM application_status_history WHERE application_id IN
-        (SELECT id FROM examination_applications WHERE student_id = ?)` ).bind(id),
-      db.prepare("DELETE FROM examination_applications WHERE student_id = ?").bind(id),
-      db.prepare("DELETE FROM training_hour_requests WHERE student_id = ?").bind(id),
-      db.prepare("DELETE FROM audit_log WHERE student_id = ? OR (entity_type = 'student' AND entity_id = ?)").bind(id, id),
-      db.prepare("DELETE FROM operation_failures WHERE student_id = ?").bind(id),
-      db.prepare("DELETE FROM students WHERE id = ? AND active = 0 AND archived_at IS NOT NULL").bind(id),
-      db.prepare(`UPDATE contribution_periods SET active_student_count_snapshot =
-        (SELECT COUNT(*) FROM contribution_period_students cps
-         WHERE cps.month_key = contribution_periods.month_key AND cps.active_at_period_start = 1)`),
+      db.prepare(`UPDATE students SET active = 0, public_visible = 0, deleted_at = ?, deleted_by = ?,
+        archived_at = COALESCE(archived_at, ?), archived_by = COALESCE(archived_by, ?), updated_at = ?
+        WHERE id = ? AND deleted_at IS NULL`).bind(now, session.adminName, now, session.adminName, now, id),
       auditStatement(db, {
-        actorType: "administrator", actorIdentifier: "primary_admin", action: "student_permanently_deleted", entityType: "student", entityId: id,
+        actorType: "administrator", ...adminAuditMetadata(session, request), action: "student_soft_deleted", entityType: "student", entityId: id,
         studentPublicId: existing.public_student_id, studentNameSnapshot: existing.display_name,
-        previousValues: { archived: true }, newValues: { permanentlyDeleted: true },
-        source: "admin_student_permanent_delete", requestId,
-        summary: `Permanently deleted ${existing.public_student_id}: ${existing.display_name}`, createdAt: now,
+        previousValues: { active: Boolean(existing.active), archived: Boolean(existing.archived_at), deletedAt: existing.deleted_at }, newValues: { active: false, softDeleted: true },
+        source: "admin_student_soft_delete", requestId,
+        summary: `Soft-deleted ${existing.public_student_id}: ${existing.display_name}`, createdAt: now,
       }),
     ]);
-
-    const mediaKeys = Array.from(new Set([profileKey(existing.profile_image_url), existing.pending_profile_image_key].filter((value): value is string => Boolean(value))));
-    let mediaCleanupPending = false;
-    if (env.MEDIA_BUCKET && mediaKeys.length) {
-      try {
-        await env.MEDIA_BUCKET.delete(mediaKeys.length === 1 ? mediaKeys[0] : mediaKeys);
-      } catch (error) {
-        mediaCleanupPending = true;
-        const message = error instanceof Error ? error.message : "Profile media cleanup failed after student deletion.";
-        console.error(JSON.stringify({ message: "student deletion media cleanup failed", requestId, studentPublicId: existing.public_student_id, error: message }));
-        try {
-          await db.prepare(`INSERT INTO operation_failures
-            (id, action, entity_type, entity_id, request_id, error_summary, created_at)
-            VALUES (?, 'student_delete_media_cleanup', 'student', ?, ?, ?, ?)`)
-            .bind(crypto.randomUUID(), id, requestId, message.slice(0, 300), now).run();
-        } catch (loggingError) {
-          console.error(JSON.stringify({ message: "student deletion cleanup failure could not be recorded", requestId, error: loggingError instanceof Error ? loggingError.message : String(loggingError) }));
-        }
-      }
-    }
-    return jsonResponse({ ok: true, permanentlyDeleted: true, mediaCleanupPending });
+    return jsonResponse({ ok: true, softDeleted: true, recoverable: true });
   }
 
   if (body.confirmed !== true || normalizeStudentId(String(body.studentId || "")) !== existing.public_student_id) {
@@ -243,10 +232,10 @@ export const onRequestDelete: PagesFunction<Env> = async ({ request, env, params
   if (!existing.active) return jsonResponse({ error: "Only an active student can be archived." }, 409);
   await db.batch([
     db.prepare(`UPDATE students SET active = 0, public_visible_before_archive = public_visible,
-      public_visible = 0, archived_at = ?, archived_by = 'primary_admin', updated_at = ? WHERE id = ? AND active = 1`)
-      .bind(now, now, id),
+      public_visible = 0, archived_at = ?, archived_by = ?, updated_at = ? WHERE id = ? AND active = 1`)
+      .bind(now, session.adminName, now, id),
     auditStatement(db, {
-      actorType: "administrator", actorIdentifier: "primary_admin", action: "student_archived", entityType: "student", entityId: id,
+      actorType: "administrator", ...adminAuditMetadata(session, request), action: "student_archived", entityType: "student", entityId: id,
       studentId: id, studentPublicId: existing.public_student_id, studentNameSnapshot: existing.display_name,
       previousValues: { active: true, publicVisible: Boolean(existing.public_visible) }, newValues: { active: false, publicVisible: false },
       source: "admin_students", requestId, summary: `Archived ${existing.public_student_id}: ${existing.display_name}`, createdAt: now,
@@ -256,12 +245,16 @@ export const onRequestDelete: PagesFunction<Env> = async ({ request, env, params
 };
 
 export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params }) => {
-  if (!(await allowed(request, env))) return jsonResponse({ error: "Unauthorized" }, 401);
+  if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
+  const session = await getAdminSession(request, env);
+  if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const db = requireStudentDb(env);
   const id = String(params.id);
+  const access = await assertStudentAccess(db, session, id);
+  if (!access.ok) return jsonResponse({ error: access.error }, access.status);
   const existing = await db.prepare(`SELECT public_student_id, display_name, current_belt, active, profile_status,
-    public_visible_before_archive, archived_at FROM students WHERE id = ?`).bind(id)
-    .first<{ public_student_id: string; display_name: string; current_belt: string; active: number; profile_status: string; public_visible_before_archive: number | null; archived_at: string | null }>();
+    public_visible_before_archive, archived_at, deleted_at, dojo_id FROM students WHERE id = ?`).bind(id)
+    .first<{ public_student_id: string; display_name: string; current_belt: string; active: number; profile_status: string; public_visible_before_archive: number | null; archived_at: string | null; deleted_at: string | null; dojo_id: string }>();
   if (!existing) return jsonResponse({ error: "Student not found" }, 404);
   const body = await request.json<{ action?: unknown; confirmed?: unknown; studentId?: unknown }>().catch(() => ({}));
   if (body.action !== "restore" || body.confirmed !== true || normalizeStudentId(String(body.studentId || "")) !== existing.public_student_id) {
@@ -277,8 +270,8 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params 
     .bind(currentMonth).first<{ month_key: string }>();
   await db.batch([
     db.prepare(`UPDATE students SET active = 1, public_visible = ?, archived_at = NULL,
-      archived_by = NULL, updated_at = ? WHERE id = ? AND active = 0`).bind(restoredVisibility, now, id),
-    ...(contributionPeriod && existing.profile_status === "approved" ? [
+      archived_by = NULL, deleted_at = NULL, deleted_by = NULL, updated_at = ? WHERE id = ? AND active = 0`).bind(restoredVisibility, now, id),
+    ...(contributionPeriod && existing.profile_status === "approved" && existing.dojo_id === "dojo-rsk" ? [
       db.prepare(`INSERT OR IGNORE INTO contribution_period_students (
         id, month_key, student_id, student_name_snapshot, student_public_id_snapshot,
         current_rank_snapshot, active_at_period_start, created_at
@@ -289,9 +282,9 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params 
       ) WHERE month_key = ?`).bind(currentMonth, currentMonth),
     ] : []),
     auditStatement(db, {
-      actorType: "administrator", actorIdentifier: "primary_admin", action: "student_restored", entityType: "student", entityId: id,
+      actorType: "administrator", ...adminAuditMetadata(session, request), action: "student_restored", entityType: "student", entityId: id,
       studentId: id, studentPublicId: existing.public_student_id, studentNameSnapshot: existing.display_name,
-      previousValues: { active: false, publicVisible: false }, newValues: { active: true, publicVisible: Boolean(restoredVisibility) },
+      previousValues: { active: false, publicVisible: false, softDeleted: Boolean(existing.deleted_at) }, newValues: { active: true, publicVisible: Boolean(restoredVisibility), softDeleted: false },
       source: "admin_students", requestId, summary: `Restored ${existing.public_student_id}: ${existing.display_name}`, createdAt: now,
     }),
   ]);

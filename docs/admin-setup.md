@@ -8,6 +8,7 @@ This site uses Cloudflare Pages for hosting, Pages Functions for the admin API, 
 - Workers KV namespace bound as `CONTENT_KV`.
 - R2 bucket bound as `MEDIA_BUCKET`.
 - Admin password hash.
+- Per-dojo password-hash mapping for individual dojo administrators.
 - Long random session secret.
 - Production `SITE_URL`.
 - Public build-time `VITE_SITE_URL`.
@@ -25,6 +26,14 @@ SESSION_SECRET="PLACEHOLDER_LONG_RANDOM_SECRET" ADMIN_PASSWORD="PLACEHOLDER_ADMI
 ```
 
 Put the printed value into `ADMIN_PASSWORD_HASH`. Do not store the plaintext admin password in Cloudflare, GitHub, or frontend code.
+
+For individual dojo administrators, generate one hash per password using the same command and store a JSON map in the `DOJO_ADMIN_PASSWORD_HASHES` Pages secret. Supported IDs are `dojo-ai`, `dojo-cmu`, `dojo-rsk`, `dojo-nu`, `dojo-all-gym`, and `dojo-mhs`. For example:
+
+```json
+{"dojo-cmu":"HASH_ONLY_NOT_THE_PASSWORD","dojo-nu":"HASH_ONLY_NOT_THE_PASSWORD"}
+```
+
+Do not assign the central administrator password to a dojo entry. A dojo password creates a signed session whose allowed dojo IDs are checked again by every student, application, membership, and export query.
 
 ## Cloudflare Storage
 
@@ -50,6 +59,7 @@ Add these secrets:
 
 ```bash
 npx wrangler pages secret put ADMIN_PASSWORD_HASH --project-name renshinkan-dojo
+npx wrangler pages secret put DOJO_ADMIN_PASSWORD_HASHES --project-name renshinkan-dojo
 npx wrangler pages secret put SESSION_SECRET --project-name renshinkan-dojo
 npx wrangler pages secret put TURNSTILE_SECRET_KEY --project-name renshinkan-dojo
 npx wrangler pages secret put BREVO_API_KEY --project-name renshinkan-dojo
@@ -71,7 +81,7 @@ BREVO_SENDER_NAME = "RenShinKan Dojo"
 VITE_BREVO_SIGNUP_FORM_URL = "PLACEHOLDER_BREVO_SIGNUP_FORM_URL"
 ```
 
-Only the `VITE_*` values are exposed to browser JavaScript. Keep `ADMIN_PASSWORD_HASH`, `SESSION_SECRET`, `TURNSTILE_SECRET_KEY`, and `BREVO_API_KEY` as secrets managed in the Cloudflare dashboard.
+Only the `VITE_*` values are exposed to browser JavaScript. Keep `ADMIN_PASSWORD_HASH`, `DOJO_ADMIN_PASSWORD_HASHES`, `SESSION_SECRET`, `TURNSTILE_SECRET_KEY`, and `BREVO_API_KEY` as secrets managed in the Cloudflare dashboard.
 
 Apply checked-in D1 migrations before deploying application code that depends on
 them:
@@ -179,6 +189,8 @@ npx wrangler d1 migrations apply renshinkan-student-records --remote
 ```
 
 Migration `0002_student_management.sql` introduced the Student ID sequence, administrator notes, and training-hour adjustments. Migration `0004_student_cycles_and_contributions.sql` adds archived students, examination-cycle and monthly-contribution snapshots, and their permanent status histories. It also scrubs the retired private lookup-code and student-PIN hashes. Public record access now uses Student ID as the primary match and the student's name as a secondary match, protected by Turnstile and a short-lived one-use access session; old codes and PINs are not accepted. Back up the production database before applying remote migrations:
+
+Migration `0006_multi_dojo_administration.sql` is additive. It creates the six dojo records, assigns legacy students to RenShinKan unless an existing dojo name matches another official dojo, adds dojo-scoped ID sequences, AAT/payment history, richer examination fields, structured website drafts/revisions, and audit-request metadata. It does not replace existing student identifiers or reset production data.
 
 ```bash
 npx wrangler d1 export renshinkan-student-records --remote --output renshinkan-student-records-backup.sql

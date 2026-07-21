@@ -118,6 +118,10 @@ export function emptyContent(): EditableContent {
     historyMedia: [],
     onTheMatMedia: [],
     passedTestStudents: [],
+    sitePages: [],
+    siteSettings: {
+      translations: Object.fromEntries(["en", "th", "ja", "zh-CN"].map((locale) => [locale, { footerText: "", notice: "", navigation: {} }])) as EditableContent["siteSettings"]["translations"],
+    },
   };
 }
 

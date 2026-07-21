@@ -1,10 +1,12 @@
-import { hasValidAdminSession, isSameOriginRequest, jsonResponse } from "../../../../_lib/auth";
-import { auditStatement, requestIdentifier, requireStudentDb, type StudentEnv } from "../../../../_lib/studentRecords";
+import { getAdminSession, isSameOriginRequest, jsonResponse } from "../../../../_lib/auth";
+import { adminAuditMetadata, assertStudentAccess, auditStatement, requestIdentifier, requireStudentDb, type StudentEnv } from "../../../../_lib/studentRecords";
 
 type Env = StudentEnv & { SESSION_SECRET?: string };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }) => {
-  if (!isSameOriginRequest(request) || !(await hasValidAdminSession(request, env))) return jsonResponse({ error: "Unauthorized" }, 401);
+  if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
+  const session = await getAdminSession(request, env);
+  if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const requestId = requestIdentifier(request);
   try {
     const body = await request.json<{ applicationId?: unknown; action?: unknown; note?: unknown; confirmed?: unknown }>();
@@ -15,6 +17,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     if (action === "reverse_payment" && body.confirmed !== true) return jsonResponse({ error: "Confirm the payment reversal." }, 400);
     const db = requireStudentDb(env);
     const studentId = String(params.id);
+    const access = await assertStudentAccess(db, session, studentId);
+    if (!access.ok) return jsonResponse({ error: access.error }, access.status);
     const application = await db.prepare(`SELECT ea.id, ea.status, ea.payment_status, ea.administrator_notes, ea.paid_at, ea.paid_by,
         ea.cycle_id, ea.student_name_snapshot, ea.student_public_id_snapshot,
         ecs.id AS cycle_status_id, ecs.status AS cycle_status
@@ -49,16 +53,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
         .bind(
           nextStatus, nextPayment, nextNote,
           nextPayment === "paid" ? application.paid_at || now : null,
-          nextPayment === "paid" ? application.paid_by || "primary_admin" : null,
+          nextPayment === "paid" ? application.paid_by || session.adminName : null,
           nextStatus === "examination_completed" ? now : null,
           now, applicationId,
         ),
       db.prepare(`INSERT INTO application_status_history
         (id, application_id, previous_status, new_status, previous_payment_status, new_payment_status,
-         actor_identifier, note, request_id, created_at) VALUES (?, ?, ?, ?, ?, ?, 'primary_admin', ?, ?, ?)`)
-        .bind(crypto.randomUUID(), applicationId, application.status, nextStatus, application.payment_status, nextPayment, note || null, requestId, now),
+         actor_identifier, note, request_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .bind(crypto.randomUUID(), applicationId, application.status, nextStatus, application.payment_status, nextPayment, session.adminName, note || null, requestId, now),
       auditStatement(db, {
-        actorType: "administrator", actorIdentifier: "primary_admin", action: auditAction, entityType: "examination_application", entityId: applicationId,
+        actorType: "administrator", ...adminAuditMetadata(session, request), action: auditAction, entityType: "examination_application", entityId: applicationId,
         studentId, studentPublicId: application.student_public_id_snapshot, studentNameSnapshot: application.student_name_snapshot,
         previousValues: { status: application.status, paymentStatus: application.payment_status, administratorNotes: application.administrator_notes },
         newValues: { status: nextStatus, paymentStatus: nextPayment, administratorNotes: nextNote }, source: "admin_examination_application",
@@ -68,12 +72,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     if (application.cycle_status_id && (action === "mark_paid" || action === "reverse_payment")) {
       const cycleStatus = action === "mark_paid" ? "paid" : "unpaid";
       statements.push(
-        db.prepare("UPDATE exam_cycle_student_status SET status = ?, updated_at = ?, updated_by = 'primary_admin' WHERE id = ?")
-          .bind(cycleStatus, now, application.cycle_status_id),
+        db.prepare("UPDATE exam_cycle_student_status SET status = ?, updated_at = ?, updated_by = ? WHERE id = ?")
+          .bind(cycleStatus, now, session.adminName, application.cycle_status_id),
         db.prepare(`INSERT INTO exam_cycle_status_history
           (id, cycle_status_id, previous_status, new_status, actor_identifier, request_id, note, created_at)
-          VALUES (?, ?, ?, ?, 'primary_admin', ?, 'Payment status synchronized', ?)`)
-          .bind(crypto.randomUUID(), application.cycle_status_id, application.cycle_status, cycleStatus, requestId, now),
+          VALUES (?, ?, ?, ?, ?, ?, 'Payment status synchronized', ?)`)
+          .bind(crypto.randomUUID(), application.cycle_status_id, application.cycle_status, cycleStatus, session.adminName, requestId, now),
       );
     }
     await db.batch(statements);

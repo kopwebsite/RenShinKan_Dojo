@@ -4,7 +4,6 @@ import {
   ChevronDown,
   FileText,
   ImagePlus,
-  Lock,
   LogOut,
   Plus,
   Presentation,
@@ -16,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { AdminAlerts } from "../components/AdminAlerts";
+import { AdminDojoSelector, AdminLoginFields, type AdminDojo, type AdminIdentity, type AdminSessionResponse } from "../components/admin/AdminAccess";
 import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { EventBodyRenderer } from "../components/EventBodyRenderer";
@@ -442,8 +442,12 @@ function CollapsibleEditorSection({
 export function AdminPage() {
   const [sessionChecked, setSessionChecked] = useState(false);
   const [isAuthed, setIsAuthed] = useState(() => sessionStorage.getItem("renshinkan-admin-hint") === "true");
+  const [adminName, setAdminName] = useState("");
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState("");
+  const [admin, setAdmin] = useState<AdminIdentity | null>(null);
+  const [dojos, setDojos] = useState<AdminDojo[]>([]);
+  const [selectingDojo, setSelectingDojo] = useState("");
   const [draft, setDraft] = useState<EditableContent>(emptyEditableContent);
   const [baseline, setBaseline] = useState<EditableContent>(emptyEditableContent);
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
@@ -461,11 +465,13 @@ export function AdminPage() {
   const [openEventIds, setOpenEventIds] = useState<string[]>([]);
 
   useEffect(() => {
-    fetch("/api/admin/session", { credentials: "include" })
-      .then((response) => response.json() as Promise<{ authenticated?: boolean }>)
+    fetch("/api/admin/session", { credentials: "include", cache: "no-store" })
+      .then((response) => response.json() as Promise<AdminSessionResponse>)
       .then((result) => {
         const authenticated = result.authenticated === true;
         setIsAuthed(authenticated);
+        setAdmin(result.admin || null);
+        setDojos(result.dojos || []);
         sessionStorage.setItem("renshinkan-admin-hint", authenticated ? "true" : "false");
       })
       .catch(() => {
@@ -555,7 +561,7 @@ export function AdminPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ adminName, password }),
       });
     } catch {
       setAuthError("Admin API is unavailable.");
@@ -565,6 +571,9 @@ export function AdminPage() {
     if (response.ok) {
       sessionStorage.setItem("renshinkan-admin-hint", "true");
       setIsAuthed(true);
+      const session = await fetch("/api/admin/session", { credentials: "include", cache: "no-store" }).then((result) => result.json() as Promise<AdminSessionResponse>);
+      setAdmin(session.admin);
+      setDojos(session.dojos || []);
       setPassword("");
       return;
     }
@@ -576,6 +585,7 @@ export function AdminPage() {
     await fetch("/api/admin/logout", { method: "POST", credentials: "include" });
     sessionStorage.removeItem("renshinkan-admin-hint");
     setIsAuthed(false);
+    setAdmin(null);
     setDraft(emptyEditableContent);
     setBaseline(emptyEditableContent);
   };
@@ -936,6 +946,24 @@ export function AdminPage() {
     }
   };
 
+  const selectDojo = async (dojoId: string) => {
+    setSelectingDojo(dojoId);
+    setAuthError("");
+    try {
+      const response = await fetch("/api/admin/select-dojo", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json", "X-Request-ID": crypto.randomUUID() },
+        body: JSON.stringify({ dojoId }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error || "The dojo could not be selected.");
+      setAdmin((current) => current ? { ...current, selectedDojoId: dojoId } : current);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "The dojo could not be selected.");
+    } finally {
+      setSelectingDojo("");
+    }
+  };
+
   const deleteGalleryPhoto = (key: "historyMedia" | "onTheMatMedia", id: string) => {
     const removed = draft[key].find((item) => item.id === id);
 
@@ -1098,45 +1126,20 @@ export function AdminPage() {
   if (!isAuthed) {
     return (
       <section className="container-shell py-20">
-        <div className="mx-auto max-w-xl rounded-[2rem] bg-paper/80 p-8 shadow-line ring-1 ring-ink/10 sm:p-10">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-ink text-paper">
-            <Lock size={24} aria-hidden="true" />
-          </div>
-          <p className="eyebrow mt-7">Admin</p>
-          <h1 className="mt-3 text-3xl leading-tight text-ink sm:text-4xl">RenShinKan publishing</h1>
-          <p className="mt-4 text-sm leading-6 text-charcoal/72">
-            Sign in to edit site content and save it through the Cloudflare admin API.
-          </p>
-          <form onSubmit={login} className="mt-7">
-            <input
-              id="admin-username"
-              name="username"
-              type="text"
-              value="administrator"
-              autoComplete="username"
-              readOnly
-              hidden
-            />
-            <label className="text-sm font-bold text-ink" htmlFor="admin-password">
-              Password
-            </label>
-            <input
-              id="admin-password"
-              name="password"
-              className="input-field"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              autoComplete="current-password"
-            />
-            {authError ? <p className="mt-3 text-sm font-bold text-vermilion">{authError}</p> : null}
-            <button type="submit" className="btn-primary mt-5 w-full">
-              Enter publishing mode
-            </button>
-          </form>
-        </div>
+        <form onSubmit={login} className="admin-login-card">
+          <AdminLoginFields name={adminName} password={password} error={authError} setName={setAdminName} setPassword={setPassword} />
+        </form>
       </section>
     );
+  }
+
+  if (admin && !admin.selectedDojoId) {
+    return <AdminDojoSelector dojos={dojos} admin={admin} busyId={selectingDojo} error={authError} onSelect={(dojoId) => void selectDojo(dojoId)} />;
+  }
+
+  if (admin?.role === "dojo") {
+    const selected = dojos.find((dojo) => dojo.id === admin.selectedDojoId);
+    return <section className="container-shell py-16"><div className="admin-login-card"><p className="eyebrow">{selected?.official_name}</p><h1>Dojo workspace ready</h1><p>You can manage students, examination applications, and AAT annual membership records for this dojo.</p><div className="admin-header-actions"><Link className="btn-primary" to="/admin/students">Open student management</Link><Link className="btn-secondary" to="/admin/memberships">AAT membership</Link><button className="btn-secondary" onClick={logout}><LogOut size={17} /> Sign out</button></div></div></section>;
   }
 
   const renderMediaGallery = (key: "historyMedia" | "onTheMatMedia", title: string, copy: string) => {
@@ -1222,6 +1225,9 @@ export function AdminPage() {
       <nav className="admin-action-board" aria-label="Admin areas">
         <a href="#admin-recent-events"><FileText size={22} /><span><strong>Create a dojo update</strong><small>Write, preview and publish journal entries</small></span></a>
         <Link to="/admin/students"><UsersRound size={22} /><span><strong>Manage students</strong><small>Hours, examinations, privacy and QR sharing</small></span></Link>
+        <Link to="/admin/memberships"><UsersRound size={22} /><span><strong>AAT annual membership</strong><small>Renewals, expiration warnings and payment history</small></span></Link>
+        <Link to="/admin/site-editor"><Presentation size={22} /><span><strong>Full website editor</strong><small>Structured multilingual pages, drafts and revisions</small></span></Link>
+        <Link to="/admin/dojos"><UsersRound size={22} /><span><strong>Dojo settings</strong><small>Names, codes, logos and active status</small></span></Link>
         <a href="/" target="_blank" rel="noopener noreferrer"><ExternalLink size={22} /><span><strong>Preview the website</strong><small>Open the public site in a new tab</small></span></a>
       </nav>
 
@@ -1747,6 +1753,7 @@ export function AdminPage() {
           {sectionTitle("Exam Announcement", "Optional text shown in the classes and belt exams section after publishing.")}
           <input
             className="input-field"
+            aria-label="Exam announcement"
             value={draft.examAnnouncement?.text ?? ""}
             onChange={(event) =>
               setDraft((current) => ({

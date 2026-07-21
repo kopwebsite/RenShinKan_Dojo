@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { googleMapsUrl, siteInfo, socialLinks } from "../data/siteMeta";
 import { useTranslation, type TranslationKey } from "../i18n";
 import { recordsCopy } from "../data/recordsCopy";
+import { useEditableContent } from "../lib/content";
 
 const footerNavigation: Array<{ labelKey: TranslationKey; path: string }> = [
   { labelKey: "nav.home", path: "/" },
@@ -16,6 +17,9 @@ const footerNavigation: Array<{ labelKey: TranslationKey; path: string }> = [
 
 export function Footer() {
   const { t, language } = useTranslation();
+  const { content } = useEditableContent();
+  const settings = content.siteSettings.translations[language];
+  const navLabel = (key: TranslationKey) => settings?.navigation[key] || t(key);
 
   return (
     <footer className="site-footer">
@@ -23,7 +27,7 @@ export function Footer() {
         <div className="site-footer__brand">
           <p className="eyebrow">{t("common.brand")}</p>
           <h2>
-            {t("footer.tagline")}
+            {settings?.footerText || t("footer.tagline")}
           </h2>
           <a
             href={googleMapsUrl}
@@ -48,7 +52,7 @@ export function Footer() {
                 to={item.path}
                 className="site-footer__link"
               >
-                {t(item.labelKey)}
+                {navLabel(item.labelKey)}
               </Link>
             ))}
             <Link to="/student-records" className="site-footer__link">

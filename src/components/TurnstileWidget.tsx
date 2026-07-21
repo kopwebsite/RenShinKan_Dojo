@@ -21,5 +21,5 @@ export function TurnstileWidget({ onToken, resetSignal = 0 }: { onToken: (token:
   useEffect(() => { if (!siteKey || !container.current) return; let cancelled = false; loadTurnstile().then((api) => { if (!cancelled && container.current && !widgetId.current) widgetId.current = api.render(container.current, { sitekey: siteKey, action: "turnstile-spin-v1", callback: onToken, "expired-callback": () => onToken(""), "error-callback": () => onToken("") }); }).catch(() => onToken("")); return () => { cancelled = true; if (widgetId.current) { window.turnstile?.remove(widgetId.current); widgetId.current = undefined; } }; }, [onToken, siteKey]);
   useEffect(() => { if (widgetId.current) window.turnstile?.reset(widgetId.current); }, [resetSignal]);
   if (!siteKey) return <p className="form-error">Cloudflare verification is not configured.</p>;
-  return <div ref={container} className="turnstile-frame" data-action="turnstile-spin-v1" aria-label="Cloudflare human verification" />;
+  return <div ref={container} className="turnstile-frame" data-action="turnstile-spin-v1" role="group" aria-label="Cloudflare human verification" />;
 }

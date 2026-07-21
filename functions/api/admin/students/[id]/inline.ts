@@ -1,14 +1,18 @@
-import { hasValidAdminSession, isSameOriginRequest, jsonResponse } from "../../../../_lib/auth";
-import { auditStatement, normalizedRankOrError, rankColor, requestIdentifier, requireStudentDb, type StudentEnv } from "../../../../_lib/studentRecords";
+import { getAdminSession, isSameOriginRequest, jsonResponse } from "../../../../_lib/auth";
+import { adminAuditMetadata, assertStudentAccess, auditStatement, normalizedRankOrError, rankColor, requestIdentifier, requireStudentDb, type StudentEnv } from "../../../../_lib/studentRecords";
 
 type Env = StudentEnv & { SESSION_SECRET?: string };
 
 export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params }) => {
-  if (!isSameOriginRequest(request) || !(await hasValidAdminSession(request, env))) return jsonResponse({ error: "Unauthorized" }, 401);
+  if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
+  const session = await getAdminSession(request, env);
+  if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const requestId = requestIdentifier(request);
   try {
     const db = requireStudentDb(env);
     const id = String(params.id);
+    const access = await assertStudentAccess(db, session, id);
+    if (!access.ok) return jsonResponse({ error: access.error }, access.status);
     const body = await request.json<{ field?: unknown; value?: unknown }>();
     const student = await db.prepare(`SELECT s.current_belt, s.belt_color, s.training_hours_adjustment,
       COALESCE((SELECT SUM(verified_hours) FROM training_hours h WHERE h.student_id = s.id), 0) AS recorded_hours
@@ -26,7 +30,7 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params 
         db.prepare("UPDATE students SET training_hours_adjustment = ?, updated_at = ? WHERE id = ?")
           .bind(next - Number(student.recorded_hours || 0), now, id),
         auditStatement(db, {
-          actorType: "administrator", actorIdentifier: "primary_admin", action: "training_hours_total_edited", entityType: "student", entityId: id,
+          actorType: "administrator", ...adminAuditMetadata(session, request), action: "training_hours_total_edited", entityType: "student", entityId: id,
           studentId: id, previousValues: { totalHours: previous }, newValues: { totalHours: next }, source: "admin_inline_edit", requestId,
           summary: `Edited total training hours (${previous} → ${next})`, createdAt: now,
         }),
@@ -45,7 +49,7 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params 
         db.prepare("UPDATE students SET current_belt = ?, belt_color = ?, updated_at = ? WHERE id = ?")
           .bind(next, rankColor(next, student.belt_color), now, id),
         auditStatement(db, {
-          actorType: "administrator", actorIdentifier: "primary_admin", action: "rank_changed", entityType: "student", entityId: id,
+          actorType: "administrator", ...adminAuditMetadata(session, request), action: "rank_changed", entityType: "student", entityId: id,
           studentId: id, previousValues: { currentRank: previous }, newValues: { currentRank: next }, source: "admin_inline_edit", requestId,
           summary: `Changed current rank (${previous} → ${next})`, createdAt: now,
         }),

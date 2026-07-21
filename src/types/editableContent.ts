@@ -68,6 +68,24 @@ export type PassedTestStudent = {
   objectPosition?: string;
 };
 
+export const SITE_LOCALES = ["en", "th", "ja", "zh-CN"] as const;
+export type SiteLocale = typeof SITE_LOCALES[number];
+export type SiteBlockType = "hero" | "richText" | "image" | "imageText" | "gallery" | "schedule"
+  | "instructorCard" | "cta" | "contact" | "announcement" | "divider" | "video" | "faq";
+export type SiteBlockTranslation = { title: string; text: string; buttonLabel: string; buttonUrl: string; imageUrl: string; imageAlt: string };
+export type SiteBlock = {
+  id: string; type: SiteBlockType; visible: boolean; align: "left" | "center" | "right";
+  textColor: "ink" | "paper" | "bamboo" | "vermillion"; background: "transparent" | "paper" | "mist" | "ink" | "bamboo";
+  font: "sans" | "serif"; fontSize: "small" | "normal" | "large"; spacing: "compact" | "normal" | "spacious";
+  imagePlacement: "left" | "right" | "above"; translations: Record<SiteLocale, SiteBlockTranslation>;
+};
+export type SitePage = {
+  id: string; route: string; status: "draft" | "published";
+  translations: Record<SiteLocale, { title: string; seoTitle: string; seoDescription: string }>;
+  blocks: SiteBlock[]; publishedAt: string | null; publishedBy: string | null;
+};
+export type SiteSettings = { translations: Record<SiteLocale, { footerText: string; notice: string; navigation: Record<string, string> }> };
+
 export type EditableContent = {
   version: number;
   lastPublishedAt: string | null;
@@ -76,4 +94,6 @@ export type EditableContent = {
   historyMedia: MediaItem[];
   onTheMatMedia: MediaItem[];
   passedTestStudents: PassedTestStudent[];
+  sitePages: SitePage[];
+  siteSettings: SiteSettings;
 };

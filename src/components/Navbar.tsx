@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { siteInfo } from "../data/siteMeta";
 import { languageOptions, useTranslation, type Language, type TranslationKey } from "../i18n";
 import { BrushCircleLogo } from "./BrushCircleLogo";
+import { useEditableContent } from "../lib/content";
 import styles from "./Navbar.module.css";
 
 type DropdownLink = {
@@ -259,7 +260,10 @@ function LanguageSelector({ mobile = false }: { mobile?: boolean }) {
 }
 
 export function Navbar({ currentPath }: NavbarProps) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
+  const { content } = useEditableContent();
+  const navigation = content.siteSettings.translations[language]?.navigation || {};
+  const navLabel = (key: TranslationKey) => navigation[key] || t(key);
   const [isScrolled, setIsScrolled] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -403,12 +407,13 @@ export function Navbar({ currentPath }: NavbarProps) {
 
   return (
     <>
+      {content.siteSettings.translations[language]?.notice ? <aside className="site-managed-notice" role="status">{content.siteSettings.translations[language].notice}</aside> : null}
       <header className={`${styles.header} ${isScrolled ? styles.headerScrolled : ""}`}>
         <div className={styles.headerInner}>
           <Link
             to="/"
             className={styles.logoLockup}
-            aria-label={`${t("common.brand")} ${t("nav.home")}`}
+            aria-label={`${t("common.brand")} ${navLabel("nav.home")}`}
           >
             <BrushCircleLogo decorative className={styles.logoIcon} />
             <span className={styles.wordmark}>{t("common.brand")}</span>
@@ -418,7 +423,7 @@ export function Navbar({ currentPath }: NavbarProps) {
             <nav className={styles.desktopNav} aria-label={t("a11y.mainNavigation")}>
               {dropdownNavItems.map((item) => {
                 const isActive = isNavItemActive(item);
-                const itemLabel = t(item.labelKey);
+                const itemLabel = navLabel(item.labelKey);
                 const isOpen = activeDropdown === item.id;
 
                 return (
@@ -464,7 +469,7 @@ export function Navbar({ currentPath }: NavbarProps) {
                                 data-active={pathMatches(currentPath, dropdownItem.to)}
                                 onClick={() => setActiveDropdown(null)}
                               >
-                                {t(dropdownItem.labelKey)}
+                                {navLabel(dropdownItem.labelKey)}
                               </Link>
                             ))}
                           </div>
@@ -476,10 +481,10 @@ export function Navbar({ currentPath }: NavbarProps) {
             </nav>
             <div className={styles.desktopUtility}>
               <Link to="/newsletter" className={styles.utilityLink} data-active={pathMatches(currentPath, "/newsletter")}>
-                {t("nav.newsletter")}
+                {navLabel("nav.newsletter")}
               </Link>
               <Link to="/contact" className={styles.utilityLink} data-active={pathMatches(currentPath, "/contact")}>
-                {t("nav.contact")}
+                {navLabel("nav.contact")}
               </Link>
               <Link
                 to="/student-records"
@@ -488,7 +493,7 @@ export function Navbar({ currentPath }: NavbarProps) {
                 title={t("a11y.studentRecordsHint")}
               >
                 <IdCard size={16} aria-hidden="true" />
-                {t("nav.studentRecords")}
+                {navLabel("nav.studentRecords")}
               </Link>
               <div
                 className={`${styles.navDropdown} ${styles.supportDropdown}`}
@@ -500,7 +505,7 @@ export function Navbar({ currentPath }: NavbarProps) {
               >
                 <div className={`${styles.navSplit} ${styles.supportSplit}`} data-active={isNavItemActive(supportNavItem)}>
                   <Link to={supportNavItem.to} className={styles.supportNavLink} data-active={isNavItemActive(supportNavItem)}>
-                    {t(supportNavItem.labelKey)}
+                    {navLabel(supportNavItem.labelKey)}
                   </Link>
                   <button
                     type="button"
@@ -508,7 +513,7 @@ export function Navbar({ currentPath }: NavbarProps) {
                     aria-expanded={activeDropdown === supportNavItem.id}
                     aria-haspopup="menu"
                     aria-controls="desktop-support-dropdown"
-                    aria-label={t(activeDropdown === supportNavItem.id ? "a11y.collapseMenu" : "a11y.expandMenu", { label: t(supportNavItem.labelKey) })}
+                    aria-label={t(activeDropdown === supportNavItem.id ? "a11y.collapseMenu" : "a11y.expandMenu", { label: navLabel(supportNavItem.labelKey) })}
                     onClick={() => setActiveDropdown((current) => current === supportNavItem.id ? null : supportNavItem.id)}
                   >
                     <ChevronDown className={styles.chevron} aria-hidden="true" />
@@ -525,7 +530,7 @@ export function Navbar({ currentPath }: NavbarProps) {
                           data-active={pathMatches(currentPath, dropdownItem.to)}
                           onClick={() => setActiveDropdown(null)}
                         >
-                          {t(dropdownItem.labelKey)}
+                          {navLabel(dropdownItem.labelKey)}
                         </Link>
                       ))}
                     </div>
@@ -576,7 +581,7 @@ export function Navbar({ currentPath }: NavbarProps) {
 
             <nav className={styles.mobileNav} aria-label={t("a11y.mobileNavigation")}>
               {navItems.map((item) => {
-                const itemLabel = t(item.labelKey);
+                const itemLabel = navLabel(item.labelKey);
 
                 if (!hasDropdown(item)) {
                   return (
@@ -646,7 +651,7 @@ export function Navbar({ currentPath }: NavbarProps) {
                                 data-active={pathMatches(currentPath, dropdownItem.to)}
                                 onClick={() => setIsMobileOpen(false)}
                               >
-                                {t(dropdownItem.labelKey)}
+                                {navLabel(dropdownItem.labelKey)}
                               </Link>
                             ))}
                           </div>

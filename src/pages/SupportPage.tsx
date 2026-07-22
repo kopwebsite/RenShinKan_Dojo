@@ -143,14 +143,15 @@ export function SupportPage() {
               </div>
             </div>
             <div className="flex items-center justify-center">
-              <div className="support-dojo-art" role="img" aria-label={t("support.monthly.supportImageAlt")}>
-                <span className="support-dojo-art__sun" aria-hidden="true" />
-                <span className="support-dojo-art__shoji" aria-hidden="true" />
-                <span className="support-dojo-art__figure support-dojo-art__figure--one" aria-hidden="true"><i /><b /></span>
-                <span className="support-dojo-art__figure support-dojo-art__figure--two" aria-hidden="true"><i /><b /></span>
-                <span className="support-dojo-art__tatami" aria-hidden="true" />
-                <span className="support-dojo-art__enso" aria-hidden="true">合</span>
-              </div>
+              <ResponsiveImage
+                src={assetPath("/renshinkan-gallery/class-photos/class_group_dojo_wide_01.jpg")}
+                alt={t("support.monthly.supportImageAlt")}
+                pictureClassName="support-dojo-photo"
+                imgClassName="support-dojo-photo__image"
+                sizes="(max-width: 1023px) 90vw, 38vw"
+                width={1920}
+                height={1440}
+              />
             </div>
           </div>
         </div>

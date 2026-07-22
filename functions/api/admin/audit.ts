@@ -1,4 +1,4 @@
-import { getAuthorizedAdminSession, jsonResponse, requiresCentralAdmin } from "../../_lib/auth";
+import { getAuthorizedAdminSession, isRenShinKanSuperAdmin, jsonResponse } from "../../_lib/auth";
 import { requireStudentDb, type StudentEnv } from "../../_lib/studentRecords";
 
 type Env = StudentEnv & { SESSION_SECRET?: string };
@@ -9,13 +9,25 @@ function escapeLike(value: string) {
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const session = await getAuthorizedAdminSession(request, env);
-  if (!requiresCentralAdmin(session)) return jsonResponse({ error: "Only the RenShinKan administrator may view the full audit history." }, session ? 403 : 401);
+  if (!session) return jsonResponse({ error: "Unauthorized." }, 401);
   const db = requireStudentDb(env);
   const url = new URL(request.url);
   const page = Math.max(1, Math.min(1_000_000, Number.parseInt(url.searchParams.get("page") || "1", 10) || 1));
   const pageSize = 40;
   const conditions: string[] = [];
   const bindings: unknown[] = [];
+  if (!isRenShinKanSuperAdmin(session)) {
+    const selectedDojoId = session.selectedDojoId!;
+    conditions.push(`(
+      a.selected_dojo_id = ?
+      OR EXISTS (
+        SELECT 1 FROM students scoped_student
+        WHERE scoped_student.id = a.student_id AND scoped_student.dojo_id = ?
+      )
+      OR (a.entity_type = 'dojo' AND a.entity_id = ?)
+    )`);
+    bindings.push(selectedDojoId, selectedDojoId, selectedDojoId);
+  }
   const exactFilters = [
     ["actorType", "a.actor_type"], ["action", "a.action"], ["source", "a.source"], ["bulkOperationId", "a.bulk_operation_id"],
     ["examCycleId", "a.exam_cycle_id"], ["month", "a.contribution_month"], ["dojoId", "a.selected_dojo_id"], ["outcome", "a.outcome"],

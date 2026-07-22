@@ -17,8 +17,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const replay = await db.prepare("SELECT response_json FROM mutation_requests WHERE request_id = ? LIMIT 1").bind(requestId)
       .first<{ response_json: string | null }>();
     if (replay?.response_json) return jsonResponse(JSON.parse(replay.response_json), 200);
-    const body = await request.json<{ action?: unknown; studentIds?: unknown; hours?: unknown; levels?: unknown; location?: unknown }>();
-    const action = body.action === "add_hours" || body.action === "approve_pending_hours" || body.action === "mass_promotion" ? body.action : "";
+    const body = await request.json<{ action?: unknown; studentIds?: unknown; hours?: unknown; levels?: unknown; location?: unknown; examinationDate?: unknown }>();
+    const action = body.action === "add_hours" || body.action === "approve_pending_hours" || body.action === "mass_rank_change" || body.action === "mass_promotion" ? body.action : "";
     const studentIds = Array.isArray(body.studentIds)
       ? Array.from(new Set(body.studentIds.filter((value): value is string => typeof value === "string" && value.length >= 8))).slice(0, 50)
       : [];
@@ -104,30 +104,46 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     } else {
       const levels = Number(body.levels);
       const location = typeof body.location === "string" ? body.location.normalize("NFKC").trim().replace(/\s+/g, " ") : "";
+      const examinationDate = typeof body.examinationDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.examinationDate) ? body.examinationDate : "";
       if (!Number.isInteger(levels) || levels <= 0 || levels > 14) return jsonResponse({ error: "Promotion levels must be a positive whole number." }, 400);
-      if (!location || location.length > 200) return jsonResponse({ error: "Enter the examination location." }, 400);
+      if (action === "mass_promotion" && (!location || location.length > 200)) return jsonResponse({ error: "Enter the examination location." }, 400);
+      if (action === "mass_promotion" && !examinationDate) return jsonResponse({ error: "Choose the examination date." }, 400);
       const promotions = students.map((student) => ({ student, rankAfter: promoteRank(student.current_belt, levels) }));
       const invalid = promotions.find((item) => !item.rankAfter);
       if (invalid) return jsonResponse({ error: `${invalid.student.display_name} cannot be promoted ${levels} level${levels === 1 ? "" : "s"} from ${invalid.student.current_belt}.` }, 400);
       for (const { student, rankAfter } of promotions) {
         const nextRank = rankAfter!;
-        const examId = crypto.randomUUID();
-        statements.push(
-          db.prepare(`INSERT INTO belt_examinations
-            (id, student_id, examination_date, belt_awarded, belt_color, rank, created_at, rank_before, rank_attempted,
-             passed, examination_location, rank_after, administrator_id, examination_timestamp, bulk_operation_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)`)
-            .bind(examId, student.id, now.slice(0, 10), nextRank, rankColor(nextRank), nextRank, now, student.current_belt, nextRank, location, nextRank, session.adminName, now, bulkOperationId),
-          db.prepare("UPDATE students SET current_belt = ?, belt_color = ?, updated_at = ? WHERE id = ?")
-            .bind(nextRank, rankColor(nextRank), now, student.id),
-          auditStatement(db, {
-            actorType: "administrator", ...adminAuditMetadata(session, request), action: "mass_promotion", entityType: "belt_examination", entityId: examId,
-            studentId: student.id, previousValues: { currentRank: student.current_belt },
-            newValues: { levels, rankAfter: nextRank, passed: true, location }, source: "admin_mass_promotion", bulkOperationId, requestId,
-            summary: `Mass promotion: ${student.current_belt} → ${nextRank}`, createdAt: now,
-          }),
-        );
-        results.push({ studentId: student.id, name: student.display_name, previousRank: student.current_belt, newRank: nextRank });
+        if (action === "mass_rank_change") {
+          statements.push(
+            db.prepare("UPDATE students SET current_belt = ?, belt_color = ?, updated_at = ? WHERE id = ?")
+              .bind(nextRank, rankColor(nextRank), now, student.id),
+            auditStatement(db, {
+              actorType: "administrator", ...adminAuditMetadata(session, request), action: "mass_rank_change", entityType: "student", entityId: student.id,
+              studentId: student.id, previousValues: { currentRank: student.current_belt },
+              newValues: { levels, rankAfter: nextRank }, source: "admin_mass_rank_change", bulkOperationId, requestId,
+              summary: `Mass promotion: ${student.current_belt} → ${nextRank}`, createdAt: now,
+            }),
+          );
+          results.push({ studentId: student.id, name: student.display_name, previousRank: student.current_belt, newRank: nextRank, examinationRecorded: false });
+        } else {
+          const examId = crypto.randomUUID();
+          statements.push(
+            db.prepare(`INSERT INTO belt_examinations
+              (id, student_id, examination_date, belt_awarded, belt_color, rank, created_at, rank_before, rank_attempted,
+               passed, examination_location, rank_after, administrator_id, examination_timestamp, bulk_operation_id)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)`)
+              .bind(examId, student.id, examinationDate, nextRank, rankColor(nextRank), nextRank, now, student.current_belt, nextRank, location, nextRank, session.adminName, now, bulkOperationId),
+            db.prepare("UPDATE students SET current_belt = ?, belt_color = ?, updated_at = ? WHERE id = ?")
+              .bind(nextRank, rankColor(nextRank), now, student.id),
+            auditStatement(db, {
+              actorType: "administrator", ...adminAuditMetadata(session, request), action: "mass_exam_pass", entityType: "belt_examination", entityId: examId,
+              studentId: student.id, previousValues: { currentRank: student.current_belt },
+              newValues: { levels, rankAfter: nextRank, passed: true, location, examinationDate }, source: "admin_mass_exam_pass", bulkOperationId, requestId,
+              summary: `Mass exam pass: ${student.current_belt} → ${nextRank}`, createdAt: now,
+            }),
+          );
+          results.push({ studentId: student.id, name: student.display_name, previousRank: student.current_belt, newRank: nextRank, examinationRecorded: true, examinationDate });
+        }
       }
     }
 

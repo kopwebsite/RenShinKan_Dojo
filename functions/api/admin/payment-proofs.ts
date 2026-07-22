@@ -12,6 +12,7 @@ type ProofRow = {
   id: string; student_id: string; dojo_id: string; payment_type: "exam" | "aat_annual" | "renshinkan_monthly";
   payment_reference_id: string; status: string; submitted_at: string; expires_at: string;
   student_name: string; public_student_id: string; dojo_name: string; review_note: string;
+  covered_student_count: number; covered_students: string;
 };
 
 function clean(value: unknown, max: number) {
@@ -47,8 +48,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   if (paymentType) { conditions.push("p.payment_type = ?"); bindings.push(paymentType); }
   if (query) {
     const term = `%${escapeLike(query)}%`;
-    conditions.push("(s.display_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR s.public_student_id LIKE ? ESCAPE '\\' COLLATE NOCASE)");
-    bindings.push(term, term);
+    conditions.push(`(s.display_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR s.public_student_id LIKE ? ESCAPE '\\' COLLATE NOCASE
+      OR EXISTS (SELECT 1 FROM monthly_contributions mc WHERE mc.payment_group_id = p.payment_reference_id
+        AND (mc.student_name_snapshot LIKE ? ESCAPE '\\' COLLATE NOCASE OR mc.student_public_id_snapshot LIKE ? ESCAPE '\\' COLLATE NOCASE)))`);
+    bindings.push(term, term, term, term);
   }
   const where = conditions.join(" AND ");
   const scope = isRenShinKanSuperAdmin(session) ? "" : "AND s.dojo_id = ?";
@@ -57,7 +60,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     db.prepare(`SELECT COUNT(*) AS total FROM payment_proofs p JOIN students s ON s.id = p.student_id WHERE ${where}`).bind(...bindings),
     db.prepare(`SELECT p.id, p.student_id, p.dojo_id, p.payment_type, p.payment_reference_id, p.status,
         p.submitted_at, p.reviewed_at, p.reviewed_by, p.review_note, p.expires_at, p.original_filename,
-        s.display_name AS student_name, s.public_student_id, d.official_name AS dojo_name
+        s.display_name AS student_name, s.public_student_id, s.profile_image_url, d.official_name AS dojo_name,
+        CASE WHEN p.payment_type = 'renshinkan_monthly' THEN MAX(1, (SELECT COUNT(*) FROM monthly_contributions mc WHERE mc.payment_group_id = p.payment_reference_id)) ELSE 1 END AS covered_student_count,
+        CASE WHEN p.payment_type = 'renshinkan_monthly' THEN COALESCE((SELECT GROUP_CONCAT(mc.student_name_snapshot || ' (' || mc.student_public_id_snapshot || ')', ', ')
+          FROM monthly_contributions mc WHERE mc.payment_group_id = p.payment_reference_id), s.display_name || ' (' || s.public_student_id || ')')
+          ELSE s.display_name || ' (' || s.public_student_id || ')' END AS covered_students
       FROM payment_proofs p JOIN students s ON s.id = p.student_id JOIN dojos d ON d.id = s.dojo_id
       WHERE ${where} ORDER BY p.submitted_at DESC, p.id DESC LIMIT ? OFFSET ?`)
       .bind(...bindings, pageSize, (page - 1) * pageSize),
@@ -97,7 +104,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const scope = isRenShinKanSuperAdmin(session) ? "" : "AND s.dojo_id = ?";
     const rows = (await db.prepare(`SELECT p.id, p.student_id, p.dojo_id, p.payment_type, p.payment_reference_id,
         p.status, p.submitted_at, p.expires_at, p.review_note,
-        s.display_name AS student_name, s.public_student_id, d.official_name AS dojo_name
+        s.display_name AS student_name, s.public_student_id, d.official_name AS dojo_name,
+        CASE WHEN p.payment_type = 'renshinkan_monthly' THEN MAX(1, (SELECT COUNT(*) FROM monthly_contributions mc WHERE mc.payment_group_id = p.payment_reference_id)) ELSE 1 END AS covered_student_count,
+        CASE WHEN p.payment_type = 'renshinkan_monthly' THEN COALESCE((SELECT GROUP_CONCAT(mc.student_name_snapshot || ' (' || mc.student_public_id_snapshot || ')', ', ')
+          FROM monthly_contributions mc WHERE mc.payment_group_id = p.payment_reference_id), s.display_name || ' (' || s.public_student_id || ')')
+          ELSE s.display_name || ' (' || s.public_student_id || ')' END AS covered_students
       FROM payment_proofs p JOIN students s ON s.id = p.student_id JOIN dojos d ON d.id = s.dojo_id
       WHERE p.id IN (${placeholders}) AND p.status = 'pending_review' AND p.object_key IS NOT NULL
         AND p.expires_at > ? ${scope}`)
@@ -134,24 +145,27 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
             .bind(crypto.randomUUID(), target.cycle_status_id, target.cycle_status, session.adminName, bulkOperationId, requestId, now),
         );
       } else if (action === "approve" && row.payment_type === "renshinkan_monthly") {
-        const target = await db.prepare("SELECT status, month_key, internal_note FROM monthly_contributions WHERE id = ? AND student_id = ? LIMIT 1")
-          .bind(row.payment_reference_id, row.student_id).first<{ status: string; month_key: string; internal_note: string }>();
-        if (!target) throw new Error(`The monthly contribution for ${row.public_student_id} no longer exists.`);
-        statements.push(
+        const targets = (await db.prepare(`SELECT id, student_id, status, month_key, internal_note, expected_amount
+          FROM monthly_contributions
+          WHERE payment_group_id = ? OR (id = ? AND student_id = ?)
+          ORDER BY student_public_id_snapshot`).bind(row.payment_reference_id, row.payment_reference_id, row.student_id)
+          .all<{ id: string; student_id: string; status: string; month_key: string; internal_note: string; expected_amount: number | null }>()).results || [];
+        if (!targets.length) throw new Error(`The monthly contribution for ${row.public_student_id} no longer exists.`);
+        for (const target of targets) statements.push(
           db.prepare("UPDATE monthly_contributions SET status = 'paid', paid_at = ?, paid_by = ?, status_updated_at = ?, status_updated_by = ?, updated_at = ? WHERE id = ?")
-            .bind(now, session.adminName, now, session.adminName, now, row.payment_reference_id),
+            .bind(now, session.adminName, now, session.adminName, now, target.id),
           db.prepare(`INSERT INTO contribution_status_history
             (id, contribution_id, previous_status, new_status, actor_identifier, bulk_operation_id, request_id, note, created_at)
             VALUES (?, ?, ?, 'paid', ?, ?, ?, ?, ?)`)
-            .bind(crypto.randomUUID(), row.payment_reference_id, target.status, session.adminName, bulkOperationId, requestId, note || "Payslip approved", now),
+            .bind(crypto.randomUUID(), target.id, target.status, session.adminName, bulkOperationId, requestId, note || "Shared payslip approved", now),
           db.prepare(`INSERT INTO payments (id, student_id, dojo_id, payment_type, amount, currency, payment_date,
             status, reference, notes, recorded_by, created_at, updated_at)
-            VALUES (?, ?, ?, 'renshinkan_monthly', NULL, 'THB', ?, 'paid', ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET payment_date = excluded.payment_date, status = 'paid',
+            VALUES (?, ?, ?, 'renshinkan_monthly', ?, 'THB', ?, 'paid', ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET amount = excluded.amount, payment_date = excluded.payment_date, status = 'paid',
               notes = excluded.notes, recorded_by = excluded.recorded_by, updated_at = excluded.updated_at`)
-            .bind(row.payment_reference_id, row.student_id, row.dojo_id, paymentDate, `Payslip ${row.id}`, note || target.internal_note, session.adminName, now, now),
+            .bind(target.id, target.student_id, row.dojo_id, target.expected_amount || 1800, paymentDate, `Payslip ${row.id}`, note || target.internal_note, session.adminName, now, now),
           db.prepare("INSERT INTO payment_history (id, payment_id, previous_status, new_status, changed_by, notes, created_at) VALUES (?, ?, ?, 'paid', ?, ?, ?)")
-            .bind(crypto.randomUUID(), row.payment_reference_id, target.status === "paid" ? "paid" : "awaiting_payment", session.adminName, note || "Payslip approved", now),
+            .bind(crypto.randomUUID(), target.id, target.status === "paid" ? "paid" : "awaiting_payment", session.adminName, note || "Shared payslip approved", now),
         );
       } else if (action === "approve" && row.payment_type === "aat_annual") {
         const target = await db.prepare(`SELECT p.status, p.amount, p.notes, s.aat_number, s.aat_last_paid_date, s.aat_notes

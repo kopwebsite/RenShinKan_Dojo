@@ -22,6 +22,13 @@ type Payload = Record<string, unknown> & {
   promiseAccepted?: unknown;
 };
 
+const OCCUPATION_LABELS = {
+  student: "Student",
+  employed: "Employed",
+  both: "Student and employed",
+  not_applicable: "Not currently studying or employed",
+} as const;
+
 function text(value: unknown, max: number, required = false) {
   const result = typeof value === "string" ? value.normalize("NFKC").trim().replace(/\s+/g, " ") : "";
   if (result.length > max || (required && !result)) throw new Error(required ? "Complete every required application field." : `A response is longer than ${max} characters.`);
@@ -49,14 +56,18 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
     const publicStudentId = normalizeStudentId(text(body.studentId, 40, true));
     const turnstileToken = text(body.turnstileToken, 2048, true);
     if (!(await verifyTurnstile(request, env, turnstileToken))) return jsonResponse({ error: "Cloudflare verification failed. Please try again." }, 400);
-    const student = await db.prepare(`SELECT id, public_student_id, display_name, current_belt, dojo_id, aat_number, aat_last_paid_date FROM students
-      WHERE UPPER(public_student_id) = ?
-      AND active = 1 AND public_visible = 1 AND profile_status = 'approved' LIMIT 1`)
+    const student = await db.prepare(`SELECT s.id, s.public_student_id, s.display_name, s.current_belt, s.dojo_id,
+      s.aat_number, s.aat_last_paid_date, d.official_name AS dojo_name FROM students s
+      JOIN dojos d ON d.id = s.dojo_id AND d.active = 1
+      WHERE UPPER(s.public_student_id) = ?
+      AND s.active = 1 AND s.public_visible = 1 AND s.profile_status = 'approved' LIMIT 1`)
       .bind(publicStudentId)
-      .first<{ id: string; public_student_id: string; display_name: string; current_belt: string; dojo_id: string; aat_number: string | null; aat_last_paid_date: string | null }>();
+      .first<{ id: string; public_student_id: string; display_name: string; current_belt: string; dojo_id: string; dojo_name: string; aat_number: string | null; aat_last_paid_date: string | null }>();
     if (!student || !namesLikelyMatch(verificationName, student.display_name)) {
       return jsonResponse({ error: "The student verification details do not match an approved record." }, 403);
     }
+    const submittedDojoId = text(body.dojoId, 100, true);
+    if (submittedDojoId !== student.dojo_id) return jsonResponse({ error: "The selected dojo does not match this approved student record." }, 403);
     const attemptedRank = normalizedRankOrError(body.attemptedRank);
     const currentRank = normalizedRankOrError(student.current_belt);
     if (rankIndex(attemptedRank) <= rankIndex(currentRank)) return jsonResponse({ error: "The attempted rank must be above the student's current rank." }, 400);
@@ -72,9 +83,19 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
     const telephoneCountry = text(body.phoneCountry, 80, true);
     const telephoneCallingCode = text(body.phoneCallingCode, 8, true);
     const telephone = normalizeInternationalPhone(telephoneCallingCode, body.phone);
+    const occupationType = text(body.occupationType, 30, true) as keyof typeof OCCUPATION_LABELS;
+    if (!(occupationType in OCCUPATION_LABELS)) return jsonResponse({ error: "Choose the school or employment option that applies to you." }, 400);
+    const studies = occupationType === "student" || occupationType === "both";
+    const employed = occupationType === "employed" || occupationType === "both";
+    const school = text(body.school, 160, studies);
+    const classLevel = text(body.classLevel, 80);
+    const office = text(body.office, 160, employed);
+    const position = text(body.position, 120);
+    const gamesExperience = text(body.gamesExperience, 1000, true);
     const answers: Record<string, string | number | boolean> = {
       aat_number: text(body.aatNumber, 40),
       date: now.slice(0, 10),
+      dojo_name: student.dojo_name,
       name: text(body.firstName, 80, true),
       surname: text(body.surname, 80, true),
       nationality: text(body.nationality, 80, true),
@@ -85,12 +106,13 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
       present_address: text(body.presentAddress, 500),
       telephone_country: `${telephoneCountry} (${telephoneCallingCode})`,
       tel: telephone,
-      school: text(body.school, 160),
-      class: text(body.classLevel, 80),
-      office: text(body.office, 160),
-      position: text(body.position, 120),
+      occupation_type: OCCUPATION_LABELS[occupationType],
+      school: school,
+      class: classLevel,
+      office: office,
+      position: position,
       certificate: text(body.certificate, 200),
-      games_experience: text(body.gamesExperience, 1000),
+      games_experience: gamesExperience,
       applicant_signature: text(body.applicantSignature, 160, true),
       promise_accepted: true,
       current_rank: currentRank,
@@ -134,7 +156,7 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
         VALUES (?, ?, ?, ?, ?, ?, 'application_submitted', 'payment_pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`)
         .bind(applicationId, student.id, cycle.id, JSON.stringify(answers), currentRank, attemptedRank, now, now,
           student.display_name, student.public_student_id, student.dojo_id, lastExam?.date || null,
-          text(body.gamesExperience, 1000), examFee, aatAnnualFee, examFee + aatAnnualFee),
+          gamesExperience, examFee, aatAnnualFee, examFee + aatAnnualFee),
       proof.statement,
       db.prepare(`INSERT INTO exam_cycle_student_status (
           id, student_id, cycle_id, application_id, student_name_snapshot, student_public_id_snapshot,
@@ -160,7 +182,7 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
         .bind(historyId, applicationId, student.id, requestId, now),
       auditStatement(db, {
         actorType: "student", actorIdentifier: student.id, action: "examination_application_submitted", entityType: "examination_application",
-        entityId: applicationId, studentId: student.id, newValues: { currentRank, attemptedRank, status: "application_submitted", paymentStatus: "payment_pending", cycleId: cycle.id },
+        entityId: applicationId, studentId: student.id, newValues: { currentRank, attemptedRank, dojoId: student.dojo_id, status: "application_submitted", paymentStatus: "payment_pending", cycleId: cycle.id },
         studentPublicId: student.public_student_id, studentNameSnapshot: student.display_name, examCycleId: cycle.id,
         source: "student_examination_application", requestId, summary: `Submitted a belt examination application for ${attemptedRank}`, createdAt: now,
       }),

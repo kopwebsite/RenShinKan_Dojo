@@ -15,9 +15,8 @@ export function addOneCalendarYear(value: string) {
 
 export function aatMembershipStatus(aatNumber: string | null | undefined, lastPaidDate: string | null | undefined, today = new Date()) {
   const membershipNumber = typeof aatNumber === "string" && aatNumber.trim() ? aatNumber.trim() : null;
-  if (!membershipNumber) return { state: "new" as const, label: "NEW", dueDate: null, days: null };
   const paid = isoDate(lastPaidDate);
-  if (!paid) return { state: "unpaid" as const, label: "Payment required", dueDate: null, days: null };
+  if (!paid) return { state: membershipNumber ? "unpaid" as const : "new" as const, label: "Payment required", dueDate: null, days: null };
   const dueDate = addOneCalendarYear(paid)!;
   const todayUtc = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
   const dueUtc = Date.parse(`${dueDate}T00:00:00Z`);

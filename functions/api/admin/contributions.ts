@@ -17,6 +17,7 @@ type ContributionRow = {
   student_id: string;
   student_name: string;
   public_student_id: string;
+  profile_image_url: string | null;
   current_rank: string;
   contribution_id: string | null;
   status: "no_submission" | "awaiting_payment" | "paid";
@@ -81,6 +82,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         r.student_id,
         r.student_name_snapshot AS student_name,
         r.student_public_id_snapshot AS public_student_id,
+        s.profile_image_url,
         r.current_rank_snapshot AS current_rank,
         c.id AS contribution_id,
         COALESCE(c.status, 'no_submission') AS status,
@@ -100,6 +102,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         s.id AS student_id,
         s.display_name AS student_name,
         s.public_student_id,
+        s.profile_image_url,
         s.current_belt AS current_rank,
         NULL AS contribution_id,
         'no_submission' AS status,

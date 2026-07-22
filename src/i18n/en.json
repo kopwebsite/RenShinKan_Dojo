@@ -302,7 +302,7 @@
         },
         "monthlyFee": {
           "question": "How much is the monthly dojo upkeep fee?",
-          "answer": "The dojo recommends a contribution of 1,500 baht per month to help cover running expenses. Instructors are not paid, and all contributions go directly back into maintaining and running the dojo."
+          "answer": "The dojo recommends a contribution of 1,800 baht per month to help cover running expenses. Instructors are not paid, and all contributions go directly back into maintaining and running the dojo."
         },
         "firstVisit": {
           "question": "How do we arrange a first visit?",
@@ -475,7 +475,7 @@
       "eyebrow": "Community Upkeep",
       "title": "This dojo exists because its students take care of it.",
       "copy1": "Every student who trains regularly at RenShinKan is asked to contribute {{amount}}. This is not a membership fee. It is a shared responsibility. The lights, the water, the mats, the repairs, the space itself: all of it is held up by the people who use it.",
-      "amount": "1,500 baht per month",
+      "amount": "1,800 baht per month",
       "copy2": "When everyone who trains here contributes, the dojo stays strong for current students, new beginners, and the wider Chiang Mai community.",
       "noteStrong": "Instructors receive no payment from contributions.",
       "note": "Every baht goes directly back into the space you train in.",

@@ -44,6 +44,20 @@ function centralSession(selectedDojoId: string | null, renshinkanVerified = fals
   };
 }
 
+function dojoSession(selectedDojoId: string): AdminSession {
+  return {
+    sub: "admin",
+    iat: 1,
+    exp: 9_999_999_999,
+    sessionId: "dojo-session",
+    adminName: "Dojo administrator",
+    role: "dojo",
+    allowedDojoIds: [selectedDojoId],
+    selectedDojoId,
+    renshinkanVerified: false,
+  };
+}
+
 describe("RenShinKan secondary authorization", () => {
   const env = { SESSION_SECRET: "authorization-test-session-secret", RSK_ADMIN_SECONDARY_PASSWORD: "secondary-test-password" };
 
@@ -123,10 +137,10 @@ describe("dojo route, record, and interface scoping", () => {
     expect(file("src/components/admin/AdminAccess.tsx")).toContain('left.id === "dojo-rsk"');
   });
 
-  it("makes RenShinKan the central-login landing context without bypassing secondary verification", () => {
+  it("requires central administrators to choose a dojo after the main login", () => {
     const login = file("functions/api/admin/login.ts");
-    expect(login).toContain('access.role === "central" ? RENSHINKAN_DOJO_ID : null');
-    expect(login).toContain("selectedDojoId");
+    expect(login).toContain("const selectedDojoId = null");
+    expect(login).not.toContain('access.role === "central" ? RENSHINKAN_DOJO_ID');
     expect(login).not.toContain("renshinkanVerified: true");
   });
 
@@ -143,7 +157,8 @@ describe("dojo route, record, and interface scoping", () => {
 
   it("server-protects direct admin pages and safely aliases the old membership route", () => {
     const guard = file("functions/admin/[[path]].ts");
-    for (const path of ["/admin/audit", "/admin/dojos", "/admin/site-editor"]) expect(guard).toContain(path);
+    for (const path of ["/admin/dojos", "/admin/site-editor"]) expect(guard).toContain(path);
+    expect(guard).not.toContain('  "/admin/audit",');
     expect(guard).toContain("isRenShinKanSuperAdmin");
     expect(guard).toContain("/admin/students?section=memberships");
   });
@@ -152,13 +167,28 @@ describe("dojo route, record, and interface scoping", () => {
     const env = { SESSION_SECRET: "trailing-slash-test" };
     const cookie = await createSessionCookie(env, centralSession("dojo-cmu"));
     const next = async () => new Response("static admin shell");
-    for (const path of ["/admin/audit/", "/admin/dojos/", "/admin/site-editor/"]) {
+    for (const path of ["/admin/dojos/", "/admin/site-editor/"]) {
       const response = await guardAdminPage({
         request: requestWithCookie(cookie, path), env, next,
       } as never);
       expect(response.status).toBe(302);
       expect(response.headers.get("Location")).toBe("https://example.test/admin");
     }
+    const auditResponse = await guardAdminPage({
+      request: requestWithCookie(cookie, "/admin/audit/"), env, next,
+    } as never);
+    expect(auditResponse.status).toBe(200);
+    expect(await auditResponse.text()).toBe("static admin shell");
+  });
+
+  it("redirects a selected standard dojo away from the dashboard", async () => {
+    const env = { SESSION_SECRET: "standard-dashboard-redirect-test" };
+    const cookie = await createSessionCookie(env, dojoSession("dojo-cmu"));
+    const response = await guardAdminPage({
+      request: requestWithCookie(cookie, "/admin"), env, next: async () => new Response("dashboard"),
+    } as never);
+    expect(response.status).toBe(302);
+    expect(response.headers.get("Location")).toBe("https://example.test/admin/students");
   });
 
   it("returns only authorized dojo choices to a dojo-scoped login", async () => {
@@ -196,14 +226,14 @@ describe("dojo route, record, and interface scoping", () => {
     expect(file("functions/api/admin/memberships.ts")).toContain("session.selectedDojoId");
   });
 
-  it("defaults student records to active plus archived and never exposes deleted rows", () => {
+  it("uses active, pending, and archived record statuses and never exposes deleted or rejected rows", () => {
     const api = file("functions/api/admin/students/index.ts");
     const page = file("src/pages/AdminStudentsPage.tsx");
-    expect(api).toContain('requestedStatus === "active" || requestedStatus === "archived"');
+    expect(api).toContain('requestedStatus === "active" || requestedStatus === "pending" || requestedStatus === "archived"');
     expect(api).not.toContain('status === "deleted"');
-    expect(api).toContain('summaryConditions = ["s.deleted_at IS NULL"]');
-    expect(page).toContain('useState("all")');
-    expect(page).toContain('<option value="all">All</option><option value="active">Active</option><option value="archived">Archived</option>');
+    expect(api).toContain('"s.profile_status <> \'rejected\'"');
+    expect(page).toContain('return "pending"');
+    expect(page).toContain('<option value="all">All</option><option value="active">Active</option><option value="pending">Pending</option><option value="archived">Archived</option>');
     expect(page).not.toContain('<option value="deleted">');
     expect(page).not.toContain("All except deleted");
   });
@@ -253,25 +283,40 @@ describe("dojo route, record, and interface scoping", () => {
     expect(endpoint).toContain("dojo_id = 'dojo-rsk'");
   });
 
-  it("renders selected dojo identity and a switch action throughout admin navigation", () => {
+  it("renders selected dojo identity throughout admin navigation", () => {
     for (const path of ["src/pages/AdminPage.tsx", "src/pages/AdminStudentsPage.tsx", "src/pages/AdminDojosPage.tsx", "src/pages/AdminSiteEditorPage.tsx", "src/pages/AdminAuditPage.tsx"]) {
       const source = file(path);
       expect(source).toContain("official_name");
       expect(source).toContain("logo_url");
-      expect(source).toContain("Switch dojo");
       expect(source).toContain("/ ADMIN");
+    }
+    for (const path of ["src/pages/AdminStudentsPage.tsx", "src/pages/AdminAuditPage.tsx"]) {
+      expect(file(path)).toMatch(/superAdmin \? [^\n]*Switch dojo/);
     }
     expect(file("src/pages/AdminPage.tsx")).not.toContain("renshinkan-admin-hint");
   });
 
-  it("presents an intentional limited dashboard with no global admin destinations", () => {
+  it("removes the dashboard for standard dojos and gives them a scoped audit link", () => {
     const dashboard = file("src/pages/AdminPage.tsx");
     expect(dashboard).toContain('permissionLevel !== "renshinkan_super_admin"');
-    expect(dashboard).toContain("Student records, examinations, hours, AAT annual membership, and submitted payslips.");
-    expect(dashboard).toContain("Manage Students");
-    expect(dashboard).toContain("<AdminAlerts />");
-    const limitedBranch = dashboard.slice(dashboard.indexOf('permissionLevel !== "renshinkan_super_admin"'), dashboard.indexOf("const renderMediaGallery"));
-    for (const destination of ["site-editor", "/admin/dojos", "Review Publish", "photographic archive"]) expect(limitedBranch).not.toContain(destination);
+    expect(dashboard).toContain('<Navigate to="/admin/students" replace />');
+    const students = file("src/pages/AdminStudentsPage.tsx");
+    expect(students).toContain('to="/admin/audit"');
+    expect(students).toMatch(/superAdmin \? <Link[^\n]*Dashboard/);
+    expect(students).toMatch(/superAdmin \? <button[^\n]*Switch dojo/);
+  });
+
+  it("scopes audit records by dojo on the server while RenShinKan can see all", () => {
+    const endpoint = file("functions/api/admin/audit.ts");
+    const page = file("src/pages/AdminAuditPage.tsx");
+    expect(endpoint).toContain("isRenShinKanSuperAdmin(session)");
+    expect(endpoint).toContain("session.selectedDojoId");
+    expect(endpoint).toContain("a.selected_dojo_id = ?");
+    expect(endpoint).toContain("scoped_student.dojo_id = ?");
+    expect(endpoint).toContain("a.entity_type = 'dojo' AND a.entity_id = ?");
+    expect(page).not.toContain("Access restricted");
+    expect(page).toMatch(/superAdmin \? <label>Dojo/);
+    expect(page).toMatch(/superAdmin \? <button[^\n]*Switch dojo/);
   });
 
   it("shows only real, dojo-scoped approval queues and keeps monthly contributions RenShinKan-only", () => {
@@ -287,12 +332,33 @@ describe("dojo route, record, and interface scoping", () => {
     expect(alerts).toContain("Showing approval work for your selected dojo only.");
   });
 
+  it("uses the approval center as the Student Database summary for every dojo", () => {
+    const students = file("src/pages/AdminStudentsPage.tsx");
+    expect(students).toContain('<AdminAlerts key={notice} />');
+    expect(students).not.toContain('className="admin-summary"');
+    expect(students).toContain("useLocation");
+    expect(students).toContain("location.search");
+  });
+
   it("deep-links approval cards to filtered training-hour, annual-fee, monthly, and payslip views", () => {
     expect(file("functions/api/admin/students/index.ts")).toContain('hoursStatus === "pending"');
     expect(file("src/pages/AdminStudentsPage.tsx")).toContain('get("hoursStatus") === "pending"');
     expect(file("functions/api/admin/memberships.ts")).toContain('statusFilter === "pending_payment"');
     expect(file("src/components/admin/AdminAatMemberships.tsx")).toContain("Payment awaiting approval");
     expect(file("src/components/admin/AdminMonthlyContributions.tsx")).toContain('get("status")');
+  });
+
+  it("combines new and unpaid AAT records into one payment-required filter", () => {
+    const students = file("src/pages/AdminStudentsPage.tsx");
+    const studentApi = file("functions/api/admin/students/index.ts");
+    const memberships = file("src/components/admin/AdminAatMemberships.tsx");
+    const membershipApi = file("functions/api/admin/memberships.ts");
+    expect(students).toContain('<option value="payment_required">Payment required</option>');
+    expect(students).not.toContain('<option value="new">NEW</option>');
+    expect(studentApi).toContain('aatStatus === "payment_required"');
+    expect(studentApi).toContain("(s.aat_number IS NULL OR s.aat_last_paid_date IS NULL)");
+    expect(memberships).toContain('<option value="payment_required">Payment required</option>');
+    expect(membershipApi).toContain('statusFilter === "payment_required"');
   });
 
   it("opens Manage Students immediately after selecting a standard dojo", () => {

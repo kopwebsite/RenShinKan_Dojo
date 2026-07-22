@@ -31,7 +31,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     conditions.push("(s.display_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR s.public_student_id LIKE ? ESCAPE '\\' COLLATE NOCASE OR COALESCE(s.aat_number, '') LIKE ? ESCAPE '\\' COLLATE NOCASE)");
     bindings.push(term, term, term);
   }
-  const rows = (await db.prepare(`SELECT s.id, s.display_name, s.public_student_id, s.current_belt,
+  const rows = (await db.prepare(`SELECT s.id, s.display_name, s.public_student_id, s.current_belt, s.profile_image_url,
       s.dojo_id, d.official_name AS dojo_name, s.aat_number, s.aat_last_paid_date, s.aat_notes,
       EXISTS(SELECT 1 FROM payments pending WHERE pending.student_id = s.id
         AND pending.payment_type = 'aat_annual' AND pending.status = 'awaiting_payment') AS payment_awaiting_review,
@@ -48,7 +48,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     try { history = JSON.parse(String(row.history_json || "[]")); } catch { history = []; }
     return { ...row, aatDisplay: row.aat_number || "NEW", membership, history, history_json: undefined };
   }).filter((row) => !statusFilter
-    || (statusFilter === "pending_payment" ? Number(row.payment_awaiting_review) === 1 : row.membership.state === statusFilter));
+    || (statusFilter === "pending_payment"
+      ? Number(row.payment_awaiting_review) === 1
+      : statusFilter === "payment_required" || statusFilter === "new" || statusFilter === "unpaid"
+        ? row.membership.state === "new" || row.membership.state === "unpaid"
+        : row.membership.state === statusFilter));
   const total = mapped.length;
   return jsonResponse({
     memberships: mapped.slice((page - 1) * pageSize, page * pageSize),

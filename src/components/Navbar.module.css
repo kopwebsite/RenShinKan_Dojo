@@ -131,8 +131,8 @@
 .desktopUtility {
   display: flex;
   align-items: center;
-  gap: 15px;
-  padding-left: 20px;
+  gap: 10px;
+  padding-left: 18px;
   border-left: 1px solid rgba(31, 27, 22, 0.12);
 }
 
@@ -146,16 +146,16 @@
 
 .languageTrigger {
   display: inline-flex;
-  min-height: 42px;
+  min-height: 40px;
   align-items: center;
-  gap: 8px;
-  border: 2px solid hsl(var(--color-bamboo) / 0.48);
+  gap: 7px;
+  border: 1px solid hsl(var(--color-bamboo) / 0.4);
   border-radius: 999px;
-  padding: 4px 10px 4px 6px;
+  padding: 4px 10px 4px 5px;
   background:
-    linear-gradient(180deg, hsl(var(--color-paper) / 0.94), hsl(var(--color-mist) / 0.72));
+    linear-gradient(180deg, hsl(var(--color-paper) / 0.9), hsl(var(--color-mist) / 0.55));
   box-shadow:
-    0 12px 24px rgba(31, 27, 22, 0.08),
+    0 5px 14px rgba(31, 27, 22, 0.055),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
   color: var(--color-text-primary);
   cursor: pointer;
@@ -169,10 +169,10 @@
 .languageTrigger:focus-visible,
 .languageSwitcher[data-open="true"] .languageTrigger,
 .mobileLanguageSwitcher[data-open="true"] .languageTrigger {
-  border-color: var(--color-brand-red);
+  border-color: hsl(var(--color-bamboo) / 0.72);
   box-shadow:
-    0 16px 32px rgba(31, 27, 22, 0.12),
-    0 0 0 4px hsl(var(--color-vermilion) / 0.08),
+    0 8px 20px rgba(31, 27, 22, 0.09),
+    0 0 0 3px hsl(var(--color-bamboo) / 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.86);
 }
 
@@ -195,9 +195,9 @@
 }
 
 .languageFlag {
-  width: 32px;
-  height: 24px;
-  border-radius: 8px;
+  width: 28px;
+  height: 21px;
+  border-radius: 6px;
 }
 
 .languageCurrent {
@@ -430,12 +430,12 @@
 
 .supportNavLink {
   min-height: 38px;
-  border: 1px solid hsl(var(--color-persimmon) / 0.34);
+  border: 0;
   border-radius: 999px;
-  padding: 9px 8px 9px 15px;
-  background: hsl(var(--color-persimmon) / 0.12);
-  color: hsl(15 58% 35%);
-  font-weight: 750;
+  padding: 9px 7px 9px 14px;
+  background: transparent;
+  color: #4a433c;
+  font-weight: 680;
   transition:
     background 220ms ease,
     border-color 220ms ease,
@@ -447,15 +447,16 @@
 .supportSplit {
   min-height: 40px;
   gap: 0;
-  border: 1px solid hsl(var(--color-persimmon) / 0.34);
-  border-radius: 5px;
-  background: hsl(var(--color-persimmon) / 0.1);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
 }
 
 .supportSplit .supportNavLink {
   min-height: 38px;
   border: 0;
-  border-radius: 4px 0 0 4px;
+  border-radius: 999px 0 0 999px;
   background: transparent;
   box-shadow: none;
 }
@@ -463,14 +464,19 @@
 .supportSplit .supportChevronButton {
   width: 30px;
   height: 38px;
-  border-radius: 0 4px 4px 0;
-  color: hsl(15 58% 35%);
+  border-radius: 0 999px 999px 0;
+  color: #675e55;
 }
 
 .supportSplit:has(.supportNavLink:hover),
 .supportSplit:has(.supportNavLink:focus-visible),
 .supportSplit[data-active="true"] {
-  border-color: hsl(var(--color-persimmon) / 0.55);
+  border-color: hsl(var(--color-persimmon) / 0.36);
+  background: hsl(var(--color-persimmon) / 0.1);
+}
+
+.supportSplit[data-active="true"] {
+  box-shadow: inset 0 -2px hsl(var(--color-persimmon) / 0.7);
 }
 
 .utilityLink {
@@ -508,12 +514,39 @@
 }
 
 .recordsLink {
-  gap: 6px;
+  min-height: 40px;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid hsl(var(--color-bamboo) / 0.3);
+  border-radius: 999px;
+  background: hsl(var(--color-bamboo) / 0.075);
+  color: hsl(var(--color-ink));
+  font-weight: 760;
+  transition: color 160ms ease, background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.recordsLink::after {
+  display: none;
+}
+
+.recordsLink:hover,
+.recordsLink:focus-visible {
+  border-color: hsl(var(--color-bamboo) / 0.58);
+  background: hsl(var(--color-bamboo) / 0.12);
+  box-shadow: 0 7px 16px hsl(var(--color-ink) / 0.08);
+  transform: translateY(-1px);
+}
+
+.recordsLink[data-active="true"] {
+  border-color: hsl(var(--color-bamboo));
+  background: hsl(var(--color-bamboo));
+  color: hsl(var(--color-paper));
+  box-shadow: 0 7px 16px hsl(var(--color-bamboo) / 0.2);
 }
 
 .recordsLink svg {
   flex: 0 0 auto;
-  color: hsl(var(--color-bamboo));
+  color: currentColor;
 }
 
 .mobileRecordsLabel {
@@ -531,11 +564,11 @@
 .supportNavLink:hover,
 .supportNavLink:focus-visible,
 .supportNavLink[data-active="true"] {
-  border-color: hsl(var(--color-persimmon) / 0.55);
-  background: hsl(var(--color-persimmon));
-  color: hsl(var(--color-paper));
-  box-shadow: 0 8px 18px hsl(var(--color-persimmon) / 0.28);
-  transform: translateY(-1px);
+  border-color: transparent;
+  background: transparent;
+  color: hsl(15 58% 35%);
+  box-shadow: none;
+  transform: none;
 }
 
 .chevron {

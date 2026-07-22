@@ -439,7 +439,7 @@ export function Navbar({ currentPath }: NavbarProps) {
                     }}
                   >
                     <div className={styles.navSplit} data-active={isActive}>
-                      <Link to={item.to} className={styles.navLink} data-active={isActive}>
+                      <Link to={item.to} className={styles.navLink} data-active={isActive} aria-current={isActive ? "page" : undefined}>
                         {itemLabel}
                       </Link>
                       <button
@@ -467,6 +467,7 @@ export function Navbar({ currentPath }: NavbarProps) {
                                 to={dropdownItem.to}
                                 className={styles.dropdownItem}
                                 data-active={pathMatches(currentPath, dropdownItem.to)}
+                                aria-current={pathMatches(currentPath, dropdownItem.to) ? "page" : undefined}
                                 onClick={() => setActiveDropdown(null)}
                               >
                                 {navLabel(dropdownItem.labelKey)}
@@ -480,16 +481,17 @@ export function Navbar({ currentPath }: NavbarProps) {
               })}
             </nav>
             <div className={styles.desktopUtility}>
-              <Link to="/newsletter" className={styles.utilityLink} data-active={pathMatches(currentPath, "/newsletter")}>
+              <Link to="/newsletter" className={styles.utilityLink} data-active={pathMatches(currentPath, "/newsletter")} aria-current={pathMatches(currentPath, "/newsletter") ? "page" : undefined}>
                 {navLabel("nav.newsletter")}
               </Link>
-              <Link to="/contact" className={styles.utilityLink} data-active={pathMatches(currentPath, "/contact")}>
+              <Link to="/contact" className={styles.utilityLink} data-active={pathMatches(currentPath, "/contact")} aria-current={pathMatches(currentPath, "/contact") ? "page" : undefined}>
                 {navLabel("nav.contact")}
               </Link>
               <Link
                 to="/student-records"
                 className={`${styles.utilityLink} ${styles.recordsLink}`}
                 data-active={pathMatches(currentPath, "/student-records")}
+                aria-current={pathMatches(currentPath, "/student-records") ? "page" : undefined}
                 title={t("a11y.studentRecordsHint")}
               >
                 <IdCard size={16} aria-hidden="true" />
@@ -504,7 +506,7 @@ export function Navbar({ currentPath }: NavbarProps) {
                 }}
               >
                 <div className={`${styles.navSplit} ${styles.supportSplit}`} data-active={isNavItemActive(supportNavItem)}>
-                  <Link to={supportNavItem.to} className={styles.supportNavLink} data-active={isNavItemActive(supportNavItem)}>
+                  <Link to={supportNavItem.to} className={styles.supportNavLink} data-active={isNavItemActive(supportNavItem)} aria-current={isNavItemActive(supportNavItem) ? "page" : undefined}>
                     {navLabel(supportNavItem.labelKey)}
                   </Link>
                   <button
@@ -528,6 +530,7 @@ export function Navbar({ currentPath }: NavbarProps) {
                           to={dropdownItem.to}
                           className={styles.dropdownItem}
                           data-active={pathMatches(currentPath, dropdownItem.to)}
+                          aria-current={pathMatches(currentPath, dropdownItem.to) ? "page" : undefined}
                           onClick={() => setActiveDropdown(null)}
                         >
                           {navLabel(dropdownItem.labelKey)}
@@ -590,6 +593,7 @@ export function Navbar({ currentPath }: NavbarProps) {
                       to={item.to}
                       className={`${styles.mobileNavLink} ${item.id === "support" ? styles.mobileSupportNavLink : ""}`}
                       data-active={isNavItemActive(item)}
+                      aria-current={isNavItemActive(item) ? "page" : undefined}
                       onClick={() => setIsMobileOpen(false)}
                     >
                       {item.id === "student-records" ? (
@@ -617,6 +621,7 @@ export function Navbar({ currentPath }: NavbarProps) {
                       <Link
                         to={item.to}
                         className={styles.mobileAccordionLabel}
+                        aria-current={isNavItemActive(item) ? "page" : undefined}
                         onClick={() => setIsMobileOpen(false)}
                       >
                         {itemLabel}
@@ -649,6 +654,7 @@ export function Navbar({ currentPath }: NavbarProps) {
                                 to={dropdownItem.to}
                                 className={styles.mobileSubnavLink}
                                 data-active={pathMatches(currentPath, dropdownItem.to)}
+                                aria-current={pathMatches(currentPath, dropdownItem.to) ? "page" : undefined}
                                 onClick={() => setIsMobileOpen(false)}
                               >
                                 {navLabel(dropdownItem.labelKey)}

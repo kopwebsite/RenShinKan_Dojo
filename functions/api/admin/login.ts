@@ -1,4 +1,4 @@
-import { allowAdminLoginAttempt, authenticateAdminPassword, clearAdminLoginAttempts, createSessionCookie, isSameOriginRequest, jsonResponse, recordFailedAdminLoginAttempt, RENSHINKAN_DOJO_ID } from "../../_lib/auth";
+import { allowAdminLoginAttempt, authenticateAdminPassword, clearAdminLoginAttempts, createSessionCookie, isSameOriginRequest, jsonResponse, recordFailedAdminLoginAttempt } from "../../_lib/auth";
 import type { D1Database } from "../../_lib/studentRecords";
 type Env = { ADMIN_PASSWORD_HASH?: string; DOJO_ADMIN_PASSWORD_HASHES?: string; SESSION_SECRET?: string; STUDENT_DB?: D1Database };
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -25,7 +25,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         return jsonResponse({ ok: false, error: "This dojo administrator account is not active." }, 403);
       }
     }
-    const selectedDojoId = access.role === "central" ? RENSHINKAN_DOJO_ID : null;
+    const selectedDojoId = null;
     const sessionId = crypto.randomUUID();
     if (env.STUDENT_DB) {
       const now = new Date().toISOString();
@@ -37,7 +37,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       ) VALUES (?, 'admin_login', 'admin_session', ?, ?, ?, 'administrator', ?, 'admin_login',
         'admin_session', ?, 'admin_login', ?, ?, ?, ?, ?, ?, ?)`)
         .bind(
-          auditId, sessionId, `${adminName} signed in as ${access.role === "central" ? "RenShinKan administrator" : "dojo administrator"}`,
+          auditId, sessionId, `${adminName} signed in as ${access.role === "central" ? "central administrator" : "dojo administrator"}`,
           now, sessionId, sessionId, request.headers.get("X-Request-ID") || auditId, adminName, access.role, selectedDojoId,
           request.headers.get("CF-Connecting-IP"), request.headers.get("CF-IPCountry"),
           (request.headers.get("User-Agent") || "").slice(0, 500),

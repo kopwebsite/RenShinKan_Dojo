@@ -17,7 +17,7 @@ import {
 import { AdminAlerts } from "../components/AdminAlerts";
 import { AdminDojoSelector, AdminLoginFields, AdminRenshinKanVerification, type AdminDojo, type AdminIdentity, type AdminSessionResponse } from "../components/admin/AdminAccess";
 import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { EventBodyRenderer } from "../components/EventBodyRenderer";
 import {
   historyMedia as defaultHistoryMedia,
@@ -1167,8 +1167,7 @@ export function AdminPage() {
   }
 
   if (admin.permissionLevel !== "renshinkan_super_admin") {
-    const selected = dojos.find((dojo) => dojo.id === admin.selectedDojoId);
-    return <section className="container-shell py-16"><div className="admin-login-card">{selected?.logo_url ? <img className="admin-selected-dojo-logo" src={selected.logo_url} alt="" /> : null}<p className="eyebrow">{selected?.official_name} / ADMIN</p><h1>Student administration</h1><p>Student records, examinations, hours, AAT annual membership, and submitted payslips.</p><div className="admin-action-board"><Link to="/admin/students"><UsersRound size={22} /><span><strong>Manage Students</strong><small>Review and update students for this dojo</small></span></Link></div><div className="admin-header-actions"><button className="btn-secondary" onClick={() => void switchDojo()}><RefreshCw size={17} /> Switch dojo</button><a className="btn-secondary" href="/" target="_blank" rel="noopener noreferrer"><ExternalLink size={17} /> Public website</a><button className="btn-secondary" onClick={logout}><LogOut size={17} /> Sign out</button></div></div><AdminAlerts /></section>;
+    return <Navigate to="/admin/students" replace />;
   }
 
   const renderMediaGallery = (key: "historyMedia" | "onTheMatMedia", title: string, copy: string) => {

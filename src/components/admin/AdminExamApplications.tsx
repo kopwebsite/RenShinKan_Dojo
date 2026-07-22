@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Download, FileSpreadsheet, GraduationCap, LoaderCircle,
-  Search, UserRound, X,
+  AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Download, FileSpreadsheet, FileText, GraduationCap, History,
+  LoaderCircle, Search, ShieldCheck, UserRound, X,
 } from "lucide-react";
 import { adminApi, adminStatusLabel, formatAdminDate } from "./adminApi";
 import type { AdminDojo, AdminIdentity } from "./AdminAccess";
@@ -28,12 +28,102 @@ type Response = {
   summary: { total: number; not_signed_up: number; unpaid: number; paid: number };
 };
 type PendingChange = { status: ExamStatus; studentIds: string[] };
+type AnswerValue = string | number | boolean | null;
+type ApplicationDetail = {
+  application: {
+    id: string;
+    student_id: string;
+    cycle_id: string;
+    dojo_id: string;
+    student_name: string;
+    public_student_id: string;
+    dojo_name: string;
+    cycle_name: string;
+    cycle_status: "active" | "closed";
+    examination_type: string;
+    current_rank: string;
+    attempted_rank: string;
+    application_status: string;
+    payment_status: string;
+    administrator_notes: string;
+    application_notes: string;
+    submitted_at: string;
+    updated_at: string;
+    completed_at: string | null;
+    paid_at: string | null;
+    paid_by: string | null;
+    last_examination_date: string | null;
+    exam_fee: number;
+    aat_annual_fee: number;
+    other_fees: number;
+    total_fee: number;
+    answers: Record<string, AnswerValue>;
+  };
+  history: Array<{
+    id: string;
+    previousStatus: string | null;
+    newStatus: string | null;
+    previousPaymentStatus: string | null;
+    newPaymentStatus: string | null;
+    actorIdentifier: string;
+    note: string | null;
+    createdAt: string;
+  }>;
+};
 
 const EMPTY: Response = {
   cycles: [], selectedCycle: null, students: [],
   pagination: { page: 1, pageSize: 50, total: 0, totalPages: 1 },
   summary: { total: 0, not_signed_up: 0, unpaid: 0, paid: 0 },
 };
+
+const ANSWER_LABELS: Record<string, string> = {
+  aat_number: "AAT membership number",
+  dojo_name: "Current dojo",
+  name: "Given name",
+  surname: "Family name / surname",
+  nationality: "Nationality",
+  sex: "Sex / gender",
+  dob: "Date of birth",
+  age: "Age when submitted",
+  permanent_address: "Permanent address",
+  present_address: "Current address",
+  telephone_country: "Telephone country",
+  tel: "Telephone number",
+  occupation_type: "School or employment status",
+  school: "School",
+  class: "Class / year level",
+  office: "Employer / office",
+  position: "Position / job title",
+  certificate: "Certificates or qualifications",
+  games_experience: "Aikido, martial arts, or sports experience",
+  applicant_signature: "Applicant signature",
+  promise_accepted: "Association declaration",
+};
+
+const ANSWERS_SHOWN_IN_SUMMARY = new Set(["date", "current_rank", "attempted_rank"]);
+
+function answerLabel(key: string) {
+  return ANSWER_LABELS[key] || key.replace(/_/g, " ").replace(/^\w/, (character) => character.toUpperCase());
+}
+
+function answerValue(value: AnswerValue) {
+  if (value === true) return "Accepted";
+  if (value === false) return "Not accepted";
+  if (value === null || value === "") return "Not provided";
+  return String(value);
+}
+
+function historyDescription(entry: ApplicationDetail["history"][number]) {
+  const changes: string[] = [];
+  if (entry.newStatus) changes.push(entry.previousStatus
+    ? `${adminStatusLabel(entry.previousStatus)} to ${adminStatusLabel(entry.newStatus)}`
+    : adminStatusLabel(entry.newStatus));
+  if (entry.newPaymentStatus) changes.push(entry.previousPaymentStatus
+    ? `Payment: ${adminStatusLabel(entry.previousPaymentStatus)} to ${adminStatusLabel(entry.newPaymentStatus)}`
+    : `Payment: ${adminStatusLabel(entry.newPaymentStatus)}`);
+  return changes.join(" · ") || "Application record updated";
+}
 
 function feeValue(json: string, key: "kyu" | "dan" | "default") {
   try {
@@ -67,6 +157,9 @@ export function AdminExamApplications({ report, admin, dojos }: { report: (messa
   const [cycleForm, setCycleForm] = useState({ lifecycleStatus: "open", examinationType: "Belt promotion", rankCategory: "Kyu and Dan", applicationOpensAt: "", applicationClosesAt: "", examinationAt: "", venue: "", instructions: "", kyuExamFee: "0", danExamFee: "0", aatAnnualFee: "0" });
   const [exportDojo, setExportDojo] = useState(superAdmin ? "" : admin.selectedDojoId || "");
   const [saving, setSaving] = useState(false);
+  const [openedApplicationId, setOpenedApplicationId] = useState<string | null>(null);
+  const [applicationDetail, setApplicationDetail] = useState<ApplicationDetail | null>(null);
+  const [applicationLoading, setApplicationLoading] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -151,6 +244,26 @@ export function AdminExamApplications({ report, admin, dojos }: { report: (messa
     window.location.assign(`/api/admin/examinations/export?${params}`);
   }
 
+  async function viewApplication(applicationId: string) {
+    setOpenedApplicationId(applicationId);
+    setApplicationDetail(null);
+    setApplicationLoading(true);
+    try {
+      const detail = await adminApi<ApplicationDetail>(`/api/admin/examinations/${encodeURIComponent(applicationId)}`);
+      setApplicationDetail(detail);
+    } catch (reason) {
+      setOpenedApplicationId(null);
+      report(reason instanceof Error ? reason.message : "Could not load the examination application.", true);
+    } finally {
+      setApplicationLoading(false);
+    }
+  }
+
+  function closeApplication() {
+    setOpenedApplicationId(null);
+    setApplicationDetail(null);
+  }
+
   return <section className="admin-workspace-section" aria-busy={loading}>
     <header className="admin-workspace-heading">
       <div><p className="eyebrow">Cycle-based workflow</p><h2>Exam Applications</h2><p>Every active student appears in the current cycle. Closed cycles remain read-only.</p></div>
@@ -192,13 +305,16 @@ export function AdminExamApplications({ report, admin, dojos }: { report: (messa
 
     {!data.selectedCycle && !loading ? <div className="admin-empty"><GraduationCap size={28} /><h3>No examination cycle yet</h3><p>Start the first cycle to create a fresh roster of all active students.</p></div> : <div className="admin-table-scroll"><table className="admin-record-table"><thead><tr>
       {!isHistorical ? <th><label className="admin-select-box"><input type="checkbox" aria-label="Select all visible students" checked={allVisibleSelected} onChange={(event) => setSelected(event.target.checked ? new Set(data.students.map((student) => student.student_id)) : new Set())} /><span aria-hidden="true" /></label></th> : null}
-      <th>Student</th><th>Student ID</th><th>Current kyu</th><th>Requested kyu</th><th>Application date</th><th>Status</th>{!isHistorical ? <th>Actions</th> : null}
+      <th>Student</th><th>Student ID</th><th>Current kyu</th><th>Requested kyu</th><th>Application date</th><th>Status</th><th>Actions</th>
     </tr></thead><tbody>
       {data.students.map((student) => <tr key={student.student_id} className={selected.has(student.student_id) ? "is-selected" : ""}>
         {!isHistorical ? <td><label className="admin-select-box"><input type="checkbox" aria-label={`Select ${student.student_name}`} checked={selected.has(student.student_id)} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(student.student_id); else next.delete(student.student_id); return next; })} /><span aria-hidden="true" /></label></td> : null}
         <th><span className="admin-student-identity">{student.profile_image_url ? <img src={student.profile_image_url} alt="" /> : <span aria-hidden="true"><UserRound size={18} /></span>}<span>{student.student_name}</span></span></th>
         <td><code>{student.public_student_id}</code></td><td>{student.current_rank}</td><td>{student.requested_rank || "—"}</td><td>{formatAdminDate(student.application_date)}</td><td><Status value={student.status} /></td>
-        {!isHistorical ? <td><select aria-label={`Set examination status for ${student.student_name}`} value={student.status} onChange={(event) => setPending({ status: event.target.value as ExamStatus, studentIds: [student.student_id] })}>{(["not_signed_up", "unpaid", "paid"] as ExamStatus[]).map((value) => <option key={value} value={value}>{adminStatusLabel(value)}</option>)}</select></td> : null}
+        <td><div className="admin-row-actions admin-exam-row-actions">
+          {student.application_id ? <button type="button" onClick={() => void viewApplication(student.application_id!)}><FileText size={14} /> View application</button> : <span className="admin-no-record">Not submitted</span>}
+          {!isHistorical ? <select className="admin-row-action-select" aria-label={`Set examination status for ${student.student_name}`} value={student.status} onChange={(event) => setPending({ status: event.target.value as ExamStatus, studentIds: [student.student_id] })}>{(["not_signed_up", "unpaid", "paid"] as ExamStatus[]).map((value) => <option key={value} value={value}>{adminStatusLabel(value)}</option>)}</select> : null}
+        </div></td>
       </tr>)}
       {!data.students.length && !loading ? <tr><td colSpan={isHistorical ? 7 : 8}><div className="admin-empty-inline">No students match these filters.</div></td></tr> : null}
     </tbody></table></div>}
@@ -211,6 +327,32 @@ export function AdminExamApplications({ report, admin, dojos }: { report: (messa
       <p>This will update the current cycle and add a permanent audit entry. It will not change historical cycles.</p>
       {pending.studentIds.length <= 5 ? <ul>{selectionNames.filter((student) => pending.studentIds.includes(student.student_id)).map((student) => <li key={student.student_id}>{student.student_name} · {student.public_student_id}</li>)}</ul> : null}
       <footer><button className="btn-secondary" onClick={() => setPending(null)}>Cancel</button><button className="btn-primary" disabled={saving} onClick={() => void updateStatus()}>{saving ? <LoaderCircle className="spin" size={16} /> : <CheckCircle2 size={16} />} Confirm status change</button></footer>
+    </section></div> : null}
+
+    {openedApplicationId ? <div className="admin-confirm-backdrop" role="presentation"><section className="admin-confirm-dialog admin-exam-application-dialog" role="dialog" aria-modal="true" aria-labelledby="exam-application-title">
+      <header><div><p className="eyebrow">Permanent examination record</p><h2 id="exam-application-title">{applicationDetail?.application.student_name || "Loading application…"}</h2>{applicationDetail ? <p>{applicationDetail.application.public_student_id} · {applicationDetail.application.dojo_name}</p> : null}</div><button aria-label="Close application" onClick={closeApplication}><X /></button></header>
+      {applicationLoading ? <div className="admin-exam-record-loading"><LoaderCircle className="spin" /><span>Loading saved answers</span></div> : applicationDetail ? <>
+        <dl className="admin-exam-record-meta">
+          <div><dt>Exam cycle</dt><dd>{applicationDetail.application.cycle_name}</dd></div>
+          <div><dt>Submitted</dt><dd>{formatAdminDate(applicationDetail.application.submitted_at)}</dd></div>
+          <div><dt>Rank requested</dt><dd>{applicationDetail.application.current_rank} → {applicationDetail.application.attempted_rank}</dd></div>
+          <div><dt>Application status</dt><dd><span className="admin-status is-neutral">{adminStatusLabel(applicationDetail.application.application_status)}</span></dd></div>
+          <div><dt>Payment status</dt><dd><span className={`admin-status ${applicationDetail.application.payment_status === "paid" ? "is-active" : "is-pending"}`}>{adminStatusLabel(applicationDetail.application.payment_status)}</span></dd></div>
+          <div><dt>Saved application ID</dt><dd><code>{applicationDetail.application.id}</code></dd></div>
+        </dl>
+        <section className="admin-exam-answers">
+          <header><div><p className="eyebrow">Submitted application</p><h3>Student answers</h3></div><p><ShieldCheck size={15} /> Private administrator record</p></header>
+          <dl>{Object.entries(applicationDetail.application.answers)
+            .filter(([key]) => !key.startsWith("official_") && !ANSWERS_SHOWN_IN_SUMMARY.has(key))
+            .map(([key, value]) => <div key={key} className={key.includes("address") || key === "games_experience" ? "is-wide" : ""}><dt>{answerLabel(key)}</dt><dd>{answerValue(value)}</dd></div>)}</dl>
+        </section>
+        <section className="admin-exam-record-history">
+          <header><History size={17} /><div><p className="eyebrow">Record history</p><h3>Application timeline</h3></div></header>
+          {applicationDetail.history.length ? <ol>{applicationDetail.history.map((entry) => <li key={entry.id}><span aria-hidden="true" /><div><strong>{historyDescription(entry)}</strong><time>{formatAdminDate(entry.createdAt)}</time><p>By {entry.actorIdentifier}{entry.note ? ` · ${entry.note}` : ""}</p></div></li>)}</ol> : <p>No status changes have been recorded beyond the saved application.</p>}
+        </section>
+        {(applicationDetail.application.application_notes || applicationDetail.application.administrator_notes) ? <aside className="admin-exam-record-notes"><strong>Administrator notes <small>Private · authorized administrators only</small></strong><p>{applicationDetail.application.application_notes || applicationDetail.application.administrator_notes}</p></aside> : null}
+      </> : null}
+      <footer><button className="btn-secondary" onClick={closeApplication}>Close record</button></footer>
     </section></div> : null}
 
     {cycleDialog ? <div className="admin-confirm-backdrop" role="presentation"><section className="admin-confirm-dialog admin-confirm-dialog--danger" role="dialog" aria-modal="true" aria-labelledby="new-cycle-title">

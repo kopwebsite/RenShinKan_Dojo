@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, History, LoaderCircle, ReceiptText, Search, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, History, LoaderCircle, ReceiptText, Search, UserRound, X } from "lucide-react";
 import type { AdminDojo, AdminIdentity } from "./AdminAccess";
 import { adminApi } from "./adminApi";
 
@@ -7,6 +7,7 @@ type Membership = {
   id: string;
   display_name: string;
   public_student_id: string;
+  profile_image_url: string | null;
   dojo_id: string;
   dojo_name: string;
   aatDisplay: string;
@@ -23,6 +24,27 @@ type Response = {
   pagination: { page: number; pageSize: number; total: number; totalPages: number };
 };
 
+function MembershipSummary({ row }: { row: Membership }) {
+  const awaitingReview = Boolean(row.payment_awaiting_review);
+  const paymentRequired = row.membership.state === "new" || row.membership.state === "unpaid";
+  const label = awaitingReview ? "Awaiting payment review" : paymentRequired ? "Payment required" : row.membership.label;
+  const tone = awaitingReview || row.membership.state === "expiring"
+    ? "is-pending"
+    : row.membership.state === "expired" || row.membership.state === "unpaid"
+      ? "is-error"
+      : row.membership.state === "current"
+        ? "is-active"
+        : "is-neutral";
+
+  return <span className="admin-aat-membership-cell">
+    {row.aat_number ? <code className="admin-aat-number">{row.aat_number}</code> : null}
+    <span className={`admin-status admin-aat-status ${tone}`}>
+      {row.membership.state === "expired" ? <AlertTriangle size={13} /> : row.membership.state === "current" ? <CheckCircle2 size={13} /> : <ReceiptText size={13} />}
+      {label}
+    </span>
+  </span>;
+}
+
 export function AdminAatMemberships({
   admin, dojos, report,
 }: {
@@ -36,7 +58,8 @@ export function AdminAatMemberships({
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState(() => {
     const value = new URLSearchParams(window.location.search).get("status") || "";
-    return ["pending_payment", "new", "unpaid", "current", "expiring", "expired"].includes(value) ? value : "";
+    if (value === "new" || value === "unpaid") return "payment_required";
+    return ["pending_payment", "payment_required", "current", "expiring", "expired"].includes(value) ? value : "";
   });
   const [dojoId, setDojoId] = useState("");
   const [page, setPage] = useState(1);
@@ -114,12 +137,12 @@ export function AdminAatMemberships({
     <header className="admin-workspace-heading"><div><p className="eyebrow">Annual membership</p><h2>AAT Annual Membership</h2><p>Review membership status, renewal dates, expiration warnings, and permanent payment history.</p></div></header>
     <form className="admin-record-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(queryInput.trim()); }}>
       <label className="admin-search-wide">Search<div><Search size={17} /><input value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="Name, Student ID, or AAT number" /><button className="btn-secondary">Search</button></div></label>
-      <label>Membership status<select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="">All statuses</option><option value="pending_payment">Payment awaiting approval</option><option value="new">NEW</option><option value="unpaid">Payment required</option><option value="current">Current</option><option value="expiring">Expiring soon</option><option value="expired">Expired</option></select></label>
+      <label>Membership status<select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="">All statuses</option><option value="pending_payment">Payment awaiting approval</option><option value="payment_required">Payment required</option><option value="current">Current</option><option value="expiring">Expiring soon</option><option value="expired">Expired</option></select></label>
       {superAdmin ? <label>Dojo<select value={dojoId} onChange={(event) => { setDojoId(event.target.value); setPage(1); }}><option value="">All dojos</option>{dojos.map((dojo) => <option key={dojo.id} value={dojo.id}>{dojo.official_name}</option>)}</select></label> : null}
     </form>
     {selectedRows.length ? <aside className="admin-aat-bulk-bar"><strong>{selectedRows.length} selected</strong><button className="btn-secondary" onClick={() => openPayment(selectedRows)}><ReceiptText size={15} /> Record payment</button><button className="text-link" onClick={() => setSelectedIds(new Set())}>Clear selection</button></aside> : null}
-    <div className="admin-table-scroll"><table className="admin-record-table admin-aat-table"><thead><tr><th><label className="admin-select-box"><input type="checkbox" aria-label="Select all visible AAT memberships" checked={rows.length > 0 && rows.every((row) => selectedIds.has(row.id))} onChange={(event) => setSelectedIds(event.target.checked ? new Set(rows.map((row) => row.id)) : new Set())} /><span aria-hidden="true" /></label></th><th>Student</th>{superAdmin ? <th>Dojo</th> : null}<th>Membership</th><th>Last paid</th><th>Renewal</th><th>History</th><th>Action</th></tr></thead><tbody>
-      {rows.map((row) => <tr key={row.id} className={selectedIds.has(row.id) ? "is-selected" : ""}><td><label className="admin-select-box"><input type="checkbox" aria-label={`Select AAT membership for ${row.display_name}`} checked={selectedIds.has(row.id)} onChange={(event) => setSelectedIds((current) => { const next = new Set(current); if (event.target.checked) next.add(row.id); else next.delete(row.id); return next; })} /><span aria-hidden="true" /></label></td><th>{row.display_name}<code className="admin-table-subline">{row.public_student_id}</code></th>{superAdmin ? <td>{row.dojo_name}</td> : null}<td><strong>{row.aatDisplay}</strong>{row.payment_awaiting_review ? <span className="admin-status admin-aat-status is-pending">Payment awaiting approval</span> : null}<span className={`admin-status admin-aat-status ${row.membership.state === "expired" || row.membership.state === "unpaid" ? "is-error" : row.membership.state === "expiring" ? "is-pending" : row.membership.state === "current" ? "is-active" : "is-neutral"}`}>{row.membership.state === "expired" ? <AlertTriangle size={13} /> : row.membership.state === "current" ? <CheckCircle2 size={13} /> : null}{row.membership.label}</span></td><td>{row.aat_last_paid_date || "Not yet paid"}</td><td>{row.membership.dueDate || "Unknown"}{row.membership.days != null ? <small className="admin-table-subline">{Math.abs(row.membership.days)} day{Math.abs(row.membership.days) === 1 ? "" : "s"} {row.membership.days < 0 ? "overdue" : "remaining"}</small> : null}</td><td>{row.history.length ? <details className="admin-aat-history"><summary><History size={14} /> {row.history.length} payment{row.history.length === 1 ? "" : "s"}</summary><ol>{row.history.map((entry) => <li key={entry.id}><strong>{entry.paymentDate}</strong> · {entry.amount == null ? "Amount not recorded" : `${entry.amount.toLocaleString()} ${entry.currency}`} · by {entry.recordedBy}{entry.notes ? <div>{entry.notes}</div> : null}</li>)}</ol></details> : <span className="admin-aat-history-empty">No payments</span>}</td><td><button className="btn-secondary admin-aat-action" onClick={() => openPayment([row])}><ReceiptText size={15} /> {row.payment_awaiting_review ? "Review payment" : "Record payment"}</button></td></tr>)}
+    <div className="admin-table-scroll"><table className="admin-record-table admin-aat-table"><thead><tr><th><label className="admin-select-box"><input type="checkbox" aria-label="Select all visible AAT memberships" checked={rows.length > 0 && rows.every((row) => selectedIds.has(row.id))} onChange={(event) => setSelectedIds(event.target.checked ? new Set(rows.map((row) => row.id)) : new Set())} /><span aria-hidden="true" /></label></th><th>Student</th>{superAdmin ? <th>Dojo</th> : null}<th>Membership</th><th>Last paid</th><th>Renewal</th><th>History</th><th>Actions</th></tr></thead><tbody>
+      {rows.map((row) => <tr key={row.id} className={selectedIds.has(row.id) ? "is-selected" : ""}><td><label className="admin-select-box"><input type="checkbox" aria-label={`Select AAT membership for ${row.display_name}`} checked={selectedIds.has(row.id)} onChange={(event) => setSelectedIds((current) => { const next = new Set(current); if (event.target.checked) next.add(row.id); else next.delete(row.id); return next; })} /><span aria-hidden="true" /></label></td><th><span className="admin-student-identity">{row.profile_image_url ? <img src={row.profile_image_url} alt="" /> : <span aria-hidden="true"><UserRound size={18} /></span>}<span>{row.display_name}<code className="admin-table-subline">{row.public_student_id}</code></span></span></th>{superAdmin ? <td>{row.dojo_name}</td> : null}<td><MembershipSummary row={row} /></td><td>{row.aat_last_paid_date || "Not yet paid"}</td><td>{row.membership.dueDate || "Unknown"}{row.membership.days != null ? <small className="admin-table-subline">{Math.abs(row.membership.days)} day{Math.abs(row.membership.days) === 1 ? "" : "s"} {row.membership.days < 0 ? "overdue" : "remaining"}</small> : null}</td><td>{row.history.length ? <details className="admin-aat-history"><summary><History size={14} /> {row.history.length} payment{row.history.length === 1 ? "" : "s"}</summary><ol>{row.history.map((entry) => <li key={entry.id}><strong>{entry.paymentDate}</strong> · {entry.amount == null ? "Amount not recorded" : `${entry.amount.toLocaleString()} ${entry.currency}`} · by {entry.recordedBy}{entry.notes ? <div>{entry.notes}</div> : null}</li>)}</ol></details> : <span className="admin-aat-history-empty">No payments</span>}</td><td><div className="admin-row-actions"><button type="button" onClick={() => openPayment([row])}><ReceiptText size={14} /> {row.payment_awaiting_review ? "Review payment" : "Record payment"}</button></div></td></tr>)}
       {!rows.length && !loading ? <tr><td colSpan={superAdmin ? 8 : 7}>No membership records match these filters.</td></tr> : null}
     </tbody></table></div>
     <nav className="admin-pagination"><button className="btn-secondary" disabled={page <= 1 || loading} onClick={() => setPage((value) => value - 1)}><ChevronLeft size={16} /> Previous</button><span>Page {pagination.page} of {pagination.totalPages}</span><button className="btn-secondary" disabled={page >= pagination.totalPages || loading} onClick={() => setPage((value) => value + 1)}>Next <ChevronRight size={16} /></button></nav>

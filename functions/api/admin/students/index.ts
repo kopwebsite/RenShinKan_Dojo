@@ -51,7 +51,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const paymentStatus = (url.searchParams.get("paymentStatus") || "").trim();
   const hoursStatus = (url.searchParams.get("hoursStatus") || "").trim();
   const requestedStatus = url.searchParams.get("status");
-  const status = requestedStatus === "active" || requestedStatus === "archived" ? requestedStatus : "all";
+  const status = requestedStatus === "active" || requestedStatus === "pending" || requestedStatus === "archived" ? requestedStatus : "all";
   const dojoId = (url.searchParams.get("dojoId") || "").trim();
   const aatStatus = (url.searchParams.get("aatStatus") || "").trim();
   const sort = url.searchParams.get("sort") || "name";
@@ -90,15 +90,16 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   if (examinationStatus) { conditions.push(`${applicationStatusExpression} = ?`); bindings.push(examinationStatus); }
   if (paymentStatus) { conditions.push(`${paymentStatusExpression} = ?`); bindings.push(paymentStatus); }
   if (hoursStatus === "pending") conditions.push("EXISTS (SELECT 1 FROM training_hour_requests phr WHERE phr.student_id = s.id AND phr.status = 'pending')");
-  if (aatStatus === "new") conditions.push("s.aat_number IS NULL");
-  else if (aatStatus === "unpaid") conditions.push("s.aat_number IS NOT NULL AND s.aat_last_paid_date IS NULL");
+  if (aatStatus === "payment_required" || aatStatus === "new" || aatStatus === "unpaid") conditions.push("(s.aat_number IS NULL OR s.aat_last_paid_date IS NULL)");
   else if (aatStatus === "expired") conditions.push("s.aat_number IS NOT NULL AND s.aat_last_paid_date IS NOT NULL AND date(s.aat_last_paid_date, '+1 year') < date('now')");
   else if (aatStatus === "current") conditions.push("s.aat_number IS NOT NULL AND s.aat_last_paid_date IS NOT NULL AND date(s.aat_last_paid_date, '+1 year') >= date('now')");
   conditions.push("s.deleted_at IS NULL");
+  conditions.push("s.profile_status <> 'rejected'");
   if (status === "archived") conditions.push("s.archived_at IS NOT NULL");
-  else if (status === "active") conditions.push("s.active = 1");
+  else if (status === "pending") conditions.push("s.profile_status = 'pending_admin_approval' AND s.archived_at IS NULL");
+  else if (status === "active") conditions.push("s.active = 1 AND s.archived_at IS NULL");
 
-  const summaryConditions = ["s.deleted_at IS NULL"];
+  const summaryConditions = ["s.deleted_at IS NULL", "s.profile_status <> 'rejected'"];
   const summaryBindings: unknown[] = [];
   if (!isRenShinKanSuperAdmin(session)) {
     summaryConditions.push("s.dojo_id = ?");

@@ -40,6 +40,8 @@ Generate a separate verifier for the RenShinKan secondary password and store it 
 
 Do not assign the central administrator password to a dojo entry. A dojo password creates a signed session whose allowed dojo IDs are checked again by every student, application, membership, and export query.
 
+Existing deployments may temporarily retain the encrypted `RSK_ADMIN_SECONDARY_PASSWORD` Pages secret while creating and validating the PBKDF2 verifier. It is consulted only when `RSK_ADMIN_SECONDARY_PASSWORD_HASH` is absent. Delete the legacy secret after the hash is configured and verified.
+
 ## Cloudflare Storage
 
 Create the storage resources:

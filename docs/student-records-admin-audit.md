@@ -20,7 +20,7 @@
 - Payslips are retained as accounting records. The previous 60-day application purge and lifecycle setup script were removed.
 - Turnstile uses explicit rendering and Cloudflare flexible/compact sizes, reports loading/success/expiry/timeout/error states, and resets after each lookup attempt. Siteverify checks the expected action and configured hostname with a network timeout.
 - The admin bulk bar now separates record-status actions, training/rank actions, and destructive archive maintenance. Selection is page-scoped, keyboard-operable, and exposes checked/unchecked/indeterminate states.
-- Primary and dojo password verifiers support PBKDF2-SHA-256. Legacy primary/dojo HMAC verifiers remain readable only for migration; rotate them. The secondary credential accepts PBKDF2 only.
+- Primary and dojo password verifiers support PBKDF2-SHA-256. Legacy primary/dojo HMAC verifiers remain readable only for migration; rotate them. For existing deployments, the encrypted legacy RenShinKan secondary Pages secret remains usable only when the PBKDF2 verifier is absent; the hash is authoritative once configured.
 - Session IDs rotate when dojo context or RenShinKan privilege changes. Logout stores server-side revocation, and protected routes reject revoked sessions.
 - Login failures, private file views, request decisions, replacements, bulk operations, and cleanup summaries are audited without tokens, passwords, or file contents.
 - The patched `sharp` 0.35 dependency is enforced for the direct image optimizer and Wrangler/Miniflare dependency tree; `npm audit` reports no known advisories at handoff.
@@ -55,7 +55,7 @@ Generate PBKDF2 verifiers with `scripts/hash-password.mjs` as described in `docs
 - `RSK_ADMIN_SECONDARY_PASSWORD_HASH`
 - existing `SESSION_SECRET`
 
-Remove the old plaintext `RSK_ADMIN_SECONDARY_PASSWORD` after the hashed secret is confirmed. Rotate all legacy HMAC primary/dojo verifiers after deployment; compatibility exists only to avoid an immediate lockout.
+Remove the old `RSK_ADMIN_SECONDARY_PASSWORD` Pages secret after the hashed secret is confirmed. Until then, it is a narrowly scoped compatibility fallback only when `RSK_ADMIN_SECONDARY_PASSWORD_HASH` is absent. Rotate all legacy HMAC primary/dojo verifiers after deployment; compatibility exists only to avoid an immediate lockout.
 
 ## Required non-secret configuration
 

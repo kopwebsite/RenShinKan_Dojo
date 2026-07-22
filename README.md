@@ -58,7 +58,7 @@ The repository should include source files, package manifests, public site asset
 
 ## Admin Page
 
-Open `/admin` to enter the admin editor. Login, selected-dojo context, and effective permissions are stored in a Secure, HttpOnly, SameSite session cookie and validated by Cloudflare Pages Functions. Session IDs rotate when dojo context or privilege changes and are revoked on logout. Selecting RenShinKan requires the additional `RSK_ADMIN_SECONDARY_PASSWORD_HASH` verifier before full-site administration is enabled. Selecting any other dojo creates a student-only context scoped to that dojo, including for a central account. API handlers and direct admin page routes validate this context server-side; the frontend is not treated as a security boundary.
+Open `/admin` to enter the admin editor. Login, selected-dojo context, and effective permissions are stored in a Secure, HttpOnly, SameSite session cookie and validated by Cloudflare Pages Functions. Session IDs rotate when dojo context or privilege changes and are revoked on logout. Selecting RenShinKan requires the additional `RSK_ADMIN_SECONDARY_PASSWORD_HASH` verifier before full-site administration is enabled. Existing deployments that have not completed the secret migration may temporarily use the encrypted `RSK_ADMIN_SECONDARY_PASSWORD` Pages secret only while the hash is absent; configuring the hash disables that fallback. Selecting any other dojo creates a student-only context scoped to that dojo, including for a central account. API handlers and direct admin page routes validate this context server-side; the frontend is not treated as a security boundary.
 
 The current admin UI exposes:
 

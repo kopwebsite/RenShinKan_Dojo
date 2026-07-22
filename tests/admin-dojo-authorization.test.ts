@@ -88,6 +88,22 @@ describe("RenShinKan secondary authorization", () => {
     expect(canAccessDojo(verified!, "dojo-cmu")).toBe(true);
   });
 
+  it("accepts the encrypted legacy Pages secret only while the PBKDF2 verifier is absent", async () => {
+    const legacyOnly = {
+      SESSION_SECRET: env.SESSION_SECRET,
+      RSK_ADMIN_SECONDARY_PASSWORD: "existing-secondary-password",
+    };
+    expect(await verifyRenshinKanSecondaryPassword("existing-secondary-password", legacyOnly)).toBe(true);
+    expect(await verifyRenshinKanSecondaryPassword("incorrect", legacyOnly)).toBe(false);
+
+    const hashIsAuthoritative = {
+      ...legacyOnly,
+      RSK_ADMIN_SECONDARY_PASSWORD_HASH: env.RSK_ADMIN_SECONDARY_PASSWORD_HASH,
+    };
+    expect(await verifyRenshinKanSecondaryPassword("existing-secondary-password", hashIsAuthoritative)).toBe(false);
+    expect(await verifyRenshinKanSecondaryPassword("secondary-test-password", hashIsAuthoritative)).toBe(true);
+  });
+
   it("clears elevated authorization when switching to another dojo", async () => {
     const switchedCookie = await updateSelectedDojoCookie(env, centralSession("dojo-rsk", true), "dojo-cmu");
     const switched = await getAuthorizedAdminSession(requestWithCookie(switchedCookie), env);

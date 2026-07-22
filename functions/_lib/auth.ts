@@ -5,6 +5,7 @@ export const RENSHINKAN_DOJO_ID = "dojo-rsk";
 type AuthEnv = {
   ADMIN_PASSWORD_HASH?: string;
   DOJO_ADMIN_PASSWORD_HASHES?: string;
+  RSK_ADMIN_SECONDARY_PASSWORD?: string;
   RSK_ADMIN_SECONDARY_PASSWORD_HASH?: string;
   SESSION_SECRET?: string;
   STUDENT_DB?: {
@@ -205,8 +206,16 @@ export async function clearRenshinKanVerificationAttempts(request: Request, env:
 }
 
 export async function verifyRenshinKanSecondaryPassword(password: string, env: AuthEnv) {
-  if (!isConfigured(env.RSK_ADMIN_SECONDARY_PASSWORD_HASH)) return false;
-  return verifyStoredPassword(password, env.RSK_ADMIN_SECONDARY_PASSWORD_HASH!, env, false);
+  if (isConfigured(env.RSK_ADMIN_SECONDARY_PASSWORD_HASH)) {
+    return verifyStoredPassword(password, env.RSK_ADMIN_SECONDARY_PASSWORD_HASH!, env, false);
+  }
+
+  // Deployment compatibility only: existing installations may still have the
+  // encrypted Pages secret from before PBKDF2 verifiers were introduced. The
+  // hash is authoritative as soon as it is configured, so a stale plaintext
+  // secret can never bypass a mismatched PBKDF2 verifier.
+  if (!isConfigured(env.RSK_ADMIN_SECONDARY_PASSWORD)) return false;
+  return timingSafeEqual(password, env.RSK_ADMIN_SECONDARY_PASSWORD!);
 }
 
 const MIN_PBKDF2_ITERATIONS = 210_000;

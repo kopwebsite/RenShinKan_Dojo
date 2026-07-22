@@ -19,6 +19,7 @@ type Env = StudentEnv;
 type Payload = { name?: unknown; studentId?: unknown; turnstileToken?: unknown };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
+  const requestId = requestIdentifier(request);
   try {
     if (!(await enforceLookupRateLimit(request, env))) return genericLookupFailure(429);
     const payload = await request.json<Payload>();
@@ -37,9 +38,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       AND s.active = 1 AND s.public_visible = 1 AND s.profile_status = 'approved' LIMIT 1`)
       .bind(studentId).first<StudentRow>();
     if (!student || !namesLikelyMatch(name, student.display_name)) return genericLookupFailure();
-    const requestId = requestIdentifier(request);
-    const [record, share, accessToken] = await Promise.all([
-      ownerStudentRecord(db, student),
+    const record = await ownerStudentRecord(db, student);
+    const [share, accessToken] = await Promise.all([
       ensureOwnerShareUrl(db, env, student.id, request),
       issueStudentAccessSession(db, student.id, requestId),
     ]);
@@ -55,7 +55,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       200,
       { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" },
     );
-  } catch {
+  } catch (error) {
+    console.error("Student record lookup failed", {
+      requestId,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return genericLookupFailure();
   }
 };

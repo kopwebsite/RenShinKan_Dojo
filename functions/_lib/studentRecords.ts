@@ -438,7 +438,7 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
         source: string; training_location: string | null; created_at: string;
       }>(),
     db.prepare(`SELECT p.id, COALESCE(p.payment_date, substr(p.created_at, 1, 10)) AS payment_date,
-        ap.renewal_due_date, p.amount, p.currency, p.status, p.created_at,
+        ap.renewal_due_date, p.amount, p.currency, p.status, p.created_at AS created_at,
         pp.id AS proof_id, pp.status AS proof_status, pp.submitted_at AS proof_submitted_at,
         pp.reviewed_at AS proof_reviewed_at, pp.student_visible_note AS proof_student_visible_note,
         pp.object_key AS proof_object_key, pp.content_type AS proof_content_type,
@@ -448,7 +448,7 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
       LEFT JOIN payment_proofs pp ON pp.payment_type = 'aat_annual' AND pp.payment_reference_id = p.id
       WHERE p.student_id = ? AND p.payment_type = 'aat_annual'
       UNION ALL
-      SELECT ap.id, ap.payment_date, ap.renewal_due_date, ap.amount, ap.currency, 'paid', ap.created_at,
+      SELECT ap.id, ap.payment_date, ap.renewal_due_date, ap.amount, ap.currency, 'paid', ap.created_at AS created_at,
         pp.id, pp.status, pp.submitted_at, pp.reviewed_at, pp.student_visible_note, pp.object_key, pp.content_type,
         pp.student_id
       FROM aat_membership_payments ap

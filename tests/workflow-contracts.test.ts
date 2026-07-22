@@ -151,6 +151,9 @@ describe("student workflow contracts", () => {
     expect(share).not.toContain("ownerStudentRecord");
     for (const table of ["training_hours", "aat_membership_payments", "monthly_contributions", "training_hour_requests"]) expect(ownerBuilder).toContain(table);
     expect(ownerBuilder).toContain("student.dojo_id === DEFAULT_DOJO_ID");
+    expect(ownerBuilder).toContain("p.created_at AS created_at");
+    expect(ownerBuilder).toContain("ap.created_at AS created_at");
+    expect(ownerBuilder).toContain("ORDER BY created_at DESC LIMIT 30");
     expect(ownerBuilder).not.toContain("admin_notes");
     expect(ownerBuilder).not.toContain("internal_note");
     expect(ownerBuilder).not.toContain("answers_json");

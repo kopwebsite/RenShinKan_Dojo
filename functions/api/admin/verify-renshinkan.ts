@@ -1,11 +1,8 @@
 import {
-  allowRenshinKanVerificationAttempt,
-  clearRenshinKanVerificationAttempts,
   effectivePermissionLevel,
   getAdminSession,
   isSameOriginRequest,
   jsonResponse,
-  recordFailedRenshinKanVerificationAttempt,
   RENSHINKAN_DOJO_ID,
   updateRenshinKanVerifiedCookie,
   verifyRenshinKanSecondaryPassword,
@@ -25,10 +22,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (session.role !== "central" || session.selectedDojoId !== RENSHINKAN_DOJO_ID) {
     return jsonResponse({ error: "Choose RenShinKan Dojo before entering its access password." }, 403);
   }
-  if (!(await allowRenshinKanVerificationAttempt(request, env))) {
-    return jsonResponse({ error: "Too many attempts. Try again in 15 minutes." }, 429, { "Cache-Control": "no-store" });
-  }
-
   try {
     const body = await request.json<{ password?: unknown }>();
     const password = typeof body.password === "string" && body.password.length <= 256 ? body.password : "";
@@ -38,7 +31,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const requestId = requestIdentifier(request);
 
     if (!verified) {
-      const mayRetry = await recordFailedRenshinKanVerificationAttempt(request, env);
       await auditStatement(db, {
         actorType: "administrator",
         ...adminAuditMetadata(session, request),
@@ -52,10 +44,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         outcome: "failure",
         createdAt: now,
       }).run();
-      return jsonResponse({ error: mayRetry ? "Incorrect RenShinKan access password." : "Too many attempts. Try again in 15 minutes." }, mayRetry ? 401 : 429, { "Cache-Control": "no-store" });
+      return jsonResponse({ error: "Incorrect RenShinKan access password." }, 401, { "Cache-Control": "no-store" });
     }
 
-    await clearRenshinKanVerificationAttempts(request, env);
     const verifiedSession = { ...session, renshinkanVerified: true };
     await auditStatement(db, {
       actorType: "administrator",

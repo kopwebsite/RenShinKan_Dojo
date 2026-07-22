@@ -175,36 +175,6 @@ export async function clearAdminLoginAttempts(request: Request, env: AuthEnv) {
   await env.STUDENT_DB.prepare("DELETE FROM admin_login_attempts WHERE actor_hash = ?").bind(await loginActorHash(request)).run();
 }
 
-export async function allowRenshinKanVerificationAttempt(request: Request, env: AuthEnv) {
-  if (!env.STUDENT_DB) return true;
-  const actor = await loginActorHash(request, "renshinkan-secondary");
-  const row = await env.STUDENT_DB.prepare("SELECT locked_until FROM admin_rsk_verification_attempts WHERE actor_hash = ?")
-    .bind(actor).first<{ locked_until: string | null }>();
-  return !(row?.locked_until && Date.parse(row.locked_until) > Date.now());
-}
-
-export async function recordFailedRenshinKanVerificationAttempt(request: Request, env: AuthEnv) {
-  if (!env.STUDENT_DB) return true;
-  const actor = await loginActorHash(request, "renshinkan-secondary");
-  const now = Date.now();
-  const row = await env.STUDENT_DB.prepare("SELECT window_started_at, attempts FROM admin_rsk_verification_attempts WHERE actor_hash = ?")
-    .bind(actor).first<{ window_started_at: string; attempts: number }>();
-  const expired = !row || now - Date.parse(row.window_started_at) > 15 * 60 * 1000;
-  const attempts = expired ? 1 : Number(row.attempts || 0) + 1;
-  const lockedUntil = attempts >= 6 ? new Date(now + 15 * 60 * 1000).toISOString() : null;
-  await env.STUDENT_DB.prepare(`INSERT INTO admin_rsk_verification_attempts (actor_hash, window_started_at, attempts, locked_until)
-    VALUES (?, ?, ?, ?) ON CONFLICT(actor_hash) DO UPDATE SET window_started_at = excluded.window_started_at,
-    attempts = excluded.attempts, locked_until = excluded.locked_until`)
-    .bind(actor, expired ? new Date(now).toISOString() : row!.window_started_at, attempts, lockedUntil).run();
-  return !lockedUntil;
-}
-
-export async function clearRenshinKanVerificationAttempts(request: Request, env: AuthEnv) {
-  if (!env.STUDENT_DB) return;
-  await env.STUDENT_DB.prepare("DELETE FROM admin_rsk_verification_attempts WHERE actor_hash = ?")
-    .bind(await loginActorHash(request, "renshinkan-secondary")).run();
-}
-
 export async function verifyRenshinKanSecondaryPassword(password: string, env: AuthEnv) {
   if (isConfigured(env.RSK_ADMIN_SECONDARY_PASSWORD_HASH)) {
     return verifyStoredPassword(password, env.RSK_ADMIN_SECONDARY_PASSWORD_HASH!, env, false);

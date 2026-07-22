@@ -65,7 +65,7 @@ export function TurnstileWidget({ onToken, resetSignal = 0, action = "student-re
         action,
         size: nextSize,
         theme: "auto",
-        appearance: "always",
+        appearance: "interaction-only",
         "response-field": false,
         "feedback-enabled": true,
         callback: (token: string) => { callback.current(token); setMessage("Verification complete."); },

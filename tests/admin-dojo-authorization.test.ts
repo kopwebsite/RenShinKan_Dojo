@@ -158,13 +158,13 @@ describe("RenShinKan secondary authorization", () => {
     expect(accessUi).toContain('autoComplete="off"');
   });
 
-  it("throttles failed verification attempts without logging the submitted secret", () => {
+  it("allows unlimited failed verification attempts without logging the submitted secret", () => {
     const endpoint = file("functions/api/admin/verify-renshinkan.ts");
-    expect(endpoint).toContain("allowRenshinKanVerificationAttempt");
-    expect(endpoint).toContain("recordFailedRenshinKanVerificationAttempt");
+    expect(endpoint).not.toContain("allowRenshinKanVerificationAttempt");
+    expect(endpoint).not.toContain("recordFailedRenshinKanVerificationAttempt");
+    expect(endpoint).not.toContain("Too many attempts");
     expect(endpoint).toContain("Incorrect RenShinKan access password.");
     expect(endpoint).not.toMatch(/console\.(?:log|error).*password/i);
-    expect(file("migrations/0008_renshinkan_secondary_verification.sql")).toContain("admin_rsk_verification_attempts");
   });
 });
 

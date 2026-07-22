@@ -18,11 +18,11 @@
 - Contributions now show the established AAT payment/due-date data and a RenShinKan-only expected monthly ledger. No amount or due date is synthesized from upload time. The monthly amount comes from `RENSHINKAN_MONTHLY_CONTRIBUTION_AMOUNT`, is copied into each ledger row, and is never embedded in API or component logic.
 - Payslips accept validated JPEG, PNG, WebP, or PDF content up to 5 MB. R2 keys are generated internally. Files are served with private/no-store headers through student-capability or scoped-admin routes; storage keys are never returned.
 - Payslips are retained as accounting records. The previous 60-day application purge and lifecycle setup script were removed.
-- Turnstile uses explicit rendering and Cloudflare flexible/compact sizes, reports loading/success/expiry/timeout/error states, and resets after each lookup attempt. Siteverify checks the expected action and configured hostname with a network timeout.
+- Turnstile uses explicit rendering, responsive flexible/compact sizing, and interaction-only appearance so successful background checks do not leave a tall widget behind. It reports loading/success/expiry/timeout/error states and resets after each lookup attempt. Siteverify checks the expected action and configured hostname with a network timeout.
 - The admin bulk bar now separates record-status actions, training/rank actions, and destructive archive maintenance. Selection is page-scoped, keyboard-operable, and exposes checked/unchecked/indeterminate states.
 - Primary and dojo password verifiers support PBKDF2-SHA-256. Legacy primary/dojo HMAC verifiers remain readable only for migration; rotate them. For existing deployments, the encrypted legacy RenShinKan secondary Pages secret remains usable only when the PBKDF2 verifier is absent; the hash is authoritative once configured.
 - Session IDs rotate when dojo context or RenShinKan privilege changes. Logout stores server-side revocation, and protected routes reject revoked sessions.
-- Login failures, private file views, request decisions, replacements, bulk operations, and cleanup summaries are audited without tokens, passwords, or file contents.
+- Login failures, RenShinKan verification failures, private file views, request decisions, replacements, bulk operations, and cleanup summaries are audited without tokens, passwords, or file contents. RenShinKan secondary verification permits unlimited retries; the primary administrator login retains its separate lockout protection.
 - The patched `sharp` 0.35 dependency is enforced for the direct image optimizer and Wrangler/Miniflare dependency tree; `npm audit` reports no known advisories at handoff.
 
 ## Migration and recovery

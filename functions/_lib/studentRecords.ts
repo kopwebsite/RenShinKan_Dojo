@@ -374,6 +374,12 @@ export type StudentRow = {
   dojo_name: string;
   updated_at: string;
   training_hours_adjustment?: number;
+  created_at?: string;
+  dojo_id?: string;
+  dojo_logo?: string | null;
+  aat_number?: string | null;
+  practice_duration?: string;
+  profile_bio?: string;
 };
 
 function safeVisibility(value: string) {
@@ -399,6 +405,91 @@ export async function publicStudentRecord(db: D1Database, student: StudentRow) {
     lastUpdated: visibility.lastUpdated === false ? null : student.updated_at,
     profileImage: student.profile_image_consent ? student.profile_image_url : null,
     verified: true,
+  };
+}
+
+export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
+  const base = await publicStudentRecord(db, student);
+  const [trainingResult, aatResult, requestResult] = await Promise.all([
+    db.prepare(`SELECT id, entry_date, period_end, verified_hours, source, training_location, created_at
+      FROM training_hours WHERE student_id = ?
+      ORDER BY COALESCE(entry_date, created_at) DESC, created_at DESC LIMIT 60`).bind(student.id).all<{
+        id: string; entry_date: string; period_end: string | null; verified_hours: number;
+        source: string; training_location: string | null; created_at: string;
+      }>(),
+    db.prepare(`SELECT id, payment_date, renewal_due_date, amount, currency, status, created_at FROM (
+        SELECT id, payment_date, renewal_due_date, amount, currency, 'paid' AS status, created_at
+        FROM aat_membership_payments WHERE student_id = ?
+        UNION ALL
+        SELECT id, COALESCE(payment_date, substr(created_at, 1, 10)) AS payment_date,
+          NULL AS renewal_due_date, amount, currency, status, created_at
+        FROM payments WHERE student_id = ? AND payment_type = 'aat_annual' AND status <> 'paid'
+      ) ORDER BY created_at DESC LIMIT 30`).bind(student.id, student.id).all<{
+        id: string; payment_date: string; renewal_due_date: string | null; amount: number | null;
+        currency: string; status: "paid" | "awaiting_payment" | "cancelled" | "refunded"; created_at: string;
+      }>(),
+    db.prepare(`SELECT id, submitted_hours, previous_total, requested_total, status,
+        submitted_at, reviewed_at, review_note
+      FROM training_hour_requests WHERE student_id = ?
+      ORDER BY submitted_at DESC LIMIT 60`).bind(student.id).all<{
+        id: string; submitted_hours: number; previous_total: number; requested_total: number;
+        status: "pending" | "approved" | "rejected"; submitted_at: string;
+        reviewed_at: string | null; review_note: string | null;
+      }>(),
+  ]);
+  const monthlyResult = student.dojo_id === DEFAULT_DOJO_ID
+    ? await db.prepare(`SELECT id, month_key, status, submitted_at, paid_at, updated_at
+        FROM monthly_contributions WHERE student_id = ?
+        ORDER BY month_key DESC LIMIT 36`).bind(student.id).all<{
+          id: string; month_key: string; status: "no_submission" | "awaiting_payment" | "paid";
+          submitted_at: string | null; paid_at: string | null; updated_at: string;
+        }>()
+    : null;
+
+  return {
+    ...base,
+    registrationDate: student.created_at || null,
+    dojoId: student.dojo_id || "",
+    dojoLogo: student.dojo_logo || null,
+    aatNumber: student.aat_number || null,
+    practiceDuration: student.practice_duration || null,
+    profileBio: student.profile_bio || null,
+    trainingEntries: (trainingResult.results || []).map((entry) => ({
+      id: entry.id,
+      entryDate: entry.entry_date || entry.created_at,
+      periodEnd: entry.period_end || null,
+      hours: Number(entry.verified_hours || 0),
+      source: entry.source,
+      location: entry.training_location || null,
+      verified: true as const,
+    })),
+    aatContributions: (aatResult.results || []).map((entry) => ({
+      id: entry.id,
+      paymentDate: entry.payment_date,
+      renewalDueDate: entry.renewal_due_date || null,
+      amount: entry.amount === null ? null : Number(entry.amount),
+      currency: entry.currency,
+      status: entry.status,
+    })),
+    monthlyContributions: monthlyResult ? (monthlyResult.results || []).map((entry) => ({
+      id: entry.id,
+      month: entry.month_key,
+      status: entry.status,
+      submittedAt: entry.submitted_at || null,
+      paidAt: entry.paid_at || null,
+      updatedAt: entry.updated_at,
+    })) : null,
+    changeRequests: (requestResult.results || []).map((entry) => ({
+      id: entry.id,
+      type: "training_hours" as const,
+      title: "Verified training hours",
+      previousValue: `${Number(entry.previous_total || 0)} hours`,
+      requestedValue: `${Number(entry.requested_total || 0)} hours`,
+      submittedAt: entry.submitted_at,
+      reviewedAt: entry.reviewed_at || null,
+      reviewNote: entry.review_note || null,
+      status: entry.status === "rejected" ? "denied" as const : entry.status,
+    })),
   };
 }
 

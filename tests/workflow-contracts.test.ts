@@ -117,6 +117,23 @@ describe("student workflow contracts", () => {
     expect(records).toContain("purpose = 'owner'"); expect(records).not.toContain("UPDATE share_tokens SET active = 0"); expect(lookup).toContain("ensureOwnerShareUrl");
   });
 
+  it("keeps passport payment and request ledgers behind verified owner lookup", () => {
+    const records = file("functions/_lib/studentRecords.ts");
+    const lookup = file("functions/api/records/lookup.ts");
+    const share = file("functions/api/records/share/[token].ts");
+    const ownerBuilder = records.slice(records.indexOf("export async function ownerStudentRecord"), records.indexOf("export function genericLookupFailure"));
+    expect(lookup).toContain("verifyTurnstile");
+    expect(lookup).toContain("namesLikelyMatch");
+    expect(lookup).toContain("ownerStudentRecord(db, student)");
+    expect(share).toContain("publicStudentRecord(db, student)");
+    expect(share).not.toContain("ownerStudentRecord");
+    for (const table of ["training_hours", "aat_membership_payments", "monthly_contributions", "training_hour_requests"]) expect(ownerBuilder).toContain(table);
+    expect(ownerBuilder).toContain("student.dojo_id === DEFAULT_DOJO_ID");
+    expect(ownerBuilder).not.toContain("admin_notes");
+    expect(ownerBuilder).not.toContain("internal_note");
+    expect(ownerBuilder).not.toContain("answers_json");
+  });
+
   it("requires a one-use short-lived lookup session for student hours without a second credential", () => {
     const hours = file("functions/api/records/hours.ts"); expect(hours).toContain("validStudentAccessSession"); expect(hours).toContain("student_access_sessions SET used_at"); expect(hours).not.toContain("verifyStudentPin"); expect(hours).toContain("status: \"pending\"");
   });
@@ -252,6 +269,24 @@ describe("UI and responsive workflow contracts", () => {
     expect(page).toContain("Current dojo");
     expect(page).not.toMatch(/guarantor/i);
     expect(css).toContain(".record-task-picker { display: grid; grid-template-columns: repeat(3, 1fr)"); expect(css).toContain(".record-task-picker { grid-template-columns: 1fr");
+  });
+
+  it("renders an accessible responsive digital student passport from real record fields", () => {
+    const passport = file("src/components/studentPassport/DigitalPassport.tsx");
+    const styles = file("src/components/studentPassport/DigitalPassport.module.css");
+    const page = file("src/pages/StudentRecordsPage.tsx");
+    for (const label of ["Student Identity", "Training Record", "Examination History", "Contributions", "Change Requests", "Identity Record", "Verified Training", "AAT Annual Contribution", "RenShinKan Monthly Contribution", "Record Change Requests"]) expect(passport).toContain(label);
+    for (const accessibility of ['role="tablist"', 'role="tab"', 'role="tabpanel"', 'aria-selected', 'aria-controls', 'aria-label="Approved and verified by the dojo"']) expect(passport).toContain(accessibility);
+    expect(passport).toContain("record.monthlyContributions !== null");
+    expect(passport).toContain("showMonthlyContributions ? <PassportPage");
+    expect(passport).toContain("Please speak with a sensei for more information.");
+    expect(passport).toContain("owner?.dojoLogo");
+    expect(page).toContain("StudentPassportRecord");
+    expect(styles).toContain("--passport-burgundy");
+    expect(styles).toContain("grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)");
+    expect(styles).toContain("@media (max-width: 900px)");
+    expect(styles).toContain("@media (max-width: 620px)");
+    expect(styles).toContain("@media (prefers-reduced-motion: reduce)");
   });
 
   it("lets administrators prepare and upload an optional student profile photo", () => {

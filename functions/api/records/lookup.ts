@@ -7,7 +7,7 @@ import {
   issueStudentAccessSession,
   namesLikelyMatch,
   normalizeStudentId,
-  publicStudentRecord,
+  ownerStudentRecord,
   requestIdentifier,
   requireStudentDb,
   type StudentEnv,
@@ -28,16 +28,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!name || name.length > 120 || studentId.length < 3 || studentId.length > 80) return genericLookupFailure();
     if (!(await verifyTurnstile(request, env, token))) return genericLookupFailure();
     const db = requireStudentDb(env);
-    const student = await db.prepare(`SELECT id, public_student_id, display_name, current_belt, belt_color,
-      profile_image_url, profile_image_consent, public_visible, active, profile_status, share_fields, dojo_name,
-      training_hours_adjustment, updated_at
-      FROM students WHERE UPPER(public_student_id) = ?
-      AND active = 1 AND public_visible = 1 AND profile_status = 'approved' LIMIT 1`)
+    const student = await db.prepare(`SELECT s.id, s.public_student_id, s.display_name, s.current_belt, s.belt_color,
+      s.profile_image_url, s.profile_image_consent, s.public_visible, s.active, s.profile_status, s.share_fields, s.dojo_name,
+      s.training_hours_adjustment, s.updated_at, s.created_at, s.dojo_id, s.aat_number, s.practice_duration, s.profile_bio,
+      d.logo_url AS dojo_logo
+      FROM students s LEFT JOIN dojos d ON d.id = s.dojo_id WHERE UPPER(s.public_student_id) = ?
+      AND s.active = 1 AND s.public_visible = 1 AND s.profile_status = 'approved' LIMIT 1`)
       .bind(studentId).first<StudentRow>();
     if (!student || !namesLikelyMatch(name, student.display_name)) return genericLookupFailure();
     const requestId = requestIdentifier(request);
     const [record, share, accessToken] = await Promise.all([
-      publicStudentRecord(db, student),
+      ownerStudentRecord(db, student),
       ensureOwnerShareUrl(db, env, student.id, request),
       issueStudentAccessSession(db, student.id, requestId),
     ]);

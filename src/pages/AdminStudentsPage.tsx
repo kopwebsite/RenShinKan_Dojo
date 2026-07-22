@@ -77,9 +77,11 @@ function Status({ value }: { value: string }) {
   return <span className={`admin-status ${tone}`}>{label(value === "none" ? "No current application" : value === "not_applicable" ? "—" : value)}</span>;
 }
 
-function studentRecordStatus(student: Pick<StudentSummary, "profile_status" | "archived_at">) {
+function studentRecordStatus(student: Pick<StudentSummary, "profile_status" | "active" | "archived_at">) {
   if (student.archived_at) return "archived";
   if (student.profile_status === "pending_admin_approval") return "pending";
+  if (student.profile_status === "rejected") return "rejected";
+  if (student.active !== 1) return "inactive";
   return "active";
 }
 
@@ -388,8 +390,8 @@ export function AdminStudentsPage() {
         {selectedArchivedRows.length ? <optgroup label={`Archived records (${selectedArchivedRows.length})`}><option value="restore">Unarchive records</option></optgroup> : null}
       </select></label>
       {selectedActiveRows.length ? <label className="admin-selection-menu"><span>Training & rank actions</span><select value="" onChange={(event) => chooseSelectionAction(event.target.value)}><option value="">Choose student action</option><option value="change_hours">Add training hours</option>{selectedPendingRows.length ? <option value="approve_pending_hours">Approve pending hours ({selectedPendingRows.length})</option> : null}<option value="mass_promotion">Mass promotion</option><option value="mass_exam_pass">Record mass exam pass</option></select></label> : null}
-      {selectedArchivedRows.length ? <button className="btn-secondary is-danger" onClick={() => chooseSelectionAction("delete")}><Trash2 size={15} /> Delete archived records</button> : null}
-      <p className="admin-selection-scope">Actions apply only to eligible selected rows; the confirmation lists the exact students affected.</p><button className="text-link admin-selection-clear" onClick={() => setSelected(new Set())}>Clear selection</button>
+      {selectedArchivedRows.length ? <button className="admin-delete-archived" onClick={() => chooseSelectionAction("delete")} aria-label={`Delete ${selectedArchivedRows.length} selected archived record${selectedArchivedRows.length === 1 ? "" : "s"}`}><Trash2 size={14} /><span>Delete archived</span><b aria-hidden="true">{selectedArchivedRows.length}</b></button> : null}
+      <button className="text-link admin-selection-clear" onClick={() => setSelected(new Set())}>Clear selection</button>
     </aside> : null}
 
     <section className="admin-table-section" aria-busy={loading}><div className="admin-table-meta"><p>{pagination.total} student{pagination.total === 1 ? "" : "s"}{filtersActive ? " · filters active" : ""}</p>{loading ? <span><LoaderCircle className="spin" size={15} /> Loading</span> : null}</div><div className="admin-table-scroll"><table className="admin-student-table admin-student-table--workflow"><thead><tr>

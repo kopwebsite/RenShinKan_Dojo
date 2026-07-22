@@ -19,6 +19,7 @@
 - Payslips accept validated JPEG, PNG, WebP, or PDF content up to 5 MB. R2 keys are generated internally. Files are served with private/no-store headers through student-capability or scoped-admin routes; storage keys are never returned.
 - Payslips are retained as accounting records. The previous 60-day application purge and lifecycle setup script were removed.
 - Turnstile uses explicit rendering, responsive flexible/compact sizing, and interaction-only appearance so successful background checks do not leave a tall widget behind. It reports loading/success/expiry/timeout/error states and resets after each lookup attempt. Siteverify checks the expected action and configured hostname with a network timeout.
+- Student lookup keeps its submit control disabled until Turnstile supplies a usable token, preventing a completed status from appearing beside a stale pre-verification error.
 - The admin bulk bar now separates record-status actions, training/rank actions, and destructive archive maintenance. Selection is page-scoped, keyboard-operable, and exposes checked/unchecked/indeterminate states.
 - Primary and dojo password verifiers support PBKDF2-SHA-256. Legacy primary/dojo HMAC verifiers remain readable only for migration; rotate them. For existing deployments, the encrypted legacy RenShinKan secondary Pages secret remains usable only when the PBKDF2 verifier is absent; the hash is authoritative once configured.
 - Session IDs rotate when dojo context or RenShinKan privilege changes. Logout stores server-side revocation, and protected routes reject revoked sessions.
@@ -43,6 +44,8 @@ Migration `0013` is additive. It:
 - creates session-revocation storage and permission/status indexes.
 
 Migrations `0014` and `0015` add database triggers that prevent an examination application from being denied after payment, marked paid after an immutable denial, or completed after a denial. This closes races between simultaneous application, examination, and payslip reviewers without changing existing business records.
+
+Migration `0016` backfills archive metadata only for inactive, hidden, approved records with an existing immutable `profile_deactivated` or `student_archived` audit event. It does not infer archive state from inactivity alone and does not delete any record.
 
 It does not delete or rewrite student, examination, request, payment, contribution, or payslip history. Recovery is forward-only: restore the D1 backup if the migration itself fails. Rolling application code back does not require dropping the added columns, but old code will not enforce revocation or the new decision claims.
 

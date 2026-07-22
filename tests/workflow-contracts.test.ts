@@ -14,6 +14,7 @@ describe("database safety and audit contracts", () => {
   const requestsMigration = file("migrations/0013_requests_notices_security.sql");
   const examDecisionGuards = file("migrations/0014_exam_decision_guards.sql");
   const examCompletionGuard = file("migrations/0015_exam_completion_guard.sql");
+  const legacyArchiveBackfill = file("migrations/0016_backfill_legacy_archives.sql");
 
   it("uses an additive migration and preserves current records and legacy QR tokens", () => {
     expect(migration).not.toMatch(/\bDROP\s+(TABLE|COLUMN|INDEX)/i);
@@ -59,6 +60,14 @@ describe("database safety and audit contracts", () => {
     expect(examDecisionGuards).toContain("trg_exam_denial_requires_open_application");
     expect(examDecisionGuards).toContain("trg_rejected_exam_cannot_be_marked_paid");
     expect(examCompletionGuard).toContain("trg_denied_exam_cannot_be_completed");
+  });
+
+  it("repairs only audit-proven legacy archives without deleting student history", () => {
+    expect(legacyArchiveBackfill).not.toMatch(/\bDELETE\b|\bDROP\b/i);
+    expect(legacyArchiveBackfill).toContain("action IN ('profile_deactivated', 'student_archived')");
+    expect(legacyArchiveBackfill).toContain("active = 0");
+    expect(legacyArchiveBackfill).toContain("archived_at IS NULL");
+    expect(legacyArchiveBackfill).toContain("AND EXISTS");
   });
 
   it("protects every administrator mutation server-side", () => {
@@ -126,6 +135,8 @@ describe("student workflow contracts", () => {
   it("preserves old QR destinations while adding owner-share links", () => {
     const records = file("functions/_lib/studentRecords.ts"); const lookup = file("functions/api/records/lookup.ts");
     expect(records).toContain("purpose = 'owner'"); expect(records).not.toContain("UPDATE share_tokens SET active = 0"); expect(lookup).toContain("ensureOwnerShareUrl");
+    expect(lookup).toContain("WHERE s.public_student_id = ?");
+    expect(lookup).not.toContain("UPPER(s.public_student_id) = ?");
   });
 
   it("keeps passport payment and request ledgers behind verified owner lookup", () => {
@@ -213,11 +224,16 @@ describe("UI and responsive workflow contracts", () => {
     const admin = file("src/pages/AdminStudentsPage.tsx");
     const bulk = file("functions/api/admin/students/bulk.ts");
     const student = file("functions/api/admin/students/[id].ts");
-    for (const value of ["selectedActiveRows", "selectedPendingProfiles", "selectedArchivedRows", "Only eligible selected records were changed", "Set record status", "Training & rank actions", "Record mass exam pass", "Unarchive", "Deny pending profiles", "Delete archived records"]) expect(admin).toContain(value);
+    const css = file("src/index.css");
+    for (const value of ["selectedActiveRows", "selectedPendingProfiles", "selectedArchivedRows", "Only eligible selected records were changed", "Set record status", "Training & rank actions", "Record mass exam pass", "Unarchive", "Deny pending profiles", "Delete archived"]) expect(admin).toContain(value);
     expect(admin).toContain('const targets = bulk.type === "approve_hours" ? selectedPendingRows : selectedActiveRows');
     expect(admin).toContain('function studentRecordStatus');
+    expect(admin).toContain('student.active !== 1');
     expect(admin).toContain('<Status value={studentRecordStatus(student)} />');
     expect(admin).not.toContain('<Status value={student.profile_status} />');
+    expect(admin).not.toContain("Actions apply only to eligible selected rows; the confirmation lists the exact students affected.");
+    expect(admin).toContain("admin-delete-archived");
+    expect(css).toContain(".admin-delete-archived");
     expect(bulk).toContain('body.action === "mass_rank_change"');
     expect(bulk).toContain('action: "mass_exam_pass"');
     expect(bulk).toContain('student.active !== 1 || student.archived_at || student.profile_status !== "approved"');
@@ -281,6 +297,8 @@ describe("UI and responsive workflow contracts", () => {
     for (const text of ["Find my record", "Create a profile", "Apply for an exam", "/images/promptpay-qr.png", "cannot confirm your payment", "Copy link", "Download QR", "Submit for review"]) expect(page).toContain(text);
     expect(page).toContain("Current dojo");
     expect(page).not.toMatch(/guarantor/i);
+    expect(page).toContain("LOOKUP_VERIFICATION_PENDING");
+    expect(page).toContain("disabled={busy || !token}");
     expect(css).toContain(".record-task-picker { display: grid; grid-template-columns: repeat(3, 1fr)"); expect(css).toContain(".record-task-picker { grid-template-columns: 1fr");
   });
 

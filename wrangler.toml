@@ -8,6 +8,9 @@ SITE_URL = "https://renshinkandojo.org"
 ALLOWED_ORIGIN = "https://renshinkandojo.org"
 VITE_SITE_URL = "https://renshinkandojo.org"
 VITE_TURNSTILE_SITE_KEY = "0x4AAAAAADcmYAchez5JIG6l"
+# Explicit financial configuration consumed by the API and then returned to
+# the contribution UI. No payment amount is embedded in application logic.
+RENSHINKAN_MONTHLY_CONTRIBUTION_AMOUNT = "1800"
 
 [[kv_namespaces]]
 binding = "CONTENT_KV"

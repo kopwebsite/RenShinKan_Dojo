@@ -53,6 +53,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     ];
     if (application) {
       statements.splice(statements.length - 1, 0,
+        db.prepare(`INSERT INTO request_decisions
+          (id, request_type, request_id, decision, reviewer_identifier, student_visible_note, internal_admin_note, decided_at)
+          VALUES (?, 'examination_application', ?, 'approved', ?, '', ?, ?)`)
+          .bind(crypto.randomUUID(), application.id, session.adminName, passed ? `Examination passed: ${rankAfter}` : `Examination attempt recorded: ${attemptedRank}`, now),
         db.prepare("UPDATE examination_applications SET status = 'examination_completed', completed_at = ?, updated_at = ? WHERE id = ?")
           .bind(now, now, application.id),
         db.prepare(`INSERT INTO application_status_history
@@ -66,6 +70,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     return jsonResponse({ ok: true, id: examId, rankAfter, passed }, 201);
   } catch (error) {
     const message = error instanceof Error ? error.message : "The examination could not be recorded.";
-    return jsonResponse({ error: message.includes("UNIQUE") ? "This examination was already recorded." : message }, message.includes("UNIQUE") ? 409 : 400);
+    const conflict = /(?:UNIQUE|request_decisions|cannot be completed)/i.test(message);
+    return jsonResponse({ error: conflict ? "This examination application was already processed." : message }, conflict ? 409 : 400);
   }
 };

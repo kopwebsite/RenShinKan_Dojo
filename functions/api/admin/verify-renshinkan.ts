@@ -12,7 +12,7 @@ import {
 } from "../../_lib/auth";
 import { adminAuditMetadata, auditStatement, requestIdentifier, requireStudentDb, type StudentEnv } from "../../_lib/studentRecords";
 
-type Env = StudentEnv & { SESSION_SECRET?: string; RSK_ADMIN_SECONDARY_PASSWORD?: string };
+type Env = StudentEnv & { SESSION_SECRET?: string; RSK_ADMIN_SECONDARY_PASSWORD_HASH?: string };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);

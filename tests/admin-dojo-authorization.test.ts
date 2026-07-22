@@ -59,7 +59,10 @@ function dojoSession(selectedDojoId: string): AdminSession {
 }
 
 describe("RenShinKan secondary authorization", () => {
-  const env = { SESSION_SECRET: "authorization-test-session-secret", RSK_ADMIN_SECONDARY_PASSWORD: "secondary-test-password" };
+  const env = {
+    SESSION_SECRET: "authorization-test-session-secret",
+    RSK_ADMIN_SECONDARY_PASSWORD_HASH: "pbkdf2-sha256:310000:2JiS-GVbBuG04ri2l-W58xY6:BKx6LWGgnN6px6B6GC_7f6DqSaAfqs2K0pWaZ9Nsiwk",
+  };
 
   it("does not grant any protected context before dojo selection", async () => {
     const cookie = await createSessionCookie(env, centralSession(null));
@@ -95,11 +98,33 @@ describe("RenShinKan secondary authorization", () => {
     expect(canAccessDojo(switched!, "dojo-nu")).toBe(false);
   });
 
+  it("rotates context cookies and rejects the revoked predecessor", async () => {
+    const revoked = new Set<string>();
+    const db = {
+      prepare(query: string) {
+        return {
+          bind(...values: unknown[]) {
+            return {
+              async first<T>() { return (query.includes("revoked_admin_sessions") && revoked.has(String(values[0])) ? { session_id: values[0] } : null) as T | null; },
+              async run() { if (query.includes("INSERT INTO revoked_admin_sessions")) revoked.add(String(values[0])); return { success: true, meta: { changes: 1 } }; },
+            };
+          },
+        };
+      },
+    };
+    const revocationEnv = { ...env, STUDENT_DB: db } as never;
+    const original = await createSessionCookie(revocationEnv, centralSession(null));
+    const rotated = await updateSelectedDojoCookie(revocationEnv, centralSession(null), "dojo-cmu");
+    expect(await getAdminSession(requestWithCookie(original), revocationEnv)).toBeNull();
+    expect(await getAdminSession(requestWithCookie(rotated), revocationEnv)).toMatchObject({ selectedDojoId: "dojo-cmu" });
+  });
+
   it("clears authentication, dojo selection, and verification with the logout cookie", () => {
     expect(clearSessionCookie()).toContain("Max-Age=0");
     expect(clearSessionCookie()).toContain("HttpOnly");
     const logout = file("functions/api/admin/logout.ts");
     expect(logout).toContain("clearSessionCookie");
+    expect(logout).toContain("revokeAdminSession");
     expect(logout).toContain("export const onRequestPost");
   });
 
@@ -110,7 +135,7 @@ describe("RenShinKan secondary authorization", () => {
       .map((path) => readFileSync(path, "utf8"))
       .join("\n");
     expect(sources).not.toContain(forbidden);
-    expect(file("functions/api/admin/verify-renshinkan.ts")).toContain("RSK_ADMIN_SECONDARY_PASSWORD");
+    expect(file("functions/api/admin/verify-renshinkan.ts")).toContain("RSK_ADMIN_SECONDARY_PASSWORD_HASH");
     const accessUi = file("src/components/admin/AdminAccess.tsx");
     expect(accessUi).not.toContain(forbidden);
     expect(accessUi).toContain('name="rsk-secondary-verification"');
@@ -195,8 +220,9 @@ describe("dojo route, record, and interface scoping", () => {
     const env = {
       SESSION_SECRET: "dojo-list-scope-test",
       STUDENT_DB: {
-        prepare: () => ({
+        prepare: (query: string) => ({
           bind: (...bindings: unknown[]) => ({
+            first: async () => query.includes("revoked_admin_sessions") ? null : null,
             all: async () => ({
               success: true,
               results: bindings.includes("dojo-cmu")

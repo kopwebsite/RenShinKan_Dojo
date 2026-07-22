@@ -33,6 +33,15 @@ describe("multi-dojo authentication and authorization", () => {
     expect(file("functions/api/admin/login.ts")).toContain("Your name is required");
   });
 
+  it("accepts a slow PBKDF2 primary password verifier", async () => {
+    const env = {
+      SESSION_SECRET: "independent-session-secret",
+      ADMIN_PASSWORD_HASH: "pbkdf2-sha256:310000:9KVU5Gludst6J9W2eYQjWHmI:XBfKDdpvW9cNQEfij-bdeBHxJsmq9vr5FUAOHhteRyE",
+    };
+    expect(await authenticateAdminPassword("central-pass-test-value", env)).toEqual({ role: "central", allowedDojoIds: [] });
+    expect(await authenticateAdminPassword("wrong-password-value", env)).toBeNull();
+  });
+
   it("leaves the dojo unselected after central login", async () => {
     const secret = "central-login-selection-test";
     const env = { SESSION_SECRET: secret, ADMIN_PASSWORD_HASH: await hmac(secret, "central-pass") };
@@ -73,7 +82,7 @@ describe("multi-dojo authentication and authorization", () => {
   it("returns 403 for direct read and write API attempts against another dojo", async () => {
     const authEnv = { SESSION_SECRET: "direct-api-scope-secret" };
     const cookie = await createSessionCookie(authEnv, { adminName: "CMU Admin", role: "dojo", allowedDojoIds: ["dojo-cmu"], selectedDojoId: "dojo-cmu" });
-    const db = { prepare: () => ({ bind: () => ({ first: async () => ({ id: "nu-student", dojo_id: "dojo-nu" }) }) }) };
+    const db = { prepare: (query: string) => ({ bind: () => ({ first: async () => query.includes("revoked_admin_sessions") ? null : ({ id: "nu-student", dojo_id: "dojo-nu" }) }) }) };
     const env = { ...authEnv, STUDENT_DB: db } as never;
     const getResponse = await getStudent({ request: new Request("https://example.test/api/admin/students/nu-student", { headers: { Cookie: cookie.split(";")[0] } }), env, params: { id: "nu-student" } } as never);
     expect(getResponse.status).toBe(403); expect(await getResponse.json()).toMatchObject({ error: expect.stringContaining("not have access") });
@@ -124,7 +133,8 @@ describe("multi-dojo data model and workflows", () => {
   it("keeps AAT payments immutable and monthly contributions RenShinKan-only", () => {
     const memberships = file("functions/api/admin/memberships.ts"); const publicContribution = file("functions/api/contributions.ts"); const adminContribution = file("functions/api/admin/contributions.ts"); const profileApproval = file("functions/api/admin/students/[id]/profile-status.ts");
     expect(memberships).toContain("INSERT INTO aat_membership_payments"); expect(memberships).toContain("INSERT INTO payment_history");
-    expect(publicContribution).toContain('contributionType === "renshinkan_monthly" ? "dojo-rsk"');
+    expect(publicContribution).toContain('contributionType === "renshinkan_monthly" ? DEFAULT_DOJO_ID');
+    expect(publicContribution).toContain("configuredMonthlyContributionAmount");
     expect(publicContribution).toContain("s.dojo_id = ?"); expect(adminContribution).toContain("requiresCentralAdmin");
     expect(adminContribution).toContain("JOIN students s ON s.id = r.student_id AND s.dojo_id = 'dojo-rsk'");
     expect(adminContribution).toContain("c.student_id = r.student_id AND c.month_key = r.month_key");

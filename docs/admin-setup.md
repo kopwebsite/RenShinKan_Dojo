@@ -16,18 +16,23 @@ This site uses Cloudflare Pages for hosting, Pages Functions for the admin API, 
 - Public `VITE_BREVO_SIGNUP_FORM_URL` if the signup form should appear.
 - Cloudflare Turnstile widget site key and matching secret key for the public
   `/support` contribution form.
+- Current whole-THB `RENSHINKAN_MONTHLY_CONTRIBUTION_AMOUNT`; this is non-secret financial configuration, not application code.
 
 ## Admin Password Hash
 
-The Functions use an HMAC-SHA-256 hash of the admin password with `SESSION_SECRET`. Generate `SESSION_SECRET` first, then generate the hash locally:
+Admin credentials use PBKDF2-SHA-256 with a per-password random salt and 310,000 iterations. Read a password securely and pass it to the local hash helper without putting the plaintext in shell history:
 
-```bash
-SESSION_SECRET="PLACEHOLDER_LONG_RANDOM_SECRET" ADMIN_PASSWORD="PLACEHOLDER_ADMIN_PASSWORD" node -e "const crypto=require('node:crypto'); console.log(crypto.createHmac('sha256', process.env.SESSION_SECRET).update(process.env.ADMIN_PASSWORD).digest('hex'))"
+```powershell
+$securePassword = Read-Host "Password" -AsSecureString
+$plainPassword = [Net.NetworkCredential]::new("", $securePassword).Password
+$passwordHash = $plainPassword | node scripts/hash-password.mjs
+Remove-Variable plainPassword
+$passwordHash
 ```
 
 Put the printed value into `ADMIN_PASSWORD_HASH`. Do not store the plaintext admin password in Cloudflare, GitHub, or frontend code.
 
-For individual dojo administrators, generate one hash per password using the same command and store a JSON map in the `DOJO_ADMIN_PASSWORD_HASHES` Pages secret. Supported IDs are `dojo-ai`, `dojo-cmu`, `dojo-rsk`, `dojo-nu`, `dojo-all-gym`, and `dojo-mhs`. For example:
+Generate a separate verifier for the RenShinKan secondary password and store it as `RSK_ADMIN_SECONDARY_PASSWORD_HASH`. Generate one verifier per individual dojo administrator and store the JSON map in `DOJO_ADMIN_PASSWORD_HASHES`. Supported IDs are `dojo-ai`, `dojo-cmu`, `dojo-rsk`, `dojo-nu`, `dojo-all-gym`, and `dojo-mhs`. For example:
 
 ```json
 {"dojo-cmu":"HASH_ONLY_NOT_THE_PASSWORD","dojo-nu":"HASH_ONLY_NOT_THE_PASSWORD"}
@@ -61,6 +66,7 @@ Add these secrets:
 npx wrangler pages secret put ADMIN_PASSWORD_HASH --project-name renshinkan-dojo
 npx wrangler pages secret put DOJO_ADMIN_PASSWORD_HASHES --project-name renshinkan-dojo
 npx wrangler pages secret put SESSION_SECRET --project-name renshinkan-dojo
+npx wrangler pages secret put RSK_ADMIN_SECONDARY_PASSWORD_HASH --project-name renshinkan-dojo
 npx wrangler pages secret put TURNSTILE_SECRET_KEY --project-name renshinkan-dojo
 npx wrangler pages secret put BREVO_API_KEY --project-name renshinkan-dojo
 ```
@@ -75,13 +81,14 @@ SITE_URL = "https://YOUR_DOMAIN"
 ALLOWED_ORIGIN = "https://YOUR_DOMAIN"
 VITE_SITE_URL = "https://YOUR_DOMAIN"
 VITE_TURNSTILE_SITE_KEY = "PLACEHOLDER_CLOUDFLARE_TURNSTILE_SITE_KEY"
+RENSHINKAN_MONTHLY_CONTRIBUTION_AMOUNT = "PLACEHOLDER_WHOLE_THB_AMOUNT"
 BREVO_LIST_ID = "PLACEHOLDER_BREVO_LIST_ID"
 BREVO_SENDER_EMAIL = "PLACEHOLDER_VERIFIED_SENDER_EMAIL"
 BREVO_SENDER_NAME = "RenShinKan Dojo"
 VITE_BREVO_SIGNUP_FORM_URL = "PLACEHOLDER_BREVO_SIGNUP_FORM_URL"
 ```
 
-Only the `VITE_*` values are exposed to browser JavaScript. Keep `ADMIN_PASSWORD_HASH`, `DOJO_ADMIN_PASSWORD_HASHES`, `SESSION_SECRET`, `TURNSTILE_SECRET_KEY`, and `BREVO_API_KEY` as secrets managed in the Cloudflare dashboard.
+Only the `VITE_*` values are exposed to browser JavaScript. Keep `ADMIN_PASSWORD_HASH`, `DOJO_ADMIN_PASSWORD_HASHES`, `RSK_ADMIN_SECONDARY_PASSWORD_HASH`, `SESSION_SECRET`, `TURNSTILE_SECRET_KEY`, and `BREVO_API_KEY` as secrets managed in the Cloudflare dashboard.
 
 Apply checked-in D1 migrations before deploying application code that depends on
 them:
@@ -165,7 +172,7 @@ npm run build
 npx wrangler pages dev dist
 ```
 
-Use local env values for `ADMIN_PASSWORD_HASH`, `SESSION_SECRET`, `SITE_URL`, and optional Brevo settings.
+Use local env values for `ADMIN_PASSWORD_HASH`, `DOJO_ADMIN_PASSWORD_HASHES`, `RSK_ADMIN_SECONDARY_PASSWORD_HASH`, `SESSION_SECRET`, `SITE_URL`, and optional Brevo settings.
 
 ## Post-Deploy Tests
 

@@ -60,7 +60,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!dojo) return jsonResponse({ error: "Choose the dojo where the student currently trains." }, 400);
     if (!practiceDuration || practiceDuration.length > 160) return jsonResponse({ error: "Tell us how long the student has practiced aikido." }, 400);
     if (profileBio.length > 2000) return jsonResponse({ error: "Additional profile information must be 2,000 characters or fewer." }, 400);
-    if (!(await verifyTurnstile(request, env, turnstileToken))) return jsonResponse({ error: "Cloudflare verification failed. Please try again." }, 400);
+    if (!(await verifyTurnstile(request, env, turnstileToken, "student-records"))) return jsonResponse({ error: "Cloudflare verification failed. Please try again." }, 400);
     const rank = normalizedRankOrError(payload.currentRank);
     const studentId = await nextStudentId(db, dojo.id);
     const studentUuid = crypto.randomUUID();

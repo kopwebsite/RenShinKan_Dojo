@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { RANKS, normalizeRank, promoteRank, rankIndex } from "../shared/ranks";
 import {
   allowAdminLoginAttempt,
@@ -8,7 +8,9 @@ import {
   isSameOriginRequest,
   recordFailedAdminLoginAttempt,
 } from "../functions/_lib/auth";
-import { currentBangkokMonthKey, isMonthKey, namesLikelyMatch, normalizeInternationalPhone, recentMonthKeys } from "../functions/_lib/studentRecords";
+import { currentBangkokMonthKey, isMonthKey, namesLikelyMatch, normalizeInternationalPhone, recentMonthKeys, verifyTurnstile } from "../functions/_lib/studentRecords";
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("official rank progression", () => {
   it("normalizes every supported rank through one ordered definition", () => {
@@ -72,6 +74,26 @@ describe("student and administrator security", () => {
     expect(isSameOriginRequest(new Request("https://example.test/api", { headers: { Origin: "https://attacker.test" } }))).toBe(false);
     expect(isSameOriginRequest(new Request("https://example.test/api", { headers: { Referer: "https://example.test/admin" } }))).toBe(true);
     expect(isSameOriginRequest(new Request("https://example.test/api", { headers: { "Sec-Fetch-Site": "cross-site" } }))).toBe(false);
+  });
+
+  it("validates Turnstile success, action, hostname, expiration, and replay responses", async () => {
+    const responses = [
+      { success: true, action: "student-records", hostname: "renshinkandojo.org" },
+      { success: true, action: "other-action", hostname: "renshinkandojo.org" },
+      { success: true, action: "student-records", hostname: "attacker.example" },
+      { success: false, "error-codes": ["timeout-or-duplicate"] },
+    ];
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(responses.shift()), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const request = new Request("https://renshinkandojo.org/api/records/lookup", { headers: { "CF-Connecting-IP": "203.0.113.9" } });
+    const env = { TURNSTILE_SECRET_KEY: "test-secret", SITE_URL: "https://renshinkandojo.org" };
+    expect(await verifyTurnstile(request, env, "valid-token", "student-records")).toBe(true);
+    expect(await verifyTurnstile(request, env, "wrong-action-token", "student-records")).toBe(false);
+    expect(await verifyTurnstile(request, env, "wrong-host-token", "student-records")).toBe(false);
+    expect(await verifyTurnstile(request, env, "expired-or-replayed-token", "student-records")).toBe(false);
+    const submitted = fetchMock.mock.calls[0][1]?.body as URLSearchParams;
+    expect(submitted.get("remoteip")).toBe("203.0.113.9");
+    expect(submitted.get("idempotency_key")).toMatch(/^[a-f0-9-]{36}$/i);
   });
 
   it("rate-limits failed admin passwords without consuming successful attempts", async () => {

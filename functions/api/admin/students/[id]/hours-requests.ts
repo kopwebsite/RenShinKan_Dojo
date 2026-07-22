@@ -9,11 +9,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const operationRequestId = requestIdentifier(request);
   try {
-    const body = await request.json<{ hourRequestId?: unknown; action?: unknown; note?: unknown }>();
+    const body = await request.json<{ hourRequestId?: unknown; action?: unknown; studentVisibleNote?: unknown; internalNote?: unknown }>();
     const hourRequestId = typeof body.hourRequestId === "string" ? body.hourRequestId : "";
     const action = body.action === "approve" || body.action === "reject" ? body.action : "";
-    const note = typeof body.note === "string" ? body.note.trim().slice(0, 1000) : "";
+    const studentVisibleNote = typeof body.studentVisibleNote === "string" ? body.studentVisibleNote.trim().slice(0, 1000) : "";
+    const internalNote = typeof body.internalNote === "string" ? body.internalNote.trim().slice(0, 1000) : "";
     if (!hourRequestId || !action) return jsonResponse({ error: "Choose a pending request and review action." }, 400);
+    if (action === "reject" && !studentVisibleNote) return jsonResponse({ error: "Add a short explanation that the student can see." }, 400);
     const db = requireStudentDb(env);
     const studentId = String(params.id);
     const access = await assertStudentAccess(db, session, studentId);
@@ -35,25 +37,31 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
         db.prepare(`INSERT INTO training_hours
           (id, student_id, entry_date, verified_hours, source, internal_note, created_at, hour_request_id)
           VALUES (?, ?, ?, ?, 'student_self_service_approved', ?, ?, ?)`)
-          .bind(hourId, studentId, now.slice(0, 10), pending.submitted_hours, note || null, now, pending.id),
+          .bind(hourId, studentId, now.slice(0, 10), pending.submitted_hours, internalNote || null, now, pending.id),
         db.prepare("UPDATE students SET updated_at = ? WHERE id = ?").bind(now, studentId),
       );
     }
     statements.push(
-      db.prepare("UPDATE training_hour_requests SET status = ?, reviewed_at = ?, reviewed_by = ?, review_note = ? WHERE id = ?")
-        .bind(action === "approve" ? "approved" : "rejected", now, session.adminName, note || null, hourRequestId),
+      db.prepare(`INSERT INTO request_decisions
+        (id, request_type, request_id, decision, reviewer_identifier, student_visible_note, internal_admin_note, decided_at)
+        VALUES (?, 'training_hours', ?, ?, ?, ?, ?, ?)`)
+        .bind(crypto.randomUUID(), hourRequestId, action === "approve" ? "approved" : "denied", session.adminName, studentVisibleNote, internalNote, now),
+      db.prepare(`UPDATE training_hour_requests SET status = ?, reviewed_at = ?, reviewed_by = ?, review_note = ?,
+        student_visible_note = ?, internal_admin_note = ? WHERE id = ? AND status = 'pending'`)
+        .bind(action === "approve" ? "approved" : "rejected", now, session.adminName, internalNote || null, studentVisibleNote, internalNote, hourRequestId),
       auditStatement(db, {
         actorType: "administrator", ...adminAuditMetadata(session, request), action: action === "approve" ? "student_hours_approved" : "student_hours_rejected",
         entityType: "training_hour_request", entityId: hourRequestId, studentId,
         previousValues: { status: "pending", submittedHours: pending.submitted_hours, previousTotal: pending.previous_total, requestedTotal: pending.requested_total },
-        newValues: { status: action === "approve" ? "approved" : "rejected", resultingTotal }, source: "admin_student_hours_review",
-        requestId: operationRequestId, administratorNote: note || null,
+        newValues: { status: action === "approve" ? "approved" : "rejected", resultingTotal, studentVisibleNote }, source: "admin_student_hours_review",
+        requestId: operationRequestId, administratorNote: internalNote || null,
         summary: `${action === "approve" ? "Approved" : "Rejected"} ${pending.submitted_hours} student-submitted training hours`, createdAt: now,
       }),
     );
     await db.batch(statements);
     return jsonResponse({ ok: true, status: action === "approve" ? "approved" : "rejected", resultingTotal });
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : "The hours request could not be reviewed." }, 400);
+    const conflict = error instanceof Error && /(?:UNIQUE constraint|request_decisions)/i.test(error.message);
+    return jsonResponse({ error: conflict ? "Another administrator has already reviewed this training-hour request." : error instanceof Error ? error.message : "The hours request could not be reviewed." }, conflict ? 409 : 400);
   }
 };

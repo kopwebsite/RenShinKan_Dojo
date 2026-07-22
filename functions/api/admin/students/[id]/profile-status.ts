@@ -22,11 +22,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
   const requestId = requestIdentifier(request);
   let approvedKey = "";
   try {
-    const body = await request.json<{ action?: unknown; note?: unknown }>();
+    const body = await request.json<{ action?: unknown; studentVisibleNote?: unknown; internalNote?: unknown }>();
     const action = body.action === "approve" || body.action === "reject" ? body.action : "";
-    const note = typeof body.note === "string" ? body.note.trim().slice(0, 2000) : "";
+    const studentVisibleNote = typeof body.studentVisibleNote === "string" ? body.studentVisibleNote.trim().slice(0, 2000) : "";
+    const internalNote = typeof body.internalNote === "string" ? body.internalNote.trim().slice(0, 2000) : "";
     if (!action) return jsonResponse({ error: "Choose approve or reject." }, 400);
-    if (action === "reject" && !note) return jsonResponse({ error: "Add a short note explaining the rejection." }, 400);
+    if (action === "reject" && !studentVisibleNote) return jsonResponse({ error: "Add a short explanation that the student can see." }, 400);
     const db = requireStudentDb(env);
     const id = String(params.id);
     const access = await assertStudentAccess(db, session, id);
@@ -39,13 +40,19 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
 
     if (action === "reject") {
       await db.batch([
-        db.prepare("UPDATE students SET profile_status = 'rejected', active = 0, public_visible = 0, profile_review_note = ?, profile_reviewed_at = ?, profile_reviewed_by = ?, updated_at = ? WHERE id = ?")
-          .bind(note, now, session.adminName, now, id),
+        db.prepare(`INSERT INTO request_decisions
+          (id, request_type, request_id, decision, reviewer_identifier, student_visible_note, internal_admin_note, decided_at)
+          VALUES (?, 'profile_information', ?, 'denied', ?, ?, ?, ?)`)
+          .bind(crypto.randomUUID(), id, session.adminName, studentVisibleNote, internalNote, now),
+        db.prepare(`UPDATE students SET profile_status = 'rejected', active = 0, public_visible = 0,
+          profile_review_note = ?, profile_student_visible_note = ?, profile_internal_note = ?,
+          profile_reviewed_at = ?, profile_reviewed_by = ?, updated_at = ? WHERE id = ? AND profile_status = 'pending_admin_approval'`)
+          .bind(internalNote, studentVisibleNote, internalNote, now, session.adminName, now, id),
         auditStatement(db, {
           actorType: "administrator", ...adminAuditMetadata(session, request), action: "profile_rejected", entityType: "student", entityId: id, studentId: id,
           studentPublicId: existing.public_student_id, studentNameSnapshot: existing.display_name,
-          previousValues: { profileStatus: existing.profile_status }, newValues: { profileStatus: "rejected" }, source: "admin_profile_review", requestId,
-          administratorNote: note, summary: `Rejected profile request ${existing.public_student_id}`, createdAt: now,
+          previousValues: { profileStatus: existing.profile_status }, newValues: { profileStatus: "rejected", studentVisibleNote }, source: "admin_profile_review", requestId,
+          administratorNote: internalNote || null, summary: `Rejected profile request ${existing.public_student_id}`, createdAt: now,
         }),
       ]);
       return jsonResponse({ ok: true, status: "rejected" });
@@ -70,10 +77,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     const contributionPeriod = await db.prepare("SELECT month_key FROM contribution_periods WHERE month_key = ? LIMIT 1")
       .bind(currentMonth).first<{ month_key: string }>();
     await db.batch([
+      db.prepare(`INSERT INTO request_decisions
+        (id, request_type, request_id, decision, reviewer_identifier, student_visible_note, internal_admin_note, decided_at)
+        VALUES (?, 'profile_information', ?, 'approved', ?, ?, ?, ?)`)
+        .bind(crypto.randomUUID(), id, session.adminName, studentVisibleNote, internalNote, now),
       db.prepare(`UPDATE students SET profile_status = 'approved', active = 1, public_visible = 1,
-        profile_image_url = ?, pending_profile_image_key = NULL, profile_review_note = ?, profile_reviewed_at = ?,
-        profile_reviewed_by = ?, updated_at = ? WHERE id = ?`)
-        .bind(approvedImageUrl, note, now, session.adminName, now, id),
+        profile_image_url = ?, pending_profile_image_key = NULL, profile_review_note = ?,
+        profile_student_visible_note = ?, profile_internal_note = ?, profile_reviewed_at = ?,
+        profile_reviewed_by = ?, updated_at = ? WHERE id = ? AND profile_status = 'pending_admin_approval'`)
+        .bind(approvedImageUrl, internalNote, studentVisibleNote, internalNote, now, session.adminName, now, id),
       db.prepare("INSERT INTO share_tokens (id, token_hash, student_id, active, created_at, token_ciphertext, purpose) VALUES (?, ?, ?, 1, ?, ?, 'owner')")
         .bind(crypto.randomUUID(), await sha256Hex(token), id, now, await encryptCapabilityToken(env, token)),
       ...(cycle ? [db.prepare(`INSERT OR IGNORE INTO exam_cycle_student_status (
@@ -97,8 +109,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
         actorType: "administrator", ...adminAuditMetadata(session, request), action: "profile_approved", entityType: "student", entityId: id, studentId: id,
         studentPublicId: existing.public_student_id, studentNameSnapshot: existing.display_name,
         previousValues: { profileStatus: existing.profile_status, active: false, publicVisible: false },
-        newValues: { profileStatus: "approved", active: true, publicVisible: true, profileImageUrl: approvedImageUrl },
-        source: "admin_profile_review", requestId, administratorNote: note || null,
+        newValues: { profileStatus: "approved", active: true, publicVisible: true, profileImageUrl: approvedImageUrl, studentVisibleNote },
+        source: "admin_profile_review", requestId, administratorNote: internalNote || null,
         summary: `Approved profile request ${existing.public_student_id}`, createdAt: now,
       }),
       auditStatement(db, {
@@ -113,6 +125,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     return jsonResponse({ ok: true, status: "approved" });
   } catch (error) {
     if (approvedKey && env.MEDIA_BUCKET) await env.MEDIA_BUCKET.delete(approvedKey).catch(() => undefined);
-    return jsonResponse({ error: error instanceof Error ? error.message : "The profile could not be reviewed." }, 400);
+    const conflict = error instanceof Error && /(?:UNIQUE constraint|request_decisions)/i.test(error.message);
+    return jsonResponse({ error: conflict ? "Another administrator has already reviewed this profile request." : error instanceof Error ? error.message : "The profile could not be reviewed." }, conflict ? 409 : 400);
   }
 };

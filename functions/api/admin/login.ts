@@ -1,6 +1,19 @@
 import { allowAdminLoginAttempt, authenticateAdminPassword, clearAdminLoginAttempts, createSessionCookie, isSameOriginRequest, jsonResponse, recordFailedAdminLoginAttempt } from "../../_lib/auth";
-import type { D1Database } from "../../_lib/studentRecords";
+import { auditStatement, requestIdentifier, type D1Database } from "../../_lib/studentRecords";
 type Env = { ADMIN_PASSWORD_HASH?: string; DOJO_ADMIN_PASSWORD_HASHES?: string; SESSION_SECRET?: string; STUDENT_DB?: D1Database };
+
+async function auditLoginFailure(request: Request, env: Env, adminName: string, summary: string) {
+  if (!env.STUDENT_DB) return;
+  const requestId = requestIdentifier(request);
+  await auditStatement(env.STUDENT_DB, {
+    actorType: "system", actorIdentifier: "unauthenticated_admin_login", action: "admin_login_failed",
+    entityType: "admin_session", entityId: requestId, source: "admin_login", requestId,
+    administratorName: adminName || null, outcome: "failure", summary,
+    ipAddress: request.headers.get("CF-Connecting-IP"), countryCode: request.headers.get("CF-IPCountry"),
+    userAgent: (request.headers.get("User-Agent") || "").slice(0, 500),
+  }).run();
+}
+
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ ok: false, error: "Forbidden" }, 403);
   try {
@@ -10,10 +23,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       : "";
     if (!adminName || adminName.length > 120) return jsonResponse({ ok: false, error: "Your name is required and must be 120 characters or fewer." }, 400);
     if (typeof body.password !== "string") return jsonResponse({ ok: false, error: "Password is required" }, 400);
-    if (!(await allowAdminLoginAttempt(request, env))) return jsonResponse({ ok: false, error: "Too many sign-in attempts. Try again in 15 minutes." }, 429);
+    if (!(await allowAdminLoginAttempt(request, env))) {
+      await auditLoginFailure(request, env, adminName, "Blocked an administrator sign-in while the source was rate limited");
+      return jsonResponse({ ok: false, error: "Too many sign-in attempts. Try again in 15 minutes." }, 429);
+    }
     const access = await authenticateAdminPassword(body.password, env);
     if (!access) {
       const mayRetry = await recordFailedAdminLoginAttempt(request, env);
+      await auditLoginFailure(request, env, adminName, "Administrator sign-in failed because the credential was invalid");
       return jsonResponse({ ok: false, error: mayRetry ? "Invalid password" : "Too many sign-in attempts. Try again in 15 minutes." }, mayRetry ? 401 : 429);
     }
     await clearAdminLoginAttempts(request, env);

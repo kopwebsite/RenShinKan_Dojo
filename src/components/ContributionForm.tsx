@@ -5,7 +5,6 @@ import { PaymentProofUpload, type PaymentProofAccess } from "./PaymentProofUploa
 import { TurnstileWidget } from "./TurnstileWidget";
 
 const PROMPTPAY_QR_IMAGE = "/images/promptpay-qr.png";
-const MONTHLY_CONTRIBUTION_AMOUNT = 1800;
 const MAX_MONTHLY_STUDENTS = 10;
 
 type Dojo = { id: string; official_name: string; short_name: string; code: string };
@@ -24,6 +23,7 @@ type SubmissionResult = {
   totalAmount?: number;
 } & PaymentProofAccess;
 type ContributionStudent = { key: string; studentId: string; studentName: string };
+type ContributionConfiguration = { monthlyContribution?: { amount?: number | null; currency?: string; available?: boolean } };
 
 function emptyContributionStudent(): ContributionStudent {
   return { key: crypto.randomUUID(), studentId: "", studentName: "" };
@@ -85,6 +85,8 @@ export function ContributionForm() {
   const [monthlyStudents, setMonthlyStudents] = useState<ContributionStudent[]>(() => [emptyContributionStudent()]);
   const [contributionType, setContributionType] = useState<"aat_annual" | "renshinkan_monthly">("renshinkan_monthly");
   const [dojos, setDojos] = useState<Dojo[]>([]);
+  const [monthlyContributionAmount, setMonthlyContributionAmount] = useState<number | null>(null);
+  const [configurationLoaded, setConfigurationLoaded] = useState(false);
   const [dojoId, setDojoId] = useState("");
   const [month] = useState(currentBangkokMonth);
   const [turnstileToken, setTurnstileToken] = useState("");
@@ -94,7 +96,7 @@ export function ContributionForm() {
   const [busy, setBusy] = useState(false);
   const onToken = useCallback((value: string) => setTurnstileToken(value), []);
   const selectedDojo = dojos.find((dojo) => dojo.id === dojoId);
-  const monthlyTotal = monthlyStudents.length * MONTHLY_CONTRIBUTION_AMOUNT;
+  const monthlyTotal = monthlyContributionAmount === null ? null : monthlyStudents.length * monthlyContributionAmount;
 
   function updateMonthlyStudent(key: string, field: "studentId" | "studentName", value: string) {
     setMonthlyStudents((students) => students.map((student) => student.key === key
@@ -109,6 +111,12 @@ export function ContributionForm() {
       const body = await response.json() as { dojos?: Dojo[] };
       if (active) setDojos(body.dojos || []);
     }).catch(() => { if (active) setDojos([]); });
+    fetch("/api/contributions", { cache: "no-store" }).then(async (response) => {
+      if (!response.ok) throw new Error("The contribution configuration is unavailable.");
+      const body = await response.json() as ContributionConfiguration;
+      const amount = body.monthlyContribution?.amount;
+      if (active) setMonthlyContributionAmount(typeof amount === "number" && Number.isSafeInteger(amount) && amount > 0 ? amount : null);
+    }).catch(() => { if (active) setMonthlyContributionAmount(null); }).finally(() => { if (active) setConfigurationLoaded(true); });
     return () => { active = false; };
   }, []);
 
@@ -116,6 +124,10 @@ export function ContributionForm() {
     event.preventDefault();
     setError("");
     const monthlyDetailsComplete = monthlyStudents.every((student) => student.studentId.trim() && student.studentName.trim());
+    if (contributionType === "renshinkan_monthly" && monthlyContributionAmount === null) {
+      setError("The monthly contribution amount is not configured. Please ask a sensei for help.");
+      return;
+    }
     if (!turnstileToken || (contributionType === "aat_annual" && (!studentId.trim() || !studentName.trim() || !dojoId)) || (contributionType === "renshinkan_monthly" && !monthlyDetailsComplete)) {
       setError("Choose the contribution and dojo, enter the student details, then complete Cloudflare verification.");
       return;
@@ -147,14 +159,16 @@ export function ContributionForm() {
 
   if (result) {
     const isAat = result.contributionType === "aat_annual";
+    const confirmedUnitAmount = typeof result.unitAmount === "number" ? result.unitAmount : null;
+    const confirmedTotalAmount = typeof result.totalAmount === "number" ? result.totalAmount : null;
     return <article className="surface contribution-confirmation" aria-live="polite">
       <header className="contribution-confirmation__header">
         <div className="contribution-confirmation__mark"><CheckCircle2 aria-hidden="true" /></div>
         <div><p className="eyebrow">{isAat ? "AAT annual fee" : "RenShinKan monthly dues"} · {result.dojoName}</p><h3>Complete payment with PromptPay</h3><p>Your payment request is ready. It will remain <strong>awaiting confirmation</strong> until the dojo reviews your uploaded payslip.</p></div>
       </header>
       {!isAat ? <section className="contribution-payment-total contribution-payment-total--confirmed" aria-label="Monthly contribution total">
-        <div><span>Monthly contribution</span><strong>{baht(result.unitAmount || MONTHLY_CONTRIBUTION_AMOUNT)} × {result.studentCount || 1} student{(result.studentCount || 1) === 1 ? "" : "s"}</strong></div>
-        <div><span>Pay this amount</span><strong>{baht(result.totalAmount || MONTHLY_CONTRIBUTION_AMOUNT)}</strong></div>
+        <div><span>Monthly contribution</span><strong>{confirmedUnitAmount === null ? "Amount unavailable" : baht(confirmedUnitAmount)} × {result.studentCount || 1} student{(result.studentCount || 1) === 1 ? "" : "s"}</strong></div>
+        <div><span>Pay this amount</span><strong>{confirmedTotalAmount === null ? "Ask a sensei" : baht(confirmedTotalAmount)}</strong></div>
         {result.coveredStudents?.length ? <ul>{result.coveredStudents.map((covered) => <li key={covered.contributionId}><CheckCircle2 size={15} /> {covered.studentName} <code>{covered.studentId}</code></li>)}</ul> : null}
       </section> : null}
       {isAat || (result.studentCount || 1) === 1 ? <PaymentReminder reminder={result.reminder} month={result.month} /> : null}
@@ -162,7 +176,7 @@ export function ContributionForm() {
         <figure className="contribution-qr-frame"><span>Scan to continue</span><img src={assetPath(PROMPTPAY_QR_IMAGE)} alt="PromptPay QR code for RenShinKan Dojo" width={720} height={720} /><figcaption>PromptPay · RenShinKan Dojo</figcaption></figure>
         <section className="contribution-next-steps">
           <p className="eyebrow">Three simple steps</p><h4><QrCode size={20} /> What to do next</h4>
-          <ol><li><span>01</span><p>Scan the PromptPay QR and pay {isAat ? "the annual fee shown by the dojo" : baht(result.totalAmount || MONTHLY_CONTRIBUTION_AMOUNT)}.</p></li><li><span>02</span><p>Upload the payslip below. One image covers this payment.</p></li><li><span>03</span><p>A sensei will confirm {isAat ? "the payment" : `all ${result.studentCount || 1} student record${(result.studentCount || 1) === 1 ? "" : "s"}`} after checking it.</p></li></ol>
+          <ol><li><span>01</span><p>Scan the PromptPay QR and pay {isAat ? "the annual fee shown by the dojo" : confirmedTotalAmount === null ? "the amount confirmed by a sensei" : baht(confirmedTotalAmount)}.</p></li><li><span>02</span><p>Upload the payslip below. One image covers this payment.</p></li><li><span>03</span><p>A sensei will confirm {isAat ? "the payment" : `all ${result.studentCount || 1} student record${(result.studentCount || 1) === 1 ? "" : "s"}`} after checking it.</p></li></ol>
           <p className="contribution-confirmation__safety"><ShieldCheck size={17} /> Displaying the QR never marks a payment as complete.</p>
         </section>
       </div>
@@ -174,13 +188,13 @@ export function ContributionForm() {
   return <article className="surface contribution-database-form">
     <header className="contribution-form__header">
       <div className="contribution-form__seal"><HandCoins size={26} aria-hidden="true" /></div>
-      <div><p className="eyebrow">Shared contribution desk</p><h3>Support your practice</h3><p>This is a place for RenShinKan students to pay their <strong>฿1,800 monthly contribution</strong>, or for students from any participating dojo to pay their AAT annual fee.</p></div>
+      <div><p className="eyebrow">Shared contribution desk</p><h3>Support your practice</h3><p>This is a place for RenShinKan students to submit their {monthlyContributionAmount === null ? "monthly contribution" : <strong>{baht(monthlyContributionAmount)} monthly contribution</strong>}, or for students from any participating dojo to pay their AAT annual fee.</p></div>
     </header>
     <form onSubmit={submit} className="contribution-database-form__fields" noValidate>
       <fieldset className="contribution-kind">
         <legend>What would you like to pay?</legend>
         <div>
-          <label className={contributionType === "renshinkan_monthly" ? "is-selected" : ""}><input className="sr-only" type="radio" name="contributionType" value="renshinkan_monthly" checked={contributionType === "renshinkan_monthly"} onChange={() => setContributionType("renshinkan_monthly")} /><HandCoins /><span><strong>Monthly dojo contribution</strong><small>฿1,800 per RenShinKan student</small></span></label>
+          <label className={contributionType === "renshinkan_monthly" ? "is-selected" : ""}><input className="sr-only" type="radio" name="contributionType" value="renshinkan_monthly" checked={contributionType === "renshinkan_monthly"} disabled={configurationLoaded && monthlyContributionAmount === null} onChange={() => setContributionType("renshinkan_monthly")} /><HandCoins /><span><strong>Monthly dojo contribution</strong><small>{!configurationLoaded ? "Loading current amount…" : monthlyContributionAmount === null ? "Temporarily unavailable" : `${baht(monthlyContributionAmount)} per RenShinKan student`}</small></span></label>
           <label className={contributionType === "aat_annual" ? "is-selected" : ""}><input className="sr-only" type="radio" name="contributionType" value="aat_annual" checked={contributionType === "aat_annual"} onChange={() => setContributionType("aat_annual")} /><ReceiptText /><span><strong>AAT annual fee</strong><small>For every participating dojo</small></span></label>
         </div>
       </fieldset>
@@ -201,8 +215,8 @@ export function ContributionForm() {
             </div>)}</div>
           </section>
           <section className="contribution-payment-total contribution-field--wide" aria-live="polite" aria-label="Calculated monthly contribution total">
-            <div><span>Monthly contribution</span><strong>{baht(MONTHLY_CONTRIBUTION_AMOUNT)} × {monthlyStudents.length} student{monthlyStudents.length === 1 ? "" : "s"}</strong></div>
-            <div><span>Total to pay</span><strong>{baht(monthlyTotal)}</strong></div>
+            <div><span>Monthly contribution</span><strong>{monthlyContributionAmount === null ? "Amount unavailable" : baht(monthlyContributionAmount)} × {monthlyStudents.length} student{monthlyStudents.length === 1 ? "" : "s"}</strong></div>
+            <div><span>Total to pay</span><strong>{monthlyTotal === null ? "Ask a sensei" : baht(monthlyTotal)}</strong></div>
             <p>Use one PromptPay payment and upload one payslip for everyone listed above.</p>
           </section>
         </>}
@@ -210,7 +224,7 @@ export function ContributionForm() {
       </div>
       <div className="contribution-verification"><TurnstileWidget onToken={onToken} resetSignal={turnstileReset} /></div>
       {error ? <p className="form-error" role="alert">{error}</p> : null}
-      <button className="btn-primary contribution-submit" disabled={busy}>{busy ? <LoaderCircle className="spin" size={17} /> : <QrCode size={17} />}{busy ? "Preparing your QR…" : "Continue to PromptPay QR"}</button>
+      <button className="btn-primary contribution-submit" disabled={busy || (contributionType === "renshinkan_monthly" && (!configurationLoaded || monthlyContributionAmount === null))}>{busy ? <LoaderCircle className="spin" size={17} /> : <QrCode size={17} />}{busy ? "Preparing your QR…" : "Continue to PromptPay QR"}</button>
       <p className="record-privacy"><ShieldCheck size={15} /> This creates a request with an awaiting payment status. Payment is confirmed only after a sensei reviews the payslip.</p>
     </form>
   </article>;

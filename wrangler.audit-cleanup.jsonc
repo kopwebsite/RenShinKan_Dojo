@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "renshinkan-audit-retention",
+  "main": "serverless/audit-cleanup-worker.ts",
+  "compatibility_date": "2026-07-01",
+  "triggers": {
+    "crons": ["17 18 * * *"]
+  },
+  "d1_databases": [
+    {
+      "binding": "STUDENT_DB",
+      "database_name": "renshinkan-student-records",
+      "database_id": "dbba70a8-1776-44ba-b455-f2576b3518bf",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

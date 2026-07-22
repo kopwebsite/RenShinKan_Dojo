@@ -11,9 +11,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const superAdmin = isRenShinKanSuperAdmin(session);
   const selectedDojoId = session.selectedDojoId || "__none__";
   const scope = superAdmin ? "" : " AND s.dojo_id = ?";
+  const payslipScope = superAdmin ? "" : " AND s.dojo_id = ? AND p.payment_type <> 'renshinkan_monthly'";
   const scopeBindings = superAdmin ? [] : [selectedDojoId];
-  const now = new Date().toISOString();
-
   const countsResult = await db.prepare(`SELECT
     (SELECT COUNT(*) FROM students s
       WHERE s.deleted_at IS NULL AND s.profile_status = 'pending_admin_approval' ${scope}) AS pending_profiles,
@@ -29,13 +28,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       WHERE s.deleted_at IS NULL AND s.dojo_id = 'dojo-rsk' AND c.status = 'awaiting_payment')` : "0"} AS pending_monthly_contributions,
     (SELECT COUNT(*) FROM payment_proofs p JOIN students s ON s.id = p.student_id
       WHERE s.deleted_at IS NULL AND p.status = 'pending_review' AND p.object_key IS NOT NULL
-        AND p.expires_at > ? ${scope}) AS pending_payslips`)
+        ${payslipScope}) AS pending_payslips`)
     .bind(
       ...scopeBindings,
       ...scopeBindings,
       ...scopeBindings,
       ...scopeBindings,
-      now,
       ...scopeBindings,
     )
     .first<Record<string, number>>();

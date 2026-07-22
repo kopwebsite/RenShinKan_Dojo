@@ -55,7 +55,7 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
     const verificationName = text(body.verificationName, 120, true);
     const publicStudentId = normalizeStudentId(text(body.studentId, 40, true));
     const turnstileToken = text(body.turnstileToken, 2048, true);
-    if (!(await verifyTurnstile(request, env, turnstileToken))) return jsonResponse({ error: "Cloudflare verification failed. Please try again." }, 400);
+    if (!(await verifyTurnstile(request, env, turnstileToken, "student-records"))) return jsonResponse({ error: "Cloudflare verification failed. Please try again." }, 400);
     const student = await db.prepare(`SELECT s.id, s.public_student_id, s.display_name, s.current_belt, s.dojo_id,
       s.aat_number, s.aat_last_paid_date, d.official_name AS dojo_name FROM students s
       JOIN dojos d ON d.id = s.dojo_id AND d.active = 1

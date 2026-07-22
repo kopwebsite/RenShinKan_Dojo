@@ -1,4 +1,4 @@
-import { useId, useMemo, useState, type ComponentType, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import {
   BadgeCheck,
   BookOpen,
@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   CircleX,
   Clock3,
+  ExternalLink,
   FileClock,
   GraduationCap,
   History,
@@ -15,13 +16,15 @@ import {
 } from "lucide-react";
 import type {
   PassportAatContribution,
-  PassportChangeRequest,
+  PassportPaymentProof,
+  PassportRequest,
   PassportMonthlyContribution,
   PublicExamination,
   PublicStudentRecord,
   StudentPassportRecord,
 } from "../../types/studentRecord";
 import { BeltMark } from "../BeltMark";
+import { PaymentProofUpload } from "../PaymentProofUpload";
 import styles from "./DigitalPassport.module.css";
 
 type PassportTab = "identity" | "training" | "examinations" | "contributions" | "requests";
@@ -36,7 +39,7 @@ const PUBLIC_TABS: TabDefinition[] = [
 const OWNER_TABS: TabDefinition[] = [
   ...PUBLIC_TABS,
   { id: "contributions", label: "Contributions", Icon: ReceiptText },
-  { id: "requests", label: "Change Requests", Icon: History },
+  { id: "requests", label: "Requests & Notices", Icon: History },
 ];
 
 function isOwnerRecord(record: PublicStudentRecord | StudentPassportRecord): record is StudentPassportRecord {
@@ -187,16 +190,90 @@ function ExaminationPage({ record }: { record: PublicStudentRecord }) {
 }
 
 function aatStatus(entry: PassportAatContribution) {
-  if (entry.status === "paid") return { label: "Paid", className: styles.statusApproved, Icon: CheckCircle2 };
-  if (entry.status === "awaiting_payment") return { label: "Pending review", className: styles.statusPending, Icon: FileClock };
+  if (entry.status === "paid") return { label: "Verified", className: styles.statusApproved, Icon: CheckCircle2 };
+  if (entry.proof?.status === "denied") return { label: "Action needed", className: styles.statusDenied, Icon: CircleX };
+  if (entry.proof?.status === "pending_review") return { label: "Under review", className: styles.statusPending, Icon: FileClock };
   if (entry.status === "refunded") return { label: "Refunded", className: styles.statusNeutral, Icon: History };
-  return { label: "Cancelled", className: styles.statusDenied, Icon: CircleX };
+  if (entry.status === "cancelled") return { label: "Cancelled", className: styles.statusDenied, Icon: CircleX };
+  return { label: "Payment not verified", className: styles.statusPending, Icon: FileClock };
 }
 
 function monthlyStatus(entry: PassportMonthlyContribution) {
-  if (entry.status === "paid") return { label: "Paid", className: styles.statusApproved, Icon: CheckCircle2 };
-  if (entry.status === "awaiting_payment") return { label: "Pending review", className: styles.statusPending, Icon: FileClock };
+  if (entry.status === "paid") return { label: "Verified", className: styles.statusApproved, Icon: CheckCircle2 };
+  if (entry.proof?.status === "denied") return { label: "Action needed", className: styles.statusDenied, Icon: CircleX };
+  if (entry.proof?.status === "pending_review") return { label: "Under review", className: styles.statusPending, Icon: FileClock };
+  if (entry.status === "awaiting_payment") return { label: "Payslip needed", className: styles.statusPending, Icon: FileClock };
   return { label: "Not submitted", className: styles.statusNeutral, Icon: CalendarDays };
+}
+
+function proofStatus(proof: PassportPaymentProof | null) {
+  if (!proof) return "No payslip record";
+  if (proof.status === "approved") return "Payslip verified";
+  if (proof.status === "pending_review") return "Payslip submitted for review";
+  if (proof.status === "denied") return "Replacement payslip requested";
+  return "Payslip upload needed";
+}
+
+function ProofActions({ proof, record, paymentLabel }: { proof: PassportPaymentProof | null; record: StudentPassportRecord; paymentLabel: string }) {
+  const [objectUrl, setObjectUrl] = useState("");
+  const [contentType, setContentType] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [uploaded, setUploaded] = useState(false);
+
+  useEffect(() => () => { if (objectUrl) URL.revokeObjectURL(objectUrl); }, [objectUrl]);
+
+  async function viewProof() {
+    if (!proof || !record.studentAccessToken) return;
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/records/payment-proofs/${encodeURIComponent(proof.id)}`, {
+        headers: { Authorization: `Bearer ${record.studentAccessToken}`, "X-Student-ID": record.studentId },
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error || "The payslip could not be opened.");
+      }
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      setContentType(response.headers.get("Content-Type") || proof.contentType || "application/octet-stream");
+      setObjectUrl(URL.createObjectURL(await response.blob()));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "The payslip could not be opened.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!proof) return null;
+  return <div className={styles.proofActions}>
+    <p><ShieldCheck aria-hidden="true" /> {uploaded ? "Payslip submitted for review" : proofStatus(proof)}</p>
+    {proof.fileAvailable && record.studentAccessToken ? <button type="button" onClick={() => void viewProof()} disabled={busy}>
+      <ExternalLink aria-hidden="true" /> {busy ? "Opening…" : "View payslip"}
+    </button> : null}
+    {proof.uploadToken && !uploaded ? <PaymentProofUpload
+      access={{ proofId: proof.id, uploadToken: proof.uploadToken }} paymentLabel={paymentLabel}
+      replacement={proof.status === "denied"} onUploaded={() => setUploaded(true)}
+    /> : null}
+    {proof.studentVisibleNote ? <blockquote><strong>Note from your sensei</strong>{proof.studentVisibleNote}</blockquote> : null}
+    {objectUrl ? <div className={styles.proofViewer}>
+      <div><strong>Private payslip</strong><button type="button" onClick={() => setObjectUrl("")}>Close</button></div>
+      {contentType === "application/pdf" ? <iframe src={objectUrl} title={`${paymentLabel} payslip`} /> : <img src={objectUrl} alt={`${paymentLabel} payslip`} />}
+    </div> : null}
+    {error ? <p className={styles.proofError} role="alert">{error}</p> : null}
+  </div>;
+}
+
+function aatSummaryText(record: StudentPassportRecord) {
+  const labels: Record<StudentPassportRecord["aatSummary"]["state"], string> = {
+    up_to_date: "Your AAT annual membership payment is up to date.",
+    due_soon: "Your next AAT annual contribution is due soon.",
+    payment_record_missing: "A current verified AAT annual payment is not recorded yet.",
+    payslip_needed: "Please upload a payslip so the dojo can review this AAT contribution.",
+    submitted_for_review: "Your AAT payslip has been submitted and is waiting for review.",
+    verified: "Your AAT annual contribution has been verified.",
+  };
+  return labels[record.aatSummary.state];
 }
 
 function ContributionsPage({ record }: { record: StudentPassportRecord }) {
@@ -204,53 +281,63 @@ function ContributionsPage({ record }: { record: StudentPassportRecord }) {
   return <div className={`${styles.spread} ${showMonthlyContributions ? "" : styles.singlePageSpread}`}>
     <PassportPage folio="07" eyebrow="AAT / 年会費" title="AAT Annual Contribution">
       <p className={styles.sectionIntro}>Annual Aikido Association of Thailand records are kept separately from dojo monthly contributions.</p>
+      <div className={styles.officialNote}><ShieldCheck aria-hidden="true" /><p>{aatSummaryText(record)}{record.aatSummary.lastVerifiedPayment ? ` Last verified ${date(record.aatSummary.lastVerifiedPayment)}.` : ""}{record.aatSummary.nextDueDate ? ` Next due ${date(record.aatSummary.nextDueDate)}.` : ""}</p></div>
       {record.aatContributions.length ? <div className={styles.stampGrid}>
         {record.aatContributions.map((entry) => { const status = aatStatus(entry); return <article key={entry.id}>
           <div><span>{new Date(`${entry.paymentDate.slice(0, 10)}T12:00:00`).getFullYear()}</span><strong>{date(entry.paymentDate)}</strong></div>
           <span className={status.className}><status.Icon aria-hidden="true" /> {status.label}</span>
-          <small>{entry.renewalDueDate ? `Renewal due ${date(entry.renewalDueDate)}` : "Renewal date not recorded"}</small>
+          <small>{entry.renewalDueDate ? `Renewal due ${date(entry.renewalDueDate)}` : "Renewal date not recorded"}{entry.amount !== null ? ` · ${entry.amount.toLocaleString()} ${entry.currency}` : ""}</small>
+          <ProofActions proof={entry.proof} record={record} paymentLabel="AAT annual contribution" />
         </article>; })}
       </div> : <EmptyState Icon={ReceiptText} title="No annual contribution history" copy="No approved or pending AAT annual contribution records are stored for this student." />}
     </PassportPage>
     {showMonthlyContributions ? <PassportPage folio="08" eyebrow="RENSHINKAN / 月謝" title="RenShinKan Monthly Contribution">
       {record.monthlyContributions.length
-          ? <div className={styles.monthGrid}>{record.monthlyContributions.map((entry) => { const status = monthlyStatus(entry); return <article key={entry.id}>
-            <time>{month(entry.month)}</time><span className={status.className}><status.Icon aria-hidden="true" /> {status.label}</span>
-            <small>{entry.paidAt ? `Confirmed ${date(entry.paidAt)}` : entry.submittedAt ? `Submitted ${date(entry.submittedAt)}` : "No payment submitted"}</small>
-          </article>; })}</div>
-          : <EmptyState Icon={CalendarDays} title="No monthly contribution history" copy="No RenShinKan monthly contribution records are stored for this student." />}
+        ? <div className={styles.monthGrid}>{record.monthlyContributions.map((entry) => { const status = monthlyStatus(entry); return <article key={entry.id}>
+          <time>{month(entry.month)}</time><span className={status.className}><status.Icon aria-hidden="true" /> {status.label}</span>
+          <small>{entry.paidAt ? `Confirmed ${date(entry.paidAt)}` : entry.submittedAt ? `Submitted ${date(entry.submittedAt)}` : entry.expected ? "Payment is expected for this month" : "No payment submitted"}</small>
+          <ProofActions proof={entry.proof} record={record} paymentLabel={`${month(entry.month)} monthly contribution`} />
+        </article>; })}</div>
+        : <EmptyState Icon={CalendarDays} title="No monthly contribution history" copy="No RenShinKan monthly contribution records are stored for this student." />}
     </PassportPage> : null}
   </div>;
 }
 
-function requestStatus(request: PassportChangeRequest) {
+function requestStatus(request: PassportRequest) {
   if (request.status === "approved") return { label: "Approved", className: styles.statusApproved, Icon: CheckCircle2 };
   if (request.status === "pending") return { label: "Pending Review", className: styles.statusPending, Icon: FileClock };
   return { label: "Denied", className: styles.statusDenied, Icon: CircleX };
 }
 
-function RequestsPage({ record }: { record: StudentPassportRecord }) {
-  const counts = record.changeRequests.reduce((result, request) => ({ ...result, [request.status]: result[request.status] + 1 }), { approved: 0, pending: 0, denied: 0 });
+function RequestsPage({ record, openContributions }: { record: StudentPassportRecord; openContributions: () => void }) {
+  const counts = record.requests.reduce((result, request) => ({ ...result, [request.status]: result[request.status] + 1 }), { approved: 0, pending: 0, denied: 0 });
+  const monthlyNotices = (record.monthlyContributions || []).filter((entry) => entry.status !== "paid").slice(0, 3);
   return <div className={styles.spread}>
-    <PassportPage folio="09" eyebrow="申請状況 / REQUESTS" title="Record Change Requests">
-      <p className={styles.sectionIntro}>Requests are listed newest first and reflect the dojo’s current review status.</p>
+    <PassportPage folio="09" eyebrow="申請状況 / REQUESTS" title="Payment & Record Notices">
+      <p className={styles.sectionIntro}>Profile, training, examination, contribution, and payslip workflows are listed newest first with the dojo’s current decision.</p>
       <dl className={styles.requestSummary}>
         <div><dt><CheckCircle2 aria-hidden="true" /> Approved</dt><dd>{counts.approved}</dd></div>
         <div><dt><FileClock aria-hidden="true" /> Pending review</dt><dd>{counts.pending}</dd></div>
         <div><dt><CircleX aria-hidden="true" /> Denied</dt><dd>{counts.denied}</dd></div>
       </dl>
-      <div className={styles.officialNote}><ShieldCheck aria-hidden="true" /><p>Only requests submitted through the verified student-record workflow appear here.</p></div>
+      <div className={styles.officialNote}><ShieldCheck aria-hidden="true" /><p>Notes shown here are written for the student. Private administrator notes are never included in this passport.</p></div>
+      <div className={styles.noticeList}>
+        <article><strong>AAT annual contribution</strong><p>{aatSummaryText(record)}</p>{record.aatSummary.nextDueDate ? <small>Next expected date: {date(record.aatSummary.nextDueDate)}</small> : null}</article>
+        {record.monthlyContributions !== null ? monthlyNotices.length ? monthlyNotices.map((entry) => <article key={entry.id}><strong>{month(entry.month)} monthly contribution</strong><p>{entry.proof?.status === "pending_review" ? "A payslip has been submitted and is waiting for review." : entry.proof?.status === "denied" ? "The payslip needs to be replaced. Please review the note from your sensei." : "We do not currently have a verified payslip for this month. You may add one if you have already contributed."}</p></article>) : <article><strong>RenShinKan monthly contribution</strong><p>Your contribution record appears complete.</p></article> : null}
+        <button type="button" onClick={openContributions}><ReceiptText aria-hidden="true" /> Open contribution details</button>
+      </div>
     </PassportPage>
-    <PassportPage folio="10" eyebrow="REVIEW LEDGER" title="Request History">
-      {record.changeRequests.length ? <div className={styles.requestList}>{record.changeRequests.map((request) => { const status = requestStatus(request); return <article key={request.id}>
-        <header><div><p className={styles.microLabel}>REQUESTED CHANGE</p><h4>{request.title}</h4></div><span className={status.className}><status.Icon aria-hidden="true" /> {status.label}</span></header>
-        <dl><div><dt>Previous</dt><dd>{request.previousValue}</dd></div><div><dt>Requested</dt><dd>{request.requestedValue}</dd></div></dl>
-        <p>Submitted {date(request.submittedAt)}{request.reviewedAt ? ` · Reviewed ${date(request.reviewedAt)}` : ""}</p>
-        {request.reviewNote ? <blockquote>{request.reviewNote}</blockquote> : null}
-        {request.status === "approved" ? <footer><CheckCircle2 aria-hidden="true" /> The approved student record has been updated.</footer> : null}
-        {request.status === "pending" ? <footer><FileClock aria-hidden="true" /> This request is waiting for a sensei to review it.</footer> : null}
-        {request.status === "denied" ? <footer className={styles.deniedMessage}><CircleX aria-hidden="true" /> Please speak with a sensei for more information.</footer> : null}
-      </article>; })}</div> : <EmptyState Icon={History} title="No change requests" copy="Requests submitted from this verified student record will appear here." />}
+    <PassportPage folio="10" eyebrow="REVIEW LEDGER" title="Request & Notice History">
+      {record.requests.length ? <div className={styles.requestList}>{record.requests.map((request) => { const status = requestStatus(request); return <article key={request.id}>
+        <header><div><p className={styles.microLabel}>{request.type.replace(/_/g, " ")}</p><h4>{request.title}</h4></div><span className={status.className}><status.Icon aria-hidden="true" /> {status.label}</span></header>
+        {request.previousValue || request.requestedValue ? <dl><div><dt>Previous / reference</dt><dd>{request.previousValue || "Not applicable"}</dd></div><div><dt>Requested / period</dt><dd>{request.requestedValue || request.period || "Not applicable"}</dd></div></dl> : null}
+        <p>Submitted {date(request.submittedAt)}{request.decisionAt ? ` · Decision ${date(request.decisionAt)}` : ""}</p>
+        <p>{request.explanation}</p>
+        {request.studentVisibleNote ? <blockquote><strong>Note from your sensei</strong><br />{request.studentVisibleNote}</blockquote> : null}
+        {request.status === "approved" ? <footer><CheckCircle2 aria-hidden="true" /> This workflow is approved or complete.</footer> : null}
+        {request.status === "pending" ? <footer><FileClock aria-hidden="true" /> This item is waiting for a sensei to review it.</footer> : null}
+        {request.status === "denied" ? <footer className={styles.deniedMessage}><CircleX aria-hidden="true" /> Please speak with a sensei if you have questions or need help.</footer> : null}
+      </article>; })}</div> : <EmptyState Icon={History} title="No requests or notices" copy="Requests submitted from this verified student record will appear here." />}
     </PassportPage>
   </div>;
 }
@@ -283,7 +370,7 @@ export function DigitalPassport({ record }: { record: PublicStudentRecord | Stud
       {active === "training" ? <TrainingPage record={record} owner={owner} /> : null}
       {active === "examinations" ? <ExaminationPage record={record} /> : null}
       {active === "contributions" && owner ? <ContributionsPage record={owner} /> : null}
-      {active === "requests" && owner ? <RequestsPage record={owner} /> : null}
+      {active === "requests" && owner ? <RequestsPage record={owner} openContributions={() => setActive("contributions")} /> : null}
     </div>
     <footer className={styles.passportFooter}><span>Verified student record</span><span>Page {activeIndex + 1} of {tabs.length}</span><span>{record.studentId}</span></footer>
   </article>;

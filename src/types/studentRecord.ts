@@ -21,6 +21,7 @@ export type PassportAatContribution = {
   amount: number | null;
   currency: string;
   status: "paid" | "awaiting_payment" | "cancelled" | "refunded";
+  proof: PassportPaymentProof | null;
 };
 
 export type PassportMonthlyContribution = {
@@ -30,18 +31,41 @@ export type PassportMonthlyContribution = {
   submittedAt: string | null;
   paidAt: string | null;
   updatedAt: string;
+  expected: boolean;
+  proof: PassportPaymentProof | null;
 };
 
-export type PassportChangeRequest = {
+export type PassportPaymentProof = {
   id: string;
-  type: "training_hours";
-  title: string;
-  previousValue: string;
-  requestedValue: string;
-  submittedAt: string;
+  status: "awaiting_upload" | "pending_review" | "approved" | "denied";
+  submittedAt: string | null;
   reviewedAt: string | null;
-  reviewNote: string | null;
+  studentVisibleNote: string | null;
+  fileAvailable: boolean;
+  contentType: string | null;
+  uploadToken: string | null;
+};
+
+export type PassportRequest = {
+  id: string;
+  type: "profile_information" | "training_hours" | "examination_application" | "aat_contribution" | "monthly_contribution" | "payslip";
+  title: string;
+  previousValue: string | null;
+  requestedValue: string | null;
+  submittedAt: string;
+  decisionAt: string | null;
+  studentVisibleNote: string | null;
   status: "approved" | "pending" | "denied";
+  paymentStatus: string | null;
+  documentStatus: string | null;
+  period: string | null;
+  explanation: string;
+};
+
+export type PassportAatSummary = {
+  state: "up_to_date" | "due_soon" | "payment_record_missing" | "payslip_needed" | "submitted_for_review" | "verified";
+  lastVerifiedPayment: string | null;
+  nextDueDate: string | null;
 };
 
 export type PublicStudentRecord = {
@@ -51,6 +75,7 @@ export type PublicStudentRecord = {
 };
 
 export type StudentPassportRecord = PublicStudentRecord & {
+  studentAccessToken?: string;
   registrationDate: string | null;
   dojoId: string;
   dojoLogo: string | null;
@@ -59,6 +84,7 @@ export type StudentPassportRecord = PublicStudentRecord & {
   profileBio: string | null;
   trainingEntries: PassportTrainingEntry[];
   aatContributions: PassportAatContribution[];
+  aatSummary: PassportAatSummary;
   monthlyContributions: PassportMonthlyContribution[] | null;
-  changeRequests: PassportChangeRequest[];
+  requests: PassportRequest[];
 };

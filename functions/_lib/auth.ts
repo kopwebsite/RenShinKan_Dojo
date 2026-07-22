@@ -5,7 +5,7 @@ export const RENSHINKAN_DOJO_ID = "dojo-rsk";
 type AuthEnv = {
   ADMIN_PASSWORD_HASH?: string;
   DOJO_ADMIN_PASSWORD_HASHES?: string;
-  RSK_ADMIN_SECONDARY_PASSWORD?: string;
+  RSK_ADMIN_SECONDARY_PASSWORD_HASH?: string;
   SESSION_SECRET?: string;
   STUDENT_DB?: {
     prepare(query: string): {
@@ -205,23 +205,44 @@ export async function clearRenshinKanVerificationAttempts(request: Request, env:
 }
 
 export async function verifyRenshinKanSecondaryPassword(password: string, env: AuthEnv) {
-  if (!isConfigured(env.RSK_ADMIN_SECONDARY_PASSWORD)) return false;
-  return timingSafeEqual(password, env.RSK_ADMIN_SECONDARY_PASSWORD!);
+  if (!isConfigured(env.RSK_ADMIN_SECONDARY_PASSWORD_HASH)) return false;
+  return verifyStoredPassword(password, env.RSK_ADMIN_SECONDARY_PASSWORD_HASH!, env, false);
 }
 
-function normalizeHash(value: string) {
-  return value.replace(/^hmac-sha256:/i, "").trim();
+const MIN_PBKDF2_ITERATIONS = 210_000;
+
+async function verifyStoredPassword(password: string, stored: string, env: AuthEnv, allowLegacyHmac: boolean) {
+  const value = stored.trim();
+  const match = value.match(/^pbkdf2-sha256:(\d+):([A-Za-z0-9_-]{20,}):([A-Za-z0-9_-]{40,})$/i);
+  if (match) {
+    const iterations = Number(match[1]);
+    if (!Number.isSafeInteger(iterations) || iterations < MIN_PBKDF2_ITERATIONS || iterations > 2_000_000) return false;
+    let salt: Uint8Array;
+    let expected: Uint8Array;
+    try {
+      salt = base64UrlToBytes(match[2]);
+      expected = base64UrlToBytes(match[3]);
+    } catch {
+      return false;
+    }
+    if (salt.byteLength < 16 || expected.byteLength !== 32) return false;
+    const key = await crypto.subtle.importKey("raw", textToBytes(password), "PBKDF2", false, ["deriveBits"]);
+    const derived = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations }, key, 256);
+    return timingSafeEqualBytes(new Uint8Array(derived), expected);
+  }
+
+  // Temporary compatibility for existing primary/dojo HMAC hashes. New and
+  // rotated credentials must use PBKDF2; the RenShinKan secondary credential
+  // deliberately does not accept this legacy form.
+  if (!allowLegacyHmac || !isConfigured(env.SESSION_SECRET)) return false;
+  const expected = value.replace(/^hmac-sha256:/i, "");
+  if (!/^[a-f0-9]{64}$/i.test(expected)) return false;
+  return timingSafeEqual(await hmacSha256Hex(env.SESSION_SECRET!, password), expected);
 }
 
 export async function verifyAdminPassword(password: string, env: AuthEnv) {
-  if (!isConfigured(env.ADMIN_PASSWORD_HASH) || !isConfigured(env.SESSION_SECRET)) {
-    return false;
-  }
-
-  const expectedHash = normalizeHash(env.ADMIN_PASSWORD_HASH!);
-  const submittedHash = await hmacSha256Hex(env.SESSION_SECRET!, password);
-
-  return timingSafeEqual(submittedHash, expectedHash);
+  if (!isConfigured(env.ADMIN_PASSWORD_HASH)) return false;
+  return verifyStoredPassword(password, env.ADMIN_PASSWORD_HASH!, env, true);
 }
 
 function configuredDojoPasswordHashes(env: AuthEnv) {
@@ -230,7 +251,7 @@ function configuredDojoPasswordHashes(env: AuthEnv) {
     const parsed = JSON.parse(env.DOJO_ADMIN_PASSWORD_HASHES!) as Record<string, unknown>;
     return new Map(Object.entries(parsed)
       .filter((entry): entry is [string, string] => /^dojo-[a-z0-9-]+$/.test(entry[0]) && typeof entry[1] === "string")
-      .map(([dojoId, hash]) => [dojoId, normalizeHash(hash)]));
+      .map(([dojoId, hash]) => [dojoId, hash.trim()]));
   } catch {
     return new Map<string, string>();
   }
@@ -240,10 +261,8 @@ export async function authenticateAdminPassword(password: string, env: AuthEnv) 
   if (await verifyAdminPassword(password, env)) {
     return { role: "central" as const, allowedDojoIds: [] };
   }
-  if (!isConfigured(env.SESSION_SECRET)) return null;
-  const submittedHash = await hmacSha256Hex(env.SESSION_SECRET!, password);
   for (const [dojoId, expectedHash] of configuredDojoPasswordHashes(env)) {
-    if (await timingSafeEqual(submittedHash, expectedHash)) {
+    if (await verifyStoredPassword(password, expectedHash, env, true)) {
       return { role: "dojo" as const, allowedDojoIds: [dojoId] };
     }
   }
@@ -329,6 +348,12 @@ export async function getAdminSession(request: Request, env: AuthEnv): Promise<A
       selectedDojoId: typeof payload.selectedDojoId === "string" ? payload.selectedDojoId : null,
       renshinkanVerified: payload.renshinkanVerified === true,
     };
+    if (!/^[A-Za-z0-9-]{8,120}$/.test(result.sessionId)) return null;
+    if (env.STUDENT_DB) {
+      const revoked = await env.STUDENT_DB.prepare(`SELECT session_id FROM revoked_admin_sessions
+        WHERE session_id = ? AND expires_at > ? LIMIT 1`).bind(result.sessionId, new Date().toISOString()).first<{ session_id: string }>();
+      if (revoked) return null;
+    }
     return result;
   } catch {
     return null;
@@ -372,9 +397,17 @@ export function requiresCentralAdmin(session: AdminSession | null) {
   return isRenShinKanSuperAdmin(session);
 }
 
+export async function revokeAdminSession(env: AuthEnv, session: AdminSession, revokedBy: string, reason: string) {
+  if (!env.STUDENT_DB) return;
+  await env.STUDENT_DB.prepare(`INSERT INTO revoked_admin_sessions
+    (session_id, expires_at, revoked_at, revoked_by, reason) VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(session_id) DO UPDATE SET revoked_at = excluded.revoked_at, revoked_by = excluded.revoked_by, reason = excluded.reason`)
+    .bind(session.sessionId, new Date(session.exp * 1000).toISOString(), new Date().toISOString(), revokedBy.slice(0, 120), reason.slice(0, 200)).run();
+}
+
 export async function updateSelectedDojoCookie(env: AuthEnv, session: AdminSession, selectedDojoId: string | null) {
+  await revokeAdminSession(env, session, session.adminName, "dojo_context_changed");
   return createSessionCookie(env, {
-    sessionId: session.sessionId,
     adminName: session.adminName,
     role: session.role,
     allowedDojoIds: session.allowedDojoIds,
@@ -384,8 +417,8 @@ export async function updateSelectedDojoCookie(env: AuthEnv, session: AdminSessi
 }
 
 export async function updateRenshinKanVerifiedCookie(env: AuthEnv, session: AdminSession) {
+  await revokeAdminSession(env, session, session.adminName, "privilege_elevated");
   return createSessionCookie(env, {
-    sessionId: session.sessionId,
     adminName: session.adminName,
     role: session.role,
     allowedDojoIds: session.allowedDojoIds,

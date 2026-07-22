@@ -28,6 +28,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
       .first<{ id: string; status: string; payment_status: string; administrator_notes: string; paid_at: string | null; paid_by: string | null;
         cycle_id: string; student_name_snapshot: string; student_public_id_snapshot: string; cycle_status_id: string | null; cycle_status: string | null }>();
     if (!application) return jsonResponse({ error: "Application not found." }, 404);
+    if (action === "mark_paid" && application.status === "rejected") return jsonResponse({ error: "A rejected application cannot be marked paid." }, 409);
+    if (action === "complete" && application.status !== "application_submitted") return jsonResponse({ error: "This examination application has already been processed." }, 409);
     const now = new Date().toISOString();
     let nextStatus = application.status;
     let nextPayment = application.payment_status;
@@ -69,6 +71,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
         requestId, examCycleId: application.cycle_id, administratorNote: note || null, summary: auditAction.replace(/_/g, " "), createdAt: now,
       }),
     ];
+    if (action === "complete") {
+      statements.unshift(db.prepare(`INSERT INTO request_decisions
+        (id, request_type, request_id, decision, reviewer_identifier, student_visible_note, internal_admin_note, decided_at)
+        VALUES (?, 'examination_application', ?, 'approved', ?, '', ?, ?)`)
+        .bind(crypto.randomUUID(), applicationId, session.adminName, note, now));
+    }
     if (application.cycle_status_id && (action === "mark_paid" || action === "reverse_payment")) {
       const cycleStatus = action === "mark_paid" ? "paid" : "unpaid";
       statements.push(
@@ -83,6 +91,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     await db.batch(statements);
     return jsonResponse({ ok: true, status: nextStatus, paymentStatus: nextPayment, administratorNotes: nextNote });
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : "The application could not be updated." }, 400);
+    const conflict = error instanceof Error && /(?:UNIQUE constraint|request_decisions|cannot be completed|already processed)/i.test(error.message);
+    return jsonResponse({ error: conflict ? "Another administrator has already processed this examination application." : error instanceof Error ? error.message : "The application could not be updated." }, conflict ? 409 : 400);
   }
 };

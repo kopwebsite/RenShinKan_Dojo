@@ -1,5 +1,5 @@
-import { canAccessDojo, getAuthorizedAdminSession, jsonResponse } from "../../../_lib/auth";
-import { requireStudentDb, type StudentEnv } from "../../../_lib/studentRecords";
+import { canAccessDojo, getAuthorizedAdminSession, isSameOriginRequest, jsonResponse } from "../../../_lib/auth";
+import { adminAuditMetadata, auditStatement, requestIdentifier, requireStudentDb, type StudentEnv } from "../../../_lib/studentRecords";
 
 type Env = StudentEnv & { SESSION_SECRET?: string };
 
@@ -21,6 +21,8 @@ type ApplicationRow = {
   payment_status: string;
   administrator_notes: string;
   application_notes: string;
+  student_visible_decision_note: string;
+  internal_admin_note: string;
   submitted_at: string;
   updated_at: string;
   completed_at: string | null;
@@ -72,7 +74,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
       ec.name AS cycle_name, ec.status AS cycle_status, ec.examination_type,
       ea.answers_json, ea.current_rank, ea.attempted_rank,
       ea.status AS application_status, ea.payment_status,
-      ea.administrator_notes, ea.application_notes,
+      ea.administrator_notes, ea.application_notes, ea.student_visible_decision_note, ea.internal_admin_note,
       ea.submitted_at, ea.updated_at, ea.completed_at, ea.paid_at, ea.paid_by,
       ea.last_examination_date, ea.practice_period,
       ea.exam_fee, ea.aat_annual_fee, ea.other_fees, ea.total_fee
@@ -109,4 +111,65 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
       createdAt: entry.created_at,
     })),
   }, 200, { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow" });
+};
+
+export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }) => {
+  if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
+  const session = await getAuthorizedAdminSession(request, env);
+  if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
+  const applicationId = String(params.applicationId || "").trim();
+  try {
+    const body = await request.json<{ action?: unknown; studentVisibleNote?: unknown; internalNote?: unknown }>();
+    const studentVisibleNote = typeof body.studentVisibleNote === "string" ? body.studentVisibleNote.normalize("NFKC").trim().slice(0, 2000) : "";
+    const internalNote = typeof body.internalNote === "string" ? body.internalNote.normalize("NFKC").trim().slice(0, 2000) : "";
+    if (body.action !== "reject" || !studentVisibleNote) return jsonResponse({ error: "Add a student-visible explanation before rejecting the application." }, 400);
+    const db = requireStudentDb(env);
+    const application = await db.prepare(`SELECT ea.id, ea.student_id, ea.cycle_id, ea.status, ea.payment_status,
+        ea.student_name_snapshot, ea.student_public_id_snapshot, COALESCE(ea.dojo_id, s.dojo_id) AS dojo_id,
+        ecs.id AS cycle_status_id, ecs.status AS cycle_status
+      FROM examination_applications ea JOIN students s ON s.id = ea.student_id
+      LEFT JOIN exam_cycle_student_status ecs ON ecs.application_id = ea.id
+      WHERE ea.id = ? LIMIT 1`)
+      .bind(applicationId).first<{ id: string; student_id: string; cycle_id: string; status: string; payment_status: string; student_name_snapshot: string; student_public_id_snapshot: string; dojo_id: string; cycle_status_id: string | null; cycle_status: string | null }>();
+    if (!application) return jsonResponse({ error: "Application not found." }, 404);
+    if (!canAccessDojo(session, application.dojo_id)) return jsonResponse({ error: "You do not have access to this application's dojo." }, 403);
+    if (application.status !== "application_submitted") return jsonResponse({ error: "Another administrator has already processed this application." }, 409);
+    if (application.payment_status === "paid") return jsonResponse({ error: "Reverse the payment confirmation before rejecting this application." }, 409);
+    const now = new Date().toISOString();
+    const requestId = requestIdentifier(request);
+    await db.batch([
+      db.prepare(`INSERT INTO request_decisions
+        (id, request_type, request_id, decision, reviewer_identifier, student_visible_note, internal_admin_note, decided_at)
+        VALUES (?, 'examination_application', ?, 'denied', ?, ?, ?, ?)`)
+        .bind(crypto.randomUUID(), application.id, session.adminName, studentVisibleNote, internalNote, now),
+      db.prepare(`UPDATE examination_applications SET status = 'rejected', student_visible_decision_note = ?,
+        internal_admin_note = ?, administrator_notes = ?, updated_at = ?
+        WHERE id = ? AND status = 'application_submitted' AND payment_status <> 'paid'`)
+        .bind(studentVisibleNote, internalNote, internalNote, now, application.id),
+      db.prepare(`INSERT INTO application_status_history
+        (id, application_id, previous_status, new_status, previous_payment_status, new_payment_status,
+         actor_identifier, note, request_id, created_at) VALUES (?, ?, ?, 'rejected', ?, ?, ?, ?, ?, ?)`)
+        .bind(crypto.randomUUID(), application.id, application.status, application.payment_status, application.payment_status, session.adminName, internalNote || null, requestId, now),
+      ...(application.cycle_status_id ? [
+        db.prepare("UPDATE exam_cycle_student_status SET status = 'not_signed_up', updated_at = ?, updated_by = ? WHERE id = ?")
+          .bind(now, session.adminName, application.cycle_status_id),
+        db.prepare(`INSERT INTO exam_cycle_status_history
+          (id, cycle_status_id, previous_status, new_status, actor_identifier, request_id, note, created_at)
+          VALUES (?, ?, ?, 'not_signed_up', ?, ?, ?, ?)`)
+          .bind(crypto.randomUUID(), application.cycle_status_id, application.cycle_status, session.adminName, requestId, internalNote || "Application rejected", now),
+      ] : []),
+      auditStatement(db, {
+        actorType: "administrator", ...adminAuditMetadata(session, request), action: "examination_application_rejected",
+        entityType: "examination_application", entityId: application.id, studentId: application.student_id,
+        studentPublicId: application.student_public_id_snapshot, studentNameSnapshot: application.student_name_snapshot,
+        examCycleId: application.cycle_id, previousValues: { status: application.status },
+        newValues: { status: "rejected", studentVisibleNote }, administratorNote: internalNote || null,
+        source: "admin_examination_application", requestId, summary: `Rejected examination application for ${application.student_public_id_snapshot}`, createdAt: now,
+      }),
+    ]);
+    return jsonResponse({ ok: true, status: "rejected" }, 200, { "Cache-Control": "no-store" });
+  } catch (error) {
+    const conflict = error instanceof Error && /(?:UNIQUE constraint|request_decisions|already processed)/i.test(error.message);
+    return jsonResponse({ error: conflict ? "Another administrator has already processed this application." : error instanceof Error ? error.message : "The application could not be rejected." }, conflict ? 409 : 400);
+  }
 };

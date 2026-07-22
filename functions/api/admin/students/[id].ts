@@ -51,7 +51,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
     s.public_visible, s.active, s.share_fields, s.dojo_id, s.dojo_name, s.aat_number, s.aat_last_paid_date, s.aat_notes, s.deleted_at, s.admin_notes,
     s.training_hours_adjustment, s.created_at, s.updated_at, s.profile_status,
     s.practice_duration, s.profile_bio, s.pending_profile_image_key,
-    s.profile_review_note, s.archived_at, s.archived_by,
+    s.profile_review_note, s.profile_student_visible_note, s.profile_internal_note, s.archived_at, s.archived_by,
     s.public_visible_before_archive,
     COALESCE((SELECT SUM(verified_hours) FROM training_hours h WHERE h.student_id = s.id), 0) + s.training_hours_adjustment AS total_hours,
     EXISTS(SELECT 1 FROM share_tokens st WHERE st.student_id = s.id AND st.active = 1) AS sharing_active

@@ -1,4 +1,6 @@
 import { beltKeyForRank, normalizeRank } from "../../shared/ranks";
+import { aatMembershipStatus } from "../../shared/membership";
+import { studentRequestStatus } from "../../shared/requestStatus";
 import { canAccessDojo, effectivePermissionLevel, jsonResponse, type AdminSession } from "./auth";
 
 export type D1Result<T = unknown> = {
@@ -23,6 +25,7 @@ export type StudentEnv = {
   SESSION_SECRET?: string;
   TURNSTILE_SECRET_KEY?: string;
   SITE_URL?: string;
+  RENSHINKAN_MONTHLY_CONTRIBUTION_AMOUNT?: string;
 };
 
 export const DEFAULT_DOJO = "RenShinKan Dojo";
@@ -31,6 +34,11 @@ export const DEFAULT_SHARE_FIELDS = { photo: true, trainingHours: true, examinat
 const STUDENT_ID_PATTERN = /^[A-Z0-9]{2,8}-\d{4,}$/;
 const ACCESS_SESSION_MINUTES = 20;
 const encoder = new TextEncoder();
+
+export function configuredMonthlyContributionAmount(env: StudentEnv) {
+  const amount = Number(env.RENSHINKAN_MONTHLY_CONTRIBUTION_AMOUNT);
+  return Number.isSafeInteger(amount) && amount > 0 && amount <= 1_000_000 ? amount : null;
+}
 
 function bytesToHex(value: ArrayBuffer | Uint8Array) {
   const bytes = value instanceof Uint8Array ? value : new Uint8Array(value);
@@ -268,15 +276,24 @@ export function requireStudentDb(env: StudentEnv) {
   return env.STUDENT_DB;
 }
 
-export async function verifyTurnstile(request: Request, env: StudentEnv, token: string) {
+export async function verifyTurnstile(request: Request, env: StudentEnv, token: string, expectedAction: string) {
   if (!env.TURNSTILE_SECRET_KEY || !token || token.length > 2048) return false;
-  const body = new URLSearchParams({ secret: env.TURNSTILE_SECRET_KEY, response: token });
+  const body = new URLSearchParams({ secret: env.TURNSTILE_SECRET_KEY, response: token, idempotency_key: crypto.randomUUID() });
   const ip = request.headers.get("CF-Connecting-IP");
   if (ip) body.set("remoteip", ip);
-  const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", body });
-  if (!response.ok) return false;
-  const result = await response.json<{ success?: boolean }>();
-  return result.success === true;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", body, signal: controller.signal });
+    if (!response.ok) return false;
+    const result = await response.json<{ success?: boolean; action?: string; hostname?: string }>();
+    const expectedHostname = new URL(env.SITE_URL || request.url).hostname;
+    return result.success === true && result.action === expectedAction && result.hostname === expectedHostname;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function enforceLookupRateLimit(request: Request, env: StudentEnv) {
@@ -378,8 +395,11 @@ export type StudentRow = {
   dojo_id?: string;
   dojo_logo?: string | null;
   aat_number?: string | null;
+  aat_last_paid_date?: string | null;
   practice_duration?: string;
   profile_bio?: string;
+  profile_reviewed_at?: string | null;
+  profile_student_visible_note?: string | null;
 };
 
 function safeVisibility(value: string) {
@@ -410,41 +430,246 @@ export async function publicStudentRecord(db: D1Database, student: StudentRow) {
 
 export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
   const base = await publicStudentRecord(db, student);
-  const [trainingResult, aatResult, requestResult] = await Promise.all([
+  const [trainingResult, aatResult, hourRequestResult, examRequestResult, proofRequestResult] = await Promise.all([
     db.prepare(`SELECT id, entry_date, period_end, verified_hours, source, training_location, created_at
       FROM training_hours WHERE student_id = ?
       ORDER BY COALESCE(entry_date, created_at) DESC, created_at DESC LIMIT 60`).bind(student.id).all<{
         id: string; entry_date: string; period_end: string | null; verified_hours: number;
         source: string; training_location: string | null; created_at: string;
       }>(),
-    db.prepare(`SELECT id, payment_date, renewal_due_date, amount, currency, status, created_at FROM (
-        SELECT id, payment_date, renewal_due_date, amount, currency, 'paid' AS status, created_at
-        FROM aat_membership_payments WHERE student_id = ?
-        UNION ALL
-        SELECT id, COALESCE(payment_date, substr(created_at, 1, 10)) AS payment_date,
-          NULL AS renewal_due_date, amount, currency, status, created_at
-        FROM payments WHERE student_id = ? AND payment_type = 'aat_annual' AND status <> 'paid'
-      ) ORDER BY created_at DESC LIMIT 30`).bind(student.id, student.id).all<{
+    db.prepare(`SELECT p.id, COALESCE(p.payment_date, substr(p.created_at, 1, 10)) AS payment_date,
+        ap.renewal_due_date, p.amount, p.currency, p.status, p.created_at,
+        pp.id AS proof_id, pp.status AS proof_status, pp.submitted_at AS proof_submitted_at,
+        pp.reviewed_at AS proof_reviewed_at, pp.student_visible_note AS proof_student_visible_note,
+        pp.object_key AS proof_object_key, pp.content_type AS proof_content_type,
+        pp.student_id AS proof_owner_student_id
+      FROM payments p
+      LEFT JOIN aat_membership_payments ap ON ap.id = p.id
+      LEFT JOIN payment_proofs pp ON pp.payment_type = 'aat_annual' AND pp.payment_reference_id = p.id
+      WHERE p.student_id = ? AND p.payment_type = 'aat_annual'
+      UNION ALL
+      SELECT ap.id, ap.payment_date, ap.renewal_due_date, ap.amount, ap.currency, 'paid', ap.created_at,
+        pp.id, pp.status, pp.submitted_at, pp.reviewed_at, pp.student_visible_note, pp.object_key, pp.content_type,
+        pp.student_id
+      FROM aat_membership_payments ap
+      LEFT JOIN payments p ON p.id = ap.id
+      LEFT JOIN payment_proofs pp ON pp.payment_type = 'aat_annual' AND pp.payment_reference_id = ap.id
+      WHERE ap.student_id = ? AND p.id IS NULL
+      ORDER BY created_at DESC LIMIT 30`).bind(student.id, student.id).all<{
         id: string; payment_date: string; renewal_due_date: string | null; amount: number | null;
         currency: string; status: "paid" | "awaiting_payment" | "cancelled" | "refunded"; created_at: string;
+        proof_id: string | null; proof_status: "awaiting_upload" | "pending_review" | "approved" | "denied" | null;
+        proof_submitted_at: string | null; proof_reviewed_at: string | null; proof_student_visible_note: string | null;
+        proof_object_key: string | null; proof_content_type: string | null; proof_owner_student_id: string | null;
       }>(),
     db.prepare(`SELECT id, submitted_hours, previous_total, requested_total, status,
-        submitted_at, reviewed_at, review_note
+        submitted_at, reviewed_at, student_visible_note
       FROM training_hour_requests WHERE student_id = ?
       ORDER BY submitted_at DESC LIMIT 60`).bind(student.id).all<{
         id: string; submitted_hours: number; previous_total: number; requested_total: number;
         status: "pending" | "approved" | "rejected"; submitted_at: string;
-        reviewed_at: string | null; review_note: string | null;
+        reviewed_at: string | null; student_visible_note: string | null;
+      }>(),
+    db.prepare(`SELECT id, current_rank, attempted_rank, status, payment_status, submitted_at, updated_at,
+        completed_at, student_visible_decision_note
+      FROM examination_applications WHERE student_id = ?
+      ORDER BY submitted_at DESC LIMIT 60`).bind(student.id).all<{
+        id: string; current_rank: string; attempted_rank: string; status: string; payment_status: string;
+        submitted_at: string; updated_at: string; completed_at: string | null; student_visible_decision_note: string | null;
+      }>(),
+    db.prepare(`SELECT DISTINCT pp.id, pp.student_id AS proof_owner_student_id, pp.payment_type, pp.payment_reference_id, pp.status,
+        pp.submitted_at, pp.reviewed_at, pp.student_visible_note, pp.object_key, pp.content_type,
+        COALESCE(mc.month_key, substr(pay.created_at, 1, 7)) AS period
+      FROM payment_proofs pp
+      LEFT JOIN monthly_contributions mc ON pp.payment_type = 'renshinkan_monthly'
+        AND (mc.payment_group_id = pp.payment_reference_id OR mc.id = pp.payment_reference_id)
+      LEFT JOIN payments pay ON pay.id = pp.payment_reference_id
+      WHERE pp.student_id = ? OR mc.student_id = ?
+      ORDER BY COALESCE(pp.submitted_at, pp.created_at) DESC LIMIT 100`).bind(student.id, student.id).all<{
+        id: string; proof_owner_student_id: string; payment_type: "exam" | "aat_annual" | "renshinkan_monthly"; payment_reference_id: string;
+        status: "awaiting_upload" | "pending_review" | "approved" | "denied"; submitted_at: string | null;
+        reviewed_at: string | null; student_visible_note: string | null; object_key: string | null;
+        content_type: string | null; period: string | null;
       }>(),
   ]);
   const monthlyResult = student.dojo_id === DEFAULT_DOJO_ID
-    ? await db.prepare(`SELECT id, month_key, status, submitted_at, paid_at, updated_at
-        FROM monthly_contributions WHERE student_id = ?
-        ORDER BY month_key DESC LIMIT 36`).bind(student.id).all<{
+    ? await db.prepare(`SELECT COALESCE(mc.id, 'expected:' || cps.month_key) AS id, cps.month_key,
+          COALESCE(mc.status, 'no_submission') AS status, mc.submitted_at, mc.paid_at,
+          COALESCE(mc.updated_at, cps.created_at) AS updated_at, 1 AS expected,
+          pp.id AS proof_id, pp.status AS proof_status, pp.submitted_at AS proof_submitted_at,
+          pp.reviewed_at AS proof_reviewed_at, pp.student_visible_note AS proof_student_visible_note,
+          pp.object_key AS proof_object_key, pp.content_type AS proof_content_type,
+          pp.student_id AS proof_owner_student_id
+        FROM contribution_period_students cps
+        LEFT JOIN monthly_contributions mc ON mc.student_id = cps.student_id AND mc.month_key = cps.month_key
+        LEFT JOIN payment_proofs pp ON pp.payment_type = 'renshinkan_monthly'
+          AND pp.payment_reference_id = COALESCE(mc.payment_group_id, mc.id)
+        WHERE cps.student_id = ? AND cps.active_at_period_start = 1
+        UNION ALL
+        SELECT mc.id, mc.month_key, mc.status, mc.submitted_at, mc.paid_at, mc.updated_at, 0,
+          pp.id, pp.status, pp.submitted_at, pp.reviewed_at, pp.student_visible_note, pp.object_key, pp.content_type,
+          pp.student_id
+        FROM monthly_contributions mc
+        LEFT JOIN payment_proofs pp ON pp.payment_type = 'renshinkan_monthly'
+          AND pp.payment_reference_id = COALESCE(mc.payment_group_id, mc.id)
+        WHERE mc.student_id = ? AND NOT EXISTS (
+          SELECT 1 FROM contribution_period_students cps
+          WHERE cps.student_id = mc.student_id AND cps.month_key = mc.month_key
+        )
+        ORDER BY month_key DESC LIMIT 36`).bind(student.id, student.id).all<{
           id: string; month_key: string; status: "no_submission" | "awaiting_payment" | "paid";
-          submitted_at: string | null; paid_at: string | null; updated_at: string;
+          submitted_at: string | null; paid_at: string | null; updated_at: string; expected: number;
+          proof_id: string | null; proof_status: "awaiting_upload" | "pending_review" | "approved" | "denied" | null;
+          proof_submitted_at: string | null; proof_reviewed_at: string | null; proof_student_visible_note: string | null;
+          proof_object_key: string | null; proof_content_type: string | null; proof_owner_student_id: string | null;
         }>()
     : null;
+
+  const uploadTokens = new Map<string, string>();
+  const uploadTokenExpiry = new Date(Date.now() + ACCESS_SESSION_MINUTES * 60 * 1000).toISOString();
+  const refreshableProofIds = Array.from(new Set((proofRequestResult.results || [])
+    .filter((entry) => entry.proof_owner_student_id === student.id && (entry.status === "awaiting_upload" || entry.status === "denied"))
+    .map((entry) => entry.id)));
+  if (refreshableProofIds.length) {
+    const tokenStatements: D1PreparedStatement[] = [];
+    for (const proofId of refreshableProofIds) {
+      const uploadToken = randomToken();
+      uploadTokens.set(proofId, uploadToken);
+      tokenStatements.push(db.prepare(`UPDATE payment_proofs SET upload_token_hash = ?, upload_token_expires_at = ?, updated_at = ?
+        WHERE id = ? AND status IN ('awaiting_upload', 'denied')`)
+        .bind(await sha256Hex(uploadToken), uploadTokenExpiry, new Date().toISOString(), proofId));
+    }
+    await db.batch(tokenStatements);
+  }
+
+  const proof = (entry: {
+    proof_id: string | null; proof_status: "awaiting_upload" | "pending_review" | "approved" | "denied" | null;
+    proof_submitted_at: string | null; proof_reviewed_at: string | null; proof_student_visible_note: string | null;
+    proof_object_key: string | null; proof_content_type: string | null;
+    proof_owner_student_id?: string | null;
+  }) => entry.proof_id && entry.proof_status ? {
+    id: entry.proof_id,
+    status: entry.proof_status,
+    submittedAt: entry.proof_submitted_at || null,
+    reviewedAt: entry.proof_reviewed_at || null,
+    studentVisibleNote: entry.proof_student_visible_note || null,
+    fileAvailable: Boolean(entry.proof_object_key) && (!entry.proof_owner_student_id || entry.proof_owner_student_id === student.id),
+    contentType: entry.proof_content_type || null,
+    uploadToken: uploadTokens.get(entry.proof_id) || null,
+  } : null;
+
+  const aatContributions = (aatResult.results || []).map((entry) => ({
+    id: entry.id,
+    paymentDate: entry.payment_date,
+    renewalDueDate: entry.renewal_due_date || null,
+    amount: entry.amount === null ? null : Number(entry.amount),
+    currency: entry.currency,
+    status: entry.status,
+    proof: proof(entry),
+  }));
+  const membership = aatMembershipStatus(student.aat_number, student.aat_last_paid_date);
+  const currentAatProof = aatContributions.find((entry) => entry.status === "awaiting_payment")?.proof || null;
+  const aatSummary = {
+    state: currentAatProof?.status === "pending_review"
+      ? "submitted_for_review" as const
+      : currentAatProof?.status === "awaiting_upload" || currentAatProof?.status === "denied"
+        ? "payslip_needed" as const
+        : membership.state === "current"
+          ? "up_to_date" as const
+          : membership.state === "expiring"
+            ? "due_soon" as const
+            : "payment_record_missing" as const,
+    lastVerifiedPayment: student.aat_last_paid_date || null,
+    nextDueDate: membership.dueDate,
+  };
+
+  const hourRequests = (hourRequestResult.results || []).map((entry) => ({
+    id: entry.id,
+    type: "training_hours" as const,
+    title: "Verified training hours",
+    previousValue: `${Number(entry.previous_total || 0)} hours`,
+    requestedValue: `${Number(entry.requested_total || 0)} hours`,
+    submittedAt: entry.submitted_at,
+    decisionAt: entry.reviewed_at || null,
+    studentVisibleNote: entry.student_visible_note || null,
+    status: studentRequestStatus(entry.status),
+    paymentStatus: null,
+    documentStatus: null,
+    period: null,
+    explanation: entry.status === "approved" ? "The approved hours have been added to your verified record."
+      : entry.status === "rejected" ? "This request was not approved. Please review the note from your sensei below."
+        : "This request is waiting for a sensei to review it.",
+  }));
+  const examRequests = (examRequestResult.results || []).map((entry) => ({
+    id: entry.id,
+    type: "examination_application" as const,
+    title: `Examination application: ${entry.attempted_rank}`,
+    previousValue: entry.current_rank,
+    requestedValue: entry.attempted_rank,
+    submittedAt: entry.submitted_at,
+    decisionAt: entry.status === "application_submitted" ? null : entry.completed_at || entry.updated_at,
+    studentVisibleNote: entry.student_visible_decision_note || null,
+    status: studentRequestStatus(entry.status),
+    paymentStatus: entry.payment_status,
+    documentStatus: null,
+    period: null,
+    explanation: entry.status === "rejected" ? "This application was not approved. Please review the note from your sensei below."
+      : entry.status === "examination_completed" ? "The examination workflow has been completed."
+        : "Your application has been received and is waiting for review.",
+  }));
+  const contributionRequests = [
+    ...aatContributions.filter((entry) => entry.status !== "paid").map((entry) => ({
+      id: `aat:${entry.id}`, type: "aat_contribution" as const, title: "AAT annual contribution",
+      previousValue: null, requestedValue: entry.paymentDate, submittedAt: entry.paymentDate,
+      decisionAt: entry.proof?.reviewedAt || null, studentVisibleNote: entry.proof?.studentVisibleNote || null,
+      status: entry.proof?.status === "denied" ? "denied" as const : entry.status === "paid" ? "approved" as const : "pending" as const,
+      paymentStatus: entry.status, documentStatus: entry.proof?.status || "awaiting_upload", period: entry.paymentDate.slice(0, 4),
+      explanation: entry.proof?.status === "denied" ? "The submitted payslip was not approved. Please review the note from your sensei below."
+        : entry.proof?.status === "pending_review" ? "A payslip has been submitted and is waiting for review."
+          : "This contribution is waiting for a payslip or payment review.",
+    })),
+    ...((monthlyResult?.results || []).filter((entry) => entry.status !== "no_submission").map((entry) => ({
+      id: `monthly:${entry.id}`, type: "monthly_contribution" as const, title: `RenShinKan monthly contribution: ${entry.month_key}`,
+      previousValue: null, requestedValue: entry.month_key, submittedAt: entry.submitted_at || entry.updated_at,
+      decisionAt: entry.proof_reviewed_at || entry.paid_at || null, studentVisibleNote: entry.proof_student_visible_note || null,
+      status: entry.proof_status === "denied" ? "denied" as const : entry.status === "paid" ? "approved" as const : "pending" as const,
+      paymentStatus: entry.status, documentStatus: entry.proof_status || "awaiting_upload", period: entry.month_key,
+      explanation: entry.proof_status === "denied" ? "The submitted payslip was not approved. Please review the note from your sensei below."
+        : entry.status === "paid" ? "This monthly contribution has been verified."
+          : entry.proof_status === "pending_review" ? "A payslip has been submitted and is waiting for review."
+            : "This contribution is waiting for a payslip.",
+    }))),
+  ];
+  const proofRequests = (proofRequestResult.results || [])
+    .filter((entry) => entry.payment_type !== "renshinkan_monthly" || student.dojo_id === DEFAULT_DOJO_ID)
+    .map((entry) => ({
+    id: `proof:${entry.id}`,
+    type: "payslip" as const,
+    title: `${entry.payment_type === "exam" ? "Examination" : entry.payment_type === "aat_annual" ? "AAT annual contribution" : "Monthly contribution"} payslip`,
+    previousValue: null,
+    requestedValue: "Payslip submitted for review",
+    submittedAt: entry.submitted_at || new Date(0).toISOString(),
+    decisionAt: entry.reviewed_at || null,
+    studentVisibleNote: entry.student_visible_note || null,
+    status: entry.status === "approved" ? "approved" as const : entry.status === "denied" ? "denied" as const : "pending" as const,
+    paymentStatus: null,
+    documentStatus: entry.status,
+    period: entry.period || null,
+    explanation: entry.status === "approved" ? "Your payslip has been verified."
+      : entry.status === "denied" ? "This payslip was not approved. Please review the note from your sensei below."
+        : entry.status === "pending_review" ? "A payslip has been submitted and is waiting for review."
+          : "A payslip has not been uploaded yet.",
+  }));
+  const profileRequest = student.profile_reviewed_at ? [{
+    id: `profile:${student.id}`, type: "profile_information" as const, title: "Student profile request",
+    previousValue: null, requestedValue: "Create an approved student profile", submittedAt: student.created_at,
+    decisionAt: student.profile_reviewed_at || null, studentVisibleNote: student.profile_student_visible_note || null,
+    status: studentRequestStatus(student.profile_status || "approved"), paymentStatus: null, documentStatus: null, period: null,
+    explanation: "Your student profile is approved and available in this passport.",
+  }] : [];
+  const requests = [...profileRequest, ...hourRequests, ...examRequests, ...contributionRequests, ...proofRequests]
+    .filter((entry) => entry.submittedAt !== new Date(0).toISOString())
+    .sort((left, right) => right.submittedAt.localeCompare(left.submittedAt));
 
   return {
     ...base,
@@ -463,14 +688,8 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
       location: entry.training_location || null,
       verified: true as const,
     })),
-    aatContributions: (aatResult.results || []).map((entry) => ({
-      id: entry.id,
-      paymentDate: entry.payment_date,
-      renewalDueDate: entry.renewal_due_date || null,
-      amount: entry.amount === null ? null : Number(entry.amount),
-      currency: entry.currency,
-      status: entry.status,
-    })),
+    aatContributions,
+    aatSummary,
     monthlyContributions: monthlyResult ? (monthlyResult.results || []).map((entry) => ({
       id: entry.id,
       month: entry.month_key,
@@ -478,18 +697,10 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
       submittedAt: entry.submitted_at || null,
       paidAt: entry.paid_at || null,
       updatedAt: entry.updated_at,
+      expected: entry.expected === 1,
+      proof: proof(entry),
     })) : null,
-    changeRequests: (requestResult.results || []).map((entry) => ({
-      id: entry.id,
-      type: "training_hours" as const,
-      title: "Verified training hours",
-      previousValue: `${Number(entry.previous_total || 0)} hours`,
-      requestedValue: `${Number(entry.requested_total || 0)} hours`,
-      submittedAt: entry.submitted_at,
-      reviewedAt: entry.reviewed_at || null,
-      reviewNote: entry.review_note || null,
-      status: entry.status === "rejected" ? "denied" as const : entry.status,
-    })),
+    requests,
   };
 }
 

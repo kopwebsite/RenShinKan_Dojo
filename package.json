@@ -17,7 +17,9 @@
     "test:unit": "vitest run tests/ranks-and-security.test.ts",
     "test:integration": "vitest run tests/workflow-contracts.test.ts",
     "check": "npm run lint && npm run test && npm run build",
-    "r2:lifecycle:payslips": "wrangler r2 bucket lifecycle add renshinkan-dojo-media payment-proofs-60-days payment-proofs/ --expire-days 60",
+    "auth:hash-password": "node scripts/hash-password.mjs",
+    "audit:worker:types": "wrangler types audit-cleanup-env.d.ts --cwd serverless --config ../wrangler.audit-cleanup.jsonc --env-file serverless/.env.types --include-runtime=false",
+    "audit:worker:check": "wrangler deploy --dry-run --config wrangler.audit-cleanup.jsonc",
     "deploy": "npm run build && wrangler pages deploy dist --project-name renshinkan-dojo --branch main",
     "preview": "vite preview"
   },
@@ -38,11 +40,14 @@
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
-    "sharp": "^0.34.5",
+    "sharp": "^0.35.3",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2",
     "vite": "^6.0.5",
     "vitest": "^3.2.7",
     "wrangler": "^4.110.0"
+  },
+  "overrides": {
+    "sharp": "$sharp"
   }
 }

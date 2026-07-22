@@ -47,6 +47,8 @@ type ApplicationDetail = {
     payment_status: string;
     administrator_notes: string;
     application_notes: string;
+    student_visible_decision_note: string;
+    internal_admin_note: string;
     submitted_at: string;
     updated_at: string;
     completed_at: string | null;
@@ -160,6 +162,7 @@ export function AdminExamApplications({ report, admin, dojos }: { report: (messa
   const [openedApplicationId, setOpenedApplicationId] = useState<string | null>(null);
   const [applicationDetail, setApplicationDetail] = useState<ApplicationDetail | null>(null);
   const [applicationLoading, setApplicationLoading] = useState(false);
+  const [rejection, setRejection] = useState<{ studentVisibleNote: string; internalNote: string } | null>(null);
 
   async function load() {
     setLoading(true);
@@ -262,6 +265,25 @@ export function AdminExamApplications({ report, admin, dojos }: { report: (messa
   function closeApplication() {
     setOpenedApplicationId(null);
     setApplicationDetail(null);
+    setRejection(null);
+  }
+
+  async function rejectApplication() {
+    if (!openedApplicationId || !rejection?.studentVisibleNote.trim()) return;
+    setSaving(true);
+    try {
+      await adminApi(`/api/admin/examinations/${encodeURIComponent(openedApplicationId)}`, {
+        method: "POST",
+        body: JSON.stringify({ action: "reject", studentVisibleNote: rejection.studentVisibleNote, internalNote: rejection.internalNote }),
+      });
+      report("Examination application rejected with a student-visible explanation.");
+      setRejection(null);
+      await Promise.all([viewApplication(openedApplicationId), load()]);
+    } catch (reason) {
+      report(reason instanceof Error ? reason.message : "Could not reject the examination application.", true);
+    } finally {
+      setSaving(false);
+    }
   }
 
   return <section className="admin-workspace-section" aria-busy={loading}>
@@ -351,8 +373,10 @@ export function AdminExamApplications({ report, admin, dojos }: { report: (messa
           {applicationDetail.history.length ? <ol>{applicationDetail.history.map((entry) => <li key={entry.id}><span aria-hidden="true" /><div><strong>{historyDescription(entry)}</strong><time>{formatAdminDate(entry.createdAt)}</time><p>By {entry.actorIdentifier}{entry.note ? ` · ${entry.note}` : ""}</p></div></li>)}</ol> : <p>No status changes have been recorded beyond the saved application.</p>}
         </section>
         {(applicationDetail.application.application_notes || applicationDetail.application.administrator_notes) ? <aside className="admin-exam-record-notes"><strong>Administrator notes <small>Private · authorized administrators only</small></strong><p>{applicationDetail.application.application_notes || applicationDetail.application.administrator_notes}</p></aside> : null}
+        {applicationDetail.application.student_visible_decision_note ? <aside className="admin-exam-record-notes"><strong>Student-visible decision note</strong><p>{applicationDetail.application.student_visible_decision_note}</p></aside> : null}
+        {rejection ? <section className="admin-exam-record-notes"><strong>Reject application</strong><label>Student-visible explanation <small>Required. The student will see this in Requests & Notices.</small><textarea maxLength={2000} value={rejection.studentVisibleNote} onChange={(event) => setRejection({ ...rejection, studentVisibleNote: event.target.value })} /></label><label>Private internal note <small>Optional. Never shown to the student or public.</small><textarea maxLength={2000} value={rejection.internalNote} onChange={(event) => setRejection({ ...rejection, internalNote: event.target.value })} /></label></section> : null}
       </> : null}
-      <footer><button className="btn-secondary" onClick={closeApplication}>Close record</button></footer>
+      <footer><button className="btn-secondary" onClick={closeApplication}>Close record</button>{applicationDetail?.application.application_status === "application_submitted" && applicationDetail.application.payment_status !== "paid" ? rejection ? <><button className="btn-secondary" onClick={() => setRejection(null)}>Cancel rejection</button><button className="btn-primary is-danger" disabled={saving || !rejection.studentVisibleNote.trim()} onClick={() => void rejectApplication()}>{saving ? <LoaderCircle className="spin" size={16} /> : <X size={16} />} Confirm rejection</button></> : <button className="btn-secondary is-danger" onClick={() => setRejection({ studentVisibleNote: "", internalNote: "" })}>Reject application</button> : null}</footer>
     </section></div> : null}
 
     {cycleDialog ? <div className="admin-confirm-backdrop" role="presentation"><section className="admin-confirm-dialog admin-confirm-dialog--danger" role="dialog" aria-modal="true" aria-labelledby="new-cycle-title">

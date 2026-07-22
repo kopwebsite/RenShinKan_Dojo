@@ -46,6 +46,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         const previous = Number(student.total_hours || 0);
         const next = previous + hours;
         statements.push(
+          db.prepare(`INSERT INTO request_decisions
+            (id, request_type, request_id, decision, reviewer_identifier, student_visible_note, internal_admin_note, decided_at)
+            VALUES (?, 'training_hours', ?, 'approved', ?, 'Your submitted training hours were approved.',
+              'Approved through the administrator bulk review', ?)`)
+            .bind(crypto.randomUUID(), pending.id, session.adminName, now),
           db.prepare(`INSERT INTO training_hours
             (id, student_id, entry_date, verified_hours, source, internal_note, training_location, created_at)
             VALUES (?, ?, ?, ?, 'admin_bulk_hours', NULL, ?, ?)`)
@@ -84,8 +89,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
             (id, student_id, entry_date, verified_hours, source, internal_note, created_at, hour_request_id)
             VALUES (?, ?, ?, ?, 'student_self_service_bulk_approved', 'Approved through the administrator bulk review', ?, ?)`)
             .bind(hourId, student.id, now.slice(0, 10), pending.submitted_hours, now, pending.id),
-          db.prepare("UPDATE training_hour_requests SET status = 'approved', reviewed_at = ?, reviewed_by = ?, review_note = 'Approved through the administrator bulk review' WHERE id = ? AND status = 'pending'")
-            .bind(now, session.adminName, pending.id),
+          db.prepare(`UPDATE training_hour_requests SET status = 'approved', reviewed_at = ?, reviewed_by = ?,
+            review_note = 'Approved through the administrator bulk review',
+            student_visible_note = 'Your submitted training hours were approved.',
+            internal_admin_note = 'Approved through the administrator bulk review'
+            WHERE id = ? AND status = 'pending'`).bind(now, session.adminName, pending.id),
           auditStatement(db, {
             actorType: "administrator", ...adminAuditMetadata(session, request), action: "bulk_student_hours_approved", entityType: "training_hour_request",
             entityId: pending.id, studentId: student.id,

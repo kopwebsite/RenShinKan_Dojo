@@ -3,7 +3,9 @@ import { createPaymentProofDraft } from "../_lib/paymentProofs";
 import { aatMembershipStatus } from "../../shared/membership";
 import {
   auditStatement,
+  configuredMonthlyContributionAmount,
   currentBangkokMonthKey,
+  DEFAULT_DOJO_ID,
   enforceLookupRateLimit,
   isMonthKey,
   namesLikelyMatch,
@@ -25,7 +27,6 @@ type Payload = {
   dojoId?: unknown;
 };
 
-const MONTHLY_CONTRIBUTION_AMOUNT = 1800;
 const MAX_MONTHLY_STUDENTS = 10;
 type MonthlyReminder = {
   kind: "monthly";
@@ -61,8 +62,9 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
     const month = clean(body.month, 7) || currentMonth;
     const turnstileToken = clean(body.turnstileToken, 2048);
     const contributionType = body.contributionType === "aat_annual" ? "aat_annual" : body.contributionType === "renshinkan_monthly" ? "renshinkan_monthly" : "";
+    const configuredMonthlyAmount = configuredMonthlyContributionAmount(env);
     const submittedDojoId = clean(body.dojoId, 80);
-    const lookupDojoId = contributionType === "renshinkan_monthly" ? "dojo-rsk" : submittedDojoId;
+    const lookupDojoId = contributionType === "renshinkan_monthly" ? DEFAULT_DOJO_ID : submittedDojoId;
     const submittedStudents = contributionType === "renshinkan_monthly" && Array.isArray(body.students)
       ? body.students.map((entry) => {
         const item = entry && typeof entry === "object" ? entry as Record<string, unknown> : {};
@@ -75,6 +77,9 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
       return jsonResponse({ error: "Choose a contribution type and dojo, then enter a valid Student ID, student name, and contribution month." }, 400, headers);
     }
     if (contributionType === "renshinkan_monthly") {
+      if (configuredMonthlyAmount === null) {
+        return jsonResponse({ error: "The monthly contribution amount is not configured. Please ask a sensei for help." }, 503, headers);
+      }
       if (submittedStudents.length < 1 || submittedStudents.length > MAX_MONTHLY_STUDENTS || submittedStudents.some((item) => !item.publicStudentId || !item.submittedName)) {
         return jsonResponse({ error: `Add between 1 and ${MAX_MONTHLY_STUDENTS} RenShinKan students, with a Student ID and name for each person.` }, 400, headers);
       }
@@ -85,7 +90,7 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
     if (month !== currentMonth) {
       return jsonResponse({ error: "The public contribution form accepts the current month only. Ask a sensei about an earlier month." }, 400, headers);
     }
-    if (!(await verifyTurnstile(request, env, turnstileToken))) {
+    if (!(await verifyTurnstile(request, env, turnstileToken, "student-records"))) {
       return jsonResponse({ error: "Cloudflare verification failed. Please try again." }, 400, headers);
     }
     const student = await db.prepare(`SELECT s.id, s.public_student_id, s.display_name, s.current_belt, s.dojo_id,
@@ -139,9 +144,9 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
       const matched = await db.prepare(`SELECT s.id, s.public_student_id, s.display_name, s.current_belt, s.dojo_id,
         s.aat_number, s.aat_last_paid_date, d.official_name AS dojo_name
         FROM students s JOIN dojos d ON d.id = s.dojo_id AND d.active = 1
-        WHERE UPPER(s.public_student_id) = ? AND s.dojo_id = 'dojo-rsk'
+        WHERE UPPER(s.public_student_id) = ? AND s.dojo_id = ?
           AND s.active = 1 AND s.profile_status = 'approved' LIMIT 1`)
-        .bind(submitted.publicStudentId).first<typeof student>();
+        .bind(submitted.publicStudentId, DEFAULT_DOJO_ID).first<typeof student>();
       if (!matched || !namesLikelyMatch(submitted.submittedName, matched.display_name)) {
         return jsonResponse({ error: "We could not verify every Student ID and name. Check each person in the payment or ask a sensei for help." }, 404, headers);
       }
@@ -173,8 +178,9 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
 
     const existingPeriod = await db.prepare("SELECT month_key FROM contribution_periods WHERE month_key = ? LIMIT 1")
       .bind(month).first<{ month_key: string }>();
+    const monthlyContributionAmount = configuredMonthlyAmount!;
     const activeStudentCount = existingPeriod ? 0 : Number((await db.prepare(`SELECT COUNT(*) AS count FROM students
-      WHERE active = 1 AND profile_status = 'approved' AND dojo_id = 'dojo-rsk'`).first<{ count: number }>())?.count || 0);
+      WHERE active = 1 AND profile_status = 'approved' AND dojo_id = ?`).bind(DEFAULT_DOJO_ID).first<{ count: number }>())?.count || 0);
     const now = new Date().toISOString();
     const paymentGroupId = crypto.randomUUID();
     const proof = await createPaymentProofDraft(db, {
@@ -190,7 +196,7 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
       ok: true, contributionId: paymentGroupId, contributionIds: contributionRows.map((row) => row.contributionId),
       month, status: "awaiting_payment", contributionType, dojoName: student.dojo_name,
       reminder: contributionRows[0].reminder, coveredStudents, studentCount: students.length,
-      unitAmount: MONTHLY_CONTRIBUTION_AMOUNT, totalAmount: MONTHLY_CONTRIBUTION_AMOUNT * students.length,
+      unitAmount: monthlyContributionAmount, totalAmount: monthlyContributionAmount * students.length,
       proofId: proof.proofId, uploadToken: proof.uploadToken,
     };
     const statements: D1PreparedStatement[] = [
@@ -203,8 +209,8 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
         id, month_key, student_id, student_name_snapshot, student_public_id_snapshot,
         current_rank_snapshot, active_at_period_start, created_at
       ) SELECT lower(hex(randomblob(16))), ?, id, display_name, public_student_id,
-        current_belt, 1, ? FROM students WHERE active = 1 AND profile_status = 'approved' AND dojo_id = 'dojo-rsk'`)
-        .bind(month, now));
+        current_belt, 1, ? FROM students WHERE active = 1 AND profile_status = 'approved' AND dojo_id = ?`)
+        .bind(month, now, DEFAULT_DOJO_ID));
     }
     for (const row of contributionRows) {
       statements.push(
@@ -229,7 +235,7 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
           expected_amount = excluded.expected_amount,
           updated_at = excluded.updated_at`)
           .bind(row.contributionId, row.student.id, month, row.student.display_name, row.student.public_student_id,
-            now, now, row.student.id, now, now, paymentGroupId, MONTHLY_CONTRIBUTION_AMOUNT),
+            now, now, row.student.id, now, now, paymentGroupId, monthlyContributionAmount),
         db.prepare(`INSERT INTO contribution_status_history (
           id, contribution_id, previous_status, new_status, actor_identifier, request_id, note, created_at
         ) VALUES (?, ?, ?, 'awaiting_payment', ?, ?, 'Contribution form submitted as part of a shared payment; payment not yet confirmed', ?)`)
@@ -239,7 +245,7 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
           entityType: "monthly_contribution", entityId: row.contributionId, studentId: row.student.id,
           studentPublicId: row.student.public_student_id, studentNameSnapshot: row.student.display_name,
           previousValues: { status: row.previousStatus },
-          newValues: { status: "awaiting_payment", month, paymentGroupId, expectedAmount: MONTHLY_CONTRIBUTION_AMOUNT, groupSize: students.length },
+          newValues: { status: "awaiting_payment", month, paymentGroupId, expectedAmount: monthlyContributionAmount, groupSize: students.length },
           source: "monthly_contribution_form", requestId, contributionMonth: month,
           summary: `Contribution attempt submitted for ${month} in a ${students.length}-student payment; awaiting manual payment confirmation`, createdAt: now,
         }),
@@ -249,8 +255,8 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
       db.prepare(`UPDATE contribution_periods SET active_student_count_snapshot = (
         SELECT COUNT(*) FROM contribution_period_students r
         JOIN students s ON s.id = r.student_id
-        WHERE r.month_key = ? AND r.active_at_period_start = 1 AND s.dojo_id = 'dojo-rsk'
-      ) WHERE month_key = ?`).bind(month, month),
+        WHERE r.month_key = ? AND r.active_at_period_start = 1 AND s.dojo_id = ?
+      ) WHERE month_key = ?`).bind(month, DEFAULT_DOJO_ID, month),
       proof.statement,
       db.prepare("INSERT INTO mutation_requests (request_id, actor_type, action, response_json, created_at) VALUES (?, 'student', 'monthly_contribution_form_submitted', ?, ?)")
         .bind(requestId, JSON.stringify(response), now),
@@ -263,7 +269,14 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
   }
 };
 
-export const onRequestGet: PagesFunction = async () => new Response("Method not allowed", {
-  status: 405,
-  headers: { Allow: "POST", ...headers },
-});
+export const onRequestGet: PagesFunction<StudentEnv> = async ({ env }) => {
+  const amount = configuredMonthlyContributionAmount(env);
+  return jsonResponse({
+    monthlyContribution: {
+      dojoId: DEFAULT_DOJO_ID,
+      currency: "THB",
+      amount,
+      available: amount !== null,
+    },
+  }, 200, { ...headers, Allow: "GET, POST" });
+};

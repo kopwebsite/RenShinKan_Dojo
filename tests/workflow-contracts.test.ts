@@ -11,6 +11,9 @@ describe("database safety and audit contracts", () => {
   const cycleMigration = file("migrations/0004_student_cycles_and_contributions.sql");
   const operationsMigration = file("migrations/0005_shared_profile_photos.sql");
   const contributionGroupMigration = file("migrations/0012_monthly_contribution_groups.sql");
+  const requestsMigration = file("migrations/0013_requests_notices_security.sql");
+  const examDecisionGuards = file("migrations/0014_exam_decision_guards.sql");
+  const examCompletionGuard = file("migrations/0015_exam_completion_guard.sql");
 
   it("uses an additive migration and preserves current records and legacy QR tokens", () => {
     expect(migration).not.toMatch(/\bDROP\s+(TABLE|COLUMN|INDEX)/i);
@@ -50,8 +53,16 @@ describe("database safety and audit contracts", () => {
     expect(contributionGroupMigration).toContain("idx_monthly_contributions_payment_group");
   });
 
+  it("separates public and private decisions and guards concurrent examination outcomes", () => {
+    expect(requestsMigration).not.toMatch(/DELETE\s+FROM\s+(students|payments|monthly_contributions|payment_proofs|examination_applications)/i);
+    for (const value of ["student_visible_note", "internal_admin_note", "request_decisions", "revoked_admin_sessions"]) expect(requestsMigration).toContain(value);
+    expect(examDecisionGuards).toContain("trg_exam_denial_requires_open_application");
+    expect(examDecisionGuards).toContain("trg_rejected_exam_cannot_be_marked_paid");
+    expect(examCompletionGuard).toContain("trg_denied_exam_cannot_be_completed");
+  });
+
   it("protects every administrator mutation server-side", () => {
-    const endpoints = ["functions/api/admin/students/index.ts", "functions/api/admin/students/upload.ts", "functions/api/admin/students/[id].ts", "functions/api/admin/students/[id]/inline.ts", "functions/api/admin/students/[id]/hours.ts", "functions/api/admin/students/[id]/exam.ts", "functions/api/admin/students/bulk.ts", "functions/api/admin/examinations.ts", "functions/api/admin/contributions.ts"];
+    const endpoints = ["functions/api/admin/students/index.ts", "functions/api/admin/students/upload.ts", "functions/api/admin/students/[id].ts", "functions/api/admin/students/[id]/inline.ts", "functions/api/admin/students/[id]/hours.ts", "functions/api/admin/students/[id]/exam.ts", "functions/api/admin/students/bulk.ts", "functions/api/admin/examinations.ts", "functions/api/admin/examinations/[applicationId].ts", "functions/api/admin/contributions.ts", "functions/api/admin/audit-cleanup.ts"];
     endpoints.forEach((path) => { const source = file(path); expect(source).toMatch(/getAdminSession|getAuthorizedAdminSession|hasValidAdminSession/); expect(source).toContain("isSameOriginRequest"); });
   });
 
@@ -149,10 +160,12 @@ describe("student workflow contracts", () => {
   it("groups up to ten RenShinKan students under one monthly payment and payslip", () => {
     const contribution = file("functions/api/contributions.ts");
     const review = file("functions/api/admin/payment-proofs.ts");
-    for (const value of ["MONTHLY_CONTRIBUTION_AMOUNT = 1800", "MAX_MONTHLY_STUDENTS = 10", "paymentGroupId", "coveredStudents", "totalAmount", "payment_group_id", "expected_amount"]) expect(contribution).toContain(value);
+    for (const value of ["configuredMonthlyContributionAmount", "MAX_MONTHLY_STUDENTS = 10", "paymentGroupId", "coveredStudents", "totalAmount", "payment_group_id", "expected_amount"]) expect(contribution).toContain(value);
+    expect(contribution).not.toMatch(/MONTHLY_CONTRIBUTION_AMOUNT\s*=\s*\d+/);
     expect(contribution).toContain("Each student can appear only once");
     expect(review).toContain("WHERE payment_group_id = ? OR (id = ? AND student_id = ?)");
-    expect(review).toContain("target.expected_amount || 1800");
+    expect(review).toContain("Number(target.expected_amount)");
+    expect(review).not.toContain("target.expected_amount || 1800");
     expect(review).toContain("covered_student_count");
   });
 });
@@ -165,7 +178,7 @@ describe("UI and responsive workflow contracts", () => {
     expect(students.match(/Private admin-only note/g)?.length).toBeGreaterThanOrEqual(3);
     expect(students).toContain("never shown to students or on public profiles");
     expect(contributions).toContain("never shown to students or the public");
-    expect(proofs).toContain("never shown to students or the public");
+    expect(proofs).toContain("Never shown to students or the public");
   });
 
   it("removes the decorative background only from administrator routes", () => {
@@ -177,7 +190,7 @@ describe("UI and responsive workflow contracts", () => {
     const admin = file("src/pages/AdminStudentsPage.tsx");
     const exams = file("src/components/admin/AdminExamApplications.tsx");
     const contributions = file("src/components/admin/AdminMonthlyContributions.tsx");
-    for (const value of ["Student Database", "Exam Applications", "Monthly Contributions", "current_rank", "Change hours", "Mass promotion", "Mass exam pass", "Accept pending profiles", "Archive active students", "Unarchive students", "Delete archived students"]) expect(admin).toContain(value);
+    for (const value of ["Student Database", "Exam Applications", "Monthly Contributions", "current_rank", "Add training hours", "Mass promotion", "Record mass exam pass", "Accept pending profiles", "Archive active students", "Unarchive students", "Delete archived students"]) expect(admin).toContain(value);
     for (const value of ["Start New Exam Cycle", "Not signed up", "Read-only historical cycle", "Confirm status change"]) expect(exams).toContain(value);
     for (const value of ["Awaiting payment", "Paid rate", "Last 12 months", "Internal note", "Accessible monthly contribution totals"]) expect(contributions).toContain(value);
     expect(admin).toContain("onWheel"); expect(admin).toContain("Review changes");
@@ -200,7 +213,7 @@ describe("UI and responsive workflow contracts", () => {
     const admin = file("src/pages/AdminStudentsPage.tsx");
     const bulk = file("functions/api/admin/students/bulk.ts");
     const student = file("functions/api/admin/students/[id].ts");
-    for (const value of ["selectedActiveRows", "selectedPendingProfiles", "selectedArchivedRows", "Only eligible selected records were changed", "Change status", "Mass exam pass", "Unarchive", "Deny pending profiles", "Delete archived students"]) expect(admin).toContain(value);
+    for (const value of ["selectedActiveRows", "selectedPendingProfiles", "selectedArchivedRows", "Only eligible selected records were changed", "Set record status", "Training & rank actions", "Record mass exam pass", "Unarchive", "Deny pending profiles", "Delete archived records"]) expect(admin).toContain(value);
     expect(admin).toContain('const targets = bulk.type === "approve_hours" ? selectedPendingRows : selectedActiveRows');
     expect(admin).toContain('function studentRecordStatus');
     expect(admin).toContain('<Status value={studentRecordStatus(student)} />');
@@ -275,11 +288,11 @@ describe("UI and responsive workflow contracts", () => {
     const passport = file("src/components/studentPassport/DigitalPassport.tsx");
     const styles = file("src/components/studentPassport/DigitalPassport.module.css");
     const page = file("src/pages/StudentRecordsPage.tsx");
-    for (const label of ["Student Identity", "Training Record", "Examination History", "Contributions", "Change Requests", "Identity Record", "Verified Training", "AAT Annual Contribution", "RenShinKan Monthly Contribution", "Record Change Requests"]) expect(passport).toContain(label);
+    for (const label of ["Student Identity", "Training Record", "Examination History", "Contributions", "Requests & Notices", "Identity Record", "Verified Training", "AAT Annual Contribution", "RenShinKan Monthly Contribution", "Request & Notice History"]) expect(passport).toContain(label);
     for (const accessibility of ['role="tablist"', 'role="tab"', 'role="tabpanel"', 'aria-selected', 'aria-controls', 'aria-label="Approved and verified by the dojo"']) expect(passport).toContain(accessibility);
     expect(passport).toContain("record.monthlyContributions !== null");
     expect(passport).toContain("showMonthlyContributions ? <PassportPage");
-    expect(passport).toContain("Please speak with a sensei for more information.");
+    expect(passport).toContain("Please speak with a sensei if you have questions or need help.");
     expect(passport).toContain("owner?.dojoLogo");
     expect(page).toContain("StudentPassportRecord");
     expect(styles).toContain("--passport-burgundy");
@@ -331,7 +344,8 @@ describe("UI and responsive workflow contracts", () => {
     const records = file("src/pages/StudentRecordsPage.tsx");
     const examApi = file("functions/api/records/examination-applications.ts");
     const contributionApi = file("functions/api/contributions.ts");
-    for (const value of ["The dojo cannot confirm your", "send it directly to a sensei of RenShinKan Dojo", "automatically deleted after 60 days", "/api/payment-proofs"]) expect(upload).toContain(value);
+    for (const value of ["The dojo cannot confirm your", "send the payslip directly to a sensei of RenShinKan Dojo", "private authenticated record", "application/pdf", "/api/payment-proofs"]) expect(upload).toContain(value);
+    expect(upload).not.toContain("deleted after 60 days");
     expect(contributions).toContain("PaymentProofUpload");
     expect(records).toContain("PaymentProofUpload");
     expect(records).toContain("exam-payment-grid");
@@ -347,7 +361,8 @@ describe("UI and responsive workflow contracts", () => {
     const form = file("src/components/ContributionForm.tsx");
     const api = file("functions/api/contributions.ts");
     const css = file("src/index.css");
-    expect(form).toContain("฿1,800 monthly contribution");
+    expect(form).toContain('fetch("/api/contributions"');
+    expect(form).toContain("monthlyContributionAmount");
     expect(form).toContain("Choose your dojo");
     expect(form).toContain('fetch("/api/dojos"');
     expect(form).toContain("PaymentReminder");
@@ -364,11 +379,12 @@ describe("UI and responsive workflow contracts", () => {
   it("calculates one clear monthly total for multiple student records", () => {
     const form = file("src/components/ContributionForm.tsx");
     const css = file("src/index.css");
-    for (const value of ["MONTHLY_CONTRIBUTION_AMOUNT = 1800", "Add another student", "Who is this payment for?", "monthlyStudents.length", "Total to pay", "Use one PromptPay payment and upload one payslip"]) expect(form).toContain(value);
+    for (const value of ["monthlyContributionAmount", "Add another student", "Who is this payment for?", "monthlyStudents.length", "Total to pay", "Use one PromptPay payment and upload one payslip"]) expect(form).toContain(value);
+    expect(form).not.toMatch(/MONTHLY_CONTRIBUTION_AMOUNT\s*=\s*\d+/);
     for (const selector of [".contribution-student-list", ".contribution-student-row", ".contribution-payment-total"]) expect(css).toContain(selector);
   });
 
-  it("provides scoped individual and bulk payslip review with 60-day private retention", () => {
+  it("provides retained, scoped individual and bulk payslip review", () => {
     const migration = file("migrations/0010_payment_proofs.sql");
     const uploadApi = file("functions/api/payment-proofs.ts");
     const adminApi = file("functions/api/admin/payment-proofs.ts");
@@ -376,9 +392,11 @@ describe("UI and responsive workflow contracts", () => {
     const adminPage = file("src/pages/AdminStudentsPage.tsx");
     const adminProofs = file("src/components/admin/AdminPaymentProofs.tsx");
     const packageJson = file("package.json");
+    const studentImageApi = file("functions/api/records/payment-proofs/[id].ts");
     expect(migration).toContain("TABLE IF NOT EXISTS payment_proofs");
     expect(migration).toContain("'exam', 'aat_annual', 'renshinkan_monthly'");
-    expect(uploadApi).toContain("paymentProofExpiry");
+    expect(uploadApi).toContain("upload_token_expires_at");
+    expect(uploadApi).toContain("expires_at = NULL");
     expect(uploadApi).toContain("payment-proofs/");
     expect(adminApi).toContain("isRenShinKanSuperAdmin");
     expect(adminApi).toContain("s.dojo_id = ?");
@@ -386,8 +404,12 @@ describe("UI and responsive workflow contracts", () => {
     expect(adminApi).toContain('action === "approve"');
     expect(adminApi).toContain('action === "deny"');
     expect(imageApi).toContain('"Cache-Control": "private, no-store"');
+    expect(studentImageApi).toContain("validStudentAccessSession");
+    expect(studentImageApi).toContain('"Cache-Control": "private, no-store"');
     expect(adminPage).toContain("Submitted Payslip");
     for (const value of ["Select every pending payslip", "Approve payslip", "Deny payslip", "Payslip submitted by", "Payment for"]) expect(adminProofs).toContain(value);
-    expect(packageJson).toContain("payment-proofs-60-days payment-proofs/ --expire-days 60");
+    expect(adminProofs).toContain("Private retained file");
+    expect(adminProofs).toContain('opened.content_type === "application/pdf"');
+    expect(packageJson).not.toContain("payment-proofs-60-days");
   });
 });

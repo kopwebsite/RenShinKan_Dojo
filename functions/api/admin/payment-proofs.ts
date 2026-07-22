@@ -1,6 +1,5 @@
 import { addOneCalendarYear } from "../../../shared/membership";
 import { getAuthorizedAdminSession, isRenShinKanSuperAdmin, isSameOriginRequest, jsonResponse } from "../../_lib/auth";
-import { purgeExpiredPaymentProofs } from "../../_lib/paymentProofs";
 import {
   adminAuditMetadata, auditStatement, requestIdentifier, requireStudentDb,
   type D1PreparedStatement, type StudentEnv,
@@ -10,8 +9,9 @@ import type { R2Bucket } from "../../_lib/storage";
 type Env = StudentEnv & { SESSION_SECRET?: string; MEDIA_BUCKET?: R2Bucket };
 type ProofRow = {
   id: string; student_id: string; dojo_id: string; payment_type: "exam" | "aat_annual" | "renshinkan_monthly";
-  payment_reference_id: string; status: string; submitted_at: string; expires_at: string;
-  student_name: string; public_student_id: string; dojo_name: string; review_note: string;
+  payment_reference_id: string; status: string; submitted_at: string;
+  student_name: string; public_student_id: string; dojo_name: string;
+  student_visible_note: string; internal_admin_note: string;
   covered_student_count: number; covered_students: string;
 };
 
@@ -33,17 +33,15 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const session = await getAuthorizedAdminSession(request, env);
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const db = requireStudentDb(env);
-  await purgeExpiredPaymentProofs(db, env.MEDIA_BUCKET);
   const url = new URL(request.url);
   const page = Math.max(1, Number.parseInt(url.searchParams.get("page") || "1", 10) || 1);
   const pageSize = 25;
   const query = clean(url.searchParams.get("query"), 120);
   const status = ["pending_review", "approved", "denied"].includes(String(url.searchParams.get("status"))) ? String(url.searchParams.get("status")) : "";
   const paymentType = ["exam", "aat_annual", "renshinkan_monthly"].includes(String(url.searchParams.get("paymentType"))) ? String(url.searchParams.get("paymentType")) : "";
-  const now = new Date().toISOString();
-  const conditions = ["p.object_key IS NOT NULL", "p.submitted_at IS NOT NULL", "p.expires_at > ?"];
-  const bindings: unknown[] = [now];
-  if (!isRenShinKanSuperAdmin(session)) { conditions.push("s.dojo_id = ?"); bindings.push(session.selectedDojoId || "__none__"); }
+  const conditions = ["p.object_key IS NOT NULL", "p.submitted_at IS NOT NULL"];
+  const bindings: unknown[] = [];
+  if (!isRenShinKanSuperAdmin(session)) { conditions.push("s.dojo_id = ?", "p.payment_type <> 'renshinkan_monthly'"); bindings.push(session.selectedDojoId || "__none__"); }
   if (status) { conditions.push("p.status = ?"); bindings.push(status); }
   if (paymentType) { conditions.push("p.payment_type = ?"); bindings.push(paymentType); }
   if (query) {
@@ -54,12 +52,13 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     bindings.push(term, term, term, term);
   }
   const where = conditions.join(" AND ");
-  const scope = isRenShinKanSuperAdmin(session) ? "" : "AND s.dojo_id = ?";
+  const scope = isRenShinKanSuperAdmin(session) ? "" : "AND s.dojo_id = ? AND p.payment_type <> 'renshinkan_monthly'";
   const scopeBindings = isRenShinKanSuperAdmin(session) ? [] : [session.selectedDojoId || "__none__"];
   const [countResult, rowResult, summaryResult] = await db.batch([
     db.prepare(`SELECT COUNT(*) AS total FROM payment_proofs p JOIN students s ON s.id = p.student_id WHERE ${where}`).bind(...bindings),
     db.prepare(`SELECT p.id, p.student_id, p.dojo_id, p.payment_type, p.payment_reference_id, p.status,
-        p.submitted_at, p.reviewed_at, p.reviewed_by, p.review_note, p.expires_at, p.original_filename,
+        p.submitted_at, p.reviewed_at, p.reviewed_by, p.student_visible_note, p.internal_admin_note,
+        p.content_type, p.original_filename,
         s.display_name AS student_name, s.public_student_id, s.profile_image_url, d.official_name AS dojo_name,
         CASE WHEN p.payment_type = 'renshinkan_monthly' THEN MAX(1, (SELECT COUNT(*) FROM monthly_contributions mc WHERE mc.payment_group_id = p.payment_reference_id)) ELSE 1 END AS covered_student_count,
         CASE WHEN p.payment_type = 'renshinkan_monthly' THEN COALESCE((SELECT GROUP_CONCAT(mc.student_name_snapshot || ' (' || mc.student_public_id_snapshot || ')', ', ')
@@ -73,8 +72,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         SUM(CASE WHEN p.status = 'approved' THEN 1 ELSE 0 END) AS approved,
         SUM(CASE WHEN p.status = 'denied' THEN 1 ELSE 0 END) AS denied
       FROM payment_proofs p JOIN students s ON s.id = p.student_id
-      WHERE p.object_key IS NOT NULL AND p.submitted_at IS NOT NULL AND p.expires_at > ? ${scope}`)
-      .bind(now, ...scopeBindings),
+      WHERE p.object_key IS NOT NULL AND p.submitted_at IS NOT NULL ${scope}`)
+      .bind(...scopeBindings),
   ]);
   const total = Number((countResult.results?.[0] as { total?: number } | undefined)?.total || 0);
   return jsonResponse({
@@ -91,30 +90,29 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const db = requireStudentDb(env);
   const requestId = requestIdentifier(request);
   try {
-    await purgeExpiredPaymentProofs(db, env.MEDIA_BUCKET);
-    const body = await request.json<{ action?: unknown; proofIds?: unknown; note?: unknown }>();
+    const body = await request.json<{ action?: unknown; proofIds?: unknown; studentVisibleNote?: unknown; internalNote?: unknown }>();
     const action = body.action === "approve" || body.action === "deny" ? body.action : "";
-    const note = clean(body.note, 2000);
+    const studentVisibleNote = clean(body.studentVisibleNote, 2000);
+    const internalNote = clean(body.internalNote, 2000);
     const proofIds = Array.isArray(body.proofIds)
       ? Array.from(new Set(body.proofIds.filter((value): value is string => typeof value === "string" && value.length >= 8))).slice(0, 25)
       : [];
     if (!action || !proofIds.length) return jsonResponse({ error: "Select at least one submitted payslip and choose approve or deny." }, 400);
-    if (action === "deny" && !note) return jsonResponse({ error: "Add a short reason for denying the payslip." }, 400);
+    if (action === "deny" && !studentVisibleNote) return jsonResponse({ error: "Add a short explanation that the student can see." }, 400);
     const placeholders = proofIds.map(() => "?").join(",");
-    const scope = isRenShinKanSuperAdmin(session) ? "" : "AND s.dojo_id = ?";
+    const scope = isRenShinKanSuperAdmin(session) ? "" : "AND s.dojo_id = ? AND p.payment_type <> 'renshinkan_monthly'";
     const rows = (await db.prepare(`SELECT p.id, p.student_id, p.dojo_id, p.payment_type, p.payment_reference_id,
-        p.status, p.submitted_at, p.expires_at, p.review_note,
+        p.status, p.submitted_at, p.student_visible_note, p.internal_admin_note,
         s.display_name AS student_name, s.public_student_id, d.official_name AS dojo_name,
         CASE WHEN p.payment_type = 'renshinkan_monthly' THEN MAX(1, (SELECT COUNT(*) FROM monthly_contributions mc WHERE mc.payment_group_id = p.payment_reference_id)) ELSE 1 END AS covered_student_count,
         CASE WHEN p.payment_type = 'renshinkan_monthly' THEN COALESCE((SELECT GROUP_CONCAT(mc.student_name_snapshot || ' (' || mc.student_public_id_snapshot || ')', ', ')
           FROM monthly_contributions mc WHERE mc.payment_group_id = p.payment_reference_id), s.display_name || ' (' || s.public_student_id || ')')
           ELSE s.display_name || ' (' || s.public_student_id || ')' END AS covered_students
       FROM payment_proofs p JOIN students s ON s.id = p.student_id JOIN dojos d ON d.id = s.dojo_id
-      WHERE p.id IN (${placeholders}) AND p.status = 'pending_review' AND p.object_key IS NOT NULL
-        AND p.expires_at > ? ${scope}`)
-      .bind(...proofIds, new Date().toISOString(), ...(isRenShinKanSuperAdmin(session) ? [] : [session.selectedDojoId || "__none__"]))
+      WHERE p.id IN (${placeholders}) AND p.status = 'pending_review' AND p.object_key IS NOT NULL ${scope}`)
+      .bind(...proofIds, ...(isRenShinKanSuperAdmin(session) ? [] : [session.selectedDojoId || "__none__"]))
       .all<ProofRow>()).results || [];
-    if (rows.length !== proofIds.length) return jsonResponse({ error: "One or more selected payslips is unavailable, already reviewed, expired, or outside your dojo." }, 409);
+    if (rows.length !== proofIds.length) return jsonResponse({ error: "One or more selected payslips is unavailable, already reviewed, or outside your dojo." }, 409);
 
     const now = new Date().toISOString();
     const paymentDate = bangkokDateKey(new Date(now));
@@ -128,13 +126,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           WHERE ea.id = ? AND ea.student_id = ? LIMIT 1`).bind(row.payment_reference_id, row.student_id)
           .first<{ status: string; payment_status: string; paid_at: string | null; paid_by: string | null; cycle_id: string; cycle_status_id: string | null; cycle_status: string | null }>();
         if (!target) throw new Error(`The examination application for ${row.public_student_id} no longer exists.`);
+        if (target.status !== "application_submitted") throw new Error(`The examination application for ${row.public_student_id} has already been processed.`);
         statements.push(
           db.prepare("UPDATE examination_applications SET payment_status = 'paid', paid_at = COALESCE(paid_at, ?), paid_by = COALESCE(paid_by, ?), updated_at = ? WHERE id = ?")
             .bind(now, session.adminName, now, row.payment_reference_id),
           db.prepare(`INSERT INTO application_status_history
             (id, application_id, previous_status, new_status, previous_payment_status, new_payment_status,
              actor_identifier, note, bulk_operation_id, request_id, created_at) VALUES (?, ?, ?, ?, ?, 'paid', ?, ?, ?, ?, ?)`)
-            .bind(crypto.randomUUID(), row.payment_reference_id, target.status, target.status, target.payment_status, session.adminName, note || "Payslip approved", bulkOperationId, requestId, now),
+            .bind(crypto.randomUUID(), row.payment_reference_id, target.status, target.status, target.payment_status, session.adminName, internalNote || "Payslip approved", bulkOperationId, requestId, now),
         );
         if (target.cycle_status_id) statements.push(
           db.prepare("UPDATE exam_cycle_student_status SET status = 'paid', updated_at = ?, updated_by = ? WHERE id = ?")
@@ -151,22 +150,27 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           ORDER BY student_public_id_snapshot`).bind(row.payment_reference_id, row.payment_reference_id, row.student_id)
           .all<{ id: string; student_id: string; status: string; month_key: string; internal_note: string; expected_amount: number | null }>()).results || [];
         if (!targets.length) throw new Error(`The monthly contribution for ${row.public_student_id} no longer exists.`);
-        for (const target of targets) statements.push(
+        for (const target of targets) {
+          if (target.expected_amount === null || !Number.isFinite(Number(target.expected_amount))) {
+            throw new Error(`The configured monthly amount for ${target.month_key} is missing. Set it before approving this payslip.`);
+          }
+          statements.push(
           db.prepare("UPDATE monthly_contributions SET status = 'paid', paid_at = ?, paid_by = ?, status_updated_at = ?, status_updated_by = ?, updated_at = ? WHERE id = ?")
             .bind(now, session.adminName, now, session.adminName, now, target.id),
           db.prepare(`INSERT INTO contribution_status_history
             (id, contribution_id, previous_status, new_status, actor_identifier, bulk_operation_id, request_id, note, created_at)
             VALUES (?, ?, ?, 'paid', ?, ?, ?, ?, ?)`)
-            .bind(crypto.randomUUID(), target.id, target.status, session.adminName, bulkOperationId, requestId, note || "Shared payslip approved", now),
+            .bind(crypto.randomUUID(), target.id, target.status, session.adminName, bulkOperationId, requestId, internalNote || "Shared payslip approved", now),
           db.prepare(`INSERT INTO payments (id, student_id, dojo_id, payment_type, amount, currency, payment_date,
             status, reference, notes, recorded_by, created_at, updated_at)
             VALUES (?, ?, ?, 'renshinkan_monthly', ?, 'THB', ?, 'paid', ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET amount = excluded.amount, payment_date = excluded.payment_date, status = 'paid',
               notes = excluded.notes, recorded_by = excluded.recorded_by, updated_at = excluded.updated_at`)
-            .bind(target.id, target.student_id, row.dojo_id, target.expected_amount || 1800, paymentDate, `Payslip ${row.id}`, note || target.internal_note, session.adminName, now, now),
+            .bind(target.id, target.student_id, row.dojo_id, Number(target.expected_amount), paymentDate, `Payslip ${row.id}`, internalNote || target.internal_note, session.adminName, now, now),
           db.prepare("INSERT INTO payment_history (id, payment_id, previous_status, new_status, changed_by, notes, created_at) VALUES (?, ?, ?, 'paid', ?, ?, ?)")
-            .bind(crypto.randomUUID(), target.id, target.status === "paid" ? "paid" : "awaiting_payment", session.adminName, note || "Shared payslip approved", now),
-        );
+            .bind(crypto.randomUUID(), target.id, target.status === "paid" ? "paid" : "awaiting_payment", session.adminName, internalNote || "Shared payslip approved", now),
+          );
+        }
       } else if (action === "approve" && row.payment_type === "aat_annual") {
         const target = await db.prepare(`SELECT p.status, p.amount, p.notes, s.aat_number, s.aat_last_paid_date, s.aat_notes
           FROM payments p JOIN students s ON s.id = p.student_id WHERE p.id = ? AND p.student_id = ? AND p.payment_type = 'aat_annual' LIMIT 1`)
@@ -182,23 +186,31 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
              recorded_by, recorded_by_role, recorded_by_dojo_id, created_at)
             VALUES (?, ?, ?, ?, ?, ?, 'THB', ?, ?, ?, ?, ?)`)
             .bind(row.payment_reference_id, row.student_id, row.dojo_id, paymentDate, renewalDueDate, target.amount,
-              note || target.notes, session.adminName, isRenShinKanSuperAdmin(session) ? "central" : "dojo", session.selectedDojoId || row.dojo_id, now),
+              internalNote || target.notes, session.adminName, isRenShinKanSuperAdmin(session) ? "central" : "dojo", session.selectedDojoId || row.dojo_id, now),
           db.prepare("UPDATE payments SET payment_date = ?, status = 'paid', reference = ?, notes = ?, recorded_by = ?, updated_at = ? WHERE id = ?")
-            .bind(paymentDate, `Payslip ${row.id}`, note || target.notes, session.adminName, now, row.payment_reference_id),
+            .bind(paymentDate, `Payslip ${row.id}`, internalNote || target.notes, session.adminName, now, row.payment_reference_id),
           db.prepare("INSERT INTO payment_history (id, payment_id, previous_status, new_status, changed_by, notes, created_at) VALUES (?, ?, ?, 'paid', ?, ?, ?)")
-            .bind(crypto.randomUUID(), row.payment_reference_id, target.status, session.adminName, note || "Payslip approved", now),
+            .bind(crypto.randomUUID(), row.payment_reference_id, target.status, session.adminName, internalNote || "Payslip approved", now),
         );
       }
 
       statements.push(
-        db.prepare(`UPDATE payment_proofs SET status = ?, reviewed_at = ?, reviewed_by = ?, review_note = ?, updated_at = ?
-          WHERE id = ? AND status = 'pending_review'`).bind(action === "approve" ? "approved" : "denied", now, session.adminName, note, now, row.id),
+        db.prepare(`INSERT INTO request_decisions
+          (id, request_type, request_id, decision, reviewer_identifier, student_visible_note, internal_admin_note, decided_at)
+          VALUES (?, 'payslip', ?, ?, ?, ?, ?, ?)`)
+          .bind(crypto.randomUUID(), row.id, action === "approve" ? "approved" : "denied", session.adminName, studentVisibleNote, internalNote, now),
+        db.prepare(`UPDATE payment_proofs SET status = ?, reviewed_at = ?, reviewed_by = ?, review_note = ?,
+          student_visible_note = ?, internal_admin_note = ?, updated_at = ?
+          WHERE id = ? AND status = 'pending_review'`).bind(
+            action === "approve" ? "approved" : "denied", now, session.adminName, internalNote,
+            studentVisibleNote, internalNote, now, row.id,
+          ),
         auditStatement(db, {
           actorType: "administrator", ...adminAuditMetadata(session, request), action: action === "approve" ? "payment_proof_approved" : "payment_proof_denied",
           entityType: "payment_proof", entityId: row.id, studentId: row.student_id, studentPublicId: row.public_student_id,
           studentNameSnapshot: row.student_name, previousValues: { status: row.status },
-          newValues: { status: action === "approve" ? "approved" : "denied", paymentType: row.payment_type },
-          source: "admin_payment_proofs", bulkOperationId, requestId, administratorNote: note || null,
+          newValues: { status: action === "approve" ? "approved" : "denied", paymentType: row.payment_type, studentVisibleNote },
+          source: "admin_payment_proofs", bulkOperationId, requestId, administratorNote: internalNote || null,
           summary: `${action === "approve" ? "Approved" : "Denied"} ${row.payment_type.replace(/_/g, " ")} payslip for ${row.public_student_id}`, createdAt: now,
         }),
       );
@@ -206,6 +218,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     await db.batch(statements);
     return jsonResponse({ ok: true, action, count: rows.length, bulkOperationId }, 200, { "Cache-Control": "no-store" });
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : "The payslip review could not be completed." }, 400);
+    const conflict = error instanceof Error && /(?:UNIQUE constraint|request_decisions|already been processed|cannot be marked paid)/i.test(error.message);
+    return jsonResponse({ error: conflict ? "Another administrator has already reviewed a selected payslip or its related request." : error instanceof Error ? error.message : "The payslip review could not be completed." }, conflict ? 409 : 400);
   }
 };

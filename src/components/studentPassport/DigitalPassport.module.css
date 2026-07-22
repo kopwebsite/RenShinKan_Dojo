@@ -180,6 +180,18 @@
 .stampGrid article > div span { color: rgba(128, 35, 39, .85); font-family: "Cormorant Garamond", serif; font-size: 1.25rem; font-weight: 700; }
 .stampGrid article strong, .monthGrid time { font-size: .69rem; }
 .stampGrid small, .monthGrid small { grid-column: 1 / -1; color: #6b6155; font-size: .58rem; }
+.proofActions { display: grid; grid-column: 1 / -1; gap: .5rem; margin-top: .35rem; padding-top: .55rem; border-top: 1px dashed var(--passport-line); }
+.proofActions > p { display: flex; align-items: center; gap: .35rem; color: #5d554b; font-size: .62rem; font-weight: 750; }
+.proofActions > p svg { width: .85rem; height: .85rem; }
+.proofActions > button, .proofViewer button { display: inline-flex; width: fit-content; align-items: center; gap: .35rem; padding: .4rem .6rem; color: #fff; background: var(--passport-burgundy); border: 0; border-radius: .25rem; font-size: .62rem; font-weight: 800; cursor: pointer; }
+.proofActions > button:disabled { opacity: .6; cursor: wait; }
+.proofActions > button svg { width: .8rem; height: .8rem; }
+.proofActions blockquote { display: grid; gap: .2rem; padding: .55rem; color: #5e4a32; background: rgba(231, 218, 190, .6); border-left: 2px solid #8b6c4b; font-size: .62rem; }
+.proofActions :global(.payment-proof-upload) { margin-block: .25rem; padding: .75rem; background: rgba(255, 255, 255, .5); }
+.proofViewer { display: grid; gap: .45rem; padding: .5rem; background: #eee9df; border: 1px solid var(--passport-line); }
+.proofViewer > div { display: flex; align-items: center; justify-content: space-between; gap: .5rem; font-size: .65rem; }
+.proofViewer iframe, .proofViewer img { width: 100%; min-height: 20rem; max-height: 32rem; border: 0; object-fit: contain; background: #fff; }
+.proofError { color: #8b2f2c !important; }
 
 .requestSummary { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 1rem; border: 1px solid var(--passport-line); }
 .requestSummary > div { padding: .8rem; border-left: 1px solid var(--passport-line); }
@@ -200,6 +212,13 @@
 .requestList footer { display: flex; align-items: flex-start; gap: .35rem; margin-top: .6rem; color: #386246; font-size: .63rem; font-weight: 750; }
 .requestList footer svg { flex: 0 0 auto; width: .85rem; height: .85rem; }
 .requestList .deniedMessage { color: #8b2f2c; }
+.noticeList { display: grid; gap: .55rem; margin-top: .85rem; }
+.noticeList article { padding: .6rem; color: #554c42; background: rgba(255, 255, 255, .3); border: 1px solid var(--passport-line); }
+.noticeList article strong { font-size: .68rem; }
+.noticeList article p { margin-top: .2rem; font-size: .62rem; line-height: 1.45; }
+.noticeList article small { display: block; margin-top: .25rem; color: #6b6155; font-size: .56rem; }
+.noticeList > button { display: inline-flex; width: fit-content; align-items: center; gap: .35rem; padding: .45rem .65rem; color: #fff; background: var(--passport-burgundy); border: 0; border-radius: .25rem; font-size: .62rem; font-weight: 800; cursor: pointer; }
+.noticeList > button svg { width: .85rem; height: .85rem; }
 
 .empty { display: grid; place-items: center; padding: 2.2rem 1rem; color: #74695c; text-align: center; border: 1px dashed var(--passport-line); }
 .empty svg { width: 2rem; height: 2rem; opacity: .55; }

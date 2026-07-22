@@ -26,11 +26,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const studentId = normalizeStudentId(typeof payload.studentId === "string" ? payload.studentId : "");
     const token = typeof payload.turnstileToken === "string" ? payload.turnstileToken : "";
     if (!name || name.length > 120 || studentId.length < 3 || studentId.length > 80) return genericLookupFailure();
-    if (!(await verifyTurnstile(request, env, token))) return genericLookupFailure();
+    if (!(await verifyTurnstile(request, env, token, "student-records"))) return genericLookupFailure();
     const db = requireStudentDb(env);
     const student = await db.prepare(`SELECT s.id, s.public_student_id, s.display_name, s.current_belt, s.belt_color,
       s.profile_image_url, s.profile_image_consent, s.public_visible, s.active, s.profile_status, s.share_fields, s.dojo_name,
-      s.training_hours_adjustment, s.updated_at, s.created_at, s.dojo_id, s.aat_number, s.practice_duration, s.profile_bio,
+      s.training_hours_adjustment, s.updated_at, s.created_at, s.dojo_id, s.aat_number, s.aat_last_paid_date,
+      s.practice_duration, s.profile_bio, s.profile_reviewed_at, s.profile_student_visible_note,
       d.logo_url AS dojo_logo
       FROM students s LEFT JOIN dojos d ON d.id = s.dojo_id WHERE UPPER(s.public_student_id) = ?
       AND s.active = 1 AND s.public_visible = 1 AND s.profile_status = 'approved' LIMIT 1`)
@@ -50,7 +51,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       });
     }
     return jsonResponse(
-      { record, shareUrl: share.url, accessToken },
+      { record: { ...record, studentAccessToken: accessToken }, shareUrl: share.url, accessToken },
       200,
       { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" },
     );

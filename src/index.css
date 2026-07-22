@@ -428,6 +428,29 @@ html:lang(th) :is(strong, b) {
   }
 }
 
+.turnstile-shell {
+  width: 100%;
+  max-width: 100%;
+  margin-top: 1.2rem;
+}
+.turnstile-frame {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  min-height: 65px;
+  justify-content: center;
+  margin-top: 0;
+}
+.turnstile-shell[data-size="compact"] .turnstile-frame { min-height: 140px; }
+.turnstile-frame iframe { max-width: 100%; }
+.turnstile-status {
+  min-height: 1.2rem;
+  margin-top: .35rem;
+  color: hsl(var(--color-charcoal) / .68);
+  font-size: .68rem;
+  line-height: 1.45;
+}
+
 @media (max-width: 360px) {
   .container-shell {
     @apply px-4;
@@ -2094,6 +2117,7 @@ html.admin-route .admin-drawer { background: #fff; }.admin-drawer--workflow { wi
 .admin-payment-proof-dialog > header p:last-child { margin-top: .25rem; color: #667085; font-size: .72rem; }
 .admin-payment-proof-image { display: grid; min-height: 16rem; max-height: 56vh; margin-top: 1rem; place-items: center; overflow: auto; border: 1px solid #d8dee7; border-radius: .45rem; background: #edf1f5; }
 .admin-payment-proof-image img { display: block; max-width: 100%; max-height: 55vh; object-fit: contain; }
+.admin-payment-proof-image iframe { width: 100%; min-height: 55vh; border: 0; background: #fff; }
 .admin-payment-proof-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin-top: 1rem; overflow: hidden; border: 1px solid #d8dee7; border-radius: .4rem; background: #d8dee7; }
 .admin-payment-proof-details > div { padding: .7rem; background: #fff; }
 .admin-payment-proof-details dt { color: #667085; font-size: .61rem; font-weight: 850; letter-spacing: .05em; text-transform: uppercase; }

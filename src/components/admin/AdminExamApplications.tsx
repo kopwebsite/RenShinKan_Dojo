@@ -139,7 +139,7 @@ function Status({ value }: { value: ExamStatus }) {
   return <span className={`admin-status ${tone}`}>{adminStatusLabel(value)}</span>;
 }
 
-export function AdminExamApplications({ report, admin, dojos }: { report: (message: string, isError?: boolean) => void; admin: AdminIdentity; dojos: AdminDojo[] }) {
+export function AdminExamApplications({ report, admin, dojos, mode = "applications" }: { report: (message: string, isError?: boolean) => void; admin: AdminIdentity; dojos: AdminDojo[]; mode?: "applications" | "records" }) {
   const superAdmin = admin.permissionLevel === "renshinkan_super_admin";
   const [data, setData] = useState<Response>(EMPTY);
   const [loading, setLoading] = useState(true);
@@ -171,6 +171,7 @@ export function AdminExamApplications({ report, admin, dojos }: { report: (messa
       if (query) params.set("query", query);
       if (status) params.set("status", status);
       if (cycleId) params.set("cycleId", cycleId);
+      if (mode === "records") params.set("recordsOnly", "1");
       const body = await adminApi<Response>(`/api/admin/examinations?${params}`);
       setData(body);
       if (!cycleId && body.selectedCycle) setCycleId(body.selectedCycle.id);
@@ -182,9 +183,10 @@ export function AdminExamApplications({ report, admin, dojos }: { report: (messa
     }
   }
 
-  useEffect(() => { void load(); }, [page, query, status, cycleId]);
+  useEffect(() => { void load(); }, [page, query, status, cycleId, mode]);
 
   const isHistorical = data.selectedCycle?.status === "closed";
+  const readOnly = mode === "records" || isHistorical;
   const allVisibleSelected = data.students.length > 0 && data.students.every((student) => selected.has(student.student_id));
   const selectionNames = useMemo(() => data.students.filter((student) => selected.has(student.student_id)), [data.students, selected]);
 
@@ -288,8 +290,8 @@ export function AdminExamApplications({ report, admin, dojos }: { report: (messa
 
   return <section className="admin-workspace-section" aria-busy={loading}>
     <header className="admin-workspace-heading">
-      <div><p className="eyebrow">Cycle-based workflow</p><h2>Exam Applications</h2><p>Every active student appears in the current cycle. Closed cycles remain read-only.</p></div>
-      {superAdmin ? <div className="flex flex-wrap gap-2"><button className="btn-secondary" disabled={!data.selectedCycle} onClick={() => { const cycle = data.selectedCycle; if (!cycle) return; setEditingCycle(true); setCycleName(cycle.title || cycle.name); setCycleForm({ lifecycleStatus: cycle.lifecycle_status, examinationType: cycle.examination_type, rankCategory: cycle.rank_category, applicationOpensAt: cycle.application_opens_at || "", applicationClosesAt: cycle.application_closes_at || "", examinationAt: cycle.examination_at || "", venue: cycle.venue, instructions: cycle.instructions, kyuExamFee: feeValue(cycle.rank_fee_config_json, "kyu"), danExamFee: feeValue(cycle.rank_fee_config_json, "dan"), aatAnnualFee: feeValue(cycle.annual_fee_config_json, "default") }); setCycleDialog(true); }}>Edit Cycle</button><button className="btn-primary" onClick={() => { setEditingCycle(false); setCycleName(""); setCycleForm({ lifecycleStatus: "open", examinationType: "Belt promotion", rankCategory: "Kyu and Dan", applicationOpensAt: "", applicationClosesAt: "", examinationAt: "", venue: "", instructions: "", kyuExamFee: "0", danExamFee: "0", aatAnnualFee: "0" }); setCycleDialog(true); }}><GraduationCap size={17} /> Start New Exam Cycle</button></div> : null}
+      <div><p className="eyebrow">{mode === "records" ? "Permanent history" : "Cycle-based workflow"}</p><h2>{mode === "records" ? "Saved examination records" : "Exam applications"}</h2><p>{mode === "records" ? "Only students with a saved application are shown. Open any row for the submitted answers and permanent timeline." : "Every active student appears in the current cycle. Closed cycles remain read-only."}</p></div>
+      {superAdmin && mode === "applications" ? <div className="flex flex-wrap gap-2"><button className="btn-secondary" disabled={!data.selectedCycle} onClick={() => { const cycle = data.selectedCycle; if (!cycle) return; setEditingCycle(true); setCycleName(cycle.title || cycle.name); setCycleForm({ lifecycleStatus: cycle.lifecycle_status, examinationType: cycle.examination_type, rankCategory: cycle.rank_category, applicationOpensAt: cycle.application_opens_at || "", applicationClosesAt: cycle.application_closes_at || "", examinationAt: cycle.examination_at || "", venue: cycle.venue, instructions: cycle.instructions, kyuExamFee: feeValue(cycle.rank_fee_config_json, "kyu"), danExamFee: feeValue(cycle.rank_fee_config_json, "dan"), aatAnnualFee: feeValue(cycle.annual_fee_config_json, "default") }); setCycleDialog(true); }}>Edit Cycle</button><button className="btn-primary" onClick={() => { setEditingCycle(false); setCycleName(""); setCycleForm({ lifecycleStatus: "open", examinationType: "Belt promotion", rankCategory: "Kyu and Dan", applicationOpensAt: "", applicationClosesAt: "", examinationAt: "", venue: "", instructions: "", kyuExamFee: "0", danExamFee: "0", aatAnnualFee: "0" }); setCycleDialog(true); }}><GraduationCap size={17} /> Start New Exam Cycle</button></div> : null}
     </header>
 
     <div className="admin-workspace-toolbar">
@@ -319,26 +321,26 @@ export function AdminExamApplications({ report, admin, dojos }: { report: (messa
       {(query || status) ? <button type="button" className="btn-secondary" onClick={() => { setQueryInput(""); setQuery(""); setStatus(""); setPage(1); }}>Clear filters</button> : null}
     </form>
 
-    {!isHistorical && selected.size ? <aside className="admin-bulk-toolbar">
+    {!readOnly && selected.size ? <aside className="admin-bulk-toolbar">
       <strong>{selected.size} selected</strong>
       {(["not_signed_up", "unpaid", "paid"] as ExamStatus[]).map((value) => <button key={value} className="btn-secondary" onClick={() => setPending({ status: value, studentIds: [...selected] })}>{adminStatusLabel(value)}</button>)}
       <button className="text-link" onClick={() => setSelected(new Set())}>Clear selection</button>
     </aside> : null}
 
     {!data.selectedCycle && !loading ? <div className="admin-empty"><GraduationCap size={28} /><h3>No examination cycle yet</h3><p>Start the first cycle to create a fresh roster of all active students.</p></div> : <div className="admin-table-scroll"><table className="admin-record-table"><thead><tr>
-      {!isHistorical ? <th><label className="admin-select-box"><input type="checkbox" aria-label="Select all visible students" checked={allVisibleSelected} onChange={(event) => setSelected(event.target.checked ? new Set(data.students.map((student) => student.student_id)) : new Set())} /><span aria-hidden="true" /></label></th> : null}
+      {!readOnly ? <th><label className="admin-select-box"><input type="checkbox" aria-label="Select all visible students" checked={allVisibleSelected} onChange={(event) => setSelected(event.target.checked ? new Set(data.students.map((student) => student.student_id)) : new Set())} /><span aria-hidden="true" /></label></th> : null}
       <th>Student</th><th>Student ID</th><th>Current kyu</th><th>Requested kyu</th><th>Application date</th><th>Status</th><th>Actions</th>
     </tr></thead><tbody>
       {data.students.map((student) => <tr key={student.student_id} className={selected.has(student.student_id) ? "is-selected" : ""}>
-        {!isHistorical ? <td><label className="admin-select-box"><input type="checkbox" aria-label={`Select ${student.student_name}`} checked={selected.has(student.student_id)} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(student.student_id); else next.delete(student.student_id); return next; })} /><span aria-hidden="true" /></label></td> : null}
+        {!readOnly ? <td><label className="admin-select-box"><input type="checkbox" aria-label={`Select ${student.student_name}`} checked={selected.has(student.student_id)} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(student.student_id); else next.delete(student.student_id); return next; })} /><span aria-hidden="true" /></label></td> : null}
         <th><span className="admin-student-identity">{student.profile_image_url ? <img src={student.profile_image_url} alt="" /> : <span aria-hidden="true"><UserRound size={18} /></span>}<span>{student.student_name}</span></span></th>
         <td><code>{student.public_student_id}</code></td><td>{student.current_rank}</td><td>{student.requested_rank || "—"}</td><td>{formatAdminDate(student.application_date)}</td><td><Status value={student.status} /></td>
         <td><div className="admin-row-actions admin-exam-row-actions">
           {student.application_id ? <button type="button" onClick={() => void viewApplication(student.application_id!)}><FileText size={14} /> View application</button> : <span className="admin-no-record">Not submitted</span>}
-          {!isHistorical ? <select className="admin-row-action-select" aria-label={`Set examination status for ${student.student_name}`} value={student.status} onChange={(event) => setPending({ status: event.target.value as ExamStatus, studentIds: [student.student_id] })}>{(["not_signed_up", "unpaid", "paid"] as ExamStatus[]).map((value) => <option key={value} value={value}>{adminStatusLabel(value)}</option>)}</select> : null}
+          {!readOnly ? <select className="admin-row-action-select" aria-label={`Set examination status for ${student.student_name}`} value={student.status} onChange={(event) => setPending({ status: event.target.value as ExamStatus, studentIds: [student.student_id] })}>{(["not_signed_up", "unpaid", "paid"] as ExamStatus[]).map((value) => <option key={value} value={value}>{adminStatusLabel(value)}</option>)}</select> : null}
         </div></td>
       </tr>)}
-      {!data.students.length && !loading ? <tr><td colSpan={isHistorical ? 7 : 8}><div className="admin-empty-inline">No students match these filters.</div></td></tr> : null}
+      {!data.students.length && !loading ? <tr><td colSpan={readOnly ? 7 : 8}><div className="admin-empty-inline">No students match these filters.</div></td></tr> : null}
     </tbody></table></div>}
 
     <footer className="admin-pagination"><span>{data.pagination.total} record{data.pagination.total === 1 ? "" : "s"}</span><div><button className="btn-secondary" disabled={page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))}><ChevronLeft size={16} /> Previous</button><span>Page {data.pagination.page} of {data.pagination.totalPages}</span><button className="btn-secondary" disabled={page >= data.pagination.totalPages || loading} onClick={() => setPage((value) => value + 1)}>Next <ChevronRight size={16} /></button></div></footer>

@@ -4,6 +4,7 @@ import {
   BookOpen,
   CalendarDays,
   CheckCircle2,
+  ChevronRight,
   CircleX,
   Clock3,
   ExternalLink,
@@ -14,6 +15,7 @@ import {
   ShieldCheck,
   UserRound,
 } from "lucide-react";
+import { useTranslation } from "../../i18n";
 import type {
   PassportAatContribution,
   PassportPaymentProof,
@@ -111,7 +113,7 @@ function IdentityPage({ record, owner }: { record: PublicStudentRecord | Student
           : fallback
             ? <img className={styles.logoFallback} src={fallback} alt={`${record.dojoName} logo`} />
             : <div className={styles.avatarFallback} role="img" aria-label="No profile photograph"><UserRound aria-hidden="true" /></div>}
-        <div><p className={styles.microLabel}>NAME / 氏名</p><h4>{record.displayName}</h4><p>{record.studentId}</p></div>
+        <div><p className={styles.microLabel}>NAME / 氏名</p><h4>{record.englishName || record.displayName}</h4>{record.thaiName ? <p lang="th">{record.thaiName}</p> : null}<p>{record.studentId}</p></div>
       </div>
       <dl className={styles.identityGrid}>
         <div><dt>DOJO / 道場</dt><dd>{record.dojoName}</dd></div>
@@ -124,7 +126,8 @@ function IdentityPage({ record, owner }: { record: PublicStudentRecord | Student
       <dl className={styles.printedFields}>
         <div><dt>STUDENT ID</dt><dd>{record.studentId}</dd></div>
         {owner ? <div><dt>AAT MEMBERSHIP NUMBER</dt><dd>{owner.aatNumber || "Not assigned"}</dd></div> : null}
-        {owner ? <div><dt>REGISTRATION DATE</dt><dd>{date(owner.registrationDate)}</dd></div> : null}
+        {owner ? <div><dt>ACCOUNT CREATED</dt><dd>{date(owner.accountCreatedDate)}</dd></div> : null}
+        {owner ? <div><dt>JOINED DOJO</dt><dd>{date(owner.dojoJoinedDate)}</dd></div> : null}
         <div><dt>LAST UPDATED</dt><dd>{date(record.lastUpdated)}</dd></div>
         {owner?.practiceDuration ? <div><dt>PRACTICE RECORD</dt><dd>{owner.practiceDuration}</dd></div> : null}
       </dl>
@@ -202,16 +205,16 @@ function monthlyStatus(entry: PassportMonthlyContribution) {
   if (entry.status === "paid") return { label: "Verified", className: styles.statusApproved, Icon: CheckCircle2 };
   if (entry.proof?.status === "denied") return { label: "Action needed", className: styles.statusDenied, Icon: CircleX };
   if (entry.proof?.status === "pending_review") return { label: "Under review", className: styles.statusPending, Icon: FileClock };
-  if (entry.status === "awaiting_payment") return { label: "Payslip needed", className: styles.statusPending, Icon: FileClock };
+  if (entry.status === "awaiting_payment") return { label: "Payment proof needed", className: styles.statusPending, Icon: FileClock };
   return { label: "Not submitted", className: styles.statusNeutral, Icon: CalendarDays };
 }
 
 function proofStatus(proof: PassportPaymentProof | null) {
-  if (!proof) return "No payslip record";
-  if (proof.status === "approved") return "Payslip verified";
-  if (proof.status === "pending_review") return "Payslip submitted for review";
-  if (proof.status === "denied") return "Replacement payslip requested";
-  return "Payslip upload needed";
+  if (!proof) return "No payment proof";
+  if (proof.status === "approved") return "Payment proof verified";
+  if (proof.status === "pending_review") return "Payment proof under review";
+  if (proof.status === "denied") return "Replacement payment proof requested";
+  return "Payment proof needed";
 }
 
 function ProofActions({ proof, record, paymentLabel }: { proof: PassportPaymentProof | null; record: StudentPassportRecord; paymentLabel: string }) {
@@ -233,13 +236,13 @@ function ProofActions({ proof, record, paymentLabel }: { proof: PassportPaymentP
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({})) as { error?: string };
-        throw new Error(body.error || "The payslip could not be opened.");
+        throw new Error(body.error || "The payment proof could not be opened.");
       }
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       setContentType(response.headers.get("Content-Type") || proof.contentType || "application/octet-stream");
       setObjectUrl(URL.createObjectURL(await response.blob()));
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "The payslip could not be opened.");
+      setError(reason instanceof Error ? reason.message : "The payment proof could not be opened.");
     } finally {
       setBusy(false);
     }
@@ -247,9 +250,9 @@ function ProofActions({ proof, record, paymentLabel }: { proof: PassportPaymentP
 
   if (!proof) return null;
   return <div className={styles.proofActions}>
-    <p><ShieldCheck aria-hidden="true" /> {uploaded ? "Payslip submitted for review" : proofStatus(proof)}</p>
+    <p><ShieldCheck aria-hidden="true" /> {uploaded ? "Payment proof under review" : proofStatus(proof)}</p>
     {proof.fileAvailable && record.studentAccessToken ? <button type="button" onClick={() => void viewProof()} disabled={busy}>
-      <ExternalLink aria-hidden="true" /> {busy ? "Opening…" : "View payslip"}
+      <ExternalLink aria-hidden="true" /> {busy ? "Opening…" : "View payment proof"}
     </button> : null}
     {proof.uploadToken && !uploaded ? <PaymentProofUpload
       access={{ proofId: proof.id, uploadToken: proof.uploadToken }} paymentLabel={paymentLabel}
@@ -257,8 +260,8 @@ function ProofActions({ proof, record, paymentLabel }: { proof: PassportPaymentP
     /> : null}
     {proof.studentVisibleNote ? <blockquote><strong>Note from your sensei</strong>{proof.studentVisibleNote}</blockquote> : null}
     {objectUrl ? <div className={styles.proofViewer}>
-      <div><strong>Private payslip</strong><button type="button" onClick={() => setObjectUrl("")}>Close</button></div>
-      {contentType === "application/pdf" ? <iframe src={objectUrl} title={`${paymentLabel} payslip`} /> : <img src={objectUrl} alt={`${paymentLabel} payslip`} />}
+      <div><strong>Private payment proof</strong><button type="button" onClick={() => setObjectUrl("")}>Close</button></div>
+      {contentType === "application/pdf" ? <iframe src={objectUrl} title={`${paymentLabel} payment proof`} /> : <img src={objectUrl} alt={`${paymentLabel} payment proof`} />}
     </div> : null}
     {error ? <p className={styles.proofError} role="alert">{error}</p> : null}
   </div>;
@@ -269,8 +272,8 @@ function aatSummaryText(record: StudentPassportRecord) {
     up_to_date: "Your AAT annual membership payment is up to date.",
     due_soon: "Your next AAT annual contribution is due soon.",
     payment_record_missing: "A current verified AAT annual payment is not recorded yet.",
-    payslip_needed: "Please upload a payslip so the dojo can review this AAT contribution.",
-    submitted_for_review: "Your AAT payslip has been submitted and is waiting for review.",
+    payslip_needed: "Please upload a payment proof so the dojo can review this AAT contribution.",
+    submitted_for_review: "Your AAT payment proof is under review.",
     verified: "Your AAT annual contribution has been verified.",
   };
   return labels[record.aatSummary.state];
@@ -314,7 +317,7 @@ function RequestsPage({ record, openContributions }: { record: StudentPassportRe
   const monthlyNotices = (record.monthlyContributions || []).filter((entry) => entry.status !== "paid").slice(0, 3);
   return <div className={styles.spread}>
     <PassportPage folio="09" eyebrow="申請状況 / REQUESTS" title="Payment & Record Notices">
-      <p className={styles.sectionIntro}>Profile, training, examination, contribution, and payslip workflows are listed newest first with the dojo’s current decision.</p>
+      <p className={styles.sectionIntro}>Profile, training, examination, contribution, and payment-proof workflows are listed newest first with the dojo’s current decision.</p>
       <dl className={styles.requestSummary}>
         <div><dt><CheckCircle2 aria-hidden="true" /> Approved</dt><dd>{counts.approved}</dd></div>
         <div><dt><FileClock aria-hidden="true" /> Pending review</dt><dd>{counts.pending}</dd></div>
@@ -323,7 +326,7 @@ function RequestsPage({ record, openContributions }: { record: StudentPassportRe
       <div className={styles.officialNote}><ShieldCheck aria-hidden="true" /><p>Notes shown here are written for the student. Private administrator notes are never included in this passport.</p></div>
       <div className={styles.noticeList}>
         <article><strong>AAT annual contribution</strong><p>{aatSummaryText(record)}</p>{record.aatSummary.nextDueDate ? <small>Next expected date: {date(record.aatSummary.nextDueDate)}</small> : null}</article>
-        {record.monthlyContributions !== null ? monthlyNotices.length ? monthlyNotices.map((entry) => <article key={entry.id}><strong>{month(entry.month)} monthly contribution</strong><p>{entry.proof?.status === "pending_review" ? "A payslip has been submitted and is waiting for review." : entry.proof?.status === "denied" ? "The payslip needs to be replaced. Please review the note from your sensei." : "We do not currently have a verified payslip for this month. You may add one if you have already contributed."}</p></article>) : <article><strong>RenShinKan monthly contribution</strong><p>Your contribution record appears complete.</p></article> : null}
+        {record.monthlyContributions !== null ? monthlyNotices.length ? monthlyNotices.map((entry) => <article key={entry.id}><strong>{month(entry.month)} monthly contribution</strong><p>{entry.proof?.status === "pending_review" ? "A payment proof has been submitted and is waiting for review." : entry.proof?.status === "denied" ? "The payment proof needs to be replaced. Please review the note from your sensei." : "We do not currently have a verified payment proof for this month. You may add one if you have already contributed."}</p></article>) : <article><strong>RenShinKan monthly contribution</strong><p>Your contribution record appears complete.</p></article> : null}
         <button type="button" onClick={openContributions}><ReceiptText aria-hidden="true" /> Open contribution details</button>
       </div>
     </PassportPage>
@@ -342,6 +345,33 @@ function RequestsPage({ record, openContributions }: { record: StudentPassportRe
   </div>;
 }
 
+function StudentTaskList({
+  record,
+  openPage,
+}: {
+  record: StudentPassportRecord;
+  openPage: (page: PassportTab) => void;
+}) {
+  const { t } = useTranslation();
+  const pendingHours = record.requests.some((request) => request.type.includes("hour") && request.status === "pending");
+  const pendingExam = record.requests.some((request) => request.type.includes("exam") && request.status === "pending");
+  const pendingProfile = record.requests.some((request) => request.type.includes("profile") && request.status === "pending");
+  const monthlyNeedsAction = record.monthlyContributions?.some((entry) => entry.status !== "paid") ?? false;
+  const aatNeedsAction = record.aatSummary.state !== "verified" && record.aatSummary.state !== "up_to_date";
+  const rows = [
+    { label: t("studentTasks.viewLabel"), copy: t("studentTasks.viewCopy"), status: t("studentTasks.available"), action: () => openPage("identity") },
+    { label: t("studentTasks.hoursLabel"), copy: t("studentTasks.hoursCopy"), status: pendingHours ? t("studentTasks.underReview") : t("studentTasks.needsAction"), href: "#student-hours-form" },
+    { label: t("studentTasks.examLabel"), copy: t("studentTasks.examCopy"), status: pendingExam ? t("studentTasks.underReview") : t("studentTasks.notStarted"), href: "/student-records?task=exam" },
+    { label: t("studentTasks.monthlyLabel"), copy: t("studentTasks.monthlyCopy"), status: record.monthlyContributions === null ? t("studentTasks.notApplicable") : monthlyNeedsAction ? t("studentTasks.needsAction") : t("studentTasks.paid"), action: () => openPage("contributions") },
+    { label: t("studentTasks.aatLabel"), copy: t("studentTasks.aatCopy"), status: aatNeedsAction ? t("studentTasks.needsAction") : t("studentTasks.paid"), action: () => openPage("contributions") },
+    { label: t("studentTasks.updateLabel"), copy: t("studentTasks.updateCopy"), status: pendingProfile ? t("studentTasks.underReview") : t("studentTasks.optional"), href: "/student-records?task=profile" },
+  ];
+  return <section className={styles.taskList} aria-labelledby="student-task-list-title">
+    <header><div><p>{t("studentTasks.eyebrow")}</p><h3 id="student-task-list-title">{t("studentTasks.title")}</h3></div><span>{t("studentTasks.chooseOne")}</span></header>
+    <ul>{rows.map((row) => <li key={row.label}>{row.href ? <a href={row.href}><span><strong>{row.label}</strong><small>{row.copy}</small></span><span>{row.status}<ChevronRight aria-hidden="true" /></span></a> : <button type="button" onClick={row.action}><span><strong>{row.label}</strong><small>{row.copy}</small></span><span>{row.status}<ChevronRight aria-hidden="true" /></span></button>}</li>)}</ul>
+  </section>;
+}
+
 export function DigitalPassport({ record }: { record: PublicStudentRecord | StudentPassportRecord }) {
   const owner = isOwnerRecord(record) ? record : null;
   const tabs = owner ? OWNER_TABS : PUBLIC_TABS;
@@ -356,6 +386,7 @@ export function DigitalPassport({ record }: { record: PublicStudentRecord | Stud
   }
 
   return <article className={styles.passport} aria-label={`${record.displayName} digital student passport`}>
+    {owner ? <StudentTaskList record={owner} openPage={setActive} /> : null}
     <header className={styles.coverStrip}><div><span>REN SHIN KAN</span><strong>STUDENT PASSPORT</strong></div><p>Approved digital training record</p></header>
     <nav className={styles.tabs} role="tablist" aria-label="Student passport pages">
       {tabs.map(({ id: tab, label, Icon }, index) => <button

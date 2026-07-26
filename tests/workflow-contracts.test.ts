@@ -204,9 +204,9 @@ describe("UI and responsive workflow contracts", () => {
     const admin = file("src/pages/AdminStudentsPage.tsx");
     const exams = file("src/components/admin/AdminExamApplications.tsx");
     const contributions = file("src/components/admin/AdminMonthlyContributions.tsx");
-    for (const value of ["Student Database", "Exam Applications", "Monthly Contributions", "current_rank", "Add training hours", "Mass promotion", "Record mass exam pass", "Accept pending profiles", "Archive active students", "Unarchive students", "Delete archived students"]) expect(admin).toContain(value);
+    for (const value of ["Students", "Exam applications", "Monthly contributions", "current_rank", "Add training hours", "Mass promotion", "Record mass exam pass", "Accept pending profiles", "Archive active students", "Unarchive students", "Delete archived students"]) expect(admin).toContain(value);
     for (const value of ["Start New Exam Cycle", "Not signed up", "Read-only historical cycle", "Confirm status change"]) expect(exams).toContain(value);
-    for (const value of ["Awaiting payment", "Paid rate", "Last 12 months", "Internal note", "Accessible monthly contribution totals"]) expect(contributions).toContain(value);
+    for (const value of ["Awaiting payment", "Paid rate", "Recent periods", "Internal note", "Accessible monthly contribution totals", "contribution-chart"]) expect(contributions).toContain(value);
     expect(admin).toContain("onWheel"); expect(admin).toContain("Review changes");
     expect(admin).toContain("admin-select-box"); expect(admin).toContain("DELETE ${count} ARCHIVED STUDENT");
   });
@@ -297,7 +297,7 @@ describe("UI and responsive workflow contracts", () => {
 
   it("shows three task choices, pending payment, existing bank QR, owner QR tools, and mobile layouts", () => {
     const page = file("src/pages/StudentRecordsPage.tsx"); const css = file("src/index.css");
-    for (const text of ["Find my record", "Create a profile", "Apply for an exam", "/images/promptpay-qr.png", "cannot confirm your payment", "Copy link", "Download QR", "Submit for review"]) expect(page).toContain(text);
+    for (const text of ["Find my record", "Create a profile", "Apply for an exam", "content.paymentQr", "cannot confirm your payment", "Copy link", "Download QR", "Submit for review"]) expect(page).toContain(text);
     expect(page).toContain("Current dojo");
     expect(page).not.toMatch(/guarantor/i);
     expect(page).toContain("LOOKUP_VERIFICATION_PENDING");
@@ -349,10 +349,11 @@ describe("UI and responsive workflow contracts", () => {
     expect(allLiveSource).not.toMatch(/student[_ -]?pin/i);
   });
 
-  it("uses the existing PromptPay QR, records an attempt first, and displays a real dojo class photo", () => {
+  it("uses the centrally editable PromptPay QR, records an attempt first, and displays a real dojo class photo", () => {
     const form = file("src/components/ContributionForm.tsx");
     const support = file("src/pages/SupportPage.tsx");
-    for (const value of ["/api/contributions", "/images/promptpay-qr.png", "awaiting payment", "Displaying the QR never marks", "Upload the payslip below"]) expect(form).toContain(value);
+    for (const value of ["/api/contributions", "useEditableContent", "content.paymentQr", "awaiting payment", "Displaying the QR never marks", "Upload the payment proof below"]) expect(form).toContain(value);
+    expect(support).toContain("content.paymentQr");
     expect(support).toContain("/renshinkan-gallery/class-photos/class_group_dojo_wide_01.jpg");
     expect(support).toContain("support-dojo-photo");
     expect(support).not.toContain("support-dojo-art");
@@ -365,7 +366,7 @@ describe("UI and responsive workflow contracts", () => {
     const records = file("src/pages/StudentRecordsPage.tsx");
     const examApi = file("functions/api/records/examination-applications.ts");
     const contributionApi = file("functions/api/contributions.ts");
-    for (const value of ["The dojo cannot confirm your", "send the payslip directly to a sensei of RenShinKan Dojo", "private authenticated record", "application/pdf", "/api/payment-proofs"]) expect(upload).toContain(value);
+    for (const value of ["The dojo cannot confirm your", "send the payment proof directly to a sensei of RenShinKan Dojo", "private authenticated record", "application/pdf", "/api/payment-proofs"]) expect(upload).toContain(value);
     expect(upload).not.toContain("deleted after 60 days");
     expect(contributions).toContain("PaymentProofUpload");
     expect(records).toContain("PaymentProofUpload");
@@ -400,7 +401,7 @@ describe("UI and responsive workflow contracts", () => {
   it("calculates one clear monthly total for multiple student records", () => {
     const form = file("src/components/ContributionForm.tsx");
     const css = file("src/index.css");
-    for (const value of ["monthlyContributionAmount", "Add another student", "Who is this payment for?", "monthlyStudents.length", "Total to pay", "Use one PromptPay payment and upload one payslip"]) expect(form).toContain(value);
+    for (const value of ["monthlyContributionAmount", "Add another student", "Who is this payment for?", "monthlyStudents.length", "Total to pay", "Use one PromptPay payment and upload one payment proof"]) expect(form).toContain(value);
     expect(form).not.toMatch(/MONTHLY_CONTRIBUTION_AMOUNT\s*=\s*\d+/);
     for (const selector of [".contribution-student-list", ".contribution-student-row", ".contribution-payment-total"]) expect(css).toContain(selector);
   });
@@ -427,8 +428,8 @@ describe("UI and responsive workflow contracts", () => {
     expect(imageApi).toContain('"Cache-Control": "private, no-store"');
     expect(studentImageApi).toContain("validStudentAccessSession");
     expect(studentImageApi).toContain('"Cache-Control": "private, no-store"');
-    expect(adminPage).toContain("Submitted Payslip");
-    for (const value of ["Select every pending payslip", "Approve payslip", "Deny payslip", "Payslip submitted by", "Payment for"]) expect(adminProofs).toContain(value);
+    expect(adminPage).toContain("Payment proofs");
+    for (const value of ["Select every pending payment proof", "Confirm payment", "Reject proof", "Payment proof submitted by", "Payment for"]) expect(adminProofs).toContain(value);
     expect(adminProofs).toContain("Private retained file");
     expect(adminProofs).toContain('opened.content_type === "application/pdf"');
     expect(packageJson).not.toContain("payment-proofs-60-days");

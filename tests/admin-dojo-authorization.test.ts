@@ -268,14 +268,17 @@ describe("dojo route, record, and interface scoping", () => {
     expect(file("functions/api/admin/memberships.ts")).toContain("session.selectedDojoId");
   });
 
-  it("uses active, pending, and archived record statuses and never exposes deleted or rejected rows", () => {
+  it("keeps pending profiles on their own page and never exposes deleted or rejected rows", () => {
     const api = file("functions/api/admin/students/index.ts");
     const page = file("src/pages/AdminStudentsPage.tsx");
     expect(api).toContain('requestedStatus === "active" || requestedStatus === "pending" || requestedStatus === "archived"');
     expect(api).not.toContain('status === "deleted"');
     expect(api).toContain('"s.profile_status <> \'rejected\'"');
     expect(page).toContain('return "pending"');
-    expect(page).toContain('<option value="all">All</option><option value="active">Active</option><option value="pending">Pending</option><option value="archived">Archived</option>');
+    expect(page).toContain('mode === "profileRequests"');
+    expect(page).toContain('params.set("profileStatus", "pending_admin_approval")');
+    expect(page).toContain('<option value="all">All</option><option value="active">Active</option><option value="archived">Archived</option>');
+    expect(page).not.toContain('<option value="pending">Pending</option>');
     expect(page).not.toContain('<option value="deleted">');
     expect(page).not.toContain("All except deleted");
   });
@@ -296,56 +299,55 @@ describe("dojo route, record, and interface scoping", () => {
     expect(upload).toContain("ownedBySession");
   });
 
-  it("integrates AAT membership into Manage Students and removes its dashboard card", () => {
+  it("gives AAT membership its own page and removes its dashboard card", () => {
     const students = file("src/pages/AdminStudentsPage.tsx");
-    const dashboard = file("src/pages/AdminPage.tsx");
+    const dashboard = file("src/pages/AdminDashboardPage.tsx");
     expect(students).toContain("AdminAatMemberships");
-    expect(students).toContain("AAT Annual Membership");
-    expect(file("src/pages/AdminMembershipsPage.tsx")).toContain("section=memberships");
+    expect(students).toContain("AAT annual contributions");
+    expect(file("src/pages/AdminMembershipsPage.tsx")).toContain("/admin/aat-contributions");
     expect(dashboard).not.toContain('<Link to="/admin/memberships"');
   });
 
-  it("keeps the RenShinKan landing dashboard focused on updates, students, and public preview", () => {
-    const dashboard = file("src/pages/AdminPage.tsx");
-    expect(dashboard).toContain("Dojo administration");
-    expect(dashboard).toContain("Create a dojo update");
-    expect(dashboard).toContain("Manage Students");
-    expect(dashboard).toContain("Preview the website");
-    expect(dashboard).not.toContain('<Link to="/admin/site-editor"');
+  it("keeps the RenShinKan landing page focused on its two requested workspaces", () => {
+    const dashboard = file("src/pages/AdminDashboardPage.tsx");
+    expect(dashboard).toContain("Edit the website");
+    expect(dashboard).toContain("Student management");
+    expect(dashboard).toContain('<Link to="/admin/website">');
+    expect(dashboard).toContain('<Link to="/admin/students">');
+    expect(dashboard).toContain("session.switchDojo()");
+    expect(dashboard).not.toContain("needsAttention");
     expect(dashboard).not.toContain('<Link to="/admin/dojos"');
   });
 
   it("shows Monthly Contributions only in the verified RenShinKan workspace", () => {
     const students = file("src/pages/AdminStudentsPage.tsx");
+    const shell = file("src/components/admin/AdminShell.tsx");
     expect(students).toContain('permissionLevel === "renshinkan_super_admin"');
-    expect(students).toMatch(/superAdmin \? <button[^\n]*Monthly Contributions/);
     expect(students).toMatch(/section === "contributions" && superAdmin/);
+    expect(shell).toMatch(/label: t\("adminShell\.monthlyContributions"\)[\s\S]*?centralOnly: true/);
     const endpoint = file("functions/api/admin/contributions.ts");
     expect(endpoint).toContain("requiresCentralAdmin");
     expect(endpoint).toContain("dojo_id = 'dojo-rsk'");
   });
 
-  it("renders selected dojo identity throughout admin navigation", () => {
-    for (const path of ["src/pages/AdminPage.tsx", "src/pages/AdminStudentsPage.tsx", "src/pages/AdminDojosPage.tsx", "src/pages/AdminSiteEditorPage.tsx", "src/pages/AdminAuditPage.tsx"]) {
-      const source = file(path);
-      expect(source).toContain("official_name");
-      expect(source).toContain("logo_url");
-      expect(source).toContain("/ ADMIN");
-    }
-    for (const path of ["src/pages/AdminStudentsPage.tsx", "src/pages/AdminAuditPage.tsx"]) {
-      expect(file(path)).toMatch(/superAdmin \? [^\n]*Switch dojo/);
-    }
+  it("renders selected dojo identity once in the unified administration shell", () => {
+    const shell = file("src/components/admin/AdminShell.tsx");
+    expect(shell).toContain("selectedDojo");
+    expect(shell).toContain("official_name");
+    expect(shell).toContain('<Link to="/admin">{t("adminShell.changeDojo")}</Link>');
+    expect(shell).toContain("adminShell.managing");
+    expect(shell).toContain("adminShell.changeDojo");
     expect(file("src/pages/AdminPage.tsx")).not.toContain("renshinkan-admin-hint");
   });
 
-  it("removes the dashboard for standard dojos and gives them a scoped audit link", () => {
+  it("keeps standard dojos on scoped student and audit destinations", () => {
     const dashboard = file("src/pages/AdminPage.tsx");
     expect(dashboard).toContain('permissionLevel !== "renshinkan_super_admin"');
     expect(dashboard).toContain('<Navigate to="/admin/students" replace />');
-    const students = file("src/pages/AdminStudentsPage.tsx");
-    expect(students).toContain('to="/admin/audit"');
-    expect(students).toMatch(/superAdmin \? <Link[^\n]*Dashboard/);
-    expect(students).toMatch(/superAdmin \? <button[^\n]*Switch dojo/);
+    const shell = file("src/components/admin/AdminShell.tsx");
+    expect(shell).toContain('href: "/admin/audit"');
+    expect(shell).toContain("centralOnly");
+    expect(shell).toContain("!item.centralOnly || central");
   });
 
   it("scopes audit records by dojo on the server while RenShinKan can see all", () => {
@@ -358,7 +360,9 @@ describe("dojo route, record, and interface scoping", () => {
     expect(endpoint).toContain("a.entity_type = 'dojo' AND a.entity_id = ?");
     expect(page).not.toContain("Access restricted");
     expect(page).toMatch(/superAdmin \? <label>Dojo/);
-    expect(page).toMatch(/superAdmin \? <button[^\n]*Switch dojo/);
+    expect(page).toContain("Advanced filters");
+    expect(page).toContain("Technical details");
+    expect(file("src/components/admin/AdminShell.tsx")).toContain("changeDojo");
   });
 
   it("shows only real, dojo-scoped approval queues and keeps monthly contributions RenShinKan-only", () => {
@@ -369,14 +373,16 @@ describe("dojo route, record, and interface scoping", () => {
     expect(endpoint).toContain("isRenShinKanSuperAdmin");
     expect(endpoint).toContain("monthlyContributions: superAdmin");
     expect(endpoint).not.toContain("operation_failures");
-    for (const label of ["Profile requests", "Exam applications", "AAT annual fees", "Training hour requests", "Monthly contributions", "Submitted payslips"]) expect(alerts).toContain(label);
+    for (const label of ["Profile requests", "Exam applications", "AAT annual fees", "Training hour requests", "Monthly contributions", "Payment proofs"]) expect(alerts).toContain(label);
     expect(alerts).toContain("renshinkanOnly: true");
     expect(alerts).toContain("Showing approval work for your selected dojo only.");
   });
 
-  it("uses the approval center as the Student Database summary for every dojo", () => {
+  it("keeps approval queues independent from the normal Student Database", () => {
     const students = file("src/pages/AdminStudentsPage.tsx");
-    expect(students).toContain('<AdminAlerts key={notice} />');
+    expect(students).not.toContain("<AdminAlerts");
+    expect(students).toContain('type StudentPageMode = "students" | "profileRequests" | "trainingRequests"');
+    expect(students).toContain('if (mode === "students") params.set("excludePending", "1")');
     expect(students).not.toContain('className="admin-summary"');
     expect(students).toContain("useLocation");
     expect(students).toContain("location.search");

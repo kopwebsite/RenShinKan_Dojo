@@ -95,6 +95,7 @@ export type EditableContent = {
   lastPublishedAt: string | null;
   recentEvents: RecentEvent[];
   examAnnouncement: { text: string; updatedAt?: string | null } | null;
+  paymentQr: { src: string; alt: string; updatedAt?: string | null };
   historyMedia: MediaItem[];
   onTheMatMedia: MediaItem[];
   passedTestStudents: Array<Record<string, unknown>>;
@@ -414,6 +415,21 @@ export function validateEditableContent(value: unknown): EditableContent {
           updatedAt: typeof value.examAnnouncement.updatedAt === "string" ? value.examAnnouncement.updatedAt : null,
         };
       })();
+  const paymentQr = isRecord(value.paymentQr)
+    ? {
+        src: typeof value.paymentQr.src === "string" && /^pending:upload-[a-f0-9-]+$/i.test(value.paymentQr.src)
+          ? value.paymentQr.src
+          : safeInternalOrHttpsUrl(value.paymentQr.src) || "/images/promptpay-qr.png",
+        alt: typeof value.paymentQr.alt === "string"
+          ? value.paymentQr.alt.trim().slice(0, 300) || "PromptPay QR code for RenShinKan Dojo"
+          : "PromptPay QR code for RenShinKan Dojo",
+        updatedAt: typeof value.paymentQr.updatedAt === "string" ? value.paymentQr.updatedAt : null,
+      }
+    : {
+        src: "/images/promptpay-qr.png",
+        alt: "PromptPay QR code for RenShinKan Dojo",
+        updatedAt: null,
+      };
 
   return {
     version: 1,
@@ -422,6 +438,7 @@ export function validateEditableContent(value: unknown): EditableContent {
       ? value.recentEvents.map(validateRecentEvent)
       : [],
     examAnnouncement,
+    paymentQr,
     historyMedia: value.historyMedia == null ? [] : validateMediaList(value.historyMedia, "historyMedia"),
     onTheMatMedia: value.onTheMatMedia == null ? [] : validateMediaList(value.onTheMatMedia, "onTheMatMedia"),
     passedTestStudents: Array.isArray(value.passedTestStudents)
@@ -467,8 +484,15 @@ function assertNoBlockedMediaSrc(src: unknown, path: string) {
 }
 
 export function replacePendingMediaUrls(content: EditableContent, uploadUrlById: Map<string, string>, fallbackUrls: string[]) {
+  const paymentQrSrc = content.paymentQr.src.startsWith("pending:")
+    ? uploadUrlById.get(content.paymentQr.src.slice("pending:".length)) ?? fallbackUrls.shift()
+    : content.paymentQr.src;
+  if (!paymentQrSrc) {
+    throw new Error("Missing upload file for payment QR");
+  }
   const nextContent: EditableContent = {
     ...content,
+    paymentQr: { ...content.paymentQr, src: paymentQrSrc },
     recentEvents: content.recentEvents.map((event) => {
       const image = event.image ? replaceMediaSource(event.image, uploadUrlById, fallbackUrls) : undefined;
       const media = replaceMediaList(event.media ?? [], uploadUrlById, fallbackUrls);
@@ -506,6 +530,7 @@ export function replacePendingMediaUrls(content: EditableContent, uploadUrlById:
   nextContent.historyMedia.forEach((item, index) => assertNoBlockedMediaSrc(item.src, `historyMedia[${index}].src`));
   nextContent.onTheMatMedia.forEach((item, index) => assertNoBlockedMediaSrc(item.src, `onTheMatMedia[${index}].src`));
   nextContent.passedTestStudents.forEach((student, index) => assertNoBlockedMediaSrc(student.image, `passedTestStudents[${index}].image`));
+  assertNoBlockedMediaSrc(nextContent.paymentQr.src, "paymentQr.src");
 
   return nextContent;
 }

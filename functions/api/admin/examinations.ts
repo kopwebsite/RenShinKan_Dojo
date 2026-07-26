@@ -54,7 +54,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     rank_fee_config_json, annual_fee_config_json, created_at, closed_at
     FROM examination_cycles ORDER BY created_at DESC`).all<Cycle>()).results || [];
   const requestedCycleId = cleanText(url.searchParams.get("cycleId"), 100);
+  const recordsOnly = url.searchParams.get("recordsOnly") === "1";
   const selectedCycle = cycles.find((cycle) => cycle.id === requestedCycleId)
+    || (recordsOnly ? cycles.find((cycle) => cycle.status === "closed") : cycles.find((cycle) => cycle.status === "active"))
     || cycles.find((cycle) => cycle.status === "active")
     || cycles[0]
     || null;
@@ -97,14 +99,15 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       .bind(selectedCycle.id, ...(isRenShinKanSuperAdmin(session) ? [] : [session.selectedDojoId || "__none__"])).all<RosterRow>()).results || []);
   }
 
-  const summary = roster.reduce((counts, row) => {
+  const scopedRoster = recordsOnly ? roster.filter((row) => Boolean(row.application_id)) : roster;
+  const summary = scopedRoster.reduce((counts, row) => {
     counts.total += 1;
     counts[row.status] += 1;
     return counts;
   }, { total: 0, not_signed_up: 0, unpaid: 0, paid: 0 });
   const query = cleanText(url.searchParams.get("query"), 120).toLocaleLowerCase("und");
   const status = cleanText(url.searchParams.get("status"), 30);
-  const filtered = roster.filter((row) => {
+  const filtered = scopedRoster.filter((row) => {
     if (status && row.status !== status) return false;
     if (!query) return true;
     return row.student_name.toLocaleLowerCase("und").includes(query)

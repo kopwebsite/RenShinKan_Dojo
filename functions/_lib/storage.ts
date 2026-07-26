@@ -116,6 +116,11 @@ export function emptyContent(): EditableContent {
     lastPublishedAt: null,
     recentEvents: [],
     examAnnouncement: null,
+    paymentQr: {
+      src: "/images/promptpay-qr.png",
+      alt: "PromptPay QR code for RenShinKan Dojo",
+      updatedAt: null,
+    },
     historyMedia: [],
     onTheMatMedia: [],
     passedTestStudents: [],

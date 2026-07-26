@@ -119,13 +119,13 @@ export function AdminMonthlyContributions({ report }: { report: (message: string
     </div>
 
     <section className="contribution-chart" aria-labelledby="contribution-chart-title">
-      <header><div><p className="eyebrow">Last 12 months</p><h3 id="contribution-chart-title">Paid contribution progress</h3></div><span>Paid / active roster</span></header>
-      {data.graph.length ? <div className="contribution-chart__plot">{data.graph.map((point) => <div className="contribution-chart__point" key={point.month}>
+      <header><div><p className="eyebrow">Recent periods</p><h3 id="contribution-chart-title">Paid contribution progress</h3></div><span>Paid / active roster</span></header>
+      <div className="contribution-chart__plot">{data.graph.map((point) => <div className="contribution-chart__point" key={point.month}>
         <span className="contribution-chart__value">{point.paidPercentage}%</span>
         <span className="contribution-chart__track" aria-hidden="true"><span style={{ height: `${Math.max(point.paidPercentage, point.paid ? 4 : 0)}%` }} /></span>
         <span>{point.month.slice(5)}</span><small>{point.paid}/{point.totalActive}</small>
-      </div>)}</div> : <p className="admin-empty-inline">Monthly progress will appear after the first contribution period is created.</p>}
-      {data.graph.length ? <table className="sr-only"><caption>Accessible monthly contribution totals</caption><thead><tr><th>Month</th><th>Paid</th><th>Active roster</th><th>Paid percentage</th></tr></thead><tbody>{data.graph.map((point) => <tr key={point.month}><td>{monthLabel(point.month)}</td><td>{point.paid}</td><td>{point.totalActive}</td><td>{point.paidPercentage}%</td></tr>)}</tbody></table> : null}
+      </div>)}{!data.graph.length ? <p>No monthly periods have been recorded yet.</p> : null}</div>
+      <table className="sr-only"><caption>Accessible monthly contribution totals</caption><thead><tr><th>Month</th><th>Paid</th><th>Active roster</th><th>Paid percentage</th></tr></thead><tbody>{data.graph.map((point) => <tr key={point.month}><td>{monthLabel(point.month)}</td><td>{point.paid}</td><td>{point.totalActive}</td><td>{point.paidPercentage}%</td></tr>)}</tbody></table>
     </section>
 
     <form className="admin-record-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(queryInput.trim()); }}>

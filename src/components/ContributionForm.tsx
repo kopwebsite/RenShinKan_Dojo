@@ -1,10 +1,10 @@
 import { CalendarClock, CheckCircle2, HandCoins, Landmark, LoaderCircle, Plus, QrCode, ReceiptText, ShieldCheck, Trash2, UsersRound } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { useEditableContent } from "../lib/content";
 import { assetPath } from "../utils/assetPath";
 import { PaymentProofUpload, type PaymentProofAccess } from "./PaymentProofUpload";
 import { TurnstileWidget } from "./TurnstileWidget";
 
-const PROMPTPAY_QR_IMAGE = "/images/promptpay-qr.png";
 const MAX_MONTHLY_STUDENTS = 10;
 
 type Dojo = { id: string; official_name: string; short_name: string; code: string };
@@ -58,7 +58,7 @@ function PaymentReminder({ reminder, month }: { reminder: AatReminder | MonthlyR
       : reminder.state === "due_soon"
         ? `Your renewal date is approaching in ${reminder.days} day${reminder.days === 1 ? "" : "s"}. This QR can be used for the next annual period.`
         : reminder.state === "current"
-          ? "Your record is currently within its annual period. If you are paying ahead, the dojo will review the payslip before updating it."
+          ? "Your record is currently within its annual period. If you are paying ahead, the dojo will review the payment proof before updating it."
           : "No earlier annual payment date appears on this record. That may simply mean the record has not been updated yet.";
     return <aside className={`contribution-reminder contribution-reminder--${reminder.state}`}>
       <div><CalendarClock aria-hidden="true" /><span><small>AAT payment history</small><strong>{reminder.state === "overdue" ? "Renewal date passed" : reminder.state === "due_soon" ? "Renewal coming up" : reminder.state === "current" ? "Current on record" : "No previous date recorded"}</strong></span></div>
@@ -80,6 +80,7 @@ function PaymentReminder({ reminder, month }: { reminder: AatReminder | MonthlyR
 }
 
 export function ContributionForm() {
+  const { content } = useEditableContent();
   const [studentId, setStudentId] = useState("");
   const [studentName, setStudentName] = useState("");
   const [monthlyStudents, setMonthlyStudents] = useState<ContributionStudent[]>(() => [emptyContributionStudent()]);
@@ -164,7 +165,7 @@ export function ContributionForm() {
     return <article className="surface contribution-confirmation" aria-live="polite">
       <header className="contribution-confirmation__header">
         <div className="contribution-confirmation__mark"><CheckCircle2 aria-hidden="true" /></div>
-        <div><p className="eyebrow">{isAat ? "AAT annual fee" : "RenShinKan monthly dues"} · {result.dojoName}</p><h3>Complete payment with PromptPay</h3><p>Your payment request is ready. It will remain <strong>awaiting confirmation</strong> until the dojo reviews your uploaded payslip.</p></div>
+        <div><p className="eyebrow">{isAat ? "AAT annual fee" : "RenShinKan monthly dues"} · {result.dojoName}</p><h3>Complete payment with PromptPay</h3><p>Your payment request is ready. It will remain <strong>awaiting confirmation</strong> until the dojo reviews your uploaded payment proof.</p></div>
       </header>
       {!isAat ? <section className="contribution-payment-total contribution-payment-total--confirmed" aria-label="Monthly contribution total">
         <div><span>Monthly contribution</span><strong>{confirmedUnitAmount === null ? "Amount unavailable" : baht(confirmedUnitAmount)} × {result.studentCount || 1} student{(result.studentCount || 1) === 1 ? "" : "s"}</strong></div>
@@ -173,10 +174,10 @@ export function ContributionForm() {
       </section> : null}
       {isAat || (result.studentCount || 1) === 1 ? <PaymentReminder reminder={result.reminder} month={result.month} /> : null}
       <div className="contribution-confirmation__layout">
-        <figure className="contribution-qr-frame"><span>Scan to continue</span><img src={assetPath(PROMPTPAY_QR_IMAGE)} alt="PromptPay QR code for RenShinKan Dojo" width={720} height={720} /><figcaption>PromptPay · RenShinKan Dojo</figcaption></figure>
+        <figure className="contribution-qr-frame"><span>Scan to continue</span><img src={assetPath(content.paymentQr.src)} alt={content.paymentQr.alt} width={720} height={720} /><figcaption>PromptPay · RenShinKan Dojo</figcaption></figure>
         <section className="contribution-next-steps">
           <p className="eyebrow">Three simple steps</p><h4><QrCode size={20} /> What to do next</h4>
-          <ol><li><span>01</span><p>Scan the PromptPay QR and pay {isAat ? "the annual fee shown by the dojo" : confirmedTotalAmount === null ? "the amount confirmed by a sensei" : baht(confirmedTotalAmount)}.</p></li><li><span>02</span><p>Upload the payslip below. One image covers this payment.</p></li><li><span>03</span><p>A sensei will confirm {isAat ? "the payment" : `all ${result.studentCount || 1} student record${(result.studentCount || 1) === 1 ? "" : "s"}`} after checking it.</p></li></ol>
+          <ol><li><span>01</span><p>Scan the PromptPay QR and pay {isAat ? "the annual fee shown by the dojo" : confirmedTotalAmount === null ? "the amount confirmed by a sensei" : baht(confirmedTotalAmount)}.</p></li><li><span>02</span><p>Upload the payment proof below. One image covers this payment.</p></li><li><span>03</span><p>A sensei will confirm {isAat ? "the payment" : `all ${result.studentCount || 1} student record${(result.studentCount || 1) === 1 ? "" : "s"}`} after checking it.</p></li></ol>
           <p className="contribution-confirmation__safety"><ShieldCheck size={17} /> Displaying the QR never marks a payment as complete.</p>
         </section>
       </div>
@@ -217,7 +218,7 @@ export function ContributionForm() {
           <section className="contribution-payment-total contribution-field--wide" aria-live="polite" aria-label="Calculated monthly contribution total">
             <div><span>Monthly contribution</span><strong>{monthlyContributionAmount === null ? "Amount unavailable" : baht(monthlyContributionAmount)} × {monthlyStudents.length} student{monthlyStudents.length === 1 ? "" : "s"}</strong></div>
             <div><span>Total to pay</span><strong>{monthlyTotal === null ? "Ask a sensei" : baht(monthlyTotal)}</strong></div>
-            <p>Use one PromptPay payment and upload one payslip for everyone listed above.</p>
+            <p>Use one PromptPay payment and upload one payment proof for everyone listed above.</p>
           </section>
         </>}
         <label className="contribution-field--wide"><span>{contributionType === "aat_annual" ? "Submission month" : "Contribution month"}</span><input id="contribution-month" name="month" type="month" value={month} readOnly aria-readonly="true" /><small>{contributionType === "aat_annual" ? "The dojo will apply the confirmed annual payment to your membership history." : "This request is for the current month only; earlier months are never changed automatically."}</small></label>
@@ -225,7 +226,7 @@ export function ContributionForm() {
       <div className="contribution-verification"><TurnstileWidget onToken={onToken} resetSignal={turnstileReset} /></div>
       {error ? <p className="form-error" role="alert">{error}</p> : null}
       <button className="btn-primary contribution-submit" disabled={busy || (contributionType === "renshinkan_monthly" && (!configurationLoaded || monthlyContributionAmount === null))}>{busy ? <LoaderCircle className="spin" size={17} /> : <QrCode size={17} />}{busy ? "Preparing your QR…" : "Continue to PromptPay QR"}</button>
-      <p className="record-privacy"><ShieldCheck size={15} /> This creates a request with an awaiting payment status. Payment is confirmed only after a sensei reviews the payslip.</p>
+      <p className="record-privacy"><ShieldCheck size={15} /> This creates a request with an awaiting payment status. Payment is confirmed only after a sensei reviews the payment proof.</p>
     </form>
   </article>;
 }

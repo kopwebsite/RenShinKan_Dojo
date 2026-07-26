@@ -4,6 +4,7 @@ import { ContributionForm } from "../components/ContributionForm";
 import { MotionSection } from "../components/MotionSection";
 import { ResponsiveImage } from "../components/ResponsiveImage";
 import { useTranslation, type TranslationKey } from "../i18n";
+import { useEditableContent } from "../lib/content";
 import { assetPath } from "../utils/assetPath";
 
 const dojoExpenses = [
@@ -79,10 +80,9 @@ const BANK_DETAILS = {
   bankName: "Kasikorn Bank",
 };
 
-const PROMPTPAY_QR_IMAGE = "/images/promptpay-qr.png";
-
 export function SupportPage() {
   const { t } = useTranslation();
+  const { content } = useEditableContent();
   const [transferOpen, setTransferOpen] = useState(false);
   const localizedTransferDetails = [
     { label: t("support.transfer.accountName"), value: `${t("common.brand")} / Peace Culture Foundation` },
@@ -230,8 +230,8 @@ export function SupportPage() {
           <div className="flex flex-col items-center gap-4">
             <div className="w-72 max-w-full rounded-[2rem] border border-ink/10 bg-paper p-3 shadow-soft">
               <img
-                src={assetPath(PROMPTPAY_QR_IMAGE)}
-                alt={t("support.donations.promptPayQrAlt")}
+                src={assetPath(content.paymentQr.src)}
+                alt={content.paymentQr.alt || t("support.donations.promptPayQrAlt")}
                 className="aspect-square w-full rounded-[1.4rem] object-contain"
                 width={720}
                 height={720}

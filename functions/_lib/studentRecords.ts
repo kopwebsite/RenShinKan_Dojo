@@ -380,6 +380,10 @@ export type StudentRow = {
   id: string;
   public_student_id: string;
   display_name: string;
+  english_name?: string | null;
+  thai_name?: string | null;
+  account_created_date?: string | null;
+  dojo_joined_date?: string | null;
   current_belt: string;
   belt_color: string;
   profile_image_url: string | null;
@@ -416,6 +420,8 @@ export async function publicStudentRecord(db: D1Database, student: StudentRow) {
   const total = visibility.trainingHours !== false ? await studentTotal(db, student.id) : 0;
   return {
     displayName: student.display_name,
+    englishName: student.english_name || student.display_name,
+    thaiName: student.thai_name || null,
     studentId: student.public_student_id,
     currentBelt: student.current_belt,
     beltColor: student.belt_color,
@@ -673,7 +679,9 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
 
   return {
     ...base,
-    registrationDate: student.created_at || null,
+    registrationDate: student.account_created_date || student.created_at || null,
+    accountCreatedDate: student.account_created_date || student.created_at || null,
+    dojoJoinedDate: student.dojo_joined_date || null,
     dojoId: student.dojo_id || "",
     dojoLogo: student.dojo_logo || null,
     aatNumber: student.aat_number || null,

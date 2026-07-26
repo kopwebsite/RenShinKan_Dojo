@@ -9,12 +9,12 @@ type Dashboard = {
 };
 
 const cards: Array<{ key: CountKey; label: string; icon: typeof UserPlus; destination: string; renshinkanOnly?: boolean }> = [
-  { key: "pendingProfiles", label: "Profile requests", icon: UserPlus, destination: "/admin/students?profileStatus=pending_admin_approval" },
-  { key: "pendingExams", label: "Exam applications", icon: GraduationCap, destination: "/admin/students?section=exams&status=unpaid" },
-  { key: "pendingAatPayments", label: "AAT annual fees", icon: ReceiptText, destination: "/admin/students?section=memberships&status=pending_payment" },
-  { key: "pendingHours", label: "Training hour requests", icon: Clock3, destination: "/admin/students?hoursStatus=pending" },
-  { key: "pendingMonthlyContributions", label: "Monthly contributions", icon: HandCoins, destination: "/admin/students?section=contributions&status=awaiting_payment", renshinkanOnly: true },
-  { key: "pendingPayslips", label: "Submitted payslips", icon: FileImage, destination: "/admin/students?section=payslips" },
+  { key: "pendingProfiles", label: "Profile requests", icon: UserPlus, destination: "/admin/profile-requests" },
+  { key: "pendingExams", label: "Exam applications", icon: GraduationCap, destination: "/admin/exam-applications?status=unpaid" },
+  { key: "pendingAatPayments", label: "AAT annual fees", icon: ReceiptText, destination: "/admin/aat-contributions?status=pending_payment" },
+  { key: "pendingHours", label: "Training hour requests", icon: Clock3, destination: "/admin/training-requests" },
+  { key: "pendingMonthlyContributions", label: "Monthly contributions", icon: HandCoins, destination: "/admin/monthly-contributions?status=awaiting_payment", renshinkanOnly: true },
+  { key: "pendingPayslips", label: "Payment proofs", icon: FileImage, destination: "/admin/payment-proofs" },
 ];
 
 export function AdminAlerts() {

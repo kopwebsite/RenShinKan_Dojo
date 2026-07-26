@@ -7,6 +7,7 @@ import type {
   ExamAnnouncement,
   MediaItem,
   NewsletterStatus,
+  PaymentQr,
   PassedTestStudent,
   RecentEvent,
   SiteBlock,
@@ -29,6 +30,11 @@ export const emptyEditableContent: EditableContent = {
   lastPublishedAt: null,
   recentEvents: [],
   examAnnouncement: null,
+  paymentQr: {
+    src: "/images/promptpay-qr.png",
+    alt: "PromptPay QR code for RenShinKan Dojo",
+    updatedAt: null,
+  },
   historyMedia: [],
   onTheMatMedia: [],
   passedTestStudents: [],
@@ -199,6 +205,18 @@ function normalizeExamAnnouncement(value: unknown): ExamAnnouncement | null {
   };
 }
 
+function normalizePaymentQr(value: unknown): PaymentQr {
+  if (!isRecord(value)) {
+    return emptyEditableContent.paymentQr;
+  }
+  const src = asString(value.src).trim();
+  return {
+    src: src || emptyEditableContent.paymentQr.src,
+    alt: asString(value.alt).trim() || emptyEditableContent.paymentQr.alt,
+    updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : null,
+  };
+}
+
 function normalizePassedTestStudent(value: unknown): PassedTestStudent | null {
   if (!isRecord(value)) {
     return null;
@@ -280,6 +298,7 @@ export function normalizeEditableContent(value: unknown): EditableContent {
       ? value.recentEvents.map(normalizeRecentEvent).filter((event): event is RecentEvent => Boolean(event))
       : [],
     examAnnouncement: normalizeExamAnnouncement(value.examAnnouncement),
+    paymentQr: normalizePaymentQr(value.paymentQr),
     historyMedia: normalizeMediaList(value.historyMedia),
     onTheMatMedia: normalizeMediaList(value.onTheMatMedia),
     passedTestStudents: Array.isArray(value.passedTestStudents)

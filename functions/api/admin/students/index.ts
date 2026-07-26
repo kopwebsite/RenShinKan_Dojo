@@ -47,6 +47,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const query = (url.searchParams.get("query") || "").trim().slice(0, 120);
   const rank = (url.searchParams.get("rank") || "").trim().slice(0, 80);
   const profileStatus = (url.searchParams.get("profileStatus") || "").trim();
+  const excludePending = url.searchParams.get("excludePending") === "1";
   const examinationStatus = (url.searchParams.get("examinationStatus") || "").trim();
   const paymentStatus = (url.searchParams.get("paymentStatus") || "").trim();
   const hoursStatus = (url.searchParams.get("hoursStatus") || "").trim();
@@ -81,12 +82,13 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     bindings.push(dojoId);
   }
   if (query) {
-    conditions.push("(s.display_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR s.public_student_id LIKE ? ESCAPE '\\' COLLATE NOCASE OR COALESCE(s.aat_number, '') LIKE ? ESCAPE '\\' COLLATE NOCASE)");
+    conditions.push("(s.display_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR COALESCE(s.thai_name, '') LIKE ? ESCAPE '\\' COLLATE NOCASE OR s.public_student_id LIKE ? ESCAPE '\\' COLLATE NOCASE OR COALESCE(s.aat_number, '') LIKE ? ESCAPE '\\' COLLATE NOCASE)");
     const term = `%${escapeLike(query)}%`;
-    bindings.push(term, term, term);
+    bindings.push(term, term, term, term);
   }
   if (rank) { conditions.push("s.current_belt = ? COLLATE NOCASE"); bindings.push(rank); }
   if (profileStatus) { conditions.push("s.profile_status = ?"); bindings.push(profileStatus); }
+  else if (excludePending) conditions.push("s.profile_status <> 'pending_admin_approval'");
   if (examinationStatus) { conditions.push(`${applicationStatusExpression} = ?`); bindings.push(examinationStatus); }
   if (paymentStatus) { conditions.push(`${paymentStatusExpression} = ?`); bindings.push(paymentStatus); }
   if (hoursStatus === "pending") conditions.push("EXISTS (SELECT 1 FROM training_hour_requests phr WHERE phr.student_id = s.id AND phr.status = 'pending')");
@@ -109,7 +111,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const [countResult, rowsResult, summaryResult] = await db.batch([
     db.prepare(`SELECT COUNT(*) AS total FROM students s ${where}`).bind(...bindings),
-    db.prepare(`SELECT s.id, s.public_student_id, s.display_name, s.current_belt, s.profile_image_url, s.active, s.archived_at,
+    db.prepare(`SELECT s.id, s.public_student_id, s.display_name, s.english_name, s.thai_name, s.account_created_date, s.dojo_joined_date, s.current_belt, s.profile_image_url, s.active, s.archived_at,
       s.dojo_id, d.official_name AS dojo_name, s.aat_number, s.aat_last_paid_date,
       s.updated_at, s.profile_status, ${totalExpression} AS total_hours,
       ${applicationStatusExpression} AS examination_status, ${paymentStatusExpression} AS payment_status,
@@ -145,7 +147,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const requestId = requestIdentifier(request);
   try {
     const body = await request.json<Record<string, unknown>>();
-    const displayName = String(body.displayName || "").normalize("NFKC").trim().replace(/\s+/g, " ");
+    const displayName = String(body.englishName || body.displayName || "").normalize("NFKC").trim().replace(/\s+/g, " ");
+    const thaiName = String(body.thaiName || "").normalize("NFKC").trim().replace(/\s+/g, " ").slice(0, 120) || null;
     const currentBelt = normalizeRank(body.currentBelt || "Unranked");
     const dojoId = isRenShinKanSuperAdmin(session)
       ? String(body.dojoId || session.selectedDojoId || "").trim()
@@ -155,7 +158,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const profileImageUrl = validProfileUrl(body.profileImageUrl);
     const manualStudentId = body.manualStudentId === true;
 
-    if (!displayName || displayName.length > 120) return jsonResponse({ error: "Enter a student name of 120 characters or fewer." }, 400);
+    if (!displayName || displayName.length > 120) return jsonResponse({ error: "Enter an English name of 120 characters or fewer." }, 400);
     if (!currentBelt) return jsonResponse({ error: "Choose a valid rank from the official progression." }, 400);
     const dojo = await activeDojo(requireStudentDb(env), dojoId);
     if (!dojo) return jsonResponse({ error: "Choose an active dojo." }, 400);
@@ -171,6 +174,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (manualStudentId && !isValidStudentId(requestedId)) return jsonResponse({ error: "Student ID must use a format such as RSK-6901." }, 400);
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
+    const accountCreatedDate = typeof body.accountCreatedDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.accountCreatedDate)
+      ? body.accountCreatedDate
+      : now.slice(0, 10);
+    const dojoJoinedDate = typeof body.dojoJoinedDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.dojoJoinedDate)
+      ? body.dojoJoinedDate
+      : accountCreatedDate;
     const shareFields = JSON.stringify(body.shareFields && typeof body.shareFields === "object" ? body.shareFields : DEFAULT_SHARE_FIELDS);
     let studentId = requestedId;
 
@@ -189,14 +198,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         const contributionPeriod = await db.prepare("SELECT month_key FROM contribution_periods WHERE month_key = ? LIMIT 1")
           .bind(currentMonth).first<{ month_key: string }>();
         const statements = [db.prepare(`INSERT INTO students (
-          id, public_student_id, lookup_code_hash, name_verification_hash, display_name, current_belt, belt_color,
+          id, public_student_id, lookup_code_hash, name_verification_hash, display_name, english_name, thai_name, current_belt, belt_color,
           profile_image_url, profile_image_consent, guardian_consent, public_visible, active, share_fields, dojo_name,
-          admin_notes, training_hours_adjustment, profile_status, dojo_id, aat_number, aat_last_paid_date, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 'approved', ?, ?, ?, ?, ?)`)
-          .bind(id, studentId, "", nameHash, displayName, currentBelt, rankColor(currentBelt),
+          admin_notes, training_hours_adjustment, profile_status, dojo_id, aat_number, aat_last_paid_date,
+          account_created_date, dojo_joined_date, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 'approved', ?, ?, ?, ?, ?, ?, ?, ?)`)
+          .bind(id, studentId, "", nameHash, displayName, displayName, thaiName, currentBelt, rankColor(currentBelt),
             profileImageUrl, body.profileImageConsent ? 1 : 0, body.guardianConsent ? 1 : 0,
             body.publicVisible === false ? 0 : 1, shareFields, dojo.official_name, adminNotes, currentTrainingHours,
-            dojo.id, aatNumber, aatLastPaidDate, now, now)];
+            dojo.id, aatNumber, aatLastPaidDate, accountCreatedDate, dojoJoinedDate, now, now)];
         if (cycle) {
           statements.push(db.prepare(`INSERT OR IGNORE INTO exam_cycle_student_status (
             id, student_id, cycle_id, student_name_snapshot, student_public_id_snapshot,
@@ -240,7 +250,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         }
         statements.push(auditStatement(db, {
           actorType: "administrator", ...adminAuditMetadata(session, request), action: "student_created", entityType: "student", entityId: id,
-          studentId: id, previousValues: null, newValues: { studentId, displayName, currentBelt, currentTrainingHours, dojoId: dojo.id, dojoName: dojo.official_name, aatNumber, aatLastPaidDate, profileImageUrl, profileImageConsent: Boolean(body.profileImageConsent && profileImageUrl), active: true },
+          studentId: id, previousValues: null, newValues: { studentId, englishName: displayName, thaiName, accountCreatedDate, dojoJoinedDate, currentBelt, currentTrainingHours, dojoId: dojo.id, dojoName: dojo.official_name, aatNumber, aatLastPaidDate, profileImageUrl, profileImageConsent: Boolean(body.profileImageConsent && profileImageUrl), active: true },
           studentPublicId: studentId, studentNameSnapshot: displayName,
           source: "admin_students", requestId, summary: `Created student record ${studentId}`, createdAt: now,
         }));

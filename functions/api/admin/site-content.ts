@@ -8,7 +8,7 @@ type Env = StudentEnv & StorageEnv & { SESSION_SECRET?: string };
 async function currentOrEmpty(env: Env) {
   try { return await readEditableContentFromStorage(env); }
   catch {
-    return validateEditableContent({ version: 1, lastPublishedAt: null, recentEvents: [], examAnnouncement: null, historyMedia: [], onTheMatMedia: [], passedTestStudents: [], sitePages: [], siteSettings: {} });
+    return validateEditableContent({ version: 1, lastPublishedAt: null, recentEvents: [], examAnnouncement: null, paymentQr: { src: "/images/promptpay-qr.png", alt: "PromptPay QR code for RenShinKan Dojo" }, historyMedia: [], onTheMatMedia: [], passedTestStudents: [], sitePages: [], siteSettings: {} });
   }
 }
 

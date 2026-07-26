@@ -78,6 +78,7 @@ function getWranglerVarsBlock(config: string) {
 const SPA_ROUTES = new Set([
   "/aikido", "/classes", "/community", "/contact", "/instructors", "/newsletter",
   "/student-records", "/records", "/support", "/workshops", "/admin", "/admin/students", "/admin/audit",
+  "/admin/dojo-updates", "/admin/memberships", "/admin/dojos", "/admin/site-editor",
 ]);
 
 function spaRouteFallback() {

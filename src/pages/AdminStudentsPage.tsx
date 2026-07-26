@@ -1,11 +1,10 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle, Archive, Camera, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Database, Eye, FileImage, GraduationCap,
-  History, LoaderCircle, LogOut, Plus, ReceiptText, RotateCcw, Save, Search, Trash2, UserRound, Users, X,
+  LoaderCircle, Plus, ReceiptText, RotateCcw, Save, Search, SlidersHorizontal, Trash2, UserRound, Users, X,
 } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { RANKS } from "../../shared/ranks";
-import { AdminAlerts } from "../components/AdminAlerts";
 import { BeltMark } from "../components/BeltMark";
 import { AdminExamApplications } from "../components/admin/AdminExamApplications";
 import { AdminAatMemberships } from "../components/admin/AdminAatMemberships";
@@ -15,7 +14,8 @@ import { AdminDojoSelector, AdminLoginFields, AdminRenshinKanVerification, type 
 import { prepareProfilePhoto } from "../utils/profilePhoto";
 
 type StudentSummary = {
-  id: string; public_student_id: string; display_name: string; current_belt: string; profile_image_url: string | null;
+  id: string; public_student_id: string; display_name: string; english_name: string | null; thai_name: string | null;
+  account_created_date: string | null; dojo_joined_date: string | null; current_belt: string; profile_image_url: string | null;
   active: number; archived_at: string | null; dojo_name: string; updated_at: string; profile_status: string; total_hours: number;
   dojo_id: string; aat_number?: string | null; aat_last_paid_date?: string | null;
   examination_status: string; payment_status: string; pending_hours: number; sharing_active: number;
@@ -40,6 +40,8 @@ type ListResponse = {
 };
 type BulkDraft = { type: "hours" | "approve_hours" | "promotion" | "exam_pass"; hours: string; levels: string; location: string; examinationDate: string; preview: boolean };
 type SelectionAction = { type: "approve" | "reject" | "archive" | "restore" | "delete"; studentVisibleNote: string; internalNote: string; confirmationText: string };
+type WorkspaceSection = "overview" | "profile" | "training" | "examinations" | "payments" | "history";
+type StudentPageMode = "students" | "profileRequests" | "trainingRequests";
 
 const EMPTY_PAGE = { page: 1, pageSize: 20, total: 0, totalPages: 1 };
 async function api<T>(url: string, options: RequestInit = {}) {
@@ -85,7 +87,7 @@ function studentRecordStatus(student: Pick<StudentSummary, "profile_status" | "a
   return "active";
 }
 
-export function AdminStudentsPage() {
+export function AdminStudentsPage({ mode = "students" }: { mode?: StudentPageMode }) {
   const location = useLocation();
   const [checked, setChecked] = useState(false);
   const [authed, setAuthed] = useState(false);
@@ -104,10 +106,11 @@ export function AdminStudentsPage() {
   const [rank, setRank] = useState("");
   const [examinationStatus, setExaminationStatus] = useState(() => new URLSearchParams(window.location.search).get("examinationStatus") || "");
   const [paymentStatus, setPaymentStatus] = useState(() => new URLSearchParams(window.location.search).get("paymentStatus") || "");
-  const [hoursStatus, setHoursStatus] = useState(() => new URLSearchParams(window.location.search).get("hoursStatus") === "pending" ? "pending" : "");
+  const [hoursStatus, setHoursStatus] = useState(() => mode === "trainingRequests" || new URLSearchParams(window.location.search).get("hoursStatus") === "pending" ? "pending" : "");
   const [dojoFilter, setDojoFilter] = useState("");
   const [aatStatus, setAatStatus] = useState("");
   const [status, setStatus] = useState(() => {
+    if (mode === "profileRequests") return "pending";
     const params = new URLSearchParams(window.location.search);
     if (params.get("profileStatus") === "pending_admin_approval") return "pending";
     const value = params.get("status");
@@ -130,6 +133,8 @@ export function AdminStudentsPage() {
   const [bulk, setBulk] = useState<BulkDraft | null>(null);
   const [selectionAction, setSelectionAction] = useState<SelectionAction | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [workspaceStart, setWorkspaceStart] = useState<WorkspaceSection>("overview");
   const skipHoursBlur = useRef(false);
   const selectAllRef = useRef<HTMLInputElement>(null);
 
@@ -172,6 +177,8 @@ export function AdminStudentsPage() {
       if (hoursStatus) params.set("hoursStatus", hoursStatus);
       if (dojoFilter) params.set("dojoId", dojoFilter);
       if (aatStatus) params.set("aatStatus", aatStatus);
+      if (mode === "students") params.set("excludePending", "1");
+      if (mode === "profileRequests") params.set("profileStatus", "pending_admin_approval");
       const body = await api<ListResponse>(`/api/admin/students?${params}`);
       setStudents(body.students); setPagination(body.pagination); setSuggestedId(body.suggestedStudentId);
       setSelected((current) => new Set([...current].filter((id) => body.students.some((student) => student.id === id))));
@@ -186,14 +193,18 @@ export function AdminStudentsPage() {
     const params = new URLSearchParams(location.search);
     const requestedSection = params.get("section");
     setSectionState(requestedSection === "exams" || requestedSection === "memberships" || requestedSection === "contributions" || requestedSection === "payslips" ? requestedSection : "students");
-    if (params.get("profileStatus") === "pending_admin_approval") setStatus("pending");
-    if (params.get("hoursStatus") === "pending") setHoursStatus("pending");
+    if (mode === "profileRequests" || params.get("profileStatus") === "pending_admin_approval") setStatus("pending");
+    if (mode === "trainingRequests" || params.get("hoursStatus") === "pending") setHoursStatus("pending");
+    const requestedAction = params.get("action");
+    if (requestedAction === "add") setCreateOpen(true);
+    setWorkspaceStart(requestedAction === "training" ? "training" : requestedAction === "exam" ? "examinations" : "overview");
+    if (params.get("profileStatus") || params.get("hoursStatus") || params.get("status")) setFiltersOpen(true);
     setPage(1);
     setSelected(new Set());
-  }, [location.search]);
+  }, [location.search, mode]);
   useEffect(() => { if (authed && admin?.selectedDojoId && !admin.renshinkanVerificationRequired) void load(page); }, [authed, admin?.selectedDojoId, admin?.renshinkanVerificationRequired, page, query, rank, examinationStatus, paymentStatus, hoursStatus, dojoFilter, aatStatus, status, sort]);
   useEffect(() => {
-    if (admin?.permissionLevel !== "renshinkan_super_admin" && section === "contributions") setSection("students");
+    if (admin && admin.permissionLevel !== "renshinkan_super_admin" && section === "contributions") setSection("students");
   }, [admin?.permissionLevel, section]);
 
   async function login(event: FormEvent) {
@@ -235,7 +246,7 @@ export function AdminStudentsPage() {
   }
 
   function clearFilters() {
-    setQueryInput(""); setQuery(""); setRank(""); setExaminationStatus(""); setPaymentStatus(""); setHoursStatus(""); setDojoFilter(""); setAatStatus(""); setStatus("all"); setPage(1);
+    setQueryInput(""); setQuery(""); setRank(""); setExaminationStatus(""); setPaymentStatus(""); setHoursStatus(mode === "trainingRequests" ? "pending" : ""); setDojoFilter(""); setAatStatus(""); setStatus(mode === "profileRequests" ? "pending" : "all"); setPage(1);
   }
 
   async function openStudent(id: string) {
@@ -259,14 +270,6 @@ export function AdminStudentsPage() {
       await api(`/api/admin/students/${edit.id}/inline`, { method: "PATCH", body: JSON.stringify({ field: "total_hours", value }) });
       patchRow(edit.id, { total_hours: value, updated_at: new Date().toISOString() }); setNotice("Training hours saved."); setHoursEdit(null);
     } catch (reason) { patchRow(edit.id, { total_hours: edit.previous }); setHoursEdit(null); setError(reason instanceof Error ? reason.message : "Hours were restored because saving failed."); }
-    finally { setRowBusy(""); }
-  }
-
-  async function saveRank(student: StudentSummary, value: string) {
-    if (value === student.current_belt) return;
-    const previous = student.current_belt; setRowBusy(student.id); patchRow(student.id, { current_belt: value });
-    try { await api(`/api/admin/students/${student.id}/inline`, { method: "PATCH", body: JSON.stringify({ field: "current_rank", value }) }); setNotice("Rank saved."); }
-    catch (reason) { patchRow(student.id, { current_belt: previous }); setError(reason instanceof Error ? reason.message : "Rank was restored because saving failed."); }
     finally { setRowBusy(""); }
   }
 
@@ -356,31 +359,42 @@ export function AdminStudentsPage() {
 
   const selectedDojo = dojos.find((dojo) => dojo.id === admin?.selectedDojoId);
   const superAdmin = admin?.permissionLevel === "renshinkan_super_admin";
+  const examinationRecordsView = section === "exams" && new URLSearchParams(location.search).get("view") === "records";
+  const pageHeading = section === "students"
+    ? mode === "profileRequests"
+      ? ["Profile requests", "Review new student profiles independently from the approved student database."]
+      : mode === "trainingRequests"
+        ? ["Training hour requests", "Review student-submitted hours independently from the student database."]
+        : ["Students", "Search, review, and manage approved and archived student records for the selected dojo."]
+    : section === "exams"
+      ? examinationRecordsView
+        ? ["Examination records", "Review completed cycles and open a student record for the permanent result history."]
+        : ["Exam applications", "Review applications, record decisions, and prepare examination records."]
+      : section === "memberships"
+        ? ["AAT annual contributions", "Review annual Aikido Association of Thailand contribution records."]
+        : section === "contributions"
+          ? ["Monthly contributions", "Start with the current month and confirm contribution records."]
+          : ["Payment proofs", "Review private proof files and confirm or reject the related payment."];
 
   return <section className="container-shell student-admin student-admin--table">
-    <header className="student-admin__header"><div>{selectedDojo?.logo_url ? <img className="admin-selected-dojo-logo" src={selectedDojo.logo_url} alt="" /> : null}<p className="eyebrow">{selectedDojo?.official_name || "Administrator workspace"} / ADMIN</p><h1>Manage Students</h1><p>Manage authorized student records, examination applications, AAT membership, and training history.</p></div><div className="admin-header-actions">{superAdmin ? <Link className="btn-secondary" to="/admin"><ChevronLeft size={16} /> Dashboard</Link> : null}<Link className="btn-secondary" to="/admin/audit"><History size={16} /> Audit log</Link>{superAdmin ? <button className="btn-secondary" onClick={() => void switchDojo()}><RotateCcw size={16} /> Switch dojo</button> : null}<button className="btn-primary" onClick={() => setCreateOpen(true)}><Plus size={16} /> Add student</button><button className="btn-secondary" onClick={logout}><LogOut size={16} /> Sign out</button></div></header>
-    <nav className="admin-section-tabs" aria-label="Student administration sections">
-      <button className={section === "students" ? "is-active" : ""} onClick={() => setSection("students")} aria-current={section === "students" ? "page" : undefined}><Database size={17} /> Student Database</button>
-      <button className={section === "exams" ? "is-active" : ""} onClick={() => setSection("exams")} aria-current={section === "exams" ? "page" : undefined}><GraduationCap size={17} /> Exam Applications</button>
-      <button className={section === "memberships" ? "is-active" : ""} onClick={() => setSection("memberships")} aria-current={section === "memberships" ? "page" : undefined}><ReceiptText size={17} /> AAT Annual Membership</button>
-      {superAdmin ? <button className={section === "contributions" ? "is-active" : ""} onClick={() => setSection("contributions")} aria-current={section === "contributions" ? "page" : undefined}><ReceiptText size={17} /> Monthly Contributions</button> : null}
-      <button className={section === "payslips" ? "is-active" : ""} onClick={() => setSection("payslips")} aria-current={section === "payslips" ? "page" : undefined}><FileImage size={17} /> Submitted Payslip</button>
-    </nav>
+    <header className="student-admin__header"><div><p className="eyebrow">Managing: {selectedDojo?.official_name || "Selected dojo"}</p><h1>{pageHeading[0]}</h1><p>{pageHeading[1]}</p></div>{section === "students" ? <div className="admin-header-actions"><button className="btn-secondary" type="button" aria-expanded={filtersOpen} onClick={() => setFiltersOpen((value) => !value)}><SlidersHorizontal size={17} /> Filters{filtersActive ? " · active" : ""}</button>{mode === "students" ? <button className="btn-primary" onClick={() => setCreateOpen(true)}><Plus size={17} /> Add student</button> : null}</div> : null}</header>
     {notice ? <div className="admin-notice"><CheckCircle2 size={18} /><span>{notice}</span><button onClick={() => setNotice("")}><X size={15} /></button></div> : null}
     {error ? <div className="admin-page-error" role="alert"><AlertCircle size={18} /><span>{error}</span><button onClick={() => setError("")}><X size={15} /></button></div> : null}
 
     <div hidden={section !== "students"}>
-    {section === "students" ? <AdminAlerts key={notice} /> : null}
+    {workspaceStart !== "overview" ? <p className="admin-task-prompt" role="status"><strong>{workspaceStart === "training" ? "Record training hours" : "Record an examination"}</strong> Search for the student, then choose Open record. The correct task section will open automatically.</p> : null}
 
-    <form className="admin-student-controls admin-student-controls--workflow" onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(queryInput.trim()); }}>
+    <form className="admin-student-controls admin-student-controls--workflow admin-student-search-and-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(queryInput.trim()); }}>
       <label className="admin-search-wide">Search by name, Student ID, or AAT number<div><Search size={17} /><input value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="Name, CMU-6901, or AAT number" /><button className="btn-secondary">Search</button></div></label>
-      {superAdmin ? <label>Dojo<select value={dojoFilter} onChange={(event) => { setDojoFilter(event.target.value); setPage(1); }}><option value="">All dojos</option>{dojos.map((dojo) => <option key={dojo.id} value={dojo.id}>{dojo.official_name}</option>)}</select></label> : null}
-      <label>Current kyu<select value={rank} onChange={(event) => { setRank(event.target.value); setPage(1); }}><option value="">All ranks</option>{RANKS.map((item) => <option key={item}>{item}</option>)}</select></label>
-      <label>Training hours<select value={hoursStatus} onChange={(event) => { setHoursStatus(event.target.value); setPage(1); }}><option value="">All hour records</option><option value="pending">Pending approval</option></select></label>
-      <label>Record status<select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="all">All</option><option value="active">Active</option><option value="pending">Pending</option><option value="archived">Archived</option></select></label>
-      <label>AAT status<select value={aatStatus} onChange={(event) => { setAatStatus(event.target.value); setPage(1); }}><option value="">All AAT statuses</option><option value="payment_required">Payment required</option><option value="current">Current</option><option value="expired">Expired</option></select></label>
-      <label>Sort<select value={sort} onChange={(event) => setSort(event.target.value)}><option value="name">Name</option><option value="studentId">Student ID</option><option value="trainingHours">Training hours</option><option value="updated">Last updated</option></select></label>
-      <button type="button" className="btn-secondary admin-clear" disabled={!filtersActive} onClick={clearFilters}>{filtersActive ? "Reset active filters" : "No active filters"}</button>
+      <div className="admin-student-filter-panel" hidden={!filtersOpen}>
+        {superAdmin ? <label>Dojo<select value={dojoFilter} onChange={(event) => { setDojoFilter(event.target.value); setPage(1); }}><option value="">All dojos</option>{dojos.map((dojo) => <option key={dojo.id} value={dojo.id}>{dojo.official_name}</option>)}</select></label> : null}
+        <label>Current rank<select value={rank} onChange={(event) => { setRank(event.target.value); setPage(1); }}><option value="">All ranks</option>{RANKS.map((item) => <option key={item}>{item}</option>)}</select></label>
+        <label>Training hours<select value={hoursStatus} onChange={(event) => { setHoursStatus(event.target.value); setPage(1); }}><option value="">All hour records</option><option value="pending">Pending approval</option></select></label>
+        {mode === "students" ? <label>Record status<select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="all">All</option><option value="active">Active</option><option value="archived">Archived</option></select></label> : null}
+        <label>AAT status<select value={aatStatus} onChange={(event) => { setAatStatus(event.target.value); setPage(1); }}><option value="">All AAT statuses</option><option value="payment_required">Payment required</option><option value="current">Current</option><option value="expired">Expired</option></select></label>
+        <label>Sort order<select value={sort} onChange={(event) => setSort(event.target.value)}><option value="name">Name</option><option value="studentId">Student ID</option><option value="trainingHours">Training hours</option><option value="updated">Last updated</option></select></label>
+        <button type="button" className="btn-secondary admin-clear" disabled={!filtersActive} onClick={clearFilters}>{filtersActive ? "Clear filters" : "No active filters"}</button>
+      </div>
     </form>
 
     {selected.size ? <aside className="admin-bulk-toolbar"><strong><Users size={17} /> {selected.size} student{selected.size === 1 ? "" : "s"} selected on this page</strong>
@@ -396,23 +410,27 @@ export function AdminStudentsPage() {
 
     <section className="admin-table-section" aria-busy={loading}><div className="admin-table-meta"><p>{pagination.total} student{pagination.total === 1 ? "" : "s"}{filtersActive ? " · filters active" : ""}</p>{loading ? <span><LoaderCircle className="spin" size={15} /> Loading</span> : null}</div><div className="admin-table-scroll"><table className="admin-student-table admin-student-table--workflow"><thead><tr>
       <th><label className="admin-select-box"><input ref={selectAllRef} type="checkbox" aria-label="Select every student on this page" checked={allVisibleSelected} onChange={(event) => setSelected(event.target.checked ? new Set(students.map((student) => student.id)) : new Set())} /><span aria-hidden="true" /></label></th>
-      <th>Student</th><th>ID</th><th>Dojo</th><th>AAT</th><th>Current kyu</th><th>Status</th><th>Updated</th><th>Actions</th>
+      <th>Student</th><th>Student ID</th><th>Rank</th><th>Status</th><th>Training hours</th><th>Action</th>
     </tr></thead><tbody>{students.map((student) => <tr key={student.id} className={selected.has(student.id) ? "is-selected" : ""}>
       <td><label className="admin-select-box"><input type="checkbox" aria-label={`Select ${student.display_name}`} checked={selected.has(student.id)} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(student.id); else next.delete(student.id); return next; })} /><span aria-hidden="true" /></label></td>
-      <th><span className="admin-student-identity">{student.profile_image_url ? <img src={student.profile_image_url} alt="" /> : <span aria-hidden="true"><UserRound size={18} /></span>}<span>{student.display_name}{student.pending_hours ? <small>{student.pending_hours} hours request pending</small> : null}</span></span></th><td><code>{student.public_student_id}</code></td><td>{student.dojo_name}</td><td>{student.aat_number || "NEW"}</td>
-      <td><select className="admin-inline-rank" aria-label={`Current rank for ${student.display_name}`} value={student.current_belt} disabled={rowBusy === student.id} onWheel={(event) => event.currentTarget.blur()} onChange={(event) => void saveRank(student, event.target.value)}>{RANKS.map((item) => <option key={item}>{item}</option>)}</select>{rowBusy === student.id ? <LoaderCircle className="spin admin-inline-spinner" size={13} /> : null}</td>
-      <td><Status value={studentRecordStatus(student)} /></td><td>{formatDate(student.updated_at)}</td><td><div className="admin-row-actions"><button onClick={() => void openStudent(student.id)}><Eye size={14} /> View / edit</button></div></td>
-    </tr>)}</tbody></table></div>{!loading && students.length === 0 ? <div className="admin-empty"><UserRound size={32} /><h2>No students found</h2><p>Try resetting the active filters or add a new student.</p></div> : null}
+      <th><span className="admin-student-identity">{student.profile_image_url ? <img src={student.profile_image_url} alt="" /> : <span aria-hidden="true"><UserRound size={18} /></span>}<span>{student.english_name || student.display_name}{student.thai_name ? <small lang="th">{student.thai_name}</small> : null}{student.pending_hours ? <small>{student.pending_hours} hours request pending</small> : null}</span></span></th><td><code>{student.public_student_id}</code></td>
+      <td>{student.current_belt}</td><td><Status value={studentRecordStatus(student)} /></td><td>{student.total_hours} hr{student.pending_hours ? <small className="admin-table-pending"> · {student.pending_hours} pending</small> : null}</td><td><div className="admin-row-actions"><button onClick={() => void openStudent(student.id)}><Eye size={14} /> Open record</button></div></td>
+    </tr>)}</tbody></table></div><div className="admin-student-cards">{students.map((student) => <article key={student.id}>
+      <header><label className="admin-select-box"><input type="checkbox" aria-label={`Select ${student.display_name}`} checked={selected.has(student.id)} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(student.id); else next.delete(student.id); return next; })} /><span aria-hidden="true" /></label><span className="admin-student-identity">{student.profile_image_url ? <img src={student.profile_image_url} alt="" /> : <span aria-hidden="true"><UserRound size={18} /></span>}<span><strong>{student.english_name || student.display_name}</strong>{student.thai_name ? <small lang="th">{student.thai_name}</small> : null}<small>{student.public_student_id}</small></span></span><Status value={studentRecordStatus(student)} /></header>
+      <dl><div><dt>Rank</dt><dd>{student.current_belt}</dd></div><div><dt>Training hours</dt><dd>{student.total_hours} hr{student.pending_hours ? ` · ${student.pending_hours} pending` : ""}</dd></div><div><dt>Dojo</dt><dd>{student.dojo_name}</dd></div></dl>
+      <button className="btn-secondary" type="button" onClick={() => void openStudent(student.id)}><Eye size={16} /> Open record</button>
+    </article>)}</div>{!loading && students.length === 0 ? <div className="admin-empty"><UserRound size={32} /><h2>No students found</h2><p>Try clearing the active filters or add a new student.</p></div> : null}
       <nav className="admin-pagination"><button className="btn-secondary" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}><ChevronLeft size={16} /> Previous</button><span>Page {pagination.page} of {pagination.totalPages}</span><button className="btn-secondary" disabled={page >= pagination.totalPages} onClick={() => setPage((value) => value + 1)}>Next <ChevronRight size={16} /></button></nav>
     </section>
     </div>
 
+    {section === "exams" && examinationRecordsView ? <p className="admin-task-prompt" role="status"><strong>Permanent results</strong> Choose a completed cycle and View application, or open a student workspace and choose History.</p> : null}
     {section === "exams" && admin ? <AdminExamApplications admin={admin} dojos={dojos} report={(message, isError = false) => isError ? setError(message) : setNotice(message)} /> : null}
     {section === "memberships" && admin ? <AdminAatMemberships admin={admin} dojos={dojos} report={(message, isError = false) => isError ? setError(message) : setNotice(message)} /> : null}
     {section === "contributions" && superAdmin ? <AdminMonthlyContributions report={(message, isError = false) => isError ? setError(message) : setNotice(message)} /> : null}
     {section === "payslips" ? <AdminPaymentProofs showAllDojos={Boolean(superAdmin)} report={(message, isError = false) => isError ? setError(message) : setNotice(message)} /> : null}
 
-    {(detailLoading || detail) ? <StudentDrawer detail={detail} loading={detailLoading} admin={admin} dojos={dojos} close={() => setDetail(null)} refresh={async () => { if (detail) await openStudent(detail.student.id); await load(); }} report={(message, isError = false) => isError ? setError(message) : setNotice(message)} /> : null}
+    {(detailLoading || detail) ? <StudentDrawer detail={detail} loading={detailLoading} initialSection={workspaceStart} admin={admin} dojos={dojos} close={() => setDetail(null)} refresh={async () => { if (detail) await openStudent(detail.student.id); await load(); }} report={(message, isError = false) => isError ? setError(message) : setNotice(message)} /> : null}
     {bulk ? <BulkModal bulk={bulk} setBulk={setBulk} students={bulk.type === "approve_hours" ? selectedPendingRows : selectedActiveRows} close={() => setBulk(null)} confirm={() => void runBulk()} busy={loading} /> : null}
     {selectionAction ? <SelectionActionModal action={selectionAction} setAction={setSelectionAction} students={selectionTargets(selectionAction.type)} close={() => setSelectionAction(null)} confirm={() => void runSelectionAction()} busy={loading} /> : null}
     {createOpen ? <CreateStudentModal suggestedId={suggestedId} dojos={dojos.filter((dojo) => superAdmin || dojo.id === admin?.selectedDojoId)} selectedDojoId={admin?.selectedDojoId || ""} canManageAllDojos={superAdmin} close={() => setCreateOpen(false)} complete={async (message) => { setCreateOpen(false); setNotice(message); await load(1); }} /> : null}
@@ -436,7 +454,7 @@ function BulkModal({ bulk, setBulk, students, close, confirm, busy }: { bulk: Bu
     : bulk.type === "promotion"
       ? "The selected students' current ranks will be promoted directly without creating examination records."
       : "Confirm this single atomic operation. Every student receives an individual audit entry sharing one bulk-operation ID.";
-  return <div className="admin-confirm-backdrop"><section className="admin-bulk-modal"><header><div><p className="eyebrow">Bulk action</p><h2>{title}</h2></div><button onClick={close}><X /></button></header>{!preview ? <div className="admin-bulk-form">{bulk.type === "hours" ? <><label>Hours to add to each student<input type="number" min="0.25" step="0.25" value={bulk.hours} onChange={(event) => setBulk({ ...bulk, hours: event.target.value })} autoFocus /></label><label>Training location <small>Optional</small><input maxLength={200} value={bulk.location} onChange={(event) => setBulk({ ...bulk, location: event.target.value })} placeholder="Example: RenShinKan Dojo" /></label></> : <><label>Rank levels promoted<input type="number" min="1" step="1" value={bulk.levels} onChange={(event) => setBulk({ ...bulk, levels: event.target.value })} autoFocus /></label>{bulk.type === "exam_pass" ? <><label>Examination date<input type="date" value={bulk.examinationDate} onChange={(event) => setBulk({ ...bulk, examinationDate: event.target.value })} required /></label><label>Examination location<input value={bulk.location} maxLength={200} onChange={(event) => setBulk({ ...bulk, location: event.target.value })} required /></label></> : null}</>}<p>{students.length} active student{students.length === 1 ? "" : "s"} will be affected.</p><footer><button className="btn-secondary" onClick={close}>Cancel</button><button className="btn-primary" disabled={!valid} onClick={() => setBulk({ ...bulk, preview: true })}>Review changes</button></footer></div> : <div className="admin-bulk-preview"><p>{bulk.type === "approve_hours" ? "Every pending request for these students will be approved, added once to verified training hours, and recorded with an individual audit entry." : explanation}</p>{bulk.type === "approve_hours" ? <table><thead><tr><th>Student</th><th>Current total</th><th>Pending requests</th><th>Result</th></tr></thead><tbody>{students.map((student) => <tr key={student.id}><td>{student.display_name}</td><td>{student.total_hours} hr</td><td>{student.pending_hours}</td><td>Approve and add submitted hours</td></tr>)}</tbody></table> : <table><thead><tr><th>Student</th><th>Current</th><th>Change</th><th>Result</th></tr></thead><tbody>{students.map((student) => <tr key={student.id}><td>{student.display_name}</td><td>{bulk.type === "hours" ? `${student.total_hours} hr` : student.current_belt}</td><td>{bulk.type === "hours" ? `+${hours} hr` : `+${levels} level${levels === 1 ? "" : "s"}`}</td><td>{bulk.type === "hours" ? `${Number(student.total_hours) + hours} hr` : "Validated by official progression on save"}</td></tr>)}</tbody></table>}<footer>{bulk.type !== "approve_hours" ? <button className="btn-secondary" onClick={() => setBulk({ ...bulk, preview: false })}>Back</button> : <button className="btn-secondary" onClick={close}>Cancel</button>}<button className="btn-primary" disabled={busy || !valid} onClick={confirm}>{busy ? <LoaderCircle className="spin" size={16} /> : <Check size={16} />} Confirm {students.length} student{students.length === 1 ? "" : "s"}</button></footer></div>}</section></div>;
+  return <div className="admin-confirm-backdrop"><section className="admin-bulk-modal"><header><div><p className="eyebrow">Bulk action</p><h2>{title}</h2></div><button onClick={close}><X /></button></header>{!preview ? <div className="admin-bulk-form">{bulk.type === "hours" ? <><label>Hours to add to each student<input type="number" min="0.25" step="0.25" value={bulk.hours} onChange={(event) => setBulk({ ...bulk, hours: event.target.value })} onWheel={(event) => event.currentTarget.blur()} autoFocus /></label><label>Training location <small>Optional</small><input maxLength={200} value={bulk.location} onChange={(event) => setBulk({ ...bulk, location: event.target.value })} placeholder="Example: RenShinKan Dojo" /></label></> : <><label>Rank levels promoted<input type="number" min="1" step="1" value={bulk.levels} onChange={(event) => setBulk({ ...bulk, levels: event.target.value })} onWheel={(event) => event.currentTarget.blur()} autoFocus /></label>{bulk.type === "exam_pass" ? <><label>Examination date<input type="date" value={bulk.examinationDate} onChange={(event) => setBulk({ ...bulk, examinationDate: event.target.value })} required /></label><label>Examination location<input value={bulk.location} maxLength={200} onChange={(event) => setBulk({ ...bulk, location: event.target.value })} required /></label></> : null}</>}<p>{students.length} active student{students.length === 1 ? "" : "s"} will be affected.</p><footer><button className="btn-secondary" onClick={close}>Cancel</button><button className="btn-primary" disabled={!valid} onClick={() => setBulk({ ...bulk, preview: true })}>Review changes</button></footer></div> : <div className="admin-bulk-preview"><p>{bulk.type === "approve_hours" ? "Every pending request for these students will be approved, added once to verified training hours, and recorded with an individual audit entry." : explanation}</p>{bulk.type === "approve_hours" ? <table><thead><tr><th>Student</th><th>Current total</th><th>Pending requests</th><th>Result</th></tr></thead><tbody>{students.map((student) => <tr key={student.id}><td>{student.display_name}</td><td>{student.total_hours} hr</td><td>{student.pending_hours}</td><td>Approve and add submitted hours</td></tr>)}</tbody></table> : <table><thead><tr><th>Student</th><th>Current</th><th>Change</th><th>Result</th></tr></thead><tbody>{students.map((student) => <tr key={student.id}><td>{student.display_name}</td><td>{bulk.type === "hours" ? `${student.total_hours} hr` : student.current_belt}</td><td>{bulk.type === "hours" ? `+${hours} hr` : `+${levels} level${levels === 1 ? "" : "s"}`}</td><td>{bulk.type === "hours" ? `${Number(student.total_hours) + hours} hr` : "Validated by official progression on save"}</td></tr>)}</tbody></table>}<footer>{bulk.type !== "approve_hours" ? <button className="btn-secondary" onClick={() => setBulk({ ...bulk, preview: false })}>Back</button> : <button className="btn-secondary" onClick={close}>Cancel</button>}<button className="btn-primary" disabled={busy || !valid} onClick={confirm}>{busy ? <LoaderCircle className="spin" size={16} /> : <Check size={16} />} Confirm {students.length} student{students.length === 1 ? "" : "s"}</button></footer></div>}</section></div>;
 }
 
 function SelectionActionModal({ action, setAction, students, close, confirm, busy }: { action: SelectionAction; setAction: (value: SelectionAction) => void; students: StudentSummary[]; close: () => void; confirm: () => void; busy: boolean }) {
@@ -469,7 +487,8 @@ function SelectionActionModal({ action, setAction, students, close, confirm, bus
 }
 
 function CreateStudentModal({ suggestedId, dojos, selectedDojoId, canManageAllDojos, close, complete }: { suggestedId: string; dojos: AdminDojo[]; selectedDojoId: string; canManageAllDojos: boolean; close: () => void; complete: (message: string) => void }) {
-  const [draft, setDraft] = useState({ name: "", studentId: suggestedId, rank: "Unranked", hours: "0", notes: "", dojoId: selectedDojoId || dojos[0]?.id || "", aatNumber: "", aatLastPaidDate: "", aatPaidKnown: false });
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+  const [draft, setDraft] = useState({ englishName: "", thaiName: "", accountCreatedDate: today, dojoJoinedDate: today, studentId: suggestedId, rank: "Unranked", hours: "0", notes: "", dojoId: selectedDojoId || dojos[0]?.id || "", aatNumber: "", aatLastPaidDate: "", aatPaidKnown: false });
   const [generatedId, setGeneratedId] = useState(suggestedId);
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
@@ -519,7 +538,10 @@ function CreateStudentModal({ suggestedId, dojos, selectedDojoId, canManageAllDo
       const result = await api<{ studentId: string }>("/api/admin/students", {
         method: "POST",
         body: JSON.stringify({
-          displayName: draft.name,
+          englishName: draft.englishName,
+          thaiName: draft.thaiName,
+          accountCreatedDate: draft.accountCreatedDate,
+          dojoJoinedDate: draft.dojoJoinedDate,
           studentId: draft.studentId,
           manualStudentId: draft.studentId !== generatedId,
           currentBelt: draft.rank,
@@ -544,7 +566,10 @@ function CreateStudentModal({ suggestedId, dojos, selectedDojoId, canManageAllDo
   }
 
   return <div className="admin-confirm-backdrop"><section className="admin-bulk-modal"><header><div><p className="eyebrow">Official profile</p><h2>Add student</h2></div><button onClick={close}><X /></button></header><form className="admin-bulk-form" onSubmit={submit}>
-    <label>Name<input autoComplete="name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required /></label>
+    <label>English name <small>Required</small><input autoComplete="name" value={draft.englishName} onChange={(event) => setDraft({ ...draft, englishName: event.target.value })} required /></label>
+    <label>Thai name <small>Optional</small><input lang="th" value={draft.thaiName} onChange={(event) => setDraft({ ...draft, thaiName: event.target.value })} /></label>
+    <label>Account created date<input type="date" value={draft.accountCreatedDate} onChange={(event) => setDraft({ ...draft, accountCreatedDate: event.target.value })} required /></label>
+    <label>Joined dojo date<input type="date" value={draft.dojoJoinedDate} onChange={(event) => setDraft({ ...draft, dojoJoinedDate: event.target.value })} required /></label>
     {canManageAllDojos ? <label>Dojo<select value={draft.dojoId} onChange={(event) => void chooseDojo(event.target.value)} required><option value="">Choose a dojo</option>{dojos.map((dojo) => <option key={dojo.id} value={dojo.id}>{dojo.official_name}</option>)}</select></label> : <p className="admin-help-copy"><strong>Dojo:</strong> {dojos.find((dojo) => dojo.id === selectedDojoId)?.official_name || "Selected dojo"}. The server assigns this dojo automatically.</p>}
     <label>Student ID <small>Generated from the dojo abbreviation, the final two digits of the Thai Buddhist year, and that year&apos;s student number. Administrators may replace it.</small><input value={draft.studentId} onChange={(event) => setDraft({ ...draft, studentId: event.target.value.toUpperCase() })} placeholder="RSK-6901" required /></label>
     <label>Current kyu<select value={draft.rank} onChange={(event) => setDraft({ ...draft, rank: event.target.value })}>{RANKS.map((item) => <option key={item}>{item}</option>)}</select></label>
@@ -559,26 +584,29 @@ function CreateStudentModal({ suggestedId, dojos, selectedDojoId, canManageAllDo
   </form></section></div>;
 }
 
-function StudentDrawer({ detail, loading, admin, dojos, close, refresh, report }: { detail: Detail | null; loading: boolean; admin: AdminIdentity | null; dojos: AdminDojo[]; close: () => void; refresh: () => Promise<void>; report: (message: string, error?: boolean) => void }) {
+function StudentDrawer({ detail, loading, initialSection, admin, dojos, close, refresh, report }: { detail: Detail | null; loading: boolean; initialSection: WorkspaceSection; admin: AdminIdentity | null; dojos: AdminDojo[]; close: () => void; refresh: () => Promise<void>; report: (message: string, error?: boolean) => void }) {
   const [hours, setHours] = useState(""); const [hoursLocation, setHoursLocation] = useState(""); const [exam, setExam] = useState({ current: "", attempted: "", passed: true, location: "", examinationDate: todayForDateInput() });
   const [profileNotes, setProfileNotes] = useState({ studentVisibleNote: "", internalNote: "" });
   const [hourReview, setHourReview] = useState<{ id: string; hours: number; action: "approve" | "reject"; studentVisibleNote: string; internalNote: string } | null>(null);
   const [busy, setBusy] = useState(false); const [applicationNote, setApplicationNote] = useState("");
+  const [workspaceSection, setWorkspaceSection] = useState<WorkspaceSection>(initialSection);
+  useEffect(() => { setWorkspaceSection(initialSection); }, [detail?.student.id, initialSection]);
   useEffect(() => { if (detail) setExam((value) => ({ ...value, current: detail.student.current_belt, attempted: RANKS[Math.min(RANKS.length - 1, Math.max(1, RANKS.indexOf(detail.student.current_belt as (typeof RANKS)[number]) + 1))] })); }, [detail?.student.id, detail?.student.current_belt]);
   async function mutate(path: string, body: Record<string, unknown>, success: string) { if (!detail) return false; setBusy(true); try { await api(path, { method: "POST", body: JSON.stringify(body) }); report(success); await refresh(); return true; } catch (reason) { report(reason instanceof Error ? reason.message : "The change could not be saved.", true); return false; } finally { setBusy(false); } }
-  if (loading || !detail) return <div className="admin-drawer-backdrop"><section className="admin-drawer"><header><h2>Student record</h2><button onClick={close}><X /></button></header><div className="admin-drawer-loading"><LoaderCircle className="spin" /> Loading complete record…</div></section></div>;
+  if (loading || !detail) return <div className="admin-drawer-backdrop"><section className="admin-drawer" role="dialog" aria-modal="true" aria-labelledby="student-record-loading-title"><header><h2 id="student-record-loading-title">Student record</h2><button aria-label="Close student record" onClick={close}><X /></button></header><div className="admin-drawer-loading"><LoaderCircle className="spin" /> Loading complete record…</div></section></div>;
   const student = detail.student; const currentApp = detail.applications[0]; const pendingRequests = detail.hourRequests.filter((request) => request.status === "pending");
-  return <div className="admin-drawer-backdrop"><section className="admin-drawer admin-drawer--workflow"><header><div><p className="eyebrow">Student workspace</p><h2>{student.display_name}</h2><p><code>{student.public_student_id}</code> · <BeltMark rank={student.current_belt} /> {student.current_belt}</p></div><button className="admin-icon-button" onClick={close}><X /></button></header><div className="admin-drawer__body">
-    <div className="admin-profile-review"><div>{student.pending_profile_image_url ? <img src={student.pending_profile_image_url} alt="Pending profile" /> : student.profile_image_url ? <img src={student.profile_image_url} alt="Profile" /> : <UserRound />}</div><dl><div><dt>Status</dt><dd><Status value={studentRecordStatus(student)} /></dd></div><div><dt>Total hours</dt><dd>{Number(student.total_hours).toLocaleString()} hr</dd></div><div><dt>Practice duration</dt><dd>{student.practice_duration || "Not supplied"}</dd></div><div><dt>Profile information</dt><dd>{student.profile_bio || "Not supplied"}</dd></div></dl></div>
+  const workspaceSections = [["overview", "Overview"], ["profile", "Profile"], ["training", "Training"], ["examinations", "Examinations"], ["payments", "Payments"], ["history", "History"]] as const;
+  return <div className="admin-drawer-backdrop"><section className="admin-drawer admin-drawer--workflow admin-student-workspace" role="dialog" aria-modal="true" aria-labelledby="student-workspace-title"><header><div className="admin-student-workspace__identity"><span>{student.pending_profile_image_url ? <img src={student.pending_profile_image_url} alt="" /> : student.profile_image_url ? <img src={student.profile_image_url} alt="" /> : <UserRound />}</span><div><p className="eyebrow">Student workspace</p><h2 id="student-workspace-title">{student.english_name || student.display_name}</h2>{student.thai_name ? <p className="admin-student-workspace__thai" lang="th">{student.thai_name}</p> : null}<p><code>{student.public_student_id}</code> · <BeltMark rank={student.current_belt} /> {student.current_belt} · {student.dojo_name}</p></div></div><button className="admin-icon-button" aria-label="Close student workspace" onClick={close}><X /></button></header><nav className="admin-student-workspace__tabs" aria-label="Student workspace sections">{workspaceSections.map(([id, title]) => <button key={id} className={workspaceSection === id ? "is-active" : ""} aria-current={workspaceSection === id ? "page" : undefined} onClick={() => setWorkspaceSection(id)}>{title}{id === "training" && pendingRequests.length ? <span>{pendingRequests.length}</span> : null}</button>)}</nav><div className="admin-drawer__body" data-section={workspaceSection}>
+    <div className="admin-profile-review"><div>{student.pending_profile_image_url ? <img src={student.pending_profile_image_url} alt="Pending profile" /> : student.profile_image_url ? <img src={student.profile_image_url} alt="Profile" /> : <UserRound />}</div><dl><div><dt>Status</dt><dd><Status value={studentRecordStatus(student)} /></dd></div><div><dt>Total hours</dt><dd>{Number(student.total_hours).toLocaleString()} hr</dd></div><div><dt>Account created</dt><dd>{student.account_created_date ? formatDay(student.account_created_date) : "Not supplied"}</dd></div><div><dt>Joined dojo</dt><dd>{student.dojo_joined_date ? formatDay(student.dojo_joined_date) : "Not supplied"}</dd></div><div><dt>Practice duration</dt><dd>{student.practice_duration || "Not supplied"}</dd></div><div><dt>Profile information</dt><dd>{student.profile_bio || "Not supplied"}</dd></div></dl></div>
     <StudentDetailsEditor student={student} admin={admin} dojos={dojos} refresh={refresh} report={report} />
-    {student.profile_status === "pending_admin_approval" ? <section className="admin-workflow-card"><h3>Review profile request</h3><p>Pending profiles remain inactive and private until approval.</p>
+    {student.profile_status === "pending_admin_approval" ? <section className="admin-workflow-card admin-profile-approval"><h3>Review profile request</h3><p>Pending profiles remain inactive and private until approval.</p>
       <label>Student-visible explanation <small>Shown in the authenticated student passport. Required when rejecting.</small><textarea value={profileNotes.studentVisibleNote} maxLength={2000} onChange={(event) => setProfileNotes({ ...profileNotes, studentVisibleNote: event.target.value })} /></label>
       <label>Private internal note <small>Administrator-only context. Never shown to students or the public.</small><textarea value={profileNotes.internalNote} maxLength={2000} onChange={(event) => setProfileNotes({ ...profileNotes, internalNote: event.target.value })} /></label>
       <div><button className="btn-primary" disabled={busy} onClick={() => void mutate(`/api/admin/students/${student.id}/profile-status`, { action: "approve", ...profileNotes }, "Profile approved and public QR activated.")}><Check size={16} /> Approve</button><button className="btn-secondary is-danger" disabled={busy || !profileNotes.studentVisibleNote.trim()} onClick={() => void mutate(`/api/admin/students/${student.id}/profile-status`, { action: "reject", ...profileNotes }, "Profile rejected; the private history was retained.")}>Reject</button></div>
     </section> : null}
-    <div className="admin-record-entry-grid"><section className="admin-workflow-card"><h3><Clock3 size={18} /> Add training hours</h3><label>Number of hours to add<input type="number" min="0.25" step="0.25" value={hours} onChange={(event) => setHours(event.target.value)} /></label><label>Training location <small>Optional</small><input maxLength={200} value={hoursLocation} onChange={(event) => setHoursLocation(event.target.value)} placeholder="Example: RenShinKan Dojo" /></label><dl className="admin-preview-math"><div><dt>Current</dt><dd>{student.total_hours} hr</dd></div><div><dt>Add</dt><dd>{Number(hours || 0)} hr</dd></div><div><dt>Result</dt><dd>{Number(student.total_hours) + Number(hours || 0)} hr</dd></div></dl><button className="btn-primary" disabled={busy || !(Number(hours) > 0)} onClick={() => void mutate(`/api/admin/students/${student.id}/hours`, { hours: Number(hours), location: hoursLocation }, "Training hours added.")}>Add hours</button></section>
-      <section className="admin-workflow-card"><h3><GraduationCap size={18} /> Record examination</h3><label>Current kyu<select value={exam.current} onChange={(event) => setExam({ ...exam, current: event.target.value })}>{RANKS.map((item) => <option key={item}>{item}</option>)}</select></label><label>Attempting<select value={exam.attempted} onChange={(event) => setExam({ ...exam, attempted: event.target.value })}>{RANKS.map((item) => <option key={item}>{item}</option>)}</select></label><label>Did they pass?<select value={exam.passed ? "yes" : "no"} onChange={(event) => setExam({ ...exam, passed: event.target.value === "yes" })}><option value="yes">Yes</option><option value="no">No</option></select></label><label>Examination date<input type="date" value={exam.examinationDate} onChange={(event) => setExam({ ...exam, examinationDate: event.target.value })} required /></label><label>Examination location<input maxLength={200} value={exam.location} onChange={(event) => setExam({ ...exam, location: event.target.value })} /></label><button className="btn-primary" disabled={busy || !exam.location.trim() || !exam.examinationDate} onClick={() => void mutate(`/api/admin/students/${student.id}/exam`, { currentRank: exam.current, attemptedRank: exam.attempted, passed: exam.passed, location: exam.location, examinationDate: exam.examinationDate }, `Examination ${exam.passed ? "pass" : "attempt"} recorded.`)}>Record examination</button></section></div>
-    {pendingRequests.length ? <section className="admin-workflow-card"><h3>Student-submitted training hours</h3>{pendingRequests.map((request) => <article className="admin-request-row" key={request.id}><div><strong>+{request.submitted_hours} hours</strong><span>{formatDate(request.submitted_at)} · pending review</span><small>{request.previous_total} → {request.requested_total} hours requested</small></div><div><button className="btn-primary" onClick={() => setHourReview({ id: request.id, hours: request.submitted_hours, action: "approve", studentVisibleNote: "", internalNote: "" })}>Approve</button><button className="btn-secondary is-danger" onClick={() => setHourReview({ id: request.id, hours: request.submitted_hours, action: "reject", studentVisibleNote: "", internalNote: "" })}>Reject</button></div></article>)}</section> : null}
+    <div className="admin-record-entry-grid"><section className="admin-workflow-card"><h3><Clock3 size={18} /> Add training hours</h3><label>Number of hours to add<input type="number" min="0.25" step="0.25" value={hours} onChange={(event) => setHours(event.target.value)} onWheel={(event) => event.currentTarget.blur()} /></label><label>Training location <small>Optional</small><input maxLength={200} value={hoursLocation} onChange={(event) => setHoursLocation(event.target.value)} placeholder="Example: RenShinKan Dojo" /></label><dl className="admin-preview-math"><div><dt>Current</dt><dd>{student.total_hours} hr</dd></div><div><dt>Add</dt><dd>{Number(hours || 0)} hr</dd></div><div><dt>Result</dt><dd>{Number(student.total_hours) + Number(hours || 0)} hr</dd></div></dl><button className="btn-primary" disabled={busy || !(Number(hours) > 0)} onClick={() => void mutate(`/api/admin/students/${student.id}/hours`, { hours: Number(hours), location: hoursLocation }, "Training hours added.")}>Add hours</button></section>
+      <section className="admin-workflow-card"><h3><GraduationCap size={18} /> Record examination</h3><label>Current rank<select value={exam.current} onChange={(event) => setExam({ ...exam, current: event.target.value })}>{RANKS.map((item) => <option key={item}>{item}</option>)}</select></label><label>Attempting<select value={exam.attempted} onChange={(event) => setExam({ ...exam, attempted: event.target.value })}>{RANKS.map((item) => <option key={item}>{item}</option>)}</select></label><label>Result<select value={exam.passed ? "yes" : "no"} onChange={(event) => setExam({ ...exam, passed: event.target.value === "yes" })}><option value="yes">Passed</option><option value="no">Did not pass</option></select></label><label>Examination date<input type="date" value={exam.examinationDate} onChange={(event) => setExam({ ...exam, examinationDate: event.target.value })} required /></label><label>Examination location<input maxLength={200} value={exam.location} onChange={(event) => setExam({ ...exam, location: event.target.value })} /></label><button className="btn-primary" disabled={busy || !exam.location.trim() || !exam.examinationDate} onClick={() => { if (window.confirm(`Record this examination for ${student.display_name}?\n\nCurrent rank: ${exam.current}\nAttempting: ${exam.attempted}\nResult: ${exam.passed ? "Passed" : "Did not pass"}\nDate: ${exam.examinationDate}\nLocation: ${exam.location}`)) void mutate(`/api/admin/students/${student.id}/exam`, { currentRank: exam.current, attemptedRank: exam.attempted, passed: exam.passed, location: exam.location, examinationDate: exam.examinationDate }, `Examination ${exam.passed ? "pass" : "attempt"} recorded.`); }}>Review and record examination</button></section></div>
+    {pendingRequests.length ? <section className="admin-workflow-card admin-training-requests"><h3>Student-submitted training hours</h3>{pendingRequests.map((request) => <article className="admin-request-row" key={request.id}><div><strong>+{request.submitted_hours} hours</strong><span>{formatDate(request.submitted_at)} · under review</span><small>{request.previous_total} → {request.requested_total} hours requested</small></div><div><button className="btn-primary" onClick={() => setHourReview({ id: request.id, hours: request.submitted_hours, action: "approve", studentVisibleNote: "", internalNote: "" })}>Approve</button><button className="btn-secondary is-danger" onClick={() => setHourReview({ id: request.id, hours: request.submitted_hours, action: "reject", studentVisibleNote: "", internalNote: "" })}>Reject</button></div></article>)}</section> : null}
     {hourReview ? <section className="admin-workflow-card admin-request-decision"><h3>{hourReview.action === "approve" ? "Approve" : "Reject"} +{hourReview.hours} training hours</h3>
       <label>Student-visible explanation <small>Shown in the authenticated student passport. {hourReview.action === "reject" ? "Required when rejecting." : "Optional."}</small><textarea value={hourReview.studentVisibleNote} maxLength={1000} onChange={(event) => setHourReview({ ...hourReview, studentVisibleNote: event.target.value })} /></label>
       <label>Private internal note <small>Administrator-only context. Never shown to students or the public.</small><textarea value={hourReview.internalNote} maxLength={1000} onChange={(event) => setHourReview({ ...hourReview, internalNote: event.target.value })} /></label>
@@ -592,16 +620,16 @@ function StudentDrawer({ detail, loading, admin, dojos, close, refresh, report }
 function StudentDetailsEditor({ student, admin, dojos, refresh, report }: { student: Student; admin: AdminIdentity | null; dojos: AdminDojo[]; refresh: () => Promise<void>; report: (message: string, error?: boolean) => void }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [draft, setDraft] = useState({ name: student.display_name, studentId: student.public_student_id, rank: student.current_belt, dojoId: student.dojo_id, aatNumber: student.aat_number || "", aatLastPaidDate: student.aat_last_paid_date || "", practiceDuration: student.practice_duration || "", profileBio: student.profile_bio || "", notes: student.admin_notes || "" });
-  useEffect(() => setDraft({ name: student.display_name, studentId: student.public_student_id, rank: student.current_belt, dojoId: student.dojo_id, aatNumber: student.aat_number || "", aatLastPaidDate: student.aat_last_paid_date || "", practiceDuration: student.practice_duration || "", profileBio: student.profile_bio || "", notes: student.admin_notes || "" }), [student.id, student.updated_at]);
+  const [draft, setDraft] = useState({ englishName: student.english_name || student.display_name, thaiName: student.thai_name || "", accountCreatedDate: student.account_created_date || "", dojoJoinedDate: student.dojo_joined_date || "", studentId: student.public_student_id, rank: student.current_belt, dojoId: student.dojo_id, aatNumber: student.aat_number || "", aatLastPaidDate: student.aat_last_paid_date || "", practiceDuration: student.practice_duration || "", profileBio: student.profile_bio || "", notes: student.admin_notes || "" });
+  useEffect(() => setDraft({ englishName: student.english_name || student.display_name, thaiName: student.thai_name || "", accountCreatedDate: student.account_created_date || "", dojoJoinedDate: student.dojo_joined_date || "", studentId: student.public_student_id, rank: student.current_belt, dojoId: student.dojo_id, aatNumber: student.aat_number || "", aatLastPaidDate: student.aat_last_paid_date || "", practiceDuration: student.practice_duration || "", profileBio: student.profile_bio || "", notes: student.admin_notes || "" }), [student.id, student.updated_at]);
   async function save(event: FormEvent) {
     event.preventDefault(); setBusy(true);
     try {
-      await api(`/api/admin/students/${student.id}`, { method: "PUT", body: JSON.stringify({ displayName: draft.name, studentId: draft.studentId, currentBelt: draft.rank, dojoId: draft.dojoId, aatNumber: draft.aatNumber, aatLastPaidDate: draft.aatLastPaidDate || null, practiceDuration: draft.practiceDuration, profileBio: draft.profileBio, adminNotes: draft.notes }) });
+      await api(`/api/admin/students/${student.id}`, { method: "PUT", body: JSON.stringify({ englishName: draft.englishName, thaiName: draft.thaiName, accountCreatedDate: draft.accountCreatedDate, dojoJoinedDate: draft.dojoJoinedDate, studentId: draft.studentId, currentBelt: draft.rank, dojoId: draft.dojoId, aatNumber: draft.aatNumber, aatLastPaidDate: draft.aatLastPaidDate || null, practiceDuration: draft.practiceDuration, profileBio: draft.profileBio, adminNotes: draft.notes }) });
       report("Student details saved with an audit entry."); setOpen(false); await refresh();
     } catch (reason) { report(reason instanceof Error ? reason.message : "Student details could not be saved.", true); }
     finally { setBusy(false); }
   }
   const superAdmin = admin?.permissionLevel === "renshinkan_super_admin";
-  return <details className="admin-workflow-card" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}><summary>Edit profile details or correct a request</summary><form className="admin-bulk-form" onSubmit={save}><label>Name<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required /></label><label>Student ID <small>Administrators may correct or replace this ID.</small><input value={draft.studentId} onChange={(event) => setDraft({ ...draft, studentId: event.target.value.toUpperCase() })} required /></label><label>Current kyu<select value={draft.rank} onChange={(event) => setDraft({ ...draft, rank: event.target.value })}>{RANKS.map((rank) => <option key={rank}>{rank}</option>)}</select></label><label>Dojo<select value={draft.dojoId} disabled={!superAdmin} onChange={(event) => setDraft({ ...draft, dojoId: event.target.value })}>{dojos.map((dojo) => <option key={dojo.id} value={dojo.id}>{dojo.official_name}</option>)}</select><small>{superAdmin ? "Changing this preserves a permanent dojo-history entry." : "Only the verified RenShinKan administrator can transfer a student."}</small></label><label>AAT membership number<input maxLength={40} value={draft.aatNumber} onChange={(event) => setDraft({ ...draft, aatNumber: event.target.value })} placeholder="NEW" /></label><label>Last AAT annual payment date<input type="date" value={draft.aatLastPaidDate} onChange={(event) => setDraft({ ...draft, aatLastPaidDate: event.target.value })} /></label><label>Practice duration<input value={draft.practiceDuration} onChange={(event) => setDraft({ ...draft, practiceDuration: event.target.value })} /></label><label>Public profile information<textarea value={draft.profileBio} onChange={(event) => setDraft({ ...draft, profileBio: event.target.value })} /></label><label>Administrator note <small>Private admin-only note. Only authorized administrators can see it; it is never shown to students or on public profiles.</small><textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} /></label><footer><button className="btn-primary" disabled={busy}>{busy ? <LoaderCircle className="spin" size={16} /> : <Save size={16} />} Save details</button></footer></form></details>;
+  return <details className="admin-workflow-card" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}><summary>Edit profile details or correct a request</summary><form className="admin-bulk-form" onSubmit={save}><label>English name <small>Required</small><input value={draft.englishName} onChange={(event) => setDraft({ ...draft, englishName: event.target.value })} required /></label><label>Thai name <small>Optional</small><input lang="th" value={draft.thaiName} onChange={(event) => setDraft({ ...draft, thaiName: event.target.value })} /></label><label>Account created date<input type="date" value={draft.accountCreatedDate} onChange={(event) => setDraft({ ...draft, accountCreatedDate: event.target.value })} required /></label><label>Joined dojo date<input type="date" value={draft.dojoJoinedDate} onChange={(event) => setDraft({ ...draft, dojoJoinedDate: event.target.value })} required /></label><label>Student ID <small>Administrators may correct or replace this ID.</small><input value={draft.studentId} onChange={(event) => setDraft({ ...draft, studentId: event.target.value.toUpperCase() })} required /></label><label>Current kyu<select value={draft.rank} onChange={(event) => setDraft({ ...draft, rank: event.target.value })}>{RANKS.map((rank) => <option key={rank}>{rank}</option>)}</select></label><label>Dojo<select value={draft.dojoId} disabled={!superAdmin} onChange={(event) => setDraft({ ...draft, dojoId: event.target.value })}>{dojos.map((dojo) => <option key={dojo.id} value={dojo.id}>{dojo.official_name}</option>)}</select><small>{superAdmin ? "Changing this preserves a permanent dojo-history entry." : "Only the verified RenShinKan administrator can transfer a student."}</small></label><label>AAT membership number<input maxLength={40} value={draft.aatNumber} onChange={(event) => setDraft({ ...draft, aatNumber: event.target.value })} placeholder="NEW" /></label><label>Last AAT annual payment date<input type="date" value={draft.aatLastPaidDate} onChange={(event) => setDraft({ ...draft, aatLastPaidDate: event.target.value })} /></label><label>Practice duration<input value={draft.practiceDuration} onChange={(event) => setDraft({ ...draft, practiceDuration: event.target.value })} /></label><label>Public profile information<textarea value={draft.profileBio} onChange={(event) => setDraft({ ...draft, profileBio: event.target.value })} /></label><label>Administrator note <small>Private admin-only note. Only authorized administrators can see it; it is never shown to students or on public profiles.</small><textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} /></label><footer><button className="btn-primary" disabled={busy}>{busy ? <LoaderCircle className="spin" size={16} /> : <Save size={16} />} Save details</button></footer></form></details>;
 }

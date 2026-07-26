@@ -4,20 +4,18 @@ import {
   ChevronDown,
   FileText,
   ImagePlus,
-  LogOut,
   Plus,
   Presentation,
+  QrCode,
   RefreshCw,
   Save,
   Trash2,
-  UsersRound,
   ExternalLink,
   X,
 } from "lucide-react";
-import { AdminAlerts } from "../components/AdminAlerts";
 import { AdminDojoSelector, AdminLoginFields, AdminRenshinKanVerification, type AdminDojo, type AdminIdentity, type AdminSessionResponse } from "../components/admin/AdminAccess";
 import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { EventBodyRenderer } from "../components/EventBodyRenderer";
 import {
   historyMedia as defaultHistoryMedia,
@@ -75,7 +73,7 @@ const DOCUMENT_ACCEPT = [
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 ].join(",");
 
-type AdminSectionId = "recentEvents" | "onTheMatMedia" | "historyMedia" | "passedTestStudents";
+type AdminSectionId = "recentEvents" | "onTheMatMedia" | "historyMedia" | "passedTestStudents" | "paymentQr";
 
 type PendingUpload = {
   id: string;
@@ -452,6 +450,7 @@ export function AdminPage() {
   const [verifying, setVerifying] = useState(false);
   const [draft, setDraft] = useState<EditableContent>(emptyEditableContent);
   const [baseline, setBaseline] = useState<EditableContent>(emptyEditableContent);
+  const [editorLoaded, setEditorLoaded] = useState(false);
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [publishStatus, setPublishStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [publishMessage, setPublishMessage] = useState("");
@@ -459,10 +458,11 @@ export function AdminPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [videoEmbedInputs, setVideoEmbedInputs] = useState<Record<string, string>>({});
   const [openSections, setOpenSections] = useState<Record<AdminSectionId, boolean>>({
-    recentEvents: false,
+    recentEvents: true,
     onTheMatMedia: false,
     historyMedia: false,
     passedTestStudents: false,
+    paymentQr: false,
   });
   const [openEventIds, setOpenEventIds] = useState<string[]>([]);
 
@@ -500,6 +500,7 @@ export function AdminPage() {
 
       setDraft(seeded);
       setBaseline(seeded);
+      setEditorLoaded(true);
     });
   }, [isAuthed, admin?.permissionLevel]);
 
@@ -524,10 +525,10 @@ export function AdminPage() {
 
   const galleriesChanged = useMemo(() => {
     return (
-      JSON.stringify([draft.historyMedia, draft.onTheMatMedia, draft.passedTestStudents]) !==
-      JSON.stringify([baseline.historyMedia, baseline.onTheMatMedia, baseline.passedTestStudents])
+      JSON.stringify([draft.historyMedia, draft.onTheMatMedia, draft.passedTestStudents, draft.paymentQr]) !==
+      JSON.stringify([baseline.historyMedia, baseline.onTheMatMedia, baseline.passedTestStudents, baseline.paymentQr])
     );
-  }, [draft.historyMedia, draft.onTheMatMedia, draft.passedTestStudents, baseline.historyMedia, baseline.onTheMatMedia, baseline.passedTestStudents]);
+  }, [draft.historyMedia, draft.onTheMatMedia, draft.passedTestStudents, draft.paymentQr, baseline.historyMedia, baseline.onTheMatMedia, baseline.passedTestStudents, baseline.paymentQr]);
 
   const previewMedia = (event: RecentEvent) => {
     return getEventMedia(event).map((item) => {
@@ -617,6 +618,12 @@ export function AdminPage() {
     setOpenSections((current) => ({ ...current, recentEvents: true }));
     setOpenEventIds((current) => [event.id, ...current]);
   };
+
+  useEffect(() => {
+    if (!editorLoaded || new URLSearchParams(window.location.search).get("action") !== "create") return;
+    addEvent();
+    window.history.replaceState(null, "", "/admin/website#admin-recent-events");
+  }, [editorLoaded]);
 
   const deleteEvent = (id: string) => {
     const removed = draft.recentEvents.find((event) => event.id === id);
@@ -948,6 +955,38 @@ export function AdminPage() {
     }
   };
 
+  const replacePaymentQr = async (fileEvent: ChangeEvent<HTMLInputElement>) => {
+    const input = fileEvent.target.files?.[0];
+    fileEvent.target.value = "";
+    if (!input) return;
+    const validationError = validateImageFile(input);
+    if (validationError) {
+      setPublishStatus("error");
+      setPublishMessage(validationError);
+      return;
+    }
+    setPublishStatus("saving");
+    setPublishMessage("Preparing the new payment QR...");
+    try {
+      const upload = await prepareImageUpload(input);
+      removePendingUpload(draft.paymentQr.src);
+      setPendingUploads((current) => [...current, { id: upload.id, file: upload.file, previewUrl: upload.previewUrl }]);
+      setDraft((current) => ({
+        ...current,
+        paymentQr: {
+          src: `pending:${upload.id}`,
+          alt: "PromptPay QR code for RenShinKan Dojo",
+          updatedAt: new Date().toISOString(),
+        },
+      }));
+      setPublishStatus("idle");
+      setPublishMessage("");
+    } catch (reason) {
+      setPublishStatus("error");
+      setPublishMessage(reason instanceof Error ? reason.message : "The payment QR could not be prepared.");
+    }
+  };
+
   const selectDojo = async (dojoId: string) => {
     setSelectingDojo(dojoId);
     setAuthError("");
@@ -1234,31 +1273,25 @@ export function AdminPage() {
         <div>
           {dojos.find((dojo) => dojo.id === admin.selectedDojoId)?.logo_url ? <img className="admin-selected-dojo-logo" src={dojos.find((dojo) => dojo.id === admin.selectedDojoId)?.logo_url} alt="" /> : null}
           <p className="eyebrow">{dojos.find((dojo) => dojo.id === admin.selectedDojoId)?.official_name} / ADMIN</p>
-          <h1 className="section-title">Dojo administration</h1>
+          <h1 className="section-title">Edit the website</h1>
           <p className="section-copy">
-            Publish dojo updates, manage the photographic archive, and keep public information current.
+            Update newsletters and community events, manage the public photo library, or replace the payment QR.
           </p>
         </div>
-        <div className="grid grid-cols-3 gap-3">
-          <button type="button" onClick={() => void switchDojo()} className="btn-secondary justify-center whitespace-nowrap"><RefreshCw size={17} aria-hidden="true" /> Switch dojo</button>
-          <button type="button" onClick={logout} className="btn-secondary justify-center whitespace-nowrap">
-            <LogOut size={17} aria-hidden="true" />
-            Log out
-          </button>
+        <div className="grid gap-3">
           <button type="button" onClick={() => setConfirmOpen(true)} className="btn-primary justify-center whitespace-nowrap">
             <Save size={18} aria-hidden="true" />
-            Review Publish
+            Review &amp; publish
           </button>
         </div>
       </div>
 
       <nav className="admin-action-board" aria-label="Admin areas">
-        <a href="#admin-recent-events"><FileText size={22} /><span><strong>Create a dojo update</strong><small>Write, preview and publish journal entries</small></span></a>
-        <Link to="/admin/students"><UsersRound size={22} /><span><strong>Manage Students</strong><small>Records, examinations, AAT membership, hours, and contributions</small></span></Link>
-        <a href="/" target="_blank" rel="noopener noreferrer"><ExternalLink size={22} /><span><strong>Preview the website</strong><small>Open the public site in a new tab</small></span></a>
+        <button type="button" onClick={addEvent}><FileText size={22} /><span><strong>Newsletter &amp; event</strong><small>Create one update for the newsletter and community calendar</small></span></button>
+        <a href="#photo-library"><ImagePlus size={22} /><span><strong>Photo library</strong><small>Add or remove public gallery photos</small></span></a>
+        <a href="#payment-qr"><QrCode size={22} /><span><strong>Payment QR</strong><small>Replace the QR everywhere on the website</small></span></a>
+        <a href="/" target="_blank" rel="noopener noreferrer"><ExternalLink size={22} /><span><strong>Preview website</strong><small>Open the public site in a new tab</small></span></a>
       </nav>
-
-      <AdminAlerts />
 
       {publishMessage ? (
         <div
@@ -1291,15 +1324,15 @@ export function AdminPage() {
       <div className="grid gap-8">
         <div id="admin-recent-events" className="scroll-mt-24">
         <CollapsibleEditorSection
-          title="Recent Events"
-          copy="Create and edit public dojo updates. Published events appear on the Recent Events page."
+          title="Newsletters & community events"
+          copy="Create one update, then choose whether it appears on the website, the community calendar, and in a subscriber email."
           summary={`${draft.recentEvents.length} event${draft.recentEvents.length === 1 ? "" : "s"}`}
           open={openSections.recentEvents}
           onToggle={() => toggleSection("recentEvents")}
         >
           <button type="button" className="btn-secondary mb-6" onClick={addEvent}>
             <Plus size={17} aria-hidden="true" />
-            Add Recent Event
+            Add newsletter or event
           </button>
 
           <div className="grid gap-6">
@@ -1707,6 +1740,7 @@ export function AdminPage() {
         </CollapsibleEditorSection>
         </div>
 
+        <div id="photo-library" className="grid scroll-mt-24 gap-8">
         {renderMediaGallery(
           "onTheMatMedia",
           "On the Mat",
@@ -1718,6 +1752,7 @@ export function AdminPage() {
           "A Look at Our History",
           "Add or remove photos in the \"A Look at Our History\" gallery shown on the Community page.",
         )}
+        </div>
 
         <CollapsibleEditorSection
           title="Students Who've Passed the Test"
@@ -1776,23 +1811,32 @@ export function AdminPage() {
           )}
         </CollapsibleEditorSection>
 
-        <section className="surface rounded-[2rem] p-6 sm:p-8">
-          {sectionTitle("Exam Announcement", "Optional text shown in the classes and belt exams section after publishing.")}
-          <input
-            className="input-field"
-            aria-label="Exam announcement"
-            value={draft.examAnnouncement?.text ?? ""}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                examAnnouncement: {
-                  text: event.target.value,
-                  updatedAt: new Date().toISOString(),
-                },
-              }))
-            }
-          />
-        </section>
+        <div id="payment-qr" className="scroll-mt-24">
+          <CollapsibleEditorSection
+            title="Payment QR"
+            copy="Replace the PromptPay QR once. After publishing, the new image is used for contributions, donations, and examination payments."
+            summary={draft.paymentQr.updatedAt ? `Last changed ${new Date(draft.paymentQr.updatedAt).toLocaleDateString()}` : "Using the original QR"}
+            open={openSections.paymentQr}
+            onToggle={() => toggleSection("paymentQr")}
+          >
+            <div className="admin-payment-qr-editor">
+              <img src={resolveSrc(draft.paymentQr.src)} alt={draft.paymentQr.alt} />
+              <div>
+                <p>Use a clear, square QR image. The change is not public until you choose Review &amp; publish.</p>
+                <label className="btn-secondary cursor-pointer">
+                  <QrCode size={17} aria-hidden="true" />
+                  Choose replacement QR
+                  <input
+                    className="hidden"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(event) => void replacePaymentQr(event)}
+                  />
+                </label>
+              </div>
+            </div>
+          </CollapsibleEditorSection>
+        </div>
 
         <section className="surface rounded-[2rem] p-6 sm:p-8">
           {sectionTitle("Save / Publish Changes", "Review the publish summary before the server updates Cloudflare storage.")}
@@ -1827,7 +1871,7 @@ export function AdminPage() {
                 <dd className="font-bold text-ink">{changedEvents.length}</dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt>Gallery photos</dt>
+                <dt>Photos or payment QR</dt>
                 <dd className="font-bold text-ink">{galleriesChanged ? "Edited" : "No change"}</dd>
               </div>
               <div className="flex justify-between gap-4">

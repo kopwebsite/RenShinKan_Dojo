@@ -225,6 +225,96 @@
 .empty strong { margin-top: .65rem; font-family: "Cormorant Garamond", serif; font-size: 1.25rem; }
 .empty p { max-width: 24rem; margin-top: .3rem; font-size: .67rem; line-height: 1.5; }
 
+.taskList {
+  padding: 1.1rem;
+  border-bottom: 5px solid var(--passport-burgundy);
+  color: #27231f;
+  background: #fff;
+}
+
+.taskList > header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .35rem .2rem .8rem;
+}
+
+.taskList > header p,
+.taskList > header > span {
+  color: #76695c;
+  font-size: .62rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.taskList > header h3 {
+  margin-top: .2rem;
+  font-family: Inter, "Noto Sans Thai", sans-serif;
+  font-size: 1.2rem;
+  line-height: 1.25;
+}
+
+.taskList ul {
+  border-block: 1px solid #d7d1c7;
+}
+
+.taskList li + li {
+  border-top: 1px solid #d7d1c7;
+}
+
+.taskList a,
+.taskList button {
+  display: flex;
+  width: 100%;
+  min-height: 4.4rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .75rem .2rem;
+  color: inherit;
+  text-align: left;
+}
+
+.taskList a:hover,
+.taskList button:hover {
+  background: #faf7f1;
+}
+
+.taskList a > span:first-child,
+.taskList button > span:first-child {
+  display: grid;
+  gap: .2rem;
+}
+
+.taskList strong {
+  font-size: .8rem;
+}
+
+.taskList small {
+  color: #6d6359;
+  font-size: .65rem;
+  line-height: 1.45;
+}
+
+.taskList a > span:last-child,
+.taskList button > span:last-child {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  color: #6c2b2b;
+  font-size: .67rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.taskList a > span:last-child svg,
+.taskList button > span:last-child svg {
+  width: .9rem;
+  height: .9rem;
+}
+
 .passportFooter { display: flex; justify-content: space-between; gap: 1rem; padding: .6rem 1rem; color: #ead7b9; background: var(--passport-burgundy); font-size: .53rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 
 @media (max-width: 900px) {
@@ -235,6 +325,21 @@
 }
 
 @media (max-width: 620px) {
+  .taskList > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .taskList a,
+  .taskList button {
+    min-height: 5.2rem;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: .45rem;
+  }
+  .taskList a > span:last-child,
+  .taskList button > span:last-child {
+    white-space: normal;
+  }
   .coverStrip { align-items: flex-start; flex-direction: column; }
   .tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tabs button { min-height: 3.25rem; }
@@ -261,6 +366,7 @@
 
 @media print {
   .passport { border: 0; box-shadow: none; }
+  .taskList { display: none; }
   .tabs { display: none; }
   .panel { background: #fff; }
   .passportFooter { color: #222; background: #fff; border-top: 1px solid #777; }

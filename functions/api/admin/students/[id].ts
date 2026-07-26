@@ -20,7 +20,8 @@ import type { R2Bucket } from "../../../_lib/storage";
 
 type Env = StudentEnv & { SESSION_SECRET?: string; MEDIA_BUCKET?: R2Bucket };
 type ExistingStudent = {
-  id: string; public_student_id: string; display_name: string; current_belt: string; belt_color: string;
+  id: string; public_student_id: string; display_name: string; english_name: string | null; thai_name: string | null;
+  account_created_date: string | null; dojo_joined_date: string | null; current_belt: string; belt_color: string;
   profile_image_url: string | null; profile_image_consent: number; guardian_consent: number; public_visible: number;
   active: number; share_fields: string; dojo_name: string; admin_notes: string; training_hours_adjustment: number;
   profile_status: string; practice_duration: string; profile_bio: string;
@@ -46,7 +47,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
   const access = await assertStudentAccess(db, session, id);
   if (!access.ok) return jsonResponse({ error: access.error }, access.status);
   const student = await db.prepare(`SELECT
-    s.id, s.public_student_id, s.display_name, s.current_belt, s.belt_color,
+    s.id, s.public_student_id, s.display_name, s.english_name, s.thai_name,
+    s.account_created_date, s.dojo_joined_date, s.current_belt, s.belt_color,
     s.profile_image_url, s.profile_image_consent, s.guardian_consent,
     s.public_visible, s.active, s.share_fields, s.dojo_id, s.dojo_name, s.aat_number, s.aat_last_paid_date, s.aat_notes, s.deleted_at, s.admin_notes,
     s.training_hours_adjustment, s.created_at, s.updated_at, s.profile_status,
@@ -104,13 +106,25 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, params })
     const access = await assertStudentAccess(db, session, id);
     if (!access.ok) return jsonResponse({ error: access.error }, access.status);
     const body = await request.json<Record<string, unknown>>();
-    const existing = await db.prepare(`SELECT id, public_student_id, display_name, current_belt, belt_color, profile_image_url,
+    const existing = await db.prepare(`SELECT id, public_student_id, display_name, english_name, thai_name,
+      account_created_date, dojo_joined_date, current_belt, belt_color, profile_image_url,
       profile_image_consent, guardian_consent, public_visible, active, share_fields, dojo_name, admin_notes,
       training_hours_adjustment, profile_status, practice_duration, profile_bio, dojo_id, aat_number, aat_last_paid_date, aat_notes,
       pending_profile_image_key, profile_review_note FROM students WHERE id = ?`).bind(id).first<ExistingStudent>();
     if (!existing) return jsonResponse({ error: "Student not found" }, 404);
 
-    const name = String(body.displayName ?? existing.display_name).normalize("NFKC").trim().replace(/\s+/g, " ");
+    const name = String(body.englishName ?? body.displayName ?? existing.english_name ?? existing.display_name).normalize("NFKC").trim().replace(/\s+/g, " ");
+    const thaiName = String(body.thaiName ?? existing.thai_name ?? "").normalize("NFKC").trim().replace(/\s+/g, " ").slice(0, 120) || null;
+    const accountCreatedDate = body.accountCreatedDate === undefined
+      ? existing.account_created_date
+      : typeof body.accountCreatedDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.accountCreatedDate)
+        ? body.accountCreatedDate
+        : null;
+    const dojoJoinedDate = body.dojoJoinedDate === undefined
+      ? existing.dojo_joined_date
+      : typeof body.dojoJoinedDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.dojoJoinedDate)
+        ? body.dojoJoinedDate
+        : null;
     const studentId = normalizeStudentId(String(body.studentId ?? existing.public_student_id));
     const currentBelt = normalizeRank(body.currentBelt ?? existing.current_belt);
     const requestedDojoId = isRenShinKanSuperAdmin(session)
@@ -132,7 +146,8 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, params })
     const previousTotal = recordedHours + Number(existing.training_hours_adjustment || 0);
     const currentTrainingHours = body.currentTrainingHours === undefined ? previousTotal : Number(body.currentTrainingHours);
 
-    if (!name || name.length > 120) return jsonResponse({ error: "Enter a student name of 120 characters or fewer." }, 400);
+    if (!name || name.length > 120) return jsonResponse({ error: "Enter an English name of 120 characters or fewer." }, 400);
+    if (!accountCreatedDate || !dojoJoinedDate) return jsonResponse({ error: "Enter valid account-created and dojo-joined dates." }, 400);
     if (!currentBelt) return jsonResponse({ error: "Choose a valid rank from the official progression." }, 400);
     if (!dojoName || dojoName.length > 120) return jsonResponse({ error: "Enter a dojo affiliation." }, 400);
     if (adminNotes.length > 5_000 || aatNotes.length > 2_000 || profileBio.length > 2_000 || practiceDuration.length > 120) return jsonResponse({ error: "One or more text fields are too long." }, 400);
@@ -150,7 +165,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, params })
       try { return JSON.parse(existing.share_fields); } catch { return DEFAULT_SHARE_FIELDS; }
     })());
     const next = {
-      publicStudentId: studentId, displayName: name, currentRank: currentBelt, profileImageUrl: image,
+      publicStudentId: studentId, englishName: name, thaiName, accountCreatedDate, dojoJoinedDate, currentRank: currentBelt, profileImageUrl: image,
       profileImageConsent: body.profileImageConsent === undefined ? existing.profile_image_consent : body.profileImageConsent ? 1 : 0,
       guardianConsent: body.guardianConsent === undefined ? existing.guardian_consent : body.guardianConsent ? 1 : 0,
       publicVisible: body.publicVisible === undefined ? existing.public_visible : body.publicVisible ? 1 : 0,
@@ -159,10 +174,12 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, params })
     };
 
     const statements = [db.prepare(`UPDATE students SET public_student_id = ?, name_verification_hash = ?,
-      display_name = ?, current_belt = ?, belt_color = ?, profile_image_url = ?, profile_image_consent = ?,
+      display_name = ?, english_name = ?, thai_name = ?, account_created_date = ?, dojo_joined_date = ?,
+      current_belt = ?, belt_color = ?, profile_image_url = ?, profile_image_consent = ?,
       guardian_consent = ?, public_visible = ?, active = ?, share_fields = ?, dojo_id = ?, dojo_name = ?, aat_number = ?, aat_last_paid_date = ?, aat_notes = ?, admin_notes = ?,
       practice_duration = ?, profile_bio = ?, training_hours_adjustment = ?, updated_at = ? WHERE id = ?`)
-      .bind(studentId, nameHash, name, currentBelt, rankColor(currentBelt, existing.belt_color), image,
+      .bind(studentId, nameHash, name, name, thaiName, accountCreatedDate, dojoJoinedDate,
+        currentBelt, rankColor(currentBelt, existing.belt_color), image,
         next.profileImageConsent, next.guardianConsent, next.publicVisible, next.active, shareFields, dojo.id, dojoName, aatNumber, aatLastPaidDate, aatNotes, adminNotes,
         practiceDuration, profileBio, currentTrainingHours - recordedHours, now, id)];
     if (dojo.id !== existing.dojo_id) {

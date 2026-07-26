@@ -29,7 +29,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!name || name.length > 120 || studentId.length < 3 || studentId.length > 80) return genericLookupFailure();
     if (!(await verifyTurnstile(request, env, token, "student-records"))) return genericLookupFailure();
     const db = requireStudentDb(env);
-    const student = await db.prepare(`SELECT s.id, s.public_student_id, s.display_name, s.current_belt, s.belt_color,
+    const student = await db.prepare(`SELECT s.id, s.public_student_id, s.display_name, s.english_name, s.thai_name,
+      s.account_created_date, s.dojo_joined_date, s.current_belt, s.belt_color,
       s.profile_image_url, s.profile_image_consent, s.public_visible, s.active, s.profile_status, s.share_fields, s.dojo_name,
       s.training_hours_adjustment, s.updated_at, s.created_at, s.dojo_id, s.aat_number, s.aat_last_paid_date,
       s.practice_duration, s.profile_bio, s.profile_reviewed_at, s.profile_student_visible_note,

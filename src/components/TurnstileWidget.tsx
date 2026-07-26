@@ -43,7 +43,6 @@ export function TurnstileWidget({ onToken, resetSignal = 0, action = "student-re
   const [size, setSize] = useState<WidgetSize>("flexible");
   const [message, setMessage] = useState("Loading secure verification…");
   const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY;
-
   useEffect(() => { callback.current = onToken; }, [onToken]);
 
   useEffect(() => {

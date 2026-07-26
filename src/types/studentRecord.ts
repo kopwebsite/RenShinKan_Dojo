@@ -69,7 +69,7 @@ export type PassportAatSummary = {
 };
 
 export type PublicStudentRecord = {
-  displayName: string; studentId: string; currentBelt: string; beltColor: string;
+  displayName: string; englishName: string; thaiName: string | null; studentId: string; currentBelt: string; beltColor: string;
   totalVerifiedTrainingHours: number; examinations: PublicExamination[]; dojoName: string;
   lastUpdated: string | null; profileImage: string | null; verified: boolean;
 };
@@ -77,6 +77,8 @@ export type PublicStudentRecord = {
 export type StudentPassportRecord = PublicStudentRecord & {
   studentAccessToken?: string;
   registrationDate: string | null;
+  accountCreatedDate: string | null;
+  dojoJoinedDate: string | null;
   dojoId: string;
   dojoLogo: string | null;
   aatNumber: string | null;

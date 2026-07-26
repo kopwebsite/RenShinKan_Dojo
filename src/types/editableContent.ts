@@ -57,6 +57,12 @@ export type ExamAnnouncement = {
   updatedAt?: string | null;
 };
 
+export type PaymentQr = {
+  src: string;
+  alt: string;
+  updatedAt?: string | null;
+};
+
 export type PassedTestStudent = {
   id: string;
   image: string;
@@ -91,6 +97,7 @@ export type EditableContent = {
   lastPublishedAt: string | null;
   recentEvents: RecentEvent[];
   examAnnouncement: ExamAnnouncement | null;
+  paymentQr: PaymentQr;
   historyMedia: MediaItem[];
   onTheMatMedia: MediaItem[];
   passedTestStudents: PassedTestStudent[];

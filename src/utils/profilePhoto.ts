@@ -1,7 +1,7 @@
-const PROFILE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const PROFILE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
 
 export async function prepareProfilePhoto(file: File) {
-  if (!PROFILE_MIME_TYPES.has(file.type)) throw new Error("Choose a JPEG, PNG, or WebP profile photo.");
+  if (!PROFILE_MIME_TYPES.has(file.type)) throw new Error("Choose a JPEG, PNG, WebP, HEIC, or HEIF profile photo.");
   if (file.size > 8 * 1024 * 1024) throw new Error("The original photo must be 8 MB or smaller.");
 
   const bitmap = await createImageBitmap(file);

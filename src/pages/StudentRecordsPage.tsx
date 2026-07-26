@@ -46,6 +46,23 @@ const PHONE_COUNTRIES = [
   ["United Kingdom", "+44"], ["United States", "+1"], ["Vietnam", "+84"],
 ] as const;
 
+const PRACTICE_MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+] as const;
+
+function currentMonthValue() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function approximatePracticeDuration(value: string) {
+  const match = /^(\d{4})-(\d{2})$/.exec(value);
+  if (!match) return "";
+  const month = Number(match[2]);
+  return month >= 1 && month <= 12 ? `Approx. since ${PRACTICE_MONTHS[month - 1]} ${match[1]}` : "";
+}
+
 const EXAM_REVIEW_LABELS: Partial<Record<keyof ExamDraft, string>> = {
   verificationName: "Student name on approved record",
   studentId: "Student ID",
@@ -123,14 +140,14 @@ function LookupWorkflow() {
 function ProfileWorkflow() {
   const { language } = useTranslation();
   const aatHelp = AAT_PAYMENT_HELP[language];
-  const [draft, setDraft] = useState({ displayName: "", currentRank: "Unranked", dojoId: "", aatNumber: "", aatLastPaidDate: "", aatPaidKnown: false, practiceDuration: "", profileBio: "" });
+  const [draft, setDraft] = useState({ displayName: "", currentRank: "Unranked", dojoId: "", aatNumber: "", aatLastPaidDate: "", aatPaidKnown: false, practiceStartMonth: "", profileBio: "" });
   const [dojos, setDojos] = useState<PublicDojo[]>([]);
   const [file, setFile] = useState<File | null>(null); const [preview, setPreview] = useState(""); const [token, setToken] = useState(""); const [reset, setReset] = useState(0); const [error, setError] = useState(""); const [busy, setBusy] = useState(false); const [done, setDone] = useState(false);
   const onToken = useCallback((value: string) => setToken(value), []);
   useEffect(() => { fetch("/api/dojos").then((response) => response.json() as Promise<{ dojos?: PublicDojo[] }>).then((body) => setDojos(body.dojos || [])).catch(() => setError("The dojo list could not be loaded. Please try again.")); }, []);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
   async function choose(input?: File) { if (!input) return; try { const prepared = await prepareProfilePhoto(input); setFile(prepared); setPreview(URL.createObjectURL(prepared)); setError(""); } catch (reason) { setError(reason instanceof Error ? reason.message : "The photo could not be prepared."); } }
-  async function submit(event: FormEvent) { event.preventDefault(); if (!draft.dojoId) { setError("Choose the student's dojo."); return; } if (!token) { setError("Complete Cloudflare verification."); return; } setBusy(true); setError(""); try { const data = new FormData(); data.set("payload", JSON.stringify({ ...draft, aatLastPaidDate: draft.aatPaidKnown ? draft.aatLastPaidDate : null, turnstileToken: token })); if (file) data.set("file", file); const response = await fetch("/api/records/profile-requests", { method: "POST", headers: { "X-Request-ID": crypto.randomUUID() }, body: data }); await responseBody(response); setDone(true); } catch (reason) { setError(reason instanceof Error ? reason.message : "The profile request could not be submitted."); setReset((value) => value + 1); setToken(""); } finally { setBusy(false); } }
+  async function submit(event: FormEvent) { event.preventDefault(); if (!draft.dojoId) { setError("Choose the student's dojo."); return; } if (!token) { setError("Complete Cloudflare verification."); return; } setBusy(true); setError(""); try { const data = new FormData(); const { practiceStartMonth, ...profileDetails } = draft; data.set("payload", JSON.stringify({ ...profileDetails, practiceDuration: approximatePracticeDuration(practiceStartMonth), aatLastPaidDate: draft.aatPaidKnown ? draft.aatLastPaidDate : null, turnstileToken: token })); if (file) data.set("file", file); const response = await fetch("/api/records/profile-requests", { method: "POST", headers: { "X-Request-ID": crypto.randomUUID() }, body: data }); await responseBody(response); setDone(true); } catch (reason) { setError(reason instanceof Error ? reason.message : "The profile request could not be submitted."); setReset((value) => value + 1); setToken(""); } finally { setBusy(false); } }
   if (done) return <div className="record-success-panel"><CheckCircle2 /><p className="eyebrow">Request received</p><h2>Your profile is pending administrator approval</h2><p>It is not searchable, active, public, or QR-enabled yet. A sensei will review your details and any optional photo before activating the official student record.</p></div>;
   return <form className="student-long-form" onSubmit={submit}>
     <header><div><p className="eyebrow">New student profile</p><h2>Request an official record</h2></div><span className="admin-status is-pending">Pending until approved</span></header>
@@ -138,18 +155,19 @@ function ProfileWorkflow() {
       <label><span className="student-field-copy">Student name <small>Required · use the name you will use for record lookup.</small></span><input autoComplete="name" value={draft.displayName} onChange={(event) => setDraft({ ...draft, displayName: event.target.value })} required /></label>
       <label><span className="student-field-copy">Current kyu</span><select value={draft.currentRank} onChange={(event) => setDraft({ ...draft, currentRank: event.target.value })}>{RANKS.map((rank) => <option key={rank}>{rank}</option>)}</select></label>
       <label><span className="student-field-copy">Current dojo <small>Choose the dojo where you currently study or train.</small></span><select value={draft.dojoId} onChange={(event) => setDraft({ ...draft, dojoId: event.target.value })} required><option value="">Choose a dojo</option>{dojos.map((dojo) => <option key={dojo.id} value={dojo.id}>{dojo.official_name}</option>)}</select></label>
-      <fieldset className="student-aat-card admin-span-2">
-        <legend>AAT annual membership <small>Optional</small></legend>
+      <fieldset className={`student-aat-card admin-span-2${draft.aatPaidKnown ? " is-paid" : ""}`}>
+        <legend><span>AAT annual membership</span><small>Optional</small></legend>
+        <p className="student-aat-intro">Add these details only if you already have them. You can leave this whole section blank.</p>
         <div className="student-aat-card__grid">
-          <label><span className="student-field-copy">Membership number <small>Your record will show “NEW” until a number is assigned.</small></span><input maxLength={40} value={draft.aatNumber} onChange={(event) => setDraft({ ...draft, aatNumber: event.target.value })} /></label>
+          <label><span className="student-field-copy">Membership number <small>Leave blank if one has not been assigned; your record will show “NEW”.</small></span><input name="aatNumber" maxLength={40} placeholder="Optional" value={draft.aatNumber} onChange={(event) => setDraft({ ...draft, aatNumber: event.target.value })} /></label>
           <label className="student-aat-paid-toggle"><input type="checkbox" checked={draft.aatPaidKnown} onChange={(event) => setDraft({ ...draft, aatPaidKnown: event.target.checked, aatLastPaidDate: event.target.checked ? draft.aatLastPaidDate : "" })} /><span><strong>I already paid my AAT annual membership</strong><small>Select this to add your most recent payment date.</small></span></label>
-          {draft.aatPaidKnown ? <label><span className="student-field-copy">Most recent payment date <small>Renewal is normally due one year after this date.</small></span><input type="date" value={draft.aatLastPaidDate} onChange={(event) => setDraft({ ...draft, aatLastPaidDate: event.target.value })} required /></label> : <div className="student-aat-note" aria-label={`${aatHelp.status} ${aatHelp.explanation}`}><Info aria-hidden="true" /><div><strong>{aatHelp.status}</strong><p>{aatHelp.explanation}</p></div></div>}
+          {draft.aatPaidKnown ? <label className="student-aat-payment-date"><span className="student-field-copy">Most recent payment date <small>Renewal is normally due one year after this date.</small></span><input name="aatLastPaidDate" type="date" value={draft.aatLastPaidDate} onChange={(event) => setDraft({ ...draft, aatLastPaidDate: event.target.value })} required /></label> : <div className="student-aat-note" aria-label={`${aatHelp.status} ${aatHelp.explanation}`}><Info aria-hidden="true" /><div><strong>{aatHelp.status}</strong><p>{aatHelp.explanation}</p></div></div>}
         </div>
       </fieldset>
-      <label><span className="student-field-copy">How long have you practiced aikido? <small>Example: “18 months” or “since 2021”.</small></span><input value={draft.practiceDuration} onChange={(event) => setDraft({ ...draft, practiceDuration: event.target.value })} required /></label>
+      <label><span className="student-field-copy">Approximately when did you start aikido? <small id="practice-start-help">Choose a month and year. An approximate answer is fine.</small></span><input name="practiceStartMonth" type="month" min="1900-01" max={currentMonthValue()} aria-describedby="practice-start-help" value={draft.practiceStartMonth} onChange={(event) => setDraft({ ...draft, practiceStartMonth: event.target.value })} required /></label>
       <label className="admin-span-2"><span className="student-field-copy">Additional information for your profile <small>Optional · do not include private contact or payment details.</small></span><textarea maxLength={2000} value={draft.profileBio} onChange={(event) => setDraft({ ...draft, profileBio: event.target.value })} /></label>
     </div>
-    <label className="student-photo-field"><span>{preview ? <img src={preview} alt="Profile preview" /> : <UserRound aria-hidden="true" />}</span><strong>{preview ? "Replace profile photo" : "Add profile photo (optional)"}</strong><small>If you skip this, a neutral avatar will be shown. JPEG, PNG, or WebP; at least 128 × 128 pixels.</small><input type="file" accept="image/jpeg,image/png,image/webp" capture="user" onChange={(event) => void choose(event.target.files?.[0])} /></label>
+    <label className="student-photo-field"><span>{preview ? <img src={preview} alt="Profile preview" /> : <UserRound aria-hidden="true" />}</span><strong>{preview ? "Replace profile photo" : "Add profile photo (optional)"}</strong><small id="profile-photo-help">Choose one from your photo library or take a new photo. JPEG, PNG, WebP, HEIC, or HEIF; at least 128 × 128 pixels.</small><input type="file" accept="image/*" aria-describedby="profile-photo-help" onChange={(event) => void choose(event.target.files?.[0])} /></label>
     <TurnstileWidget onToken={onToken} resetSignal={reset} />
     {error ? <p className="form-error">{error}</p> : null}
     <button className="btn-primary" disabled={busy}>{busy ? "Submitting…" : "Send profile for approval"}</button>

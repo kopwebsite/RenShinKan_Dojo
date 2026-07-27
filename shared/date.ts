@@ -77,6 +77,8 @@ export function formatGregorianDate(value: unknown, fallback = "—") {
 }
 
 export function formatGregorianDateTime(value: unknown, fallback = "—") {
+  const localDateTime = canonicalDateTimeToDisplay(value);
+  if (localDateTime) return localDateTime;
   const timestamp = validTimestamp(value);
   if (!timestamp) return isCanonicalDate(value) ? `${canonicalDateToDisplay(value)} 00:00` : fallback;
   const parts = bangkokParts(timestamp);

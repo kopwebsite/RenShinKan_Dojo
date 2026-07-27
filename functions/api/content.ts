@@ -1,12 +1,12 @@
 import { jsonResponse } from "../_lib/auth";
 import { type StorageEnv, readEditableContentFromStorage } from "../_lib/storage";
 import type { D1Database } from "../_lib/studentRecords";
-import { formatGregorianDate } from "../../shared/date";
+import { formatGregorianDateTime } from "../../shared/date";
 
 type Env = StorageEnv & { STUDENT_DB?: D1Database };
 
 function activeExamAnnouncement(value: string, venue: string) {
-  const formatted = formatGregorianDate(value, value);
+  const formatted = formatGregorianDateTime(value, value);
   return `Next belt examination: ${formatted}${venue ? ` at ${venue}` : ""}`;
 }
 

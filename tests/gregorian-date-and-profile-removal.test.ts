@@ -43,6 +43,7 @@ describe("strict Gregorian date boundaries", () => {
 
   it("uses date-first 24-hour timestamps and strict local date-time input", () => {
     expect(formatGregorianDateTime("2026-01-02T03:04:00Z")).toBe("02/01/2026 10:04");
+    expect(formatGregorianDateTime("2026-10-12T15:14")).toBe("12/10/2026 15:14");
     expect(displayDateTimeToCanonical("02/01/2026 10:04")).toBe("2026-01-02T10:04");
     expect(displayDateTimeToCanonical("31/02/2026 10:04")).toBeNull();
   });

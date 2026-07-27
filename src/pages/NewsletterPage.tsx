@@ -238,7 +238,7 @@ export function NewsletterPage() {
   const { language, t } = useTranslation();
   const { slug } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { content } = useEditableContent();
+  const { content, loading } = useEditableContent();
   const updates = useMemo(() => getPublishedRecentEvents(content), [content]);
   const article = slug
     ? updates.find((item) => item.slug === slug || item.slugHistory?.includes(slug))
@@ -325,6 +325,18 @@ export function NewsletterPage() {
             </div>
           </article>
         </MotionSection>
+      ) : loading ? (
+        <MotionSection className="container-shell journal-archive-feature journal-archive-feature--loading">
+          <article aria-hidden="true">
+            <div className="journal-archive-feature__image" />
+            <div className="journal-archive-feature__skeleton-copy">
+              <span />
+              <span />
+              <span />
+              <span />
+            </div>
+          </article>
+        </MotionSection>
       ) : null}
       <MotionSection className="journal-archive">
         <div className="container-shell">
@@ -342,14 +354,14 @@ export function NewsletterPage() {
             </label>
             <label>
               <span>Category</span>
-              <select value={category} onChange={(event) => setFilter("category", event.target.value)}>
+              <select name="category" value={category} onChange={(event) => setFilter("category", event.target.value)}>
                 <option value="">All categories</option>
                 {categories.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
             </label>
             <label>
               <span>Year</span>
-              <select value={year} onChange={(event) => setFilter("year", event.target.value)}>
+              <select name="year" value={year} onChange={(event) => setFilter("year", event.target.value)}>
                 <option value="">All years</option>
                 {years.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>

@@ -216,6 +216,50 @@
   margin-top: 1.2rem;
 }
 
+.journal-archive-feature--loading {
+  pointer-events: none;
+}
+
+.journal-archive-feature--loading :is(.journal-archive-feature__image, .journal-archive-feature__skeleton-copy span) {
+  overflow: hidden;
+  background:
+    linear-gradient(100deg, transparent 30%, hsl(var(--color-paper) / .42) 48%, transparent 66%),
+    hsl(var(--color-ink) / .08);
+  background-size: 240% 100%;
+  animation: journal-skeleton 1.4s ease-in-out infinite;
+}
+
+.journal-archive-feature__skeleton-copy {
+  display: grid;
+  gap: 1rem;
+}
+
+.journal-archive-feature__skeleton-copy span {
+  display: block;
+  height: .75rem;
+}
+
+.journal-archive-feature__skeleton-copy span:nth-child(2) {
+  width: 90%;
+  height: clamp(4.5rem, 9vw, 8.5rem);
+}
+
+.journal-archive-feature__skeleton-copy span:nth-child(3) {
+  width: 100%;
+  height: 3.5rem;
+}
+
+.journal-archive-feature__skeleton-copy span:nth-child(4) {
+  width: 8rem;
+  height: 1rem;
+}
+
+@keyframes journal-skeleton {
+  to {
+    background-position: -140% 0;
+  }
+}
+
 .journal-archive {
   padding-block: clamp(3.5rem, 7vw, 7rem);
   border-block: 1px solid hsl(var(--color-ink) / .12);

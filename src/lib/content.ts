@@ -4,6 +4,7 @@ import {
   NEWSLETTER_CATEGORIES,
   inferNewsletterCategory,
   isDocumentDerivedImage,
+  publicNewsletter,
   type NewsletterCategory,
   type NewsletterContentType,
   type NewsletterDocument,
@@ -463,13 +464,7 @@ export function useEditableContent() {
 
 export function getPublishedRecentEvents(content: EditableContent, limit?: number) {
   const events = content.recentEvents
-    .filter((event) => {
-      if (!event.published || (event.lifecycleStatus ?? "active") !== "active") return false;
-      if (event.publishAt && Date.parse(event.publishAt) > Date.now()) return false;
-      if (!event.title.trim() || !event.slug.trim()) return false;
-      const compactTitle = event.title.replace(/[^a-z0-9]/gi, "");
-      return compactTitle.length >= 5 && !/^(test|draft|sample|dsadsadsa|asdf)+$/i.test(compactTitle);
-    })
+    .filter((event) => publicNewsletter(event))
     .sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
 
   return typeof limit === "number" ? events.slice(0, limit) : events;

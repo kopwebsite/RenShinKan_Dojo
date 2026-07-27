@@ -123,7 +123,8 @@ export function publicNewsletter<T extends NewsletterLike>(newsletter: T, now = 
   if (!newsletter.published || (newsletter.lifecycleStatus ?? "active") !== "active") return false;
   if (!newsletter.title.trim() || !newsletter.slug.trim()) return false;
   const compactTitle = newsletter.title.replace(/[^a-z0-9]/gi, "");
-  if (compactTitle.length < 5 || /^(test|draft|sample|dsadsadsa|asdf)+$/i.test(compactTitle)) return false;
+  const isTestLike = /^(?:(?:test|draft|sample|asdf)(?:newsletter|article|event|post)?\d*|(?:dsadsadsa)+)$/i.test(compactTitle);
+  if (compactTitle.length < 5 || isTestLike) return false;
   if (newsletter.publishAt) {
     const publishAt = Date.parse(newsletter.publishAt);
     if (Number.isFinite(publishAt) && publishAt > now.getTime()) return false;

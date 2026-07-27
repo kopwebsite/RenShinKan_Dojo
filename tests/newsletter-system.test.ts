@@ -161,6 +161,8 @@ describe("newsletter migration and backward compatibility", () => {
     expect(publicNewsletter(recommendationEvent("trash", { lifecycleStatus: "trash" }), now)).toBe(false);
     expect(publicNewsletter(recommendationEvent("draft", { published: false }), now)).toBe(false);
     expect(publicNewsletter(recommendationEvent("test", { title: "DSADSADSA", slug: "d" }), now)).toBe(false);
+    expect(publicNewsletter(recommendationEvent("test-one", { title: "Test 1", slug: "t" }), now)).toBe(false);
+    expect(publicNewsletter(recommendationEvent("test-two", { title: "Test newsletter 2", slug: "test-newsletter-2" }), now)).toBe(false);
   });
 });
 

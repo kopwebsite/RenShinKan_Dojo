@@ -95,7 +95,6 @@
     "historyOfAikido": "合气道的历史",
     "oSensei": "O Sensei",
     "community": "社区",
-    "upcomingEvents": "即将举行的活动",
     "pastEvents": "过去的活动",
     "peaceCultureFoundation": "Peace Culture Foundation",
     "chiangMaiCmu": "Chiang Mai University",
@@ -105,7 +104,8 @@
     "donations": "捐款",
     "newsletter": "时事通讯",
     "contact": "联系我们",
-    "studentRecords": "学员记录"
+    "studentRecords": "学员记录",
+    "downloads": "下载"
   },
   "footer": {
     "tagline": "Hang Dong, Chiang Mai 的合气道和武术训练。",
@@ -417,14 +417,6 @@
     }
   },
   "community": {
-    "events": {
-      "eyebrow": "即将举行的活动",
-      "title": "社区日历。",
-      "copy": "研讨会、开放垫日、志愿者活动和道场聚会的确认日期将在确定后发布在此处。",
-      "emptyTitle": "目前日历上没有任何内容。",
-      "emptyCopy": "目前没有安排任何活动。垫子上暂时很安静，请过些时候再来看看。任何讲习会、开放练习日或聚会一经确认，都会显示在这里。",
-      "emptyCta": "查看最近的道场更新"
-    },
     "past": {
       "eyebrow": "过去的活动",
       "title": "回顾我们的历史",
@@ -1426,9 +1418,9 @@
     "goTo": "转到第 {{number}} 张照片"
   },
   "date": {
-    "gregorianHelp": "日期使用公历，格式为 DD/MM/YYYY。佛历年份转换为公历年份时请减去 543。例如：2569 − 543 = 2026。",
-    "monthHelp": "月份和年份使用公历，格式为 MM/YYYY。佛历年份转换为公历年份时请减去 543。例如：2569 − 543 = 2026。",
-    "dateTimeHelp": "日期和时间使用公历，格式为 DD/MM/YYYY HH:mm。佛历年份转换为公历年份时请减去 543。例如：2569 − 543 = 2026。",
+    "gregorianHelp": "DD/MM/YYYY（公历）",
+    "monthHelp": "MM/YYYY（公历）",
+    "dateTimeHelp": "DD/MM/YYYY HH:mm（公历）",
     "invalid": "请输入 DD/MM/YYYY 格式的有效日期。",
     "invalidMonth": "请输入 MM/YYYY 格式的有效月份。",
     "invalidDateTime": "请输入 DD/MM/YYYY HH:mm 格式的有效日期和时间。"

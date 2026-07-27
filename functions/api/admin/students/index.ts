@@ -40,6 +40,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const session = await getAuthorizedAdminSession(request, env);
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
 
+  const requestId = requestIdentifier(request);
+  try {
   const db = requireStudentDb(env);
   const url = new URL(request.url);
   const page = integerParam(url.searchParams.get("page"), 1, 1, 1_000_000);
@@ -138,6 +140,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       ORDER BY sort_order, official_name COLLATE NOCASE`)
       .bind(...(isRenShinKanSuperAdmin(session) ? [] : [session.selectedDojoId || "__none__"])).all()).results || [],
   }, 200, { "Cache-Control": "no-store" });
+  } catch (error) {
+    console.error("Student list query failed", requestId, error instanceof Error ? error.message : "Unknown error");
+    return jsonResponse({
+      error: "The student list could not be loaded. Existing results were not replaced.",
+      code: "STUDENT_LIST_QUERY_FAILED",
+      requestId,
+    }, 500, { "Cache-Control": "no-store" });
+  }
 };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -202,7 +212,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           profile_image_url, profile_image_consent, guardian_consent, public_visible, active, share_fields, dojo_name,
           admin_notes, training_hours_adjustment, profile_status, dojo_id, aat_number, aat_last_paid_date,
           account_created_date, dojo_joined_date, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 'approved', ?, ?, ?, ?, ?, ?, ?, ?)`)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 'approved', ?, ?, ?, ?, ?, ?, ?)`)
           .bind(id, studentId, "", nameHash, displayName, displayName, thaiName, currentBelt, rankColor(currentBelt),
             profileImageUrl, body.profileImageConsent ? 1 : 0, body.guardianConsent ? 1 : 0,
             body.publicVisible === false ? 0 : 1, shareFields, dojo.official_name, adminNotes, currentTrainingHours,

@@ -8,8 +8,16 @@ import {
   type StudentEnv,
   validStudentAccessSession,
 } from "../../_lib/studentRecords";
+import { isCanonicalDate } from "../../../shared/date";
 
-type Payload = { studentId?: unknown; accessToken?: unknown; hours?: unknown };
+type Payload = {
+  studentId?: unknown; accessToken?: unknown; hours?: unknown; trainingDate?: unknown;
+  sourceType?: unknown; organization?: unknown; sourceDetails?: unknown; notes?: unknown;
+};
+
+function clean(value: unknown, max: number) {
+  return typeof value === "string" ? value.normalize("NFKC").trim().replace(/\s+/g, " ").slice(0, max + 1) : "";
+}
 
 export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env }) => {
   const requestId = requestIdentifier(request);
@@ -22,7 +30,19 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
     const publicStudentId = normalizeStudentId(typeof body.studentId === "string" ? body.studentId : "");
     const accessToken = typeof body.accessToken === "string" ? body.accessToken : "";
     const hours = Number(body.hours);
-    if (!Number.isFinite(hours) || hours <= 0 || hours > 1000) return jsonResponse({ error: "Enter a positive number of hours, up to 1,000." }, 400);
+    const hoursQuarters = Math.round(hours * 4);
+    const trainingDate = isCanonicalDate(body.trainingDate) ? String(body.trainingDate) : "";
+    const sourceType = body.sourceType === "renshinkan" || body.sourceType === "aat" || body.sourceType === "other" ? body.sourceType : "";
+    const organization = clean(body.organization, 160);
+    const sourceDetails = clean(body.sourceDetails, 240);
+    const notes = clean(body.notes, 1000);
+    if (!Number.isFinite(hours) || hours <= 0 || hours > 1000 || Math.abs(hoursQuarters / 4 - hours) > 0.0001) {
+      return jsonResponse({ error: "Enter hours in quarter-hour increments, up to 1,000." }, 400);
+    }
+    if (!trainingDate) return jsonResponse({ error: "Enter the training date in DD/MM/YYYY Gregorian format." }, 400);
+    if (!sourceType) return jsonResponse({ error: "Choose where the training hours came from." }, 400);
+    if (sourceType === "other" && !sourceDetails) return jsonResponse({ error: "Describe the other training source." }, 400);
+    if (organization.length > 160 || sourceDetails.length > 240 || notes.length > 1000) return jsonResponse({ error: "One of the training details is too long." }, 400);
     const student = await db.prepare(`SELECT id FROM students
       WHERE UPPER(public_student_id) = ? AND active = 1 AND public_visible = 1 AND profile_status = 'approved' LIMIT 1`)
       .bind(publicStudentId).first<{ id: string }>();
@@ -33,17 +53,23 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
     if (previousTotal === null) return jsonResponse({ error: "Student record not found." }, 404);
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    const response = { ok: true, id, status: "pending", previousTotal, requestedTotal: previousTotal + hours };
+    const response = { ok: true, id, status: "pending", previousTotal, requestedTotal: previousTotal + hoursQuarters / 4 };
     await db.batch([
       db.prepare(`INSERT INTO training_hour_requests
-        (id, student_id, submitted_hours, previous_total, requested_total, status, submitted_at, request_id)
-        VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`)
-        .bind(id, student.id, hours, previousTotal, previousTotal + hours, now, requestId),
+        (id, student_id, submitted_hours, previous_total, requested_total, status, submitted_at, request_id,
+         training_date, source_type, organization, source_details, student_notes, hours_quarters)
+        VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .bind(id, student.id, hoursQuarters / 4, previousTotal, previousTotal + hoursQuarters / 4, now, requestId,
+          trainingDate, sourceType, organization || null, sourceDetails || null, notes || null, hoursQuarters),
       db.prepare("UPDATE student_access_sessions SET used_at = ? WHERE id = ? AND used_at IS NULL").bind(now, session.id),
       auditStatement(db, {
         actorType: "student", actorIdentifier: student.id, action: "training_hours_submitted", entityType: "training_hour_request", entityId: id,
         studentId: student.id, previousValues: { totalHours: previousTotal },
-        newValues: { hoursEntered: hours, requestedTotal: previousTotal + hours, reviewStatus: "pending" },
+        newValues: {
+          hoursEntered: hoursQuarters / 4, requestedTotal: previousTotal + hoursQuarters / 4,
+          trainingDate, sourceType, organization: organization || null, sourceDetails: sourceDetails || null,
+          notes: notes || null, reviewStatus: "pending",
+        },
         source: "student_self_service", requestId, summary: `Submitted ${hours} training hours for administrator review`, createdAt: now,
       }),
       db.prepare("INSERT INTO mutation_requests (request_id, actor_type, action, response_json, created_at) VALUES (?, 'student', 'training_hours_submitted', ?, ?)")

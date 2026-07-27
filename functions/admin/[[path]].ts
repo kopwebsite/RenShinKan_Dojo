@@ -6,6 +6,7 @@ type Env = StudentEnv & { SESSION_SECRET?: string };
 const RENSHINKAN_ONLY_PAGES = new Set([
   "/admin/dojos",
   "/admin/site-editor",
+  "/admin/downloads",
 ]);
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env, next }) => {

@@ -24,6 +24,7 @@ type ProfilePayload = {
   dojoId?: unknown;
   aatNumber?: unknown;
   aatLastPaidDate?: unknown;
+  hasAatMembership?: unknown;
   practiceDuration?: unknown;
   turnstileToken?: unknown;
 };
@@ -53,8 +54,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const thaiName = clean(payload.thaiName, 120) || null;
     const dojoId = clean(payload.dojoId, 80);
     const dojo = await activeDojo(db, dojoId);
-    const aatNumber = clean(payload.aatNumber, 40) || null;
-    const aatLastPaidDate = isCanonicalDate(payload.aatLastPaidDate) ? payload.aatLastPaidDate : null;
+    const hasAatMembership = payload.hasAatMembership === true;
+    const aatNumber = hasAatMembership ? clean(payload.aatNumber, 40) || null : null;
+    const aatSelfReportedPaidDate = hasAatMembership && isCanonicalDate(payload.aatLastPaidDate) ? String(payload.aatLastPaidDate) : null;
     const practiceDuration = clean(payload.practiceDuration, 160);
     const turnstileToken = typeof payload.turnstileToken === "string" ? payload.turnstileToken : "";
     if (!englishName || englishName.length > 120) return jsonResponse({ error: "Enter the student's English name." }, 400);
@@ -83,12 +85,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         profile_image_url, profile_image_consent, guardian_consent, public_visible, active, share_fields, dojo_name,
         admin_notes, training_hours_adjustment, created_at, updated_at, profile_status, practice_duration,
         pending_profile_image_key, dojo_id, aat_number, aat_last_paid_date,
-        account_created_date, dojo_joined_date
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, 0, 0, 0, ?, ?, '', 0, ?, ?, 'pending_admin_approval', ?, ?, ?, ?, ?, ?, ?)`)
+        account_created_date, dojo_joined_date, aat_self_reported_paid_date, aat_membership_verification_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, 0, 0, 0, ?, ?, '', 0, ?, ?, 'pending_admin_approval', ?, ?, ?, ?, NULL, ?, ?, ?, ?)`)
         .bind(
           studentUuid, studentId, "", nameHash, englishName, englishName, thaiName, rank, rankColor(rank),
           file ? 1 : 0, JSON.stringify(DEFAULT_SHARE_FIELDS), dojo.official_name, now, now, practiceDuration, pendingKey || null,
-          dojo.id, aatNumber, aatLastPaidDate, today, today,
+          dojo.id, aatNumber, today, today, aatSelfReportedPaidDate, hasAatMembership ? "self_reported" : "not_reported",
         ),
       auditStatement(db, {
         actorType: "student",
@@ -98,7 +100,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         entityId: studentUuid,
         studentId: studentUuid,
         previousValues: null,
-        newValues: { studentId, englishName, thaiName, currentRank: rank, dojoId: dojo.id, dojoName: dojo.official_name, aatNumber, aatLastPaidDate, practiceDuration, profileStatus: "pending_admin_approval", profileImage: file ? "submitted" : "not_submitted" },
+        newValues: {
+          studentId, englishName, thaiName, currentRank: rank, dojoId: dojo.id, dojoName: dojo.official_name,
+          hasAatMembership, aatNumber, aatSelfReportedPaidDate, aatDateVerification: aatSelfReportedPaidDate ? "self_reported" : "not_reported",
+          practiceDuration, profileStatus: "pending_admin_approval", profileImage: file ? "submitted" : "not_submitted",
+        },
         source: "student_profile_request",
         requestId,
         summary: `Submitted a new profile request for ${englishName}`,

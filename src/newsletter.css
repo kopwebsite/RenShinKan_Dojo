@@ -744,11 +744,59 @@
   padding-left: 2.15rem;
 }
 
-.admin-newsletter-count {
+.admin-newsletter-library-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   margin-block: 1.25rem .6rem;
+}
+
+.admin-newsletter-count {
+  margin: 0;
   color: hsl(var(--color-charcoal) / .6);
   font-size: .68rem;
   font-weight: 800;
+}
+
+.admin-newsletter-select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  color: hsl(var(--color-charcoal) / .72);
+  font-size: .68rem;
+  font-weight: 800;
+}
+
+.admin-newsletter-select-all input,
+.admin-newsletter-row__select input {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: hsl(var(--color-bamboo));
+}
+
+.admin-newsletter-bulk-toolbar {
+  position: sticky;
+  z-index: 9;
+  top: 5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .55rem;
+  margin-bottom: .75rem;
+  padding: .7rem .8rem;
+  border: 1px solid hsl(var(--color-bamboo) / .35);
+  background: #f1f7ef;
+  box-shadow: 0 8px 22px hsl(var(--color-ink) / .09);
+}
+
+.admin-newsletter-bulk-toolbar strong {
+  margin-right: auto;
+  font-size: .72rem;
+}
+
+.admin-newsletter-bulk-toolbar .danger {
+  color: #922f28;
 }
 
 .admin-newsletter-list {
@@ -758,11 +806,20 @@
 .admin-newsletter-row {
   position: relative;
   display: grid;
-  grid-template-columns: 5.5rem minmax(13rem, 1fr) minmax(10rem, .65fr) auto auto;
+  grid-template-columns: 1.15rem 5.5rem minmax(13rem, 1fr) minmax(10rem, .65fr) auto auto;
   gap: 1rem;
   align-items: center;
   padding-block: 1rem;
   border-bottom: 1px solid hsl(var(--color-ink) / .14);
+}
+
+.admin-newsletter-row.is-selected {
+  background: hsl(var(--color-bamboo) / .055);
+}
+
+.admin-newsletter-row__select {
+  display: grid;
+  place-items: center;
 }
 
 .admin-newsletter-row__cover {
@@ -1735,22 +1792,22 @@
 
 @media (max-width: 1100px) {
   .admin-newsletter-row {
-    grid-template-columns: 5rem minmax(12rem, 1fr) auto;
+    grid-template-columns: 1.15rem 5rem minmax(12rem, 1fr) auto;
   }
 
   .admin-newsletter-row__statuses {
-    grid-column: 2;
+    grid-column: 3;
     display: flex;
     flex-wrap: wrap;
   }
 
   .admin-newsletter-row > .admin-newsletter-status {
-    grid-column: 3;
+    grid-column: 4;
     grid-row: 1;
   }
 
   .admin-newsletter-row__actions {
-    grid-column: 3;
+    grid-column: 4;
   }
 
   .journal-filters {

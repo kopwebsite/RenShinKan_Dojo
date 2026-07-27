@@ -469,13 +469,3 @@ export function getPublishedRecentEvents(content: EditableContent, limit?: numbe
 
   return typeof limit === "number" ? events.slice(0, limit) : events;
 }
-
-export function getCommunityCalendarEvents(content: EditableContent) {
-  return content.recentEvents
-    .filter((event) =>
-      (event.lifecycleStatus ?? "active") === "active" &&
-      event.showInCommunityCalendar === true &&
-      (event.calendar?.status === "published" || (event.calendar == null && event.published)) &&
-      (!event.publishAt || Date.parse(event.publishAt) <= Date.now()))
-    .sort((a, b) => Date.parse(a.date) - Date.parse(b.date));
-}

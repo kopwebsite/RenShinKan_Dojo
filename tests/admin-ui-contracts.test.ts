@@ -35,9 +35,12 @@ describe("unified administration UI contracts", () => {
     expect(students).toContain('if (admin && admin.permissionLevel !== "renshinkan_super_admin"');
     expect(records).toContain("window.history.pushState");
     expect(records).toContain('window.addEventListener("popstate"');
-    expect(passport).toContain("StudentTaskList");
-    expect(passport).toContain("studentTasks.needsAction");
-    expect(passport).toContain("studentTasks.underReview");
+    expect(passport).toContain('role="tablist"');
+    expect(passport).toContain('onKeyDown={(event) =>');
+    expect(passport).toContain('event.key === "Home"');
+    expect(passport).toContain('event.key === "End"');
+    expect(passport).toContain('const OWNER_TABS');
+    expect(passport).not.toContain("StudentTaskList");
   });
 
   it("always shows the requested monthly contribution graph, including sparse history", () => {

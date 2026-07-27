@@ -24,7 +24,9 @@ describe("student profile form on desktop and mobile", () => {
   });
 
   it("keeps the optional AAT status full-width and stacks controls on small screens", () => {
-    expect(page).toContain("You can leave this whole section blank.");
+    expect(page).toContain("I currently have an AAT annual membership");
+    expect(page).toContain("No membership yet is okay.");
+    expect(page).toContain("Self-reported until an administrator confirms it.");
     expect(css).toContain(".student-aat-payment-date, .student-aat-note { grid-column: 1 / -1; }");
     expect(css).toContain(".student-aat-card__grid { grid-template-columns: 1fr; }");
     expect(css).toContain(".student-long-form :is(input, select, textarea) { font-size: 1rem; }");

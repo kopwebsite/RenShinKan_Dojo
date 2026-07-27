@@ -95,7 +95,6 @@
     "historyOfAikido": "History of Aikido",
     "oSensei": "O Sensei",
     "community": "Community",
-    "upcomingEvents": "Upcoming Events",
     "pastEvents": "Past Events",
     "peaceCultureFoundation": "Peace Culture Foundation",
     "chiangMaiCmu": "Chiang Mai CMU",
@@ -105,7 +104,8 @@
     "donations": "Donations",
     "newsletter": "Newsletter",
     "contact": "Contact Us",
-    "studentRecords": "Student Records"
+    "studentRecords": "Student Records",
+    "downloads": "Downloads"
   },
   "footer": {
     "tagline": "Aikido and martial arts training in Hang Dong, Chiang Mai.",
@@ -417,14 +417,6 @@
     }
   },
   "community": {
-    "events": {
-      "eyebrow": "Upcoming Events",
-      "title": "Community calendar.",
-      "copy": "Confirmed dates for seminars, open mat days, volunteer activities, and dojo gatherings will be posted here as they're set.",
-      "emptyTitle": "Nothing on the calendar right now.",
-      "emptyCopy": "There are no events scheduled at the moment. The mat is quiet for now, so please check back soon. Any seminars, open mat days, or gatherings will appear here as they are confirmed.",
-      "emptyCta": "See recent dojo updates"
-    },
     "past": {
       "eyebrow": "Past Events",
       "title": "A Look at Our History",
@@ -1426,9 +1418,9 @@
     "goTo": "Go to photo {{number}}"
   },
   "date": {
-    "gregorianHelp": "Dates use the Gregorian calendar in DD/MM/YYYY format. To convert a Buddhist Era year, subtract 543. Example: 2569 − 543 = 2026.",
-    "monthHelp": "Month and year use the Gregorian calendar in MM/YYYY format. To convert a Buddhist Era year, subtract 543. Example: 2569 − 543 = 2026.",
-    "dateTimeHelp": "Date and time use the Gregorian calendar in DD/MM/YYYY HH:mm format. To convert a Buddhist Era year, subtract 543. Example: 2569 − 543 = 2026.",
+    "gregorianHelp": "DD/MM/YYYY (Gregorian)",
+    "monthHelp": "MM/YYYY (Gregorian)",
+    "dateTimeHelp": "DD/MM/YYYY HH:mm (Gregorian)",
     "invalid": "Enter a real date in DD/MM/YYYY format.",
     "invalidMonth": "Enter a real month in MM/YYYY format.",
     "invalidDateTime": "Enter a real date and time in DD/MM/YYYY HH:mm format."

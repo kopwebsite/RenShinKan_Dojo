@@ -392,7 +392,7 @@ function safeVisibility(value: string) {
 export async function publicStudentRecord(db: D1Database, student: StudentRow) {
   const visibility = safeVisibility(student.share_fields);
   const exams = visibility.examinations !== false
-    ? (await db.prepare(`SELECT examination_date, belt_awarded, belt_color, rank, examiner, public_notes,
+    ? (await db.prepare(`SELECT id, examination_date, belt_awarded, belt_color, rank, examiner, public_notes,
         passed, rank_before, rank_attempted, rank_after, examination_location
         FROM belt_examinations WHERE student_id = ? ORDER BY examination_date DESC`).bind(student.id).all()).results || []
     : [];
@@ -416,11 +416,13 @@ export async function publicStudentRecord(db: D1Database, student: StudentRow) {
 export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
   const base = await publicStudentRecord(db, student);
   const [trainingResult, aatResult, hourRequestResult, examRequestResult, proofRequestResult] = await Promise.all([
-    db.prepare(`SELECT id, entry_date, period_end, verified_hours, source, training_location, created_at
+    db.prepare(`SELECT id, entry_date, period_end, verified_hours, source, training_location,
+        source_type, organization, source_details, notes, created_at
       FROM training_hours WHERE student_id = ?
-      ORDER BY COALESCE(entry_date, created_at) DESC, created_at DESC LIMIT 60`).bind(student.id).all<{
+      ORDER BY COALESCE(entry_date, created_at) DESC, created_at DESC, id ASC LIMIT 500`).bind(student.id).all<{
         id: string; entry_date: string; period_end: string | null; verified_hours: number;
-        source: string; training_location: string | null; created_at: string;
+        source: string; training_location: string | null; source_type: string | null;
+        organization: string | null; source_details: string | null; notes: string | null; created_at: string;
       }>(),
     db.prepare(`SELECT p.id, COALESCE(p.payment_date, substr(p.created_at, 1, 10)) AS payment_date,
         ap.renewal_due_date, p.amount, p.currency, p.status, p.created_at AS created_at,
@@ -448,12 +450,14 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
         proof_object_key: string | null; proof_content_type: string | null; proof_owner_student_id: string | null;
       }>(),
     db.prepare(`SELECT id, submitted_hours, previous_total, requested_total, status,
-        submitted_at, reviewed_at, student_visible_note
+        submitted_at, reviewed_at, student_visible_note, training_date, source_type,
+        organization, source_details, student_notes
       FROM training_hour_requests WHERE student_id = ?
       ORDER BY submitted_at DESC LIMIT 60`).bind(student.id).all<{
         id: string; submitted_hours: number; previous_total: number; requested_total: number;
         status: "pending" | "approved" | "rejected"; submitted_at: string;
-        reviewed_at: string | null; student_visible_note: string | null;
+        reviewed_at: string | null; student_visible_note: string | null; training_date: string | null;
+        source_type: string | null; organization: string | null; source_details: string | null; student_notes: string | null;
       }>(),
     db.prepare(`SELECT id, current_rank, attempted_rank, status, payment_status, submitted_at, updated_at,
         completed_at, student_visible_decision_note
@@ -573,7 +577,7 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
     type: "training_hours" as const,
     title: "Verified training hours",
     previousValue: `${Number(entry.previous_total || 0)} hours`,
-    requestedValue: `${Number(entry.requested_total || 0)} hours`,
+    requestedValue: `${Number(entry.requested_total || 0)} hours · ${entry.organization || entry.source_details || entry.source_type || "source not supplied"} · ${entry.training_date || "date not supplied"}`,
     submittedAt: entry.submitted_at,
     decisionAt: entry.reviewed_at || null,
     studentVisibleNote: entry.student_visible_note || null,
@@ -672,6 +676,10 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
       hours: Number(entry.verified_hours || 0),
       source: entry.source,
       location: entry.training_location || null,
+      sourceType: entry.source_type || null,
+      organization: entry.organization || null,
+      sourceDetails: entry.source_details || null,
+      notes: entry.notes || null,
       verified: true as const,
     })),
     aatContributions,

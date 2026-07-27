@@ -14,6 +14,7 @@ const AdminPage = lazy(() => import("./pages/AdminPage").then((module) => ({ def
 const AdminDashboardPage = lazy(() => import("./pages/AdminDashboardPage").then((module) => ({ default: module.AdminDashboardPage })));
 const ClassesPage = lazy(() => import("./pages/ClassesPage").then((module) => ({ default: module.ClassesPage })));
 const CommunityPage = lazy(() => import("./pages/CommunityPage").then((module) => ({ default: module.CommunityPage })));
+const DownloadsPage = lazy(() => import("./pages/DownloadsPage").then((module) => ({ default: module.DownloadsPage })));
 const ContactPage = lazy(() => import("./pages/ContactPage").then((module) => ({ default: module.ContactPage })));
 const InstructorsPage = lazy(() => import("./pages/InstructorsPage").then((module) => ({ default: module.InstructorsPage })));
 const NewsletterPage = lazy(() => import("./pages/NewsletterPage").then((module) => ({ default: module.NewsletterPage })));
@@ -28,6 +29,7 @@ const AdminMembershipsPage = lazy(() => import("./pages/AdminMembershipsPage").t
 const AdminDojosPage = lazy(() => import("./pages/AdminDojosPage").then((module) => ({ default: module.AdminDojosPage })));
 const AdminWorkflowPage = lazy(() => import("./pages/AdminWorkflowPage").then((module) => ({ default: module.AdminWorkflowPage })));
 const AdminGalleryPage = lazy(() => import("./pages/AdminGalleryPage").then((module) => ({ default: module.AdminGalleryPage })));
+const AdminDownloadsPage = lazy(() => import("./pages/AdminDownloadsPage").then((module) => ({ default: module.AdminDownloadsPage })));
 
 function RouteFallback() {
   return (
@@ -57,6 +59,7 @@ function AdminRouteFrame() {
             <Routes>
               <Route path="/admin" element={<AdminDashboardPage />} />
               <Route path="/admin/website" element={<AdminPage />} />
+              <Route path="/admin/downloads" element={<AdminDownloadsPage />} />
               <Route path="/admin/galleries/:galleryId" element={<AdminGalleryPage />} />
               <Route path="/admin/dojo-updates" element={<Navigate to="/admin/website" replace />} />
               <Route path="/admin/site-editor" element={<Navigate to="/admin/website" replace />} />
@@ -122,6 +125,7 @@ export default function App() {
             <Route path="/newsletter" element={<ManagedRoute fallback={<NewsletterPage />} />} />
             <Route path="/newsletter/:slug" element={<NewsletterPage />} />
             <Route path="/community" element={<ManagedRoute fallback={<CommunityPage />} />} />
+            <Route path="/downloads" element={<DownloadsPage />} />
             <Route path="/support" element={<ManagedRoute fallback={<SupportPage />} />} />
             <Route path="/contact" element={<ManagedRoute fallback={<ContactPage />} />} />
             <Route path="/visit" element={<Navigate to="/contact" replace />} />

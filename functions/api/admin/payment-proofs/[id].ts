@@ -9,11 +9,15 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   if (!env.MEDIA_BUCKET) return jsonResponse({ error: "Payment-proof storage is unavailable." }, 503);
   const db = requireStudentDb(env);
-  const scope = isRenShinKanSuperAdmin(session) ? "" : "AND s.dojo_id = ? AND p.payment_type <> 'renshinkan_monthly'";
+  const scope = isRenShinKanSuperAdmin(session) ? "" : `AND s.dojo_id = ? AND p.payment_type <> 'renshinkan_monthly'
+    AND (p.payment_type <> 'aat_annual' OR NOT EXISTS (
+      SELECT 1 FROM payment_request_items scoped_item
+      WHERE scoped_item.payment_request_id = p.payment_reference_id AND scoped_item.dojo_id <> ?
+    ))`;
   const proof = await db.prepare(`SELECT p.id, p.object_key, p.content_type, p.original_filename
     FROM payment_proofs p JOIN students s ON s.id = p.student_id
     WHERE p.id = ? AND p.object_key IS NOT NULL ${scope} LIMIT 1`)
-    .bind(String(params.id), ...(isRenShinKanSuperAdmin(session) ? [] : [session.selectedDojoId || "__none__"]))
+    .bind(String(params.id), ...(isRenShinKanSuperAdmin(session) ? [] : [session.selectedDojoId || "__none__", session.selectedDojoId || "__none__"]))
     .first<{ id: string; object_key: string; content_type: string; original_filename: string }>();
   if (!proof) return jsonResponse({ error: "Payslip not found or outside your dojo." }, 404);
   const object = await env.MEDIA_BUCKET.get(proof.object_key);

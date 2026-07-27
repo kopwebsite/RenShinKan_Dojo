@@ -116,7 +116,8 @@ describe("student workflow contracts", () => {
     expect(application).toContain("OCCUPATION_LABELS");
     expect(application).toContain("text(body.school, 160, studies)");
     expect(application).toContain("text(body.office, 160, employed)");
-    expect(application).toContain("text(body.gamesExperience, 1000, true)");
+    expect(application).toContain("const gamesExperience = text(body.gamesExperience, 1000)");
+    expect(application).not.toContain("text(body.gamesExperience, 1000, true)");
     for (const value of ["Current dojo", "School or employment status", "Student and employed", "Not currently studying or employed", "exam-field-copy", "exam-requirement-key"]) expect(page).toContain(value);
   });
 
@@ -174,7 +175,7 @@ describe("student workflow contracts", () => {
   it("groups up to ten RenShinKan students under one monthly payment and payslip", () => {
     const contribution = file("functions/api/contributions.ts");
     const review = file("functions/api/admin/payment-proofs.ts");
-    for (const value of ["configuredMonthlyContributionAmount", "MAX_MONTHLY_STUDENTS = 10", "paymentGroupId", "coveredStudents", "totalAmount", "payment_group_id", "expected_amount"]) expect(contribution).toContain(value);
+    for (const value of ["configuredMonthlyContributionAmount", "MAX_CONTRIBUTION_STUDENTS = 10", "paymentRequestId", "coveredStudents", "totalAmount", "payment_group_id", "expected_amount"]) expect(contribution).toContain(value);
     expect(contribution).not.toMatch(/MONTHLY_CONTRIBUTION_AMOUNT\s*=\s*\d+/);
     expect(contribution).toContain("Each student can appear only once");
     expect(review).toContain("WHERE payment_group_id = ? OR (id = ? AND student_id = ?)");
@@ -295,14 +296,14 @@ describe("UI and responsive workflow contracts", () => {
     expect(bulk).toContain("training_location");
   });
 
-  it("shows three task choices, pending payment, existing bank QR, owner QR tools, and mobile layouts", () => {
+  it("shows compact workspace tabs, pending payment, existing bank QR, owner QR tools, and mobile layouts", () => {
     const page = file("src/pages/StudentRecordsPage.tsx"); const css = file("src/index.css");
-    for (const text of ["Find my record", "Create a profile", "Apply for an exam", "content.paymentQr", "cannot confirm your payment", "Copy link", "Download QR", "Submit for review"]) expect(page).toContain(text);
+    for (const text of ["Find my record", "My passport", "New profile", "Exam application", "content.paymentQr", "Copy link", "Download QR", "Submit for review"]) expect(page).toContain(text);
     expect(page).toContain("Current dojo");
     expect(page).not.toMatch(/guarantor/i);
     expect(page).toContain("LOOKUP_VERIFICATION_PENDING");
     expect(page).toContain("disabled={busy || !token}");
-    expect(css).toContain(".record-task-picker { display: grid; grid-template-columns: repeat(3, 1fr)"); expect(css).toContain(".record-task-picker { grid-template-columns: 1fr");
+    expect(css).toContain(".record-workspace-tabs { display: flex"); expect(css).toContain("overflow-x: auto");
   });
 
   it("renders an accessible responsive digital student passport from real record fields", () => {
@@ -385,15 +386,15 @@ describe("UI and responsive workflow contracts", () => {
     const css = file("src/index.css");
     expect(form).toContain('fetch("/api/contributions"');
     expect(form).toContain("monthlyContributionAmount");
-    expect(form).toContain("Choose your dojo");
+    expect(form).toContain("Choose dojo");
     expect(form).toContain('fetch("/api/dojos"');
     expect(form).toContain("PaymentReminder");
     expect(form).toContain("Gentle monthly reminder");
     expect(form).toContain("No earlier annual payment date appears on this record");
-    expect(api).toContain("submittedDojoId");
+    expect(api).toContain("submitted.dojoId");
     expect(api).toContain("s.dojo_id = ?");
     expect(api).toContain("aat_last_paid_date");
-    expect(api).toContain("lastMonthlyPayment");
+    expect(api).toContain("lastPayment");
     expect(api).toContain("previousMonthKey");
     for (const selector of [".contribution-kind", ".contribution-reminder", ".contribution-qr-frame", ".contribution-next-steps"]) expect(css).toContain(selector);
   });
@@ -401,7 +402,7 @@ describe("UI and responsive workflow contracts", () => {
   it("calculates one clear monthly total for multiple student records", () => {
     const form = file("src/components/ContributionForm.tsx");
     const css = file("src/index.css");
-    for (const value of ["monthlyContributionAmount", "Add another student", "Who is this payment for?", "monthlyStudents.length", "Total to pay", "Use one PromptPay payment and upload one payment proof"]) expect(form).toContain(value);
+    for (const value of ["monthlyContributionAmount", "Add another student", "Who is this payment for?", "monthlyStudents.length", "Total to pay", "Use one PromptPay payment and one payment proof"]) expect(form).toContain(value);
     expect(form).not.toMatch(/MONTHLY_CONTRIBUTION_AMOUNT\s*=\s*\d+/);
     for (const selector of [".contribution-student-list", ".contribution-student-row", ".contribution-payment-total"]) expect(css).toContain(selector);
   });

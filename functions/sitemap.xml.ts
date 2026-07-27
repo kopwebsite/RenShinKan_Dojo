@@ -10,6 +10,7 @@ const STATIC_ROUTES = [
   ["/workshops", "weekly", "0.7"],
   ["/newsletter", "weekly", "0.7"],
   ["/community", "monthly", "0.8"],
+  ["/downloads", "monthly", "0.7"],
   ["/support", "monthly", "0.5"],
   ["/contact", "monthly", "0.8"],
 ] as const;

@@ -1,4 +1,5 @@
 export type PublicExamination = {
+  id?: string;
   examination_date: string; belt_awarded: string; belt_color: string; rank?: string | null; examiner?: string | null;
   public_notes?: string | null; passed?: number | null; rank_before?: string | null; rank_attempted?: string | null;
   rank_after?: string | null; examination_location?: string | null;
@@ -11,6 +12,10 @@ export type PassportTrainingEntry = {
   hours: number;
   source: string;
   location: string | null;
+  sourceType: "renshinkan" | "aat" | "other" | null;
+  organization: string | null;
+  sourceDetails: string | null;
+  notes: string | null;
   verified: true;
 };
 

@@ -2,6 +2,8 @@ import {
   BookOpen,
   Building2,
   CircleHelp,
+  Check,
+  ChevronDown,
   ClipboardCheck,
   Database,
   ExternalLink,
@@ -11,6 +13,7 @@ import {
   History,
   Home,
   LogOut,
+  Languages,
   Menu,
   ReceiptText,
   Settings,
@@ -161,6 +164,7 @@ function navigationGroups(t: Translate): NavigationGroup[] {
       label: t("adminShell.website"),
       items: [
         { label: "Edit the website", href: "/admin/website", Icon: FileText, centralOnly: true, match: (path) => path === "/admin/website" || path.startsWith("/admin/galleries/") },
+        { label: "Downloads", href: "/admin/downloads", Icon: FileText, centralOnly: true },
       ],
     },
     {
@@ -257,11 +261,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const session = useAdminSession();
   const [menuOpen, setMenuOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [languageOpen, setLanguageOpen] = useState(false);
   const menuPanelRef = useRef<HTMLElement>(null);
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const helpPanelRef = useRef<HTMLElement>(null);
   const helpTriggerRef = useRef<HTMLButtonElement>(null);
   const translationScopeRef = useRef<HTMLDivElement>(null);
+  const languageButtonRef = useRef<HTMLButtonElement>(null);
+  const languageMenuRef = useRef<HTMLDivElement>(null);
   const closeMenu = () => setMenuOpen(false);
   const closeHelp = () => setHelpOpen(false);
 
@@ -269,6 +276,30 @@ export function AdminShell({ children }: { children: ReactNode }) {
   useModalFocus(menuOpen, menuPanelRef, menuTriggerRef, closeMenu);
   useModalFocus(helpOpen, helpPanelRef, helpTriggerRef, closeHelp);
   useEffect(() => setMenuOpen(false), [location.pathname, location.search]);
+  useEffect(() => {
+    if (!languageOpen) return;
+    const first = languageMenuRef.current?.querySelector<HTMLButtonElement>("button");
+    first?.focus();
+    function closeOnOutside(event: MouseEvent) {
+      const target = event.target;
+      if (target instanceof Node && !languageMenuRef.current?.contains(target) && !languageButtonRef.current?.contains(target)) {
+        setLanguageOpen(false);
+      }
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setLanguageOpen(false);
+        languageButtonRef.current?.focus();
+      }
+    }
+    document.addEventListener("mousedown", closeOnOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [languageOpen]);
 
   const selectedDojo = useMemo(
     () => session.dojos.find((dojo) => dojo.id === session.admin?.selectedDojoId),
@@ -309,14 +340,18 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <Link to="/admin">{t("adminShell.changeDojo")}</Link>
         </div>
         <div className="admin-shell__account">
-          <label className="admin-language-select">
-            <span>{t("adminShell.language")}</span>
-            <select value={language} onChange={(event) => setLanguage(event.target.value === "th" ? "th" : "en")}>
-              <option value="en">English</option>
-              <option value="th">ไทย</option>
-            </select>
-          </label>
           <span><strong>{session.admin.name}</strong><small>{central ? t("adminShell.centralAdministrator") : t("adminShell.dojoAdministrator")}</small></span>
+          <div className="admin-language-menu">
+            <button ref={languageButtonRef} type="button" aria-haspopup="menu" aria-expanded={languageOpen} onClick={() => setLanguageOpen((open) => !open)}>
+              <Languages size={18} aria-hidden="true" /><span>{language === "th" ? "ไทย" : "English"}</span><ChevronDown size={15} aria-hidden="true" />
+            </button>
+            {languageOpen ? <div ref={languageMenuRef} role="menu" aria-label={t("adminShell.language")}>
+              {([{ code: "en" as const, label: "English" }, { code: "th" as const, label: "ไทย" }]).map((option) => <button
+                key={option.code} type="button" role="menuitemradio" aria-checked={language === option.code}
+                onClick={() => { setLanguage(option.code); setLanguageOpen(false); languageButtonRef.current?.focus(); }}
+              ><span>{option.label}</span>{language === option.code ? <Check size={16} aria-hidden="true" /> : null}</button>)}
+            </div> : null}
+          </div>
           <button ref={helpTriggerRef} type="button" onClick={() => setHelpOpen(true)}><CircleHelp size={18} aria-hidden="true" /> {t("adminShell.help")}</button>
           <a href="/" target="_blank" rel="noopener noreferrer"><ExternalLink size={18} aria-hidden="true" /> {t("adminShell.viewPublicWebsite")}</a>
           <button type="button" onClick={() => void signOut()}><LogOut size={18} aria-hidden="true" /> {t("adminShell.signOut")}</button>

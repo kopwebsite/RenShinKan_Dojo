@@ -20,9 +20,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     const studentId = String(params.id);
     const access = await assertStudentAccess(db, session, studentId);
     if (!access.ok) return jsonResponse({ error: access.error }, access.status);
-    const pending = await db.prepare(`SELECT id, submitted_hours, previous_total, requested_total, status FROM training_hour_requests
+    const pending = await db.prepare(`SELECT id, submitted_hours, previous_total, requested_total, status,
+      training_date, source_type, organization, source_details, student_notes, hours_quarters FROM training_hour_requests
       WHERE id = ? AND student_id = ? LIMIT 1`).bind(hourRequestId, studentId)
-      .first<{ id: string; submitted_hours: number; previous_total: number; requested_total: number; status: string }>();
+      .first<{
+        id: string; submitted_hours: number; previous_total: number; requested_total: number; status: string;
+        training_date: string | null; source_type: string | null; organization: string | null;
+        source_details: string | null; student_notes: string | null; hours_quarters: number | null;
+      }>();
     if (!pending) return jsonResponse({ error: "Training-hour request not found." }, 404);
     if (pending.status !== "pending") return jsonResponse({ error: "This request has already been reviewed." }, 409);
     const now = new Date().toISOString();
@@ -35,9 +40,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
       const hourId = crypto.randomUUID();
       statements.push(
         db.prepare(`INSERT INTO training_hours
-          (id, student_id, entry_date, verified_hours, source, internal_note, created_at, hour_request_id)
-          VALUES (?, ?, ?, ?, 'student_self_service_approved', ?, ?, ?)`)
-          .bind(hourId, studentId, now.slice(0, 10), pending.submitted_hours, internalNote || null, now, pending.id),
+          (id, student_id, entry_date, verified_hours, source, internal_note, created_at, hour_request_id,
+           source_type, organization, source_details, notes, hours_quarters)
+          VALUES (?, ?, ?, ?, 'student_self_service_approved', ?, ?, ?, ?, ?, ?, ?, ?)`)
+          .bind(hourId, studentId, pending.training_date || now.slice(0, 10), pending.submitted_hours,
+            internalNote || null, now, pending.id, pending.source_type, pending.organization,
+            pending.source_details, pending.student_notes, pending.hours_quarters),
         db.prepare("UPDATE students SET updated_at = ? WHERE id = ?").bind(now, studentId),
       );
     }
@@ -53,7 +61,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
         actorType: "administrator", ...adminAuditMetadata(session, request), action: action === "approve" ? "student_hours_approved" : "student_hours_rejected",
         entityType: "training_hour_request", entityId: hourRequestId, studentId,
         previousValues: { status: "pending", submittedHours: pending.submitted_hours, previousTotal: pending.previous_total, requestedTotal: pending.requested_total },
-        newValues: { status: action === "approve" ? "approved" : "rejected", resultingTotal, studentVisibleNote }, source: "admin_student_hours_review",
+        newValues: {
+          status: action === "approve" ? "approved" : "rejected", resultingTotal, studentVisibleNote,
+          trainingDate: pending.training_date, sourceType: pending.source_type,
+          organization: pending.organization, sourceDetails: pending.source_details,
+        }, source: "admin_student_hours_review",
         requestId: operationRequestId, administratorNote: internalNote || null,
         summary: `${action === "approve" ? "Approved" : "Rejected"} ${pending.submitted_hours} student-submitted training hours`, createdAt: now,
       }),

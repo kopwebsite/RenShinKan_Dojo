@@ -187,12 +187,6 @@ function statusTone(event: RecentEvent) {
   return "draft";
 }
 
-function calendarLabel(event: RecentEvent) {
-  if (event.calendar?.status === "published") return "On calendar";
-  if (event.calendar?.status === "failed") return "Calendar failed";
-  return "Not on calendar";
-}
-
 function emailLabel(event: RecentEvent) {
   if (event.newsletter?.status === "sent") return "Email sent";
   if (event.newsletter?.status === "pending") return "Email sending";
@@ -317,6 +311,8 @@ export function AdminNewsletterManager({
   const [yearFilter, setYearFilter] = useState("");
   const [sort, setSort] = useState("edited-desc");
   const [page, setPage] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkWorking, setBulkWorking] = useState(false);
   const [creationOpen, setCreationOpen] = useState(false);
   const [emptyDraftCandidate, setEmptyDraftCandidate] = useState<RecentEvent | null>(null);
   const [recoveryDraft, setRecoveryDraft] = useState<RecentEvent | null>(null);
@@ -579,7 +575,7 @@ export function AdminNewsletterManager({
     return saved;
   };
 
-  const duplicateEvent = async (event: RecentEvent) => {
+  const duplicateEvent = async (event: RecentEvent, openAfterSave = true) => {
     const now = new Date().toISOString();
     const copy: RecentEvent = {
       ...event,
@@ -602,7 +598,8 @@ export function AdminNewsletterManager({
       updatedAt: now,
     };
     const saved = await saveSpecificEvent(copy);
-    if (saved) openEditor(saved);
+    if (saved && openAfterSave) openEditor(saved);
+    return saved;
   };
 
   const lifecycleAction = async (event: RecentEvent, lifecycleStatus: "active" | "archived" | "trash") => {
@@ -630,6 +627,24 @@ export function AdminNewsletterManager({
     }
   };
 
+  const bulkDuplicate = async () => {
+    const selected = draft.recentEvents.filter((event) => selectedIds.includes(event.id));
+    if (!selected.length) return;
+    setBulkWorking(true);
+    for (const event of selected) await duplicateEvent(event, false);
+    setSelectedIds([]);
+    setBulkWorking(false);
+  };
+
+  const bulkMoveToTrash = async () => {
+    const selected = draft.recentEvents.filter((event) => selectedIds.includes(event.id));
+    if (!selected.length || !window.confirm(`Move ${selected.length} selected newsletter${selected.length === 1 ? "" : "s"} to Trash?`)) return;
+    setBulkWorking(true);
+    for (const event of selected) await lifecycleAction(event, "trash");
+    setSelectedIds([]);
+    setBulkWorking(false);
+  };
+
   if (!selectedId || !editorEvent) {
     return (
       <section className="admin-newsletter-library" aria-labelledby="admin-newsletter-title">
@@ -652,12 +667,42 @@ export function AdminNewsletterManager({
           <label><span>Year</span><select value={yearFilter} onChange={(event) => { setYearFilter(event.target.value); setPage(1); }}><option value="">All years</option>{years.map((year) => <option key={year}>{year}</option>)}</select></label>
           <label><span>Sort</span><select value={sort} onChange={(event) => setSort(event.target.value)}><option value="edited-desc">Recently edited</option><option value="date-desc">Newest date</option><option value="date-asc">Oldest date</option><option value="title">Title A–Z</option></select></label>
         </div>
-        <p className="admin-newsletter-count" role="status">{filteredEvents.length} newsletter{filteredEvents.length === 1 ? "" : "s"}</p>
+        <div className="admin-newsletter-library-tools">
+          <label className="admin-newsletter-select-all">
+            <input
+              type="checkbox"
+              checked={visibleEvents.length > 0 && visibleEvents.every((event) => selectedIds.includes(event.id))}
+              onChange={(input) => setSelectedIds((current) => input.target.checked
+                ? [...new Set([...current, ...visibleEvents.map((event) => event.id)])]
+                : current.filter((id) => !visibleEvents.some((event) => event.id === id)))}
+            />
+            Select this page
+          </label>
+          <p className="admin-newsletter-count" role="status">{filteredEvents.length} newsletter{filteredEvents.length === 1 ? "" : "s"}</p>
+        </div>
+        {selectedIds.length ? (
+          <div className="admin-newsletter-bulk-toolbar" role="region" aria-label="Selected newsletter actions">
+            <strong>{selectedIds.length} selected</strong>
+            <button type="button" className="btn-secondary" disabled={bulkWorking} onClick={() => void bulkDuplicate()}><Copy size={16} /> Duplicate selected</button>
+            <button type="button" className="btn-secondary danger" disabled={bulkWorking} onClick={() => void bulkMoveToTrash()}><Trash2 size={16} /> Move selected to Trash</button>
+            <button type="button" className="text-link" disabled={bulkWorking} onClick={() => setSelectedIds([])}>Clear</button>
+          </div>
+        ) : null}
         <div className="admin-newsletter-list" role="list">
           {visibleEvents.map((event) => {
             const cover = newsletterCover(event);
             return (
-              <article className="admin-newsletter-row" key={event.id} role="listitem">
+              <article className={`admin-newsletter-row${selectedIds.includes(event.id) ? " is-selected" : ""}`} key={event.id} role="listitem">
+                <label className="admin-newsletter-row__select">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(event.id)}
+                    onChange={(input) => setSelectedIds((current) => input.target.checked
+                      ? [...current, event.id]
+                      : current.filter((id) => id !== event.id))}
+                  />
+                  <span className="sr-only">Select {event.title || "Untitled draft"}</span>
+                </label>
                 <div className="admin-newsletter-row__cover">
                   <ResponsiveImage src={cover?.src || FALLBACK_COVER} alt="" imgClassName="h-full w-full object-cover" loading="lazy" />
                   {!cover ? <span>RSK</span> : null}
@@ -670,7 +715,6 @@ export function AdminNewsletterManager({
                 <div className="admin-newsletter-row__statuses">
                   <AdminStatusPill tone={event.published ? "success" : "muted"}>{websiteLabel(event)}</AdminStatusPill>
                   <AdminStatusPill tone={event.newsletter?.status === "sent" ? "success" : event.newsletter?.status === "failed" ? "error" : "muted"}>{emailLabel(event)}</AdminStatusPill>
-                  <AdminStatusPill tone={event.calendar?.status === "published" ? "success" : "muted"}>{calendarLabel(event)}</AdminStatusPill>
                 </div>
                 <AdminStatusPill tone={statusTone(event)}>{statusFor(event)}</AdminStatusPill>
                 <div className="admin-newsletter-row__actions">
@@ -712,7 +756,7 @@ export function AdminNewsletterManager({
               <p className="eyebrow">Create newsletter</p><h2 id="newsletter-type-title">What are you creating?</h2>
               <div className="admin-newsletter-type-grid">
                 <button type="button" onClick={() => createNewsletter("newsletter")}><FileText size={28} /><strong>Dojo newsletter or update</strong><span>News, classes, examinations, workshops, and community notes.</span></button>
-                <button type="button" onClick={() => createNewsletter("event")}><CalendarDays size={28} /><strong>Event announcement</strong><span>An update with event details and an optional community-calendar listing.</span></button>
+                <button type="button" onClick={() => createNewsletter("event")}><CalendarDays size={28} /><strong>Event announcement</strong><span>A newsletter update with event date, place, and registration details.</span></button>
               </div>
             </section>
           </div>
@@ -726,7 +770,7 @@ export function AdminNewsletterManager({
     editorEvent.title && editorEvent.summary && editorEvent.category && editorEvent.date ? "complete" : "attention",
     collectNewsletterDocumentText(editorEvent.bodyContent ?? plainTextNewsletterDocument(editorEvent.body)).trim() ? "complete" : "attention",
     editorEvent.coverImageId ? "complete" : "optional",
-    editorEvent.websitePublishRequested || editorEvent.notifySubscribers || editorEvent.showInCommunityCalendar ? "complete" : "attention",
+    editorEvent.websitePublishRequested || editorEvent.notifySubscribers ? "complete" : "attention",
     publicationIssues.length ? "attention" : "complete",
   ];
   const media = previewMedia(editorEvent, pendingUploads);
@@ -850,9 +894,8 @@ export function AdminNewsletterManager({
       ...editorEvent,
       published: editorEvent.websitePublishRequested === true,
       publishedAt: editorEvent.websitePublishRequested && !editorEvent.published ? now : editorEvent.publishedAt,
-      calendar: editorEvent.contentType === "event" && editorEvent.showInCommunityCalendar
-        ? { status: "published", publishedAt: now, error: null }
-        : { status: "not_added", publishedAt: null, error: null },
+      showInCommunityCalendar: false,
+      calendar: { status: "not_added", publishedAt: null, error: null },
       updatedAt: now,
     };
     const saved = await saveEvent(finalized);
@@ -861,7 +904,6 @@ export function AdminNewsletterManager({
     setEditorEvent(saved);
     const results = [
       saved.published ? "Published successfully" : "Website publication left off",
-      saved.calendar?.status === "published" ? "Added to calendar" : "Calendar left off",
     ];
     setResultMessage(results.join(" · "));
     if (saved.notifySubscribers && saved.newsletter?.status !== "sent") {
@@ -1084,7 +1126,6 @@ export function AdminNewsletterManager({
               <fieldset className="admin-newsletter-distribution"><legend>Distribution choices</legend>
                 <label><input type="checkbox" checked={editorEvent.websitePublishRequested === true} onChange={(event) => updateEditor((current) => ({ ...current, websitePublishRequested: event.target.checked }))} /><span><strong><Laptop size={20} /> Publish on the website</strong><small>Make this update publicly available in the Newsletter section.</small><AdminStatusPill tone={editorEvent.published ? "success" : "muted"}>{websiteLabel(editorEvent)}</AdminStatusPill></span></label>
                 <label><input type="checkbox" checked={editorEvent.notifySubscribers === true} disabled={editorEvent.newsletter?.status === "sent"} onChange={(event) => updateEditor((current) => ({ ...current, notifySubscribers: event.target.checked }))} /><span><strong><Mail size={20} /> Email subscribers</strong><small>Send this update to the newsletter list. A sent email cannot be recalled or changed.</small><AdminStatusPill tone={editorEvent.newsletter?.status === "sent" ? "success" : "muted"}>{emailLabel(editorEvent)}</AdminStatusPill></span></label>
-                {editorEvent.contentType === "event" ? <label><input type="checkbox" checked={editorEvent.showInCommunityCalendar === true} onChange={(event) => updateEditor((current) => ({ ...current, showInCommunityCalendar: event.target.checked }))} /><span><strong><CalendarDays size={20} /> Add to the community calendar</strong><small>Show this event on the public community calendar.</small><AdminStatusPill tone={editorEvent.calendar?.status === "published" ? "success" : "muted"}>{calendarLabel(editorEvent)}</AdminStatusPill></span></label> : null}
               </fieldset>
               {editorEvent.notifySubscribers ? (
                 <fieldset className="admin-newsletter-subsection"><legend>Subscriber email details</legend>
@@ -1115,7 +1156,6 @@ export function AdminNewsletterManager({
                   ["Category", Boolean(editorEvent.category), editorEvent.category || "Missing"],
                   ["Cover", !cover || Boolean(cover.alt?.trim()), cover ? cover.alt?.trim() ? "Selected image with alt text" : "Add useful alt text" : "Branded fallback"],
                   ["Website", true, editorEvent.websitePublishRequested ? "Will publish" : "Not selected"],
-                  ["Calendar", true, editorEvent.contentType === "event" && editorEvent.showInCommunityCalendar ? "Will add" : "Not selected"],
                   ["Subscriber email", true, editorEvent.notifySubscribers ? `${deliveryStatus.recipientCount ?? "Unknown"} recipients` : "Not selected"],
                   ["Attachments", true, `${media.filter((item) => item.type === "document").length} document(s)`],
                   ...(editorEvent.contentType === "event" ? [["Event date", Boolean(editorEvent.eventDetails?.startAt || editorEvent.date), editorEvent.eventDetails?.startAt || editorEvent.date || "Missing"]] : []),
@@ -1130,10 +1170,9 @@ export function AdminNewsletterManager({
                 <h4>Ready to complete these actions?</h4>
                 <ul>
                   <li>{editorEvent.websitePublishRequested ? "Publish this newsletter on the website." : "Keep the website version as a draft."}</li>
-                  <li>{editorEvent.contentType === "event" && editorEvent.showInCommunityCalendar ? "Add this event to the community calendar." : "Do not add this update to the community calendar."}</li>
                   <li>{editorEvent.notifySubscribers ? `Open a final confirmation for ${deliveryStatus.recipientCount ?? "the current"} subscribers.` : "Do not email subscribers."}</li>
                 </ul>
-                <button type="button" className="btn-primary" disabled={publishing} onClick={() => void publishSelections()}>{publishing ? <LoaderCircle className="spin" size={18} /> : <Save size={18} />} Review and complete</button>
+                <button type="button" className="btn-primary" disabled={publishing} onClick={() => void publishSelections()}>{publishing ? <LoaderCircle className="spin" size={18} /> : <Save size={18} />} Publish selected destinations</button>
               </div>
               <details className="admin-newsletter-related"><summary>Related newsletters (optional) <ChevronDown size={16} /></summary>
                 <p>Select up to three published newsletters. Empty slots are filled automatically by category, tags, and recent posts.</p>
@@ -1159,7 +1198,6 @@ export function AdminNewsletterManager({
               <div><dt>Subject</dt><dd>{editorEvent.emailSettings?.subject || editorEvent.title}</dd></div>
               <div><dt>Send time</dt><dd>Now</dd></div>
               <div><dt>Website</dt><dd>{editorEvent.published ? "Published" : "Not published"}</dd></div>
-              <div><dt>Community calendar</dt><dd>{editorEvent.calendar?.status === "published" ? "Added" : "Not added"}</dd></div>
             </dl>
             <div><button type="button" className="btn-secondary" disabled={publishing} onClick={() => setSendConfirmationOpen(false)}>Not now</button><button type="button" className="btn-primary" disabled={publishing || deliveryStatus.recipientCount == null} onClick={() => void sendNewsletter()}>{publishing ? <LoaderCircle className="spin" size={17} /> : <Send size={17} />} Send to {deliveryStatus.recipientCount ?? "subscribers"}</button></div>
           </section>

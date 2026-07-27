@@ -332,7 +332,6 @@ function eventSnapshot(event?: RecentEvent) {
     image: event.image,
     media: event.media,
     notifySubscribers: event.notifySubscribers,
-    showInCommunityCalendar: event.showInCommunityCalendar,
     newsletter: event.newsletter,
   });
 }
@@ -1142,7 +1141,8 @@ export function AdminPage() {
         ...event,
         slug: event.slug || slugify(event.title),
         notifySubscribers: event.notifySubscribers === true,
-        showInCommunityCalendar: event.showInCommunityCalendar === true,
+        showInCommunityCalendar: false,
+        calendar: { status: "not_added" as const, publishedAt: null, error: null },
         newsletter: event.newsletter ?? {
           status: "not_sent" as const,
           sentAt: null,
@@ -1279,7 +1279,7 @@ export function AdminPage() {
           <p className="eyebrow">{dojos.find((dojo) => dojo.id === admin.selectedDojoId)?.official_name} / ADMIN</p>
           <h1 className="section-title">Edit the website</h1>
           <p className="section-copy">
-            Update newsletters and community events, manage the public photo library, or replace the payment QR.
+            Update newsletters, manage the public photo library, or replace the payment QR.
           </p>
         </div>
         <div className="grid gap-3">
@@ -1291,7 +1291,7 @@ export function AdminPage() {
       </div>
 
       <nav className="admin-action-board" aria-label="Admin areas">
-        <button type="button" onClick={addEvent}><FileText size={22} /><span><strong>Newsletter &amp; event</strong><small>Create one update for the newsletter and community calendar</small></span></button>
+        <button type="button" onClick={addEvent}><FileText size={22} /><span><strong>Newsletter &amp; event</strong><small>Create a website update or subscriber email</small></span></button>
         <a href="#photo-library"><ImagePlus size={22} /><span><strong>Photo library</strong><small>Organize public photographs into albums</small></span></a>
         <a href="#payment-qr"><QrCode size={22} /><span><strong>Payment QR</strong><small>Replace the QR everywhere on the website</small></span></a>
         <a href="/" target="_blank" rel="noopener noreferrer"><ExternalLink size={22} /><span><strong>Preview website</strong><small>Open the public site in a new tab</small></span></a>
@@ -1338,8 +1338,8 @@ export function AdminPage() {
         {false && (
         <div id="admin-recent-events-legacy" className="hidden" aria-hidden="true">
         <CollapsibleEditorSection
-          title="Newsletters & community events"
-          copy="Create one update, then choose whether it appears on the website, the community calendar, and in a subscriber email."
+          title="Newsletters & events"
+          copy="Create one update, then choose whether it appears on the website or in a subscriber email."
           summary={`${draft.recentEvents.length} event${draft.recentEvents.length === 1 ? "" : "s"}`}
           open={openSections.recentEvents}
           onToggle={() => toggleSection("recentEvents")}
@@ -1381,7 +1381,7 @@ export function AdminPage() {
                         {event.date || "No date"} - Newsletter status: {statusLabel(event)}
                       </span>
                       <span className="mt-1 block text-sm text-charcoal/55">
-                        {event.published ? "Published" : "Draft"} - {event.showInCommunityCalendar ? "Community calendar" : "Not on calendar"} - {mediaPreview.length} media item
+                        {event.published ? "Published" : "Draft"} - {mediaPreview.length} media item
                         {mediaPreview.length === 1 ? "" : "s"}
                       </span>
                     </span>
@@ -1735,16 +1735,6 @@ export function AdminPage() {
                     />
                     Notify subscribers
                   </label>
-                  <label className="inline-flex items-center gap-2 text-sm font-bold text-ink">
-                    <input
-                      type="checkbox"
-                      checked={event.showInCommunityCalendar === true}
-                      onChange={(inputEvent) =>
-                        updateEvent(event.id, (current) => ({ ...current, showInCommunityCalendar: inputEvent.target.checked }))
-                      }
-                    />
-                    Community calendar
-                  </label>
                 </div>
                 </div>
               </article>
@@ -1784,13 +1774,6 @@ export function AdminPage() {
           </CollapsibleEditorSection>
         </div>
 
-        <section className="surface rounded-[2rem] p-6 sm:p-8">
-          {sectionTitle("Save / Publish Changes", "Review the publish summary before the server updates Cloudflare storage.")}
-          <button type="button" onClick={() => setConfirmOpen(true)} className="btn-primary">
-            <Save size={18} aria-hidden="true" />
-            Review Publish
-          </button>
-        </section>
       </div>
 
       {confirmOpen ? (

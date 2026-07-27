@@ -102,6 +102,37 @@
 .identityLead h4 { margin-top: .35rem; font-family: "Cormorant Garamond", serif; font-size: clamp(1.6rem, 3vw, 2.4rem); line-height: .95; }
 .identityLead div > p:last-child { margin-top: .5rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .78rem; letter-spacing: .06em; }
 
+.photoControl {
+  display: grid;
+  gap: .38rem;
+  margin-top: .85rem;
+  padding: .72rem;
+  border: 1px solid var(--passport-line);
+  background: rgba(255, 255, 255, .28);
+}
+.photoControl label {
+  position: relative;
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: .42rem;
+  padding: .48rem .65rem;
+  color: #fff7e8;
+  background: var(--passport-burgundy);
+  border-radius: .28rem;
+  font-size: .65rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.photoControl label:focus-within { outline: 3px solid #a86e1c; outline-offset: 2px; }
+.photoControl label input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.photoControl svg { width: .9rem; height: .9rem; }
+.photoControl small, .photoControl p { font-size: .58rem; line-height: 1.45; }
+.photoControl p { color: #36523c; font-weight: 750; }
+.photoControl .photoError { color: #8b2f2c; }
+.spin { animation: passport-spin 1s linear infinite; }
+@keyframes passport-spin { to { transform: rotate(360deg); } }
+
 .identityGrid, .printedFields { margin-top: 1.15rem; border: 1px solid var(--passport-line); }
 .identityGrid > div, .printedFields > div { display: grid; grid-template-columns: 42% 1fr; min-height: 2.7rem; border-top: 1px solid var(--passport-line); }
 .identityGrid > div:first-child, .printedFields > div:first-child { border-top: 0; }
@@ -148,6 +179,28 @@
 .verifiedInk, .deniedInk { display: flex; align-items: center; gap: .25rem; font-weight: 800; }
 .verifiedInk { color: #3e694a; }
 .deniedInk { color: #8c423a; }
+
+.historyControls {
+  display: grid;
+  gap: .5rem;
+  margin-top: .75rem;
+  padding-top: .65rem;
+  border-top: 1px solid var(--passport-line);
+}
+.historyControls p, .historyControls span { color: #655748; font-size: .6rem; font-weight: 750; }
+.historyControls > div { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+.historyControls button {
+  padding: .42rem .58rem;
+  color: #fff;
+  background: var(--passport-burgundy);
+  border: 0;
+  border-radius: .25rem;
+  font-size: .6rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.historyControls button:disabled { opacity: .45; cursor: not-allowed; }
+.historyControls button:focus-visible { outline: 3px solid #a86e1c; outline-offset: 2px; }
 
 .latestRank { padding: 1.2rem; text-align: center; border: 1px solid var(--passport-line); background: rgba(255, 255, 255, .23); }
 .latestRank h4 { margin-top: .5rem; font-size: 2rem; }
@@ -341,8 +394,13 @@
     white-space: normal;
   }
   .coverStrip { align-items: flex-start; flex-direction: column; }
-  .tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .tabs button { min-height: 3.25rem; }
+  .tabs {
+    display: flex;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: inline mandatory;
+  }
+  .tabs button { min-width: 9.5rem; min-height: 3.25rem; flex: 0 0 9.5rem; scroll-snap-align: start; }
   .identityLead { grid-template-columns: 5.5rem 1fr; }
   .identityLead > img, .avatarFallback { width: 5.5rem; height: 7rem; }
   .identityGrid > div, .printedFields > div { grid-template-columns: 1fr; }

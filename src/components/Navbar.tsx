@@ -72,7 +72,6 @@ const dropdownNavItems: DropdownNavItem[] = [
     labelKey: "nav.community",
     to: "/community",
     dropdown: [
-      { labelKey: "nav.upcomingEvents", to: "/community#upcoming-events" },
       { labelKey: "nav.pastEvents", to: "/community#past-events" },
       { labelKey: "nav.peaceCultureFoundation", to: "/community#peace-culture" },
       { labelKey: "nav.chiangMaiCmu", to: "/community#cmu-aikido" },
@@ -87,6 +86,7 @@ const supportNavItem: DropdownNavItem = {
   dropdown: [
     { labelKey: "nav.monthlyContribution", to: "/support#monthly-contribution" },
     { labelKey: "nav.donations", to: "/support#donations" },
+    { labelKey: "nav.downloads", to: "/downloads" },
   ],
 };
 

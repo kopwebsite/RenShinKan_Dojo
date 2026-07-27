@@ -36,27 +36,47 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const paymentType = ["exam", "aat_annual", "renshinkan_monthly"].includes(String(url.searchParams.get("paymentType"))) ? String(url.searchParams.get("paymentType")) : "";
   const conditions = ["p.object_key IS NOT NULL", "p.submitted_at IS NOT NULL"];
   const bindings: unknown[] = [];
-  if (!isRenShinKanSuperAdmin(session)) { conditions.push("s.dojo_id = ?", "p.payment_type <> 'renshinkan_monthly'"); bindings.push(session.selectedDojoId || "__none__"); }
+  if (!isRenShinKanSuperAdmin(session)) {
+    const dojoId = session.selectedDojoId || "__none__";
+    conditions.push(
+      "s.dojo_id = ?",
+      "p.payment_type <> 'renshinkan_monthly'",
+      `(p.payment_type <> 'aat_annual' OR NOT EXISTS (
+        SELECT 1 FROM payment_request_items scoped_item
+        WHERE scoped_item.payment_request_id = p.payment_reference_id AND scoped_item.dojo_id <> ?
+      ))`,
+    );
+    bindings.push(dojoId, dojoId);
+  }
   if (status) { conditions.push("p.status = ?"); bindings.push(status); }
   if (paymentType) { conditions.push("p.payment_type = ?"); bindings.push(paymentType); }
   if (query) {
     const term = `%${escapeLike(query)}%`;
     conditions.push(`(s.display_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR s.public_student_id LIKE ? ESCAPE '\\' COLLATE NOCASE
       OR EXISTS (SELECT 1 FROM monthly_contributions mc WHERE mc.payment_group_id = p.payment_reference_id
-        AND (mc.student_name_snapshot LIKE ? ESCAPE '\\' COLLATE NOCASE OR mc.student_public_id_snapshot LIKE ? ESCAPE '\\' COLLATE NOCASE)))`);
-    bindings.push(term, term, term, term);
+        AND (mc.student_name_snapshot LIKE ? ESCAPE '\\' COLLATE NOCASE OR mc.student_public_id_snapshot LIKE ? ESCAPE '\\' COLLATE NOCASE))
+      OR EXISTS (SELECT 1 FROM payment_request_items pri JOIN students ps ON ps.id = pri.student_id
+        WHERE pri.payment_request_id = p.payment_reference_id
+        AND (ps.display_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR ps.public_student_id LIKE ? ESCAPE '\\' COLLATE NOCASE)))`);
+    bindings.push(term, term, term, term, term, term);
   }
   const where = conditions.join(" AND ");
-  const scope = isRenShinKanSuperAdmin(session) ? "" : "AND s.dojo_id = ? AND p.payment_type <> 'renshinkan_monthly'";
-  const scopeBindings = isRenShinKanSuperAdmin(session) ? [] : [session.selectedDojoId || "__none__"];
+  const scope = isRenShinKanSuperAdmin(session) ? "" : `AND s.dojo_id = ? AND p.payment_type <> 'renshinkan_monthly'
+    AND (p.payment_type <> 'aat_annual' OR NOT EXISTS (
+      SELECT 1 FROM payment_request_items scoped_item
+      WHERE scoped_item.payment_request_id = p.payment_reference_id AND scoped_item.dojo_id <> ?
+    ))`;
+  const scopeBindings = isRenShinKanSuperAdmin(session) ? [] : [session.selectedDojoId || "__none__", session.selectedDojoId || "__none__"];
   const [countResult, rowResult, summaryResult] = await db.batch([
     db.prepare(`SELECT COUNT(*) AS total FROM payment_proofs p JOIN students s ON s.id = p.student_id WHERE ${where}`).bind(...bindings),
     db.prepare(`SELECT p.id, p.student_id, p.dojo_id, p.payment_type, p.payment_reference_id, p.status,
         p.submitted_at, p.reviewed_at, p.reviewed_by, p.student_visible_note, p.internal_admin_note,
         p.content_type, p.original_filename,
         s.display_name AS student_name, s.public_student_id, s.profile_image_url, d.official_name AS dojo_name,
-        CASE WHEN p.payment_type = 'renshinkan_monthly' THEN MAX(1, (SELECT COUNT(*) FROM monthly_contributions mc WHERE mc.payment_group_id = p.payment_reference_id)) ELSE 1 END AS covered_student_count,
-        CASE WHEN p.payment_type = 'renshinkan_monthly' THEN COALESCE((SELECT GROUP_CONCAT(mc.student_name_snapshot || ' (' || mc.student_public_id_snapshot || ')', ', ')
+        CASE WHEN p.payment_type IN ('renshinkan_monthly', 'aat_annual') THEN MAX(1, (SELECT COUNT(*) FROM payment_request_items pri WHERE pri.payment_request_id = p.payment_reference_id)) ELSE 1 END AS covered_student_count,
+        CASE WHEN p.payment_type = 'aat_annual' THEN COALESCE((SELECT GROUP_CONCAT(ps.display_name || ' (' || ps.public_student_id || ')', ', ')
+          FROM payment_request_items pri JOIN students ps ON ps.id = pri.student_id WHERE pri.payment_request_id = p.payment_reference_id), s.display_name || ' (' || s.public_student_id || ')')
+        WHEN p.payment_type = 'renshinkan_monthly' THEN COALESCE((SELECT GROUP_CONCAT(mc.student_name_snapshot || ' (' || mc.student_public_id_snapshot || ')', ', ')
           FROM monthly_contributions mc WHERE mc.payment_group_id = p.payment_reference_id), s.display_name || ' (' || s.public_student_id || ')')
           ELSE s.display_name || ' (' || s.public_student_id || ')' END AS covered_students
       FROM payment_proofs p JOIN students s ON s.id = p.student_id JOIN dojos d ON d.id = s.dojo_id
@@ -95,17 +115,23 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!action || !proofIds.length) return jsonResponse({ error: "Select at least one submitted payslip and choose approve or deny." }, 400);
     if (action === "deny" && !studentVisibleNote) return jsonResponse({ error: "Add a short explanation that the student can see." }, 400);
     const placeholders = proofIds.map(() => "?").join(",");
-    const scope = isRenShinKanSuperAdmin(session) ? "" : "AND s.dojo_id = ? AND p.payment_type <> 'renshinkan_monthly'";
+    const scope = isRenShinKanSuperAdmin(session) ? "" : `AND s.dojo_id = ? AND p.payment_type <> 'renshinkan_monthly'
+      AND (p.payment_type <> 'aat_annual' OR NOT EXISTS (
+        SELECT 1 FROM payment_request_items scoped_item
+        WHERE scoped_item.payment_request_id = p.payment_reference_id AND scoped_item.dojo_id <> ?
+      ))`;
     const rows = (await db.prepare(`SELECT p.id, p.student_id, p.dojo_id, p.payment_type, p.payment_reference_id,
         p.status, p.submitted_at, p.student_visible_note, p.internal_admin_note,
         s.display_name AS student_name, s.public_student_id, d.official_name AS dojo_name,
-        CASE WHEN p.payment_type = 'renshinkan_monthly' THEN MAX(1, (SELECT COUNT(*) FROM monthly_contributions mc WHERE mc.payment_group_id = p.payment_reference_id)) ELSE 1 END AS covered_student_count,
-        CASE WHEN p.payment_type = 'renshinkan_monthly' THEN COALESCE((SELECT GROUP_CONCAT(mc.student_name_snapshot || ' (' || mc.student_public_id_snapshot || ')', ', ')
+        CASE WHEN p.payment_type IN ('renshinkan_monthly', 'aat_annual') THEN MAX(1, (SELECT COUNT(*) FROM payment_request_items pri WHERE pri.payment_request_id = p.payment_reference_id)) ELSE 1 END AS covered_student_count,
+        CASE WHEN p.payment_type = 'aat_annual' THEN COALESCE((SELECT GROUP_CONCAT(ps.display_name || ' (' || ps.public_student_id || ')', ', ')
+          FROM payment_request_items pri JOIN students ps ON ps.id = pri.student_id WHERE pri.payment_request_id = p.payment_reference_id), s.display_name || ' (' || s.public_student_id || ')')
+        WHEN p.payment_type = 'renshinkan_monthly' THEN COALESCE((SELECT GROUP_CONCAT(mc.student_name_snapshot || ' (' || mc.student_public_id_snapshot || ')', ', ')
           FROM monthly_contributions mc WHERE mc.payment_group_id = p.payment_reference_id), s.display_name || ' (' || s.public_student_id || ')')
           ELSE s.display_name || ' (' || s.public_student_id || ')' END AS covered_students
       FROM payment_proofs p JOIN students s ON s.id = p.student_id JOIN dojos d ON d.id = s.dojo_id
       WHERE p.id IN (${placeholders}) AND p.status = 'pending_review' AND p.object_key IS NOT NULL ${scope}`)
-      .bind(...proofIds, ...(isRenShinKanSuperAdmin(session) ? [] : [session.selectedDojoId || "__none__"]))
+      .bind(...proofIds, ...(isRenShinKanSuperAdmin(session) ? [] : [session.selectedDojoId || "__none__", session.selectedDojoId || "__none__"]))
       .all<ProofRow>()).results || [];
     if (rows.length !== proofIds.length) return jsonResponse({ error: "One or more selected payslips is unavailable, already reviewed, or outside your dojo." }, 409);
 
@@ -167,25 +193,76 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           );
         }
       } else if (action === "approve" && row.payment_type === "aat_annual") {
-        const target = await db.prepare(`SELECT p.status, p.amount, p.notes, s.aat_number, s.aat_last_paid_date, s.aat_notes
-          FROM payments p JOIN students s ON s.id = p.student_id WHERE p.id = ? AND p.student_id = ? AND p.payment_type = 'aat_annual' LIMIT 1`)
-          .bind(row.payment_reference_id, row.student_id)
-          .first<{ status: string; amount: number | null; notes: string; aat_number: string | null; aat_last_paid_date: string | null; aat_notes: string }>();
-        if (!target) throw new Error(`The AAT annual contribution for ${row.public_student_id} no longer exists.`);
+        const groupTargets = (await db.prepare(`SELECT pri.id AS item_id, pri.payment_request_id, pri.payment_reference_id,
+            pri.student_id, pri.dojo_id, pri.status AS item_status, p.status, p.amount, p.notes,
+            s.public_student_id, s.display_name
+          FROM payment_request_items pri
+          JOIN payments p ON p.id = pri.payment_reference_id AND p.payment_type = 'aat_annual'
+          JOIN students s ON s.id = pri.student_id
+          WHERE pri.payment_request_id = ? ORDER BY s.public_student_id`).bind(row.payment_reference_id)
+          .all<{
+            item_id: string; payment_request_id: string; payment_reference_id: string; student_id: string; dojo_id: string;
+            item_status: string; status: string; amount: number | null; notes: string;
+            public_student_id: string; display_name: string;
+          }>()).results || [];
+        const targets = groupTargets.length ? groupTargets : (await db.prepare(`SELECT '' AS item_id, '' AS payment_request_id,
+            p.id AS payment_reference_id, p.student_id, p.dojo_id, '' AS item_status, p.status, p.amount, p.notes,
+            s.public_student_id, s.display_name
+          FROM payments p JOIN students s ON s.id = p.student_id
+          WHERE p.id = ? AND p.student_id = ? AND p.payment_type = 'aat_annual' LIMIT 1`)
+          .bind(row.payment_reference_id, row.student_id).all<typeof groupTargets[number]>()).results || [];
+        if (!targets.length) throw new Error(`The AAT annual contribution for ${row.public_student_id} no longer exists.`);
         const renewalDueDate = addOneCalendarYear(paymentDate)!;
+        for (const target of targets) {
+          statements.push(
+            db.prepare(`UPDATE students SET aat_last_paid_date = CASE WHEN aat_last_paid_date IS NULL OR aat_last_paid_date < ? THEN ? ELSE aat_last_paid_date END,
+              aat_membership_verification_status = 'confirmed', updated_at = ? WHERE id = ?`)
+              .bind(paymentDate, paymentDate, now, target.student_id),
+            db.prepare(`INSERT OR IGNORE INTO aat_membership_payments
+              (id, student_id, dojo_id, payment_date, renewal_due_date, amount, currency, notes,
+               recorded_by, recorded_by_role, recorded_by_dojo_id, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, 'THB', ?, ?, ?, ?, ?)`)
+              .bind(target.payment_reference_id, target.student_id, target.dojo_id, paymentDate, renewalDueDate, target.amount,
+                internalNote || target.notes, session.adminName, isRenShinKanSuperAdmin(session) ? "central" : "dojo", session.selectedDojoId || target.dojo_id, now),
+            db.prepare("UPDATE payments SET payment_date = ?, status = 'paid', reference = ?, notes = ?, recorded_by = ?, updated_at = ? WHERE id = ?")
+              .bind(paymentDate, `Payslip ${row.id}`, internalNote || target.notes, session.adminName, now, target.payment_reference_id),
+            db.prepare("INSERT INTO payment_history (id, payment_id, previous_status, new_status, changed_by, notes, created_at) VALUES (?, ?, ?, 'paid', ?, ?, ?)")
+              .bind(crypto.randomUUID(), target.payment_reference_id, target.status, session.adminName, internalNote || "Shared payslip approved", now),
+            auditStatement(db, {
+              actorType: "administrator", ...adminAuditMetadata(session, request), action: "aat_contribution_approved",
+              entityType: "payment", entityId: target.payment_reference_id, studentId: target.student_id,
+              studentPublicId: target.public_student_id, studentNameSnapshot: target.display_name,
+              previousValues: { status: target.status },
+              newValues: { status: "paid", amount: target.amount, paymentDate, renewalDueDate, paymentRequestId: target.payment_request_id || null },
+              source: "admin_payment_proofs", bulkOperationId, requestId, administratorNote: internalNote || null,
+              summary: `Approved AAT annual contribution for ${target.public_student_id}`, createdAt: now,
+            }),
+          );
+          if (target.item_id) statements.push(
+            db.prepare("UPDATE payment_request_items SET status = 'paid', next_due_date = ?, updated_at = ? WHERE id = ?")
+              .bind(renewalDueDate, now, target.item_id),
+          );
+        }
+        if (groupTargets.length) statements.push(
+          db.prepare("UPDATE payment_requests SET status = 'approved', updated_at = ? WHERE id = ?")
+            .bind(now, row.payment_reference_id),
+        );
+      }
+
+      if (action === "deny" && (row.payment_type === "aat_annual" || row.payment_type === "renshinkan_monthly")) {
         statements.push(
-          db.prepare(`UPDATE students SET aat_last_paid_date = CASE WHEN aat_last_paid_date IS NULL OR aat_last_paid_date < ? THEN ? ELSE aat_last_paid_date END,
-            updated_at = ? WHERE id = ?`).bind(paymentDate, paymentDate, now, row.student_id),
-          db.prepare(`INSERT OR IGNORE INTO aat_membership_payments
-            (id, student_id, dojo_id, payment_date, renewal_due_date, amount, currency, notes,
-             recorded_by, recorded_by_role, recorded_by_dojo_id, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, 'THB', ?, ?, ?, ?, ?)`)
-            .bind(row.payment_reference_id, row.student_id, row.dojo_id, paymentDate, renewalDueDate, target.amount,
-              internalNote || target.notes, session.adminName, isRenShinKanSuperAdmin(session) ? "central" : "dojo", session.selectedDojoId || row.dojo_id, now),
-          db.prepare("UPDATE payments SET payment_date = ?, status = 'paid', reference = ?, notes = ?, recorded_by = ?, updated_at = ? WHERE id = ?")
-            .bind(paymentDate, `Payslip ${row.id}`, internalNote || target.notes, session.adminName, now, row.payment_reference_id),
-          db.prepare("INSERT INTO payment_history (id, payment_id, previous_status, new_status, changed_by, notes, created_at) VALUES (?, ?, ?, 'paid', ?, ?, ?)")
-            .bind(crypto.randomUUID(), row.payment_reference_id, target.status, session.adminName, internalNote || "Payslip approved", now),
+          db.prepare("UPDATE payment_requests SET status = 'denied', updated_at = ? WHERE id = ?")
+            .bind(now, row.payment_reference_id),
+          db.prepare("UPDATE payment_request_items SET status = 'denied', updated_at = ? WHERE payment_request_id = ? AND status <> 'paid'")
+            .bind(now, row.payment_reference_id),
+        );
+      }
+      if (action === "approve" && row.payment_type === "renshinkan_monthly") {
+        statements.push(
+          db.prepare("UPDATE payment_requests SET status = 'approved', updated_at = ? WHERE id = ?")
+            .bind(now, row.payment_reference_id),
+          db.prepare("UPDATE payment_request_items SET status = 'paid', updated_at = ? WHERE payment_request_id = ?")
+            .bind(now, row.payment_reference_id),
         );
       }
 

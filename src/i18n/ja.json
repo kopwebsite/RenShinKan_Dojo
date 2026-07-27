@@ -95,7 +95,6 @@
     "historyOfAikido": "合気道の歴史",
     "oSensei": "ああ先生",
     "community": "コミュニティ",
-    "upcomingEvents": "今後のイベント",
     "pastEvents": "過去のイベント",
     "peaceCultureFoundation": "Peace Culture Foundation",
     "chiangMaiCmu": "Chiang Mai CMU",
@@ -105,7 +104,8 @@
     "donations": "寄付",
     "newsletter": "ニュースレター",
     "contact": "お問い合わせ",
-    "studentRecords": "稽古記録"
+    "studentRecords": "稽古記録",
+    "downloads": "ダウンロード"
   },
   "footer": {
     "tagline": "Chiang Mai の Hang Dong で合気道と武道のトレーニング。",
@@ -417,14 +417,6 @@
     }
   },
   "community": {
-    "events": {
-      "eyebrow": "今後のイベント",
-      "title": "コミュニティカレンダー。",
-      "copy": "セミナー、オープンマットデー、ボランティア活動、道場集会などの日程が決まり次第、こちらに掲載いたします。",
-      "emptyTitle": "今のところカレンダーには何もありません。",
-      "emptyCopy": "現在予定されているイベントはありません。今のところマットは静かです。すぐにもう一度チェックしてください。セミナー、オープンマットデー、または集会が確認され次第、ここに表示されます。",
-      "emptyCta": "最近の道場の更新を見る"
-    },
     "past": {
       "eyebrow": "過去のイベント",
       "title": "私たちの歴史を振り返る",
@@ -1426,9 +1418,9 @@
     "goTo": "写真{{number}}へ移動"
   },
   "date": {
-    "gregorianHelp": "日付はグレゴリオ暦を使用し、DD/MM/YYYY 形式で入力してください。仏暦から換算する場合は 543 を引きます。例：2569 − 543 = 2026。",
-    "monthHelp": "年月はグレゴリオ暦を使用し、MM/YYYY 形式で入力してください。仏暦から換算する場合は 543 を引きます。例：2569 − 543 = 2026。",
-    "dateTimeHelp": "日時はグレゴリオ暦を使用し、DD/MM/YYYY HH:mm 形式で入力してください。仏暦から換算する場合は 543 を引きます。例：2569 − 543 = 2026。",
+    "gregorianHelp": "DD/MM/YYYY（グレゴリオ暦）",
+    "monthHelp": "MM/YYYY（グレゴリオ暦）",
+    "dateTimeHelp": "DD/MM/YYYY HH:mm（グレゴリオ暦）",
     "invalid": "DD/MM/YYYY 形式で実在する日付を入力してください。",
     "invalidMonth": "MM/YYYY 形式で実在する年月を入力してください。",
     "invalidDateTime": "DD/MM/YYYY HH:mm 形式で実在する日時を入力してください。"

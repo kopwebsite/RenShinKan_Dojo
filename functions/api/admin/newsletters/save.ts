@@ -86,6 +86,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const now = new Date().toISOString();
     rawEvent.updatedAt = now;
     rawEvent.createdAt = typeof rawEvent.createdAt === "string" && rawEvent.createdAt ? rawEvent.createdAt : now;
+    rawEvent.showInCommunityCalendar = false;
+    rawEvent.calendar = { status: "not_added", publishedAt: null, error: null };
     if (rawEvent.published === true && previous?.published !== true) rawEvent.publishedAt = now;
 
     const previousSlug = previous?.slug || "";
@@ -109,11 +111,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     next = {
       ...next,
       version: 3,
-      lastPublishedAt:
-        previous?.published !== event.published ||
-        previous?.showInCommunityCalendar !== event.showInCommunityCalendar
-          ? now
-          : current.lastPublishedAt,
+      lastPublishedAt: previous?.published !== event.published ? now : current.lastPublishedAt,
       recentEvents: next.recentEvents.map((item) => item.id === id ? event : item),
     };
 

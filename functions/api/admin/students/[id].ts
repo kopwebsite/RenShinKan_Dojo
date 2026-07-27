@@ -74,7 +74,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
       COALESCE(examination_timestamp, created_at) AS examination_timestamp,
       bulk_operation_id, created_at FROM belt_examinations WHERE student_id = ?
       ORDER BY COALESCE(examination_timestamp, created_at) DESC, examination_date DESC`).bind(id),
-    db.prepare("SELECT id, entry_date, period_end, verified_hours, source, internal_note, training_location, created_at FROM training_hours WHERE student_id = ? ORDER BY created_at DESC").bind(id),
+    db.prepare(`SELECT id, entry_date, period_end, verified_hours, source, internal_note, training_location,
+      source_type, organization, source_details, notes, hours_quarters, created_at
+      FROM training_hours WHERE student_id = ? ORDER BY COALESCE(entry_date, created_at) DESC, created_at DESC, id ASC`).bind(id),
     db.prepare(`SELECT ea.*, ec.name AS cycle_name,
       (SELECT json_group_array(json_object('id', h.id, 'previousStatus', h.previous_status, 'newStatus', h.new_status,
         'previousPaymentStatus', h.previous_payment_status, 'newPaymentStatus', h.new_payment_status,

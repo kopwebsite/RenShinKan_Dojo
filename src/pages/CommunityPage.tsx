@@ -7,8 +7,6 @@ import {
   ShieldCheck,
   UsersRound,
 } from "lucide-react";
-import { useMemo } from "react";
-import { Link } from "react-router-dom";
 import { MotionSection } from "../components/MotionSection";
 import { HistoricalTimelineGallery } from "../components/PublicGalleries";
 import { ResponsiveImage } from "../components/ResponsiveImage";
@@ -18,7 +16,7 @@ import {
   peaceCultureFoundation,
 } from "../data/siteContent";
 import { useTranslation } from "../i18n";
-import { getCommunityCalendarEvents, useEditableContent } from "../lib/content";
+import { useEditableContent } from "../lib/content";
 import {
   cmuPhotoKeys,
   pcfPhotoKeys,
@@ -40,59 +38,9 @@ export function CommunityPage() {
     t("data.community.cmu.links.logo"),
   ];
   const [cmuHeroPhoto, ...cmuGalleryPhotos] = localizedCmuPhotos;
-  const communityCalendarEvents = useMemo(() => getCommunityCalendarEvents(content), [content]);
-  const upcomingEvents = communityCalendarEvents.map((event) => ({
-    title: event.title,
-    date: event.date,
-    description: event.summary || event.body,
-    href: event.published && event.slug ? `/newsletter/${event.slug}` : "/contact",
-  }));
 
   return (
     <>
-      {/* Upcoming Events */}
-      <MotionSection id="upcoming-events" className="container-shell community-opening scroll-mt-28">
-        <div className="section-masthead section-masthead--wide">
-          <p className="eyebrow">{t("community.events.eyebrow")}</p>
-          <h1 className="section-title">{t("community.events.title")}</h1>
-          <p className="section-copy">
-            {t("community.events.copy")}
-          </p>
-        </div>
-        {upcomingEvents.length > 0 ? (
-          <ol className="event-ledger">
-            {upcomingEvents.map((event, i) => (
-              <li
-                key={event.title}
-                className="event-ledger__entry"
-              >
-                <span className="event-ledger__number" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
-                <div className="event-ledger__icon">
-                  <CalendarDays size={24} aria-hidden="true" />
-                </div>
-                <time>{event.date}</time>
-                <div className="event-ledger__copy">
-                  <h3><Link to={event.href}>{event.title}</Link></h3>
-                  <p>{event.description}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <div className="event-ledger event-ledger--empty">
-            <div className="event-ledger__icon">
-              <CalendarDays size={30} aria-hidden="true" />
-            </div>
-            <h3>{t("community.events.emptyTitle")}</h3>
-            <p>{t("community.events.emptyCopy")}</p>
-            <Link to="/newsletter#recent-events" className="text-link">
-              {t("community.events.emptyCta")}
-              <ArrowUpRight size={16} aria-hidden="true" />
-            </Link>
-          </div>
-        )}
-      </MotionSection>
-
       {/* Past Events */}
       <MotionSection id="past-events" className="container-shell community-past scroll-mt-28">
         <div className="section-masthead">

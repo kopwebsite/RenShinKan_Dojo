@@ -1,4 +1,5 @@
-import { useEffect, useId, useState, type InputHTMLAttributes } from "react";
+import { CalendarDays } from "lucide-react";
+import { useEffect, useId, useRef, useState, type InputHTMLAttributes } from "react";
 import {
   canonicalDateTimeToDisplay,
   canonicalDateToDisplay,
@@ -37,26 +38,35 @@ export function GregorianDateInput({ value, onChange, admin = false, "aria-descr
   const errorId = useId();
   const [draft, setDraft] = useDraft(value, canonicalDateToDisplay);
   const invalid = Boolean(draft && !displayDateToCanonical(draft));
+  const pickerRef = useRef<HTMLInputElement>(null);
 
   return <>
-    <input
-      {...props}
-      type="text"
-      inputMode="numeric"
-      autoComplete={props.autoComplete || "off"}
-      placeholder="DD/MM/YYYY"
-      pattern="\d{2}/\d{2}/\d{4}"
-      value={draft}
-      aria-invalid={invalid || undefined}
-      aria-describedby={describedBy(ariaDescribedBy, helperId, errorId, invalid)}
-      onChange={(event) => {
-        const next = event.target.value.replace(/[^\d/]/g, "").slice(0, 10);
-        setDraft(next);
-        if (!next) onChange("");
-        const canonical = displayDateToCanonical(next);
-        if (canonical) onChange(canonical);
-      }}
-    />
+    <span className="gregorian-date-control">
+      <input
+        {...props}
+        type="text"
+        inputMode="numeric"
+        autoComplete={props.autoComplete || "off"}
+        placeholder="DD/MM/YYYY"
+        pattern="\d{2}/\d{2}/\d{4}"
+        value={draft}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy(ariaDescribedBy, helperId, errorId, invalid)}
+        onChange={(event) => {
+          const next = event.target.value.replace(/[^\d/]/g, "").slice(0, 10);
+          setDraft(next);
+          if (!next) onChange("");
+          const canonical = displayDateToCanonical(next);
+          if (canonical) onChange(canonical);
+        }}
+      />
+      <button type="button" aria-label="Open calendar" onClick={() => {
+        const picker = pickerRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
+        if (picker?.showPicker) picker.showPicker(); else picker?.click();
+      }}><CalendarDays aria-hidden="true" /></button>
+      <input ref={pickerRef} className="gregorian-native-picker" type="date" value={value} tabIndex={-1} aria-hidden="true"
+        onChange={(event) => onChange(event.target.value)} />
+    </span>
     <small id={helperId} className="gregorian-date-help">{t("date.gregorianHelp")}</small>
     {invalid ? <small id={errorId} className="form-error gregorian-date-error">{t("date.invalid")}</small> : null}
   </>;
@@ -68,26 +78,35 @@ export function GregorianMonthInput({ value, onChange, admin = false, "aria-desc
   const errorId = useId();
   const [draft, setDraft] = useDraft(value, (next) => formatGregorianMonth(next, ""));
   const invalid = Boolean(draft && !displayMonthToCanonical(draft));
+  const pickerRef = useRef<HTMLInputElement>(null);
 
   return <>
-    <input
-      {...props}
-      type="text"
-      inputMode="numeric"
-      autoComplete={props.autoComplete || "off"}
-      placeholder="MM/YYYY"
-      pattern="\d{2}/\d{4}"
-      value={draft}
-      aria-invalid={invalid || undefined}
-      aria-describedby={describedBy(ariaDescribedBy, helperId, errorId, invalid)}
-      onChange={(event) => {
-        const next = event.target.value.replace(/[^\d/]/g, "").slice(0, 7);
-        setDraft(next);
-        if (!next) onChange("");
-        const canonical = displayMonthToCanonical(next);
-        if (canonical) onChange(canonical);
-      }}
-    />
+    <span className="gregorian-date-control">
+      <input
+        {...props}
+        type="text"
+        inputMode="numeric"
+        autoComplete={props.autoComplete || "off"}
+        placeholder="MM/YYYY"
+        pattern="\d{2}/\d{4}"
+        value={draft}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy(ariaDescribedBy, helperId, errorId, invalid)}
+        onChange={(event) => {
+          const next = event.target.value.replace(/[^\d/]/g, "").slice(0, 7);
+          setDraft(next);
+          if (!next) onChange("");
+          const canonical = displayMonthToCanonical(next);
+          if (canonical) onChange(canonical);
+        }}
+      />
+      <button type="button" aria-label="Open month picker" onClick={() => {
+        const picker = pickerRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
+        if (picker?.showPicker) picker.showPicker(); else picker?.click();
+      }}><CalendarDays aria-hidden="true" /></button>
+      <input ref={pickerRef} className="gregorian-native-picker" type="month" value={value} tabIndex={-1} aria-hidden="true"
+        onChange={(event) => onChange(event.target.value)} />
+    </span>
     <small id={helperId} className="gregorian-date-help">{t("date.monthHelp")}</small>
     {invalid ? <small id={errorId} className="form-error gregorian-date-error">{t("date.invalidMonth")}</small> : null}
   </>;
@@ -99,26 +118,35 @@ export function GregorianDateTimeInput({ value, onChange, admin = false, "aria-d
   const errorId = useId();
   const [draft, setDraft] = useDraft(value, canonicalDateTimeToDisplay);
   const invalid = Boolean(draft && !displayDateTimeToCanonical(draft));
+  const pickerRef = useRef<HTMLInputElement>(null);
 
   return <>
-    <input
-      {...props}
-      type="text"
-      inputMode="numeric"
-      autoComplete={props.autoComplete || "off"}
-      placeholder="DD/MM/YYYY HH:mm"
-      pattern="\d{2}/\d{2}/\d{4} \d{2}:\d{2}"
-      value={draft}
-      aria-invalid={invalid || undefined}
-      aria-describedby={describedBy(ariaDescribedBy, helperId, errorId, invalid)}
-      onChange={(event) => {
-        const next = event.target.value.replace(/[^\d/ :]/g, "").slice(0, 16);
-        setDraft(next);
-        if (!next) onChange("");
-        const canonical = displayDateTimeToCanonical(next);
-        if (canonical) onChange(canonical);
-      }}
-    />
+    <span className="gregorian-date-control">
+      <input
+        {...props}
+        type="text"
+        inputMode="numeric"
+        autoComplete={props.autoComplete || "off"}
+        placeholder="DD/MM/YYYY HH:mm"
+        pattern="\d{2}/\d{2}/\d{4} \d{2}:\d{2}"
+        value={draft}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy(ariaDescribedBy, helperId, errorId, invalid)}
+        onChange={(event) => {
+          const next = event.target.value.replace(/[^\d/ :]/g, "").slice(0, 16);
+          setDraft(next);
+          if (!next) onChange("");
+          const canonical = displayDateTimeToCanonical(next);
+          if (canonical) onChange(canonical);
+        }}
+      />
+      <button type="button" aria-label="Open date and time picker" onClick={() => {
+        const picker = pickerRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
+        if (picker?.showPicker) picker.showPicker(); else picker?.click();
+      }}><CalendarDays aria-hidden="true" /></button>
+      <input ref={pickerRef} className="gregorian-native-picker" type="datetime-local" value={value} tabIndex={-1} aria-hidden="true"
+        onChange={(event) => onChange(event.target.value)} />
+    </span>
     <small id={helperId} className="gregorian-date-help">{t("date.dateTimeHelp")}</small>
     {invalid ? <small id={errorId} className="form-error gregorian-date-error">{t("date.invalidDateTime")}</small> : null}
   </>;

@@ -2,15 +2,16 @@ import { useEffect, useId, useMemo, useRef, useState, type ComponentType, type R
 import {
   BadgeCheck,
   BookOpen,
+  Camera,
   CalendarDays,
   CheckCircle2,
-  ChevronRight,
   CircleX,
   Clock3,
   ExternalLink,
   FileClock,
   GraduationCap,
   History,
+  LoaderCircle,
   ReceiptText,
   ShieldCheck,
   UserRound,
@@ -30,6 +31,7 @@ import { PaymentProofUpload } from "../PaymentProofUpload";
 import { formatGregorianDate, formatGregorianMonth } from "../../../shared/date";
 import styles from "./DigitalPassport.module.css";
 import { useScopedRecordTranslations } from "../../i18n/scopedRecords";
+import { prepareProfilePhoto } from "../../utils/profilePhoto";
 
 type PassportTab = "identity" | "training" | "examinations" | "contributions" | "requests";
 type TabDefinition = { id: PassportTab; label: string; Icon: ComponentType<{ size?: number; "aria-hidden"?: boolean }> };
@@ -68,6 +70,10 @@ function sourceLabel(value: string) {
   return labels[value] || value.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function trainingDetails(entry: StudentPassportRecord["trainingEntries"][number]) {
+  return entry.organization || entry.sourceDetails || entry.location || (entry.sourceType ? sourceLabel(entry.sourceType) : sourceLabel(entry.source));
+}
+
 function rankLabel(exam: PublicExamination) {
   return exam.rank_after || exam.rank_attempted || exam.belt_awarded || exam.rank || "Rank recorded";
 }
@@ -97,7 +103,54 @@ function VerificationSeal() {
   </div>;
 }
 
-function IdentityPage({ record, owner }: { record: PublicStudentRecord | StudentPassportRecord; owner: StudentPassportRecord | null }) {
+function OwnerPhotoControl({ record, onRecordChange }: {
+  record: StudentPassportRecord;
+  onRecordChange?: (record: StudentPassportRecord) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  async function choose(file?: File) {
+    if (!file || !record.studentAccessToken) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const prepared = await prepareProfilePhoto(file);
+      const data = new FormData();
+      data.set("studentId", record.studentId);
+      data.set("accessToken", record.studentAccessToken);
+      data.set("file", prepared);
+      const response = await fetch("/api/records/profile-photo", {
+        method: "POST", body: data, headers: { "X-Request-ID": crypto.randomUUID() },
+      });
+      const body = await response.json() as { profileImage?: string; error?: string };
+      if (!response.ok || !body.profileImage) throw new Error(body.error || "The profile photo could not be changed.");
+      onRecordChange?.({ ...record, profileImage: body.profileImage });
+      setNotice("Profile photo updated. Look up your record again before submitting another change.");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "The profile photo could not be changed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <div className={styles.photoControl}>
+    <label>
+      {busy ? <LoaderCircle className={styles.spin} aria-hidden="true" /> : <Camera aria-hidden="true" />}
+      <span>{busy ? "Preparing photo…" : "Change profile photo"}</span>
+      <input type="file" accept="image/*" disabled={busy} onChange={(event) => void choose(event.target.files?.[0])} />
+    </label>
+    <small>JPEG, PNG, WebP, HEIC, or HEIF. The image is cropped and optimized before upload.</small>
+    {notice ? <p role="status">{notice}</p> : null}
+    {error ? <p role="alert" className={styles.photoError}>{error}</p> : null}
+  </div>;
+}
+
+function IdentityPage({ record, owner, onRecordChange }: {
+  record: PublicStudentRecord | StudentPassportRecord;
+  owner: StudentPassportRecord | null;
+  onRecordChange?: (record: StudentPassportRecord) => void;
+}) {
   const fallback = owner?.dojoLogo;
   return <div className={styles.spread}>
     <PassportPage folio="01" eyebrow="会員証 / MEMBER RECORD" title="Identity Record">
@@ -115,6 +168,7 @@ function IdentityPage({ record, owner }: { record: PublicStudentRecord | Student
         <div><dt>RECORD STATUS</dt><dd><ShieldCheck aria-hidden="true" /> Approved</dd></div>
         <div><dt>VERIFIED HOURS</dt><dd>{record.totalVerifiedTrainingHours} hours</dd></div>
       </dl>
+      {owner?.studentAccessToken ? <OwnerPhotoControl record={owner} onRecordChange={onRecordChange} /> : null}
     </PassportPage>
     <PassportPage folio="02" eyebrow="REGISTRATION / 登録" title="Official Details">
       <dl className={styles.printedFields}>
@@ -131,32 +185,54 @@ function IdentityPage({ record, owner }: { record: PublicStudentRecord | Student
 }
 
 function TrainingPage({ record, owner }: { record: PublicStudentRecord | StudentPassportRecord; owner: StudentPassportRecord | null }) {
-  const entries = owner?.trainingEntries || [];
+  const entries = useMemo(() => [...(owner?.trainingEntries || [])]
+    .sort((left, right) => right.entryDate.localeCompare(left.entryDate) || left.id.localeCompare(right.id)), [owner?.trainingEntries]);
+  const [fullHistory, setFullHistory] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+  const pageCount = Math.max(1, Math.ceil(entries.length / pageSize));
+  const visibleEntries = fullHistory ? entries.slice((page - 1) * pageSize, page * pageSize) : entries.slice(0, 5);
   return <div className={styles.spread}>
     <PassportPage folio="03" eyebrow="稽古記録 / TRAINING" title="Verified Training">
       <div className={styles.hoursHero}><Clock3 aria-hidden="true" /><strong>{record.totalVerifiedTrainingHours}</strong><span>verified hours</span></div>
       <div className={styles.officialNote}><CheckCircle2 aria-hidden="true" /><p>Only hours approved by an authorized dojo administrator are included in this total.</p></div>
       {owner?.practiceDuration ? <dl className={styles.printedFields}><div><dt>PRACTICE DURATION</dt><dd>{owner.practiceDuration}</dd></div></dl> : null}
     </PassportPage>
-    <PassportPage folio="04" eyebrow="LEDGER / 台帳" title="Recent Entries">
+    <PassportPage folio="04" eyebrow="LEDGER / 台帳" title={fullHistory ? "Full Training History" : "Recent Entries"}>
       {entries.length ? <div className={styles.ledger} role="table" aria-label="Verified training entries">
         <div className={styles.ledgerHead} role="row"><span role="columnheader">Date</span><span role="columnheader">Hours</span><span role="columnheader">Details</span><span role="columnheader">Status</span></div>
-        {entries.map((entry) => <div className={styles.ledgerRow} role="row" key={entry.id}>
+        {visibleEntries.map((entry) => <div className={styles.ledgerRow} role="row" key={entry.id}>
           <time role="cell">{date(entry.entryDate)}</time><strong role="cell">{entry.hours} hr</strong>
-          <span role="cell">{entry.location || sourceLabel(entry.source)}</span><span role="cell" className={styles.verifiedInk}><CheckCircle2 aria-hidden="true" /> Verified</span>
+          <span role="cell">{trainingDetails(entry)}</span><span role="cell" className={styles.verifiedInk}><CheckCircle2 aria-hidden="true" /> Verified</span>
         </div>)}
       </div> : <EmptyState Icon={Clock3}
         title={owner ? "No individual entries yet" : "Verified total only"}
         copy={owner
           ? "The verified total is still official. Detailed entries will appear here when the dojo records them."
           : "This shared profile shows the approved total without private entry details."} />}
+      {entries.length > 5 ? <div className={styles.historyControls}>
+        <p>{fullHistory ? `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, entries.length)} of ${entries.length}` : `Showing 5 most recent of ${entries.length}`}</p>
+        {fullHistory ? <div>
+          <button type="button" disabled={page === 1} onClick={() => setPage((value) => value - 1)}>Previous</button>
+          <span>Page {page} of {pageCount}</span>
+          <button type="button" disabled={page === pageCount} onClick={() => setPage((value) => value + 1)}>Next</button>
+          <button type="button" onClick={() => { setFullHistory(false); setPage(1); }}>Back to recent</button>
+        </div> : <button type="button" onClick={() => setFullHistory(true)}>View full training history</button>}
+      </div> : null}
     </PassportPage>
   </div>;
 }
 
 function ExaminationPage({ record }: { record: PublicStudentRecord }) {
-  const exams = useMemo(() => [...record.examinations].sort((left, right) => left.examination_date.localeCompare(right.examination_date)), [record.examinations]);
-  const latest = exams.at(-1);
+  const exams = useMemo(() => [...record.examinations].sort((left, right) =>
+    right.examination_date.localeCompare(left.examination_date)
+    || String(left.id || rankLabel(left)).localeCompare(String(right.id || rankLabel(right)))), [record.examinations]);
+  const [fullHistory, setFullHistory] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+  const pageCount = Math.max(1, Math.ceil(exams.length / pageSize));
+  const visibleExams = fullHistory ? exams.slice((page - 1) * pageSize, page * pageSize) : exams.slice(0, 5);
+  const latest = exams[0];
   const latestResult = latest ? examinationResult(latest) : null;
   return <div className={styles.spread}>
     <PassportPage folio="05" eyebrow="審査記録 / EXAMINATION" title="Rank Progression">
@@ -167,12 +243,12 @@ function ExaminationPage({ record }: { record: PublicStudentRecord }) {
       </div> : <EmptyState Icon={GraduationCap} title="No examinations recorded" copy="Approved examination results will appear in the official ledger." />}
       <p className={styles.archiveNote}>The ledger follows the student’s recorded progression and does not create missing ranks or dates.</p>
     </PassportPage>
-    <PassportPage folio="06" eyebrow="KYU / DAN LEDGER" title="Examination History">
+    <PassportPage folio="06" eyebrow="KYU / DAN LEDGER" title={fullHistory ? "Full Examination History" : "Recent Examination History"}>
       {exams.length ? <div className={`${styles.ledger} ${styles.examLedger}`} role="table" aria-label="Examination history">
         <div className={styles.ledgerHead} role="row"><span role="columnheader">Rank</span><span role="columnheader">Date</span><span role="columnheader">Examiner / place</span><span role="columnheader">Result</span></div>
-        {exams.map((exam, index) => {
+        {visibleExams.map((exam, index) => {
           const result = examinationResult(exam);
-          return <div className={styles.ledgerRow} role="row" key={`${exam.examination_date}-${rankLabel(exam)}-${index}`}>
+          return <div className={styles.ledgerRow} role="row" key={exam.id || `${exam.examination_date}-${rankLabel(exam)}-${index}`}>
             <strong role="cell"><BeltMark rank={rankLabel(exam)} legacyColor={exam.belt_color} /> {rankLabel(exam)}</strong>
             <time role="cell">{date(exam.examination_date)}</time>
             <span role="cell">{exam.examiner || exam.examination_location || "Not recorded"}</span>
@@ -181,6 +257,15 @@ function ExaminationPage({ record }: { record: PublicStudentRecord }) {
           </div>;
         })}
       </div> : <EmptyState Icon={GraduationCap} title="No examination history" copy="There are no approved examination entries on this record yet." />}
+      {exams.length > 5 ? <div className={styles.historyControls}>
+        <p>{fullHistory ? `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, exams.length)} of ${exams.length}` : `Showing 5 most recent of ${exams.length}`}</p>
+        {fullHistory ? <div>
+          <button type="button" disabled={page === 1} onClick={() => setPage((value) => value - 1)}>Previous</button>
+          <span>Page {page} of {pageCount}</span>
+          <button type="button" disabled={page === pageCount} onClick={() => setPage((value) => value + 1)}>Next</button>
+          <button type="button" onClick={() => { setFullHistory(false); setPage(1); }}>Back to recent</button>
+        </div> : <button type="button" onClick={() => setFullHistory(true)}>View full examination history</button>}
+      </div> : null}
     </PassportPage>
   </div>;
 }
@@ -338,34 +423,10 @@ function RequestsPage({ record, openContributions }: { record: StudentPassportRe
   </div>;
 }
 
-function StudentTaskList({
-  record,
-  openPage,
-}: {
-  record: StudentPassportRecord;
-  openPage: (page: PassportTab) => void;
+export function DigitalPassport({ record, onRecordChange }: {
+  record: PublicStudentRecord | StudentPassportRecord;
+  onRecordChange?: (record: StudentPassportRecord) => void;
 }) {
-  const { t } = useTranslation();
-  const pendingHours = record.requests.some((request) => request.type.includes("hour") && request.status === "pending");
-  const pendingExam = record.requests.some((request) => request.type.includes("exam") && request.status === "pending");
-  const pendingProfile = record.requests.some((request) => request.type.includes("profile") && request.status === "pending");
-  const monthlyNeedsAction = record.monthlyContributions?.some((entry) => entry.status !== "paid") ?? false;
-  const aatNeedsAction = record.aatSummary.state !== "verified" && record.aatSummary.state !== "up_to_date";
-  const rows = [
-    { label: t("studentTasks.viewLabel"), copy: t("studentTasks.viewCopy"), status: t("studentTasks.available"), action: () => openPage("identity") },
-    { label: t("studentTasks.hoursLabel"), copy: t("studentTasks.hoursCopy"), status: pendingHours ? t("studentTasks.underReview") : t("studentTasks.needsAction"), href: "#student-hours-form" },
-    { label: t("studentTasks.examLabel"), copy: t("studentTasks.examCopy"), status: pendingExam ? t("studentTasks.underReview") : t("studentTasks.notStarted"), href: "/student-records?task=exam" },
-    { label: t("studentTasks.monthlyLabel"), copy: t("studentTasks.monthlyCopy"), status: record.monthlyContributions === null ? t("studentTasks.notApplicable") : monthlyNeedsAction ? t("studentTasks.needsAction") : t("studentTasks.paid"), action: () => openPage("contributions") },
-    { label: t("studentTasks.aatLabel"), copy: t("studentTasks.aatCopy"), status: aatNeedsAction ? t("studentTasks.needsAction") : t("studentTasks.paid"), action: () => openPage("contributions") },
-    { label: t("studentTasks.updateLabel"), copy: t("studentTasks.updateCopy"), status: pendingProfile ? t("studentTasks.underReview") : t("studentTasks.optional"), href: "/student-records?task=profile" },
-  ];
-  return <section className={styles.taskList} aria-labelledby="student-task-list-title">
-    <header><div><p>{t("studentTasks.eyebrow")}</p><h3 id="student-task-list-title">{t("studentTasks.title")}</h3></div><span>{t("studentTasks.chooseOne")}</span></header>
-    <ul>{rows.map((row) => <li key={row.label}>{row.href ? <a href={row.href}><span><strong>{row.label}</strong><small>{row.copy}</small></span><span>{row.status}<ChevronRight aria-hidden="true" /></span></a> : <button type="button" onClick={row.action}><span><strong>{row.label}</strong><small>{row.copy}</small></span><span>{row.status}<ChevronRight aria-hidden="true" /></span></button>}</li>)}</ul>
-  </section>;
-}
-
-export function DigitalPassport({ record }: { record: PublicStudentRecord | StudentPassportRecord }) {
   const { language } = useTranslation();
   const translationScope = useRef<HTMLElement>(null);
   useScopedRecordTranslations(translationScope, language);
@@ -382,18 +443,22 @@ export function DigitalPassport({ record }: { record: PublicStudentRecord | Stud
   }
 
   return <article ref={translationScope} className={styles.passport} aria-label={`${record.displayName} digital student passport`}>
-    {owner ? <StudentTaskList record={owner} openPage={setActive} /> : null}
     <header className={styles.coverStrip}><div><span>REN SHIN KAN</span><strong>STUDENT PASSPORT</strong></div><p>Approved digital training record</p></header>
     <nav className={styles.tabs} role="tablist" aria-label="Student passport pages">
       {tabs.map(({ id: tab, label, Icon }, index) => <button
         id={`${id}-tab-${tab}`} key={tab} type="button" role="tab"
         aria-selected={active === tab} aria-controls={`${id}-panel-${tab}`} tabIndex={active === tab ? 0 : -1}
         className={active === tab ? styles.activeTab : ""} onClick={() => setActive(tab)}
-        onKeyDown={(event) => { if (event.key === "ArrowRight") { event.preventDefault(); moveTab(1); } if (event.key === "ArrowLeft") { event.preventDefault(); moveTab(-1); } }}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowRight") { event.preventDefault(); moveTab(1); }
+          if (event.key === "ArrowLeft") { event.preventDefault(); moveTab(-1); }
+          if (event.key === "Home") { event.preventDefault(); setActive(tabs[0].id); requestAnimationFrame(() => document.getElementById(`${id}-tab-${tabs[0].id}`)?.focus()); }
+          if (event.key === "End") { event.preventDefault(); const last = tabs.at(-1)!; setActive(last.id); requestAnimationFrame(() => document.getElementById(`${id}-tab-${last.id}`)?.focus()); }
+        }}
       ><span>{String(index + 1).padStart(2, "0")}</span><Icon size={16} aria-hidden="true" /><strong>{label}</strong></button>)}
     </nav>
     <div id={`${id}-panel-${active}`} className={styles.panel} role="tabpanel" tabIndex={0} aria-labelledby={`${id}-tab-${active}`}>
-      {active === "identity" ? <IdentityPage record={record} owner={owner} /> : null}
+      {active === "identity" ? <IdentityPage record={record} owner={owner} onRecordChange={onRecordChange} /> : null}
       {active === "training" ? <TrainingPage record={record} owner={owner} /> : null}
       {active === "examinations" ? <ExaminationPage record={record} /> : null}
       {active === "contributions" && owner ? <ContributionsPage record={owner} /> : null}

@@ -1,4 +1,5 @@
 import { rankIndex } from "../../../shared/ranks";
+import { examinationFeeThb } from "../../../shared/examFees";
 import { jsonResponse } from "../../_lib/auth";
 import { createPaymentProofDraft } from "../../_lib/paymentProofs";
 import {
@@ -91,7 +92,7 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
     const classLevel = text(body.classLevel, 80);
     const office = text(body.office, 160, employed);
     const position = text(body.position, 120);
-    const gamesExperience = text(body.gamesExperience, 1000, true);
+    const gamesExperience = text(body.gamesExperience, 1000);
     const answers: Record<string, string | number | boolean> = {
       aat_number: text(body.aatNumber, 40),
       date: now.slice(0, 10),
@@ -140,23 +141,28 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
     const applicationId = crypto.randomUUID();
     const historyId = crypto.randomUUID();
     const cycleStatusId = existingCycleStatus?.id || crypto.randomUUID();
-    const fee = (json: string, key: string) => { try { const config = JSON.parse(json) as Record<string, unknown>; const category = key.toLocaleLowerCase("en").includes("dan") ? "dan" : "kyu"; const value = Number(config[key] ?? config[category] ?? config.default ?? 0); return Number.isFinite(value) && value >= 0 ? value : 0; } catch { return 0; } };
-    const examFee = fee(cycle.rank_fee_config_json, attemptedRank);
-    const aatAnnualFee = fee(cycle.annual_fee_config_json, attemptedRank);
+    const examFee = examinationFeeThb(attemptedRank);
+    if (examFee === null) return jsonResponse({ error: "No examination fee is configured for that rank. Please contact a sensei." }, 400);
+    const aatAnnualFee = 0;
     const lastExam = await db.prepare("SELECT MAX(examination_date) AS date FROM belt_examinations WHERE student_id = ?").bind(student.id).first<{ date: string | null }>();
     const proof = await createPaymentProofDraft(db, {
       studentId: student.id, dojoId: student.dojo_id, paymentType: "exam", paymentReferenceId: applicationId, createdAt: now,
     });
-    const response = { ok: true, applicationId, status: "application_submitted", paymentStatus: "payment_pending", cycle: cycle.name, proofId: proof.proofId, uploadToken: proof.uploadToken };
+    const response = {
+      ok: true, applicationId, status: "application_submitted", paymentStatus: "payment_pending",
+      cycle: cycle.name, feeSnapshotThb: examFee, currency: "THB",
+      proofId: proof.proofId, uploadToken: proof.uploadToken,
+    };
     await db.batch([
       db.prepare(`INSERT INTO examination_applications
         (id, student_id, cycle_id, answers_json, current_rank, attempted_rank, status, payment_status,
          submitted_at, updated_at, student_name_snapshot, student_public_id_snapshot, dojo_id,
-         last_examination_date, practice_period, exam_fee, aat_annual_fee, other_fees, total_fee)
-        VALUES (?, ?, ?, ?, ?, ?, 'application_submitted', 'payment_pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`)
+         last_examination_date, practice_period, exam_fee, aat_annual_fee, other_fees, total_fee,
+         fee_snapshot_thb, fee_currency)
+        VALUES (?, ?, ?, ?, ?, ?, 'application_submitted', 'payment_pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 'THB')`)
         .bind(applicationId, student.id, cycle.id, JSON.stringify(answers), currentRank, attemptedRank, now, now,
           student.display_name, student.public_student_id, student.dojo_id, lastExam?.date || null,
-          gamesExperience, examFee, aatAnnualFee, examFee + aatAnnualFee),
+          gamesExperience, examFee, aatAnnualFee, examFee + aatAnnualFee, examFee),
       proof.statement,
       db.prepare(`INSERT INTO exam_cycle_student_status (
           id, student_id, cycle_id, application_id, student_name_snapshot, student_public_id_snapshot,
@@ -182,7 +188,7 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
         .bind(historyId, applicationId, student.id, requestId, now),
       auditStatement(db, {
         actorType: "student", actorIdentifier: student.id, action: "examination_application_submitted", entityType: "examination_application",
-        entityId: applicationId, studentId: student.id, newValues: { currentRank, attemptedRank, dojoId: student.dojo_id, status: "application_submitted", paymentStatus: "payment_pending", cycleId: cycle.id },
+        entityId: applicationId, studentId: student.id, newValues: { currentRank, attemptedRank, dojoId: student.dojo_id, status: "application_submitted", paymentStatus: "payment_pending", cycleId: cycle.id, feeSnapshotThb: examFee, feeCurrency: "THB" },
         studentPublicId: student.public_student_id, studentNameSnapshot: student.display_name, examCycleId: cycle.id,
         source: "student_examination_application", requestId, summary: `Submitted a belt examination application for ${attemptedRank}`, createdAt: now,
       }),

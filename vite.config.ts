@@ -88,7 +88,7 @@ function spaRouteFallback() {
       server.middlewares.use((request, _response, next) => {
         const pathname = (request.url || "").split(/[?#]/, 1)[0].replace(/\/$/, "") || "/";
         const acceptsHtml = String(request.headers.accept || "").includes("text/html");
-        if (acceptsHtml && (SPA_ROUTES.has(pathname) || pathname.startsWith("/newsletter/") || pathname.startsWith("/records/share/"))) request.url = "/";
+        if (acceptsHtml && (SPA_ROUTES.has(pathname) || pathname.startsWith("/newsletter/") || pathname.startsWith("/records/share/") || pathname.startsWith("/admin/galleries/"))) request.url = "/";
         next();
       });
     },

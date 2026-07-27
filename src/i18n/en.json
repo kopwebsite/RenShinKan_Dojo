@@ -1384,6 +1384,23 @@
     "continueEditing": "Continue editing",
     "openSitePages": "Open site pages"
   },
+  "photoGalleries": {
+    "onMatLabel": "On the Mat photo gallery",
+    "viewAll": "View all {{count}} photos",
+    "photoCount": "{{count}} photos",
+    "openPhoto": "Open photo {{number}} from {{album}}",
+    "photoAlt": "Photo {{number}} from {{album}}",
+    "openAlbum": "Open {{album}} album",
+    "archive": "Photo Archive",
+    "undated": "Undated photographs",
+    "latestAchievement": "Most recent examination",
+    "position": "{{current}} of {{total}}",
+    "close": "Close photo viewer",
+    "previous": "Previous photo",
+    "next": "Next photo",
+    "thumbnails": "Photo thumbnails",
+    "goTo": "Go to photo {{number}}"
+  },
   "studentTasks": {
     "eyebrow": "My student record",
     "title": "What would you like to do?",

@@ -1384,6 +1384,23 @@
     "continueEditing": "編集を続ける",
     "openSitePages": "サイトページを開く"
   },
+  "photoGalleries": {
+    "onMatLabel": "畳の上の写真ギャラリー",
+    "viewAll": "全{{count}}枚を見る",
+    "photoCount": "{{count}}枚",
+    "openPhoto": "{{album}}の写真{{number}}を開く",
+    "photoAlt": "{{album}}の写真{{number}}",
+    "openAlbum": "アルバム「{{album}}」を開く",
+    "archive": "写真アーカイブ",
+    "undated": "日付のない写真",
+    "latestAchievement": "最新の審査",
+    "position": "{{total}}枚中{{current}}枚目",
+    "close": "写真ビューアーを閉じる",
+    "previous": "前の写真",
+    "next": "次の写真",
+    "thumbnails": "写真のサムネイル",
+    "goTo": "写真{{number}}へ移動"
+  },
   "studentTasks": {
     "eyebrow": "自分の生徒記録",
     "title": "何をしますか？",

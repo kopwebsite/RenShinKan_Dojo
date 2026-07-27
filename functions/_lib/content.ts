@@ -1,3 +1,13 @@
+import {
+  GALLERY_IDS,
+  migrateLegacyGalleries,
+  syncLegacyGalleryArrays,
+  type GalleryAlbum,
+  type GalleryAlbums,
+  type GalleryId,
+  type GalleryPhoto,
+} from "../../shared/gallery";
+
 export type NewsletterStatus = "not_sent" | "pending" | "sent" | "failed";
 
 export type BodyMediaAlign = "left" | "center" | "right";
@@ -99,6 +109,7 @@ export type EditableContent = {
   historyMedia: MediaItem[];
   onTheMatMedia: MediaItem[];
   passedTestStudents: Array<Record<string, unknown>>;
+  galleryAlbums: GalleryAlbums;
   sitePages: SitePage[];
   siteSettings: SiteSettings;
 };
@@ -323,6 +334,90 @@ function validateMediaList(value: unknown, path: string) {
   return value.map((item, index) => validateMediaItem(item, `${path}[${index}]`));
 }
 
+function galleryText(value: unknown, max: number) {
+  return typeof value === "string"
+    ? value.normalize("NFKC").replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "").trim().slice(0, max)
+    : "";
+}
+
+function galleryId(value: unknown, fallback: string) {
+  return typeof value === "string" && /^[A-Za-z0-9_-]{4,120}$/.test(value) ? value : fallback;
+}
+
+function galleryDate(value: unknown) {
+  if (typeof value !== "string" || !value) return undefined;
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined;
+}
+
+function validateGalleryPhoto(value: unknown, path: string): GalleryPhoto {
+  if (!isRecord(value)) throw new Error(`${path} must be an object`);
+  const id = galleryId(value.id, crypto.randomUUID());
+  const src = typeof value.src === "string" ? value.src.trim() : "";
+  const thumbnailSrc = typeof value.thumbnailSrc === "string" ? value.thumbnailSrc.trim() : "";
+  if (!src || (!/^pending:upload-[a-f0-9-]+$/i.test(src) && !safeInternalOrHttpsUrl(src))) {
+    throw new Error(`${path}.src must be a safe website or HTTPS image URL`);
+  }
+  if (thumbnailSrc && !/^pending:upload-[a-f0-9-]+$/i.test(thumbnailSrc) && !safeInternalOrHttpsUrl(thumbnailSrc)) {
+    throw new Error(`${path}.thumbnailSrc must be a safe website or HTTPS image URL`);
+  }
+  const objectPosition = typeof value.objectPosition === "string" && /^\d{1,3}% \d{1,3}%$/.test(value.objectPosition)
+    ? value.objectPosition
+    : "50% 50%";
+  return {
+    id,
+    src,
+    ...(thumbnailSrc ? { thumbnailSrc } : {}),
+    ...(typeof value.avif === "string" && safeInternalOrHttpsUrl(value.avif) ? { avif: value.avif } : {}),
+    ...(typeof value.webp === "string" && safeInternalOrHttpsUrl(value.webp) ? { webp: value.webp } : {}),
+    alt: galleryText(value.alt, 300),
+    ...(galleryText(value.caption, 1_000) ? { caption: galleryText(value.caption, 1_000) } : {}),
+    objectPosition,
+    ...(typeof value.width === "number" && value.width > 0 && value.width <= 10_000 ? { width: Math.round(value.width) } : {}),
+    ...(typeof value.height === "number" && value.height > 0 && value.height <= 10_000 ? { height: Math.round(value.height) } : {}),
+    ...(typeof value.sha256 === "string" && /^[a-f0-9]{64}$/i.test(value.sha256) ? { sha256: value.sha256.toLowerCase() } : {}),
+    visibility: value.visibility === "hidden" ? "hidden" : "published",
+    ...(typeof value.createdAt === "string" ? { createdAt: value.createdAt.slice(0, 40) } : {}),
+    ...(typeof value.updatedAt === "string" ? { updatedAt: value.updatedAt.slice(0, 40) } : {}),
+    ...(typeof value.trashedAt === "string" ? { trashedAt: value.trashedAt.slice(0, 40) } : {}),
+  };
+}
+
+function validateGalleryAlbum(value: unknown, expectedGalleryId: GalleryId, index: number): GalleryAlbum {
+  if (!isRecord(value)) throw new Error(`galleryAlbums.${expectedGalleryId}[${index}] must be an object`);
+  const path = `galleryAlbums.${expectedGalleryId}[${index}]`;
+  const photos = Array.isArray(value.photos)
+    ? value.photos.slice(0, 2_000).map((photo, photoIndex) => validateGalleryPhoto(photo, `${path}.photos[${photoIndex}]`))
+    : [];
+  const photoIds = new Set<string>();
+  for (const photo of photos) {
+    if (photoIds.has(photo.id)) throw new Error(`${path} contains duplicate photo id ${photo.id}`);
+    photoIds.add(photo.id);
+  }
+  const title = galleryText(value.title, 160);
+  if (!title) throw new Error(`${path}.title is required`);
+  return {
+    id: galleryId(value.id, crypto.randomUUID()),
+    galleryId: expectedGalleryId,
+    title,
+    ...(galleryDate(value.date) ? { date: galleryDate(value.date) } : {}),
+    ...(galleryText(value.description, 2_000) ? { description: galleryText(value.description, 2_000) } : {}),
+    ...(typeof value.coverPhotoId === "string" && photoIds.has(value.coverPhotoId) ? { coverPhotoId: value.coverPhotoId } : {}),
+    visibility: value.visibility === "draft" || value.visibility === "hidden" ? value.visibility : "published",
+    order: index,
+    ...(typeof value.createdAt === "string" ? { createdAt: value.createdAt.slice(0, 40) } : {}),
+    ...(typeof value.updatedAt === "string" ? { updatedAt: value.updatedAt.slice(0, 40) } : {}),
+    photos,
+  };
+}
+
+export function validateGalleryAlbums(value: unknown, legacy: Pick<EditableContent, "historyMedia" | "onTheMatMedia" | "passedTestStudents">): GalleryAlbums {
+  const migrated = migrateLegacyGalleries({ ...legacy, galleryAlbums: value });
+  return Object.fromEntries(GALLERY_IDS.map((id) => [
+    id,
+    migrated[id].slice(0, 200).map((album, index) => validateGalleryAlbum(album, id, index)),
+  ])) as GalleryAlbums;
+}
+
 function validateNewsletter(value: unknown) {
   if (!isRecord(value)) {
     return {
@@ -431,19 +526,24 @@ export function validateEditableContent(value: unknown): EditableContent {
         updatedAt: null,
       };
 
+  const legacy = {
+    historyMedia: value.historyMedia == null ? [] : validateMediaList(value.historyMedia, "historyMedia"),
+    onTheMatMedia: value.onTheMatMedia == null ? [] : validateMediaList(value.onTheMatMedia, "onTheMatMedia"),
+    passedTestStudents: Array.isArray(value.passedTestStudents)
+      ? value.passedTestStudents.filter(isRecord)
+      : [],
+  };
+
   return {
-    version: 1,
+    version: 2,
     lastPublishedAt: typeof value.lastPublishedAt === "string" ? value.lastPublishedAt : null,
     recentEvents: Array.isArray(value.recentEvents)
       ? value.recentEvents.map(validateRecentEvent)
       : [],
     examAnnouncement,
     paymentQr,
-    historyMedia: value.historyMedia == null ? [] : validateMediaList(value.historyMedia, "historyMedia"),
-    onTheMatMedia: value.onTheMatMedia == null ? [] : validateMediaList(value.onTheMatMedia, "onTheMatMedia"),
-    passedTestStudents: Array.isArray(value.passedTestStudents)
-      ? value.passedTestStudents.filter(isRecord)
-      : [],
+    ...legacy,
+    galleryAlbums: validateGalleryAlbums(value.galleryAlbums, legacy),
     sitePages: Array.isArray(value.sitePages) ? value.sitePages.slice(0, 40).map(validateSitePage) : [],
     siteSettings: validateSiteSettings(value.siteSettings),
   };
@@ -490,6 +590,16 @@ export function replacePendingMediaUrls(content: EditableContent, uploadUrlById:
   if (!paymentQrSrc) {
     throw new Error("Missing upload file for payment QR");
   }
+  const replaceGalleryPhoto = (photo: GalleryPhoto) => {
+    const replace = (src: string | undefined) => {
+      if (!src?.startsWith("pending:")) return src;
+      return uploadUrlById.get(src.slice("pending:".length)) ?? fallbackUrls.shift();
+    };
+    const src = replace(photo.src);
+    const thumbnailSrc = replace(photo.thumbnailSrc);
+    if (!src) throw new Error(`Missing upload file for gallery photo ${photo.id}`);
+    return { ...photo, src, ...(thumbnailSrc ? { thumbnailSrc } : {}) };
+  };
   const nextContent: EditableContent = {
     ...content,
     paymentQr: { ...content.paymentQr, src: paymentQrSrc },
@@ -519,6 +629,10 @@ export function replacePendingMediaUrls(content: EditableContent, uploadUrlById:
         image,
       };
     }),
+    galleryAlbums: Object.fromEntries(GALLERY_IDS.map((id) => [
+      id,
+      content.galleryAlbums[id].map((album) => ({ ...album, photos: album.photos.map(replaceGalleryPhoto) })),
+    ])) as GalleryAlbums,
   };
 
   nextContent.recentEvents.forEach((event, eventIndex) => {
@@ -530,7 +644,12 @@ export function replacePendingMediaUrls(content: EditableContent, uploadUrlById:
   nextContent.historyMedia.forEach((item, index) => assertNoBlockedMediaSrc(item.src, `historyMedia[${index}].src`));
   nextContent.onTheMatMedia.forEach((item, index) => assertNoBlockedMediaSrc(item.src, `onTheMatMedia[${index}].src`));
   nextContent.passedTestStudents.forEach((student, index) => assertNoBlockedMediaSrc(student.image, `passedTestStudents[${index}].image`));
+  GALLERY_IDS.forEach((galleryId) => nextContent.galleryAlbums[galleryId].forEach((album, albumIndex) =>
+    album.photos.forEach((photo, photoIndex) => {
+      assertNoBlockedMediaSrc(photo.src, `galleryAlbums.${galleryId}[${albumIndex}].photos[${photoIndex}].src`);
+      assertNoBlockedMediaSrc(photo.thumbnailSrc, `galleryAlbums.${galleryId}[${albumIndex}].photos[${photoIndex}].thumbnailSrc`);
+    })));
   assertNoBlockedMediaSrc(nextContent.paymentQr.src, "paymentQr.src");
 
-  return nextContent;
+  return syncLegacyGalleryArrays(nextContent) as EditableContent;
 }

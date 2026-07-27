@@ -1,3 +1,5 @@
+import type { GalleryAlbums } from "../../shared/gallery";
+
 export type NewsletterStatus = "not_sent" | "pending" | "sent" | "failed";
 
 export type BodyMediaAlign = "left" | "center" | "right";
@@ -101,6 +103,7 @@ export type EditableContent = {
   historyMedia: MediaItem[];
   onTheMatMedia: MediaItem[];
   passedTestStudents: PassedTestStudent[];
+  galleryAlbums: GalleryAlbums;
   sitePages: SitePage[];
   siteSettings: SiteSettings;
 };

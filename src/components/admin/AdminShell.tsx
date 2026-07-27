@@ -159,7 +159,7 @@ function navigationGroups(t: Translate): NavigationGroup[] {
     {
       label: t("adminShell.website"),
       items: [
-        { label: "Edit the website", href: "/admin/website", Icon: FileText, centralOnly: true },
+        { label: "Edit the website", href: "/admin/website", Icon: FileText, centralOnly: true, match: (path) => path === "/admin/website" || path.startsWith("/admin/galleries/") },
       ],
     },
     {
@@ -184,7 +184,7 @@ function helpForPath(pathname: string, t: Translate) {
       ],
     };
   }
-  if (pathname.includes("site-editor") || pathname.includes("dojo-updates")) {
+  if (pathname.includes("site-editor") || pathname.includes("dojo-updates") || pathname.includes("/galleries/")) {
     return {
       title: t("adminShell.helpWebsite"),
       tasks: [

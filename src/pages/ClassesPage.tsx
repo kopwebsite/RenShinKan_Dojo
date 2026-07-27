@@ -1,12 +1,12 @@
 import { ArrowRight, Download } from "lucide-react";
 import { Link } from "react-router-dom";
-import { BeltCarousel } from "../components/BeltCarousel";
 import { BeltProgressionChart } from "../components/BeltProgressionChart";
 import { ClassStructureLegend } from "../components/ClassStructureLegend";
 import { FAQAccordion } from "../components/FAQAccordion";
 import { MotionSection } from "../components/MotionSection";
+import { AchievementAlbumsGallery } from "../components/PublicGalleries";
 import { ResponsiveImage } from "../components/ResponsiveImage";
-import { examAnnouncement, passedTestStudents } from "../data/editableContent";
+import { examAnnouncement } from "../data/editableContent";
 import { classSchedule } from "../data/siteMeta";
 import { useTranslation, type TranslationKey } from "../i18n";
 import { useEditableContent } from "../lib/content";
@@ -16,7 +16,6 @@ export function ClassesPage() {
   const { t } = useTranslation();
   const { content } = useEditableContent();
   const activeExamAnnouncement = content.examAnnouncement ?? examAnnouncement;
-  const activePassedStudents = content.passedTestStudents.length ? content.passedTestStudents : passedTestStudents;
   const firstVisitItems: TranslationKey[] = [
     "classes.firstVisit.item1", "classes.firstVisit.item2", "classes.firstVisit.item3",
     "classes.firstVisit.item4", "classes.firstVisit.item5", "classes.firstVisit.item6",
@@ -89,7 +88,7 @@ export function ClassesPage() {
         <div id="gallery" className="graduation-strip scroll-mt-24">
           <p className="eyebrow">{t("classes.beltExams.graduationEyebrow")}</p>
           <h3>{t("classes.beltExams.graduationTitle")}</h3>
-          <BeltCarousel students={activePassedStudents} />
+          <AchievementAlbumsGallery albums={content.galleryAlbums.achievements} />
         </div>
       </MotionSection>
 

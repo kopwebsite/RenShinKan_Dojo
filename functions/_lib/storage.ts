@@ -38,6 +38,7 @@ export type UploadedMedia = {
   url: string;
   contentType: string;
   size: number;
+  sha256: string;
 };
 
 export type ValidatedProfileImage = {
@@ -112,7 +113,7 @@ export function datedProfileKey(prefix: "student-profiles" | "pending-student-pr
 
 export function emptyContent(): EditableContent {
   return {
-    version: 1,
+    version: 2,
     lastPublishedAt: null,
     recentEvents: [],
     examAnnouncement: null,
@@ -124,6 +125,11 @@ export function emptyContent(): EditableContent {
     historyMedia: [],
     onTheMatMedia: [],
     passedTestStudents: [],
+    galleryAlbums: {
+      "on-the-mat": [],
+      history: [],
+      achievements: [],
+    },
     sitePages: [],
     siteSettings: {
       translations: Object.fromEntries(["en", "th", "ja", "zh-CN"].map((locale) => [locale, { footerText: "", notice: "", navigation: {} }])) as EditableContent["siteSettings"]["translations"],
@@ -299,6 +305,8 @@ export async function uploadFilesToR2(env: StorageEnv, files: File[]) {
 
     const bytes = new Uint8Array(await file.arrayBuffer());
     assertFileSignature(file, mimeType, bytes);
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    const sha256 = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 
     const uploadId = extractUploadId(file.name);
     const safeName = sanitizeFileName(file.name, mimeType);
@@ -313,6 +321,7 @@ export async function uploadFilesToR2(env: StorageEnv, files: File[]) {
       customMetadata: {
         originalName: file.name.slice(0, 240),
         uploadedAt: now.toISOString(),
+        sha256,
       },
     });
 
@@ -326,6 +335,7 @@ export async function uploadFilesToR2(env: StorageEnv, files: File[]) {
       url: publicUrl,
       contentType: mimeType,
       size: file.size,
+      sha256,
     });
   }
 

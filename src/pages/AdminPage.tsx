@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { AdminDojoSelector, AdminLoginFields, AdminRenshinKanVerification, type AdminDojo, type AdminIdentity, type AdminSessionResponse } from "../components/admin/AdminAccess";
+import { AdminGalleryDashboard } from "../components/admin/AdminGalleryDashboard";
 import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { EventBodyRenderer } from "../components/EventBodyRenderer";
@@ -42,6 +43,7 @@ import {
   splitEventBodyParagraphs,
 } from "../utils/eventBody";
 import { isValidEmbedUrl, normalizeEmbedUrl } from "../utils/mediaEmbeds";
+import { migrateLegacyGalleries } from "../../shared/gallery";
 
 const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_DOCUMENT_FILE_SIZE = 20 * 1024 * 1024;
@@ -489,13 +491,18 @@ export function AdminPage() {
     loadEditableContent().then((content) => {
       // Seed the galleries from the built-in defaults when nothing has been
       // published yet, so admins can see and delete the existing photos.
-      const seeded: EditableContent = {
+      const seededLegacy = {
         ...content,
         historyMedia: content.historyMedia.length ? content.historyMedia : defaultHistoryMedia.map(toMediaItem),
         onTheMatMedia: content.onTheMatMedia.length ? content.onTheMatMedia : defaultOnTheMatMedia.map(toMediaItem),
         passedTestStudents: content.passedTestStudents.length
           ? content.passedTestStudents
           : defaultPassedTestStudents.map(toPassedStudent),
+      };
+      const hasAlbums = Object.values(content.galleryAlbums).some((albums) => albums.length > 0);
+      const seeded: EditableContent = {
+        ...seededLegacy,
+        galleryAlbums: hasAlbums ? content.galleryAlbums : migrateLegacyGalleries(seededLegacy),
       };
 
       setDraft(seeded);
@@ -1288,7 +1295,7 @@ export function AdminPage() {
 
       <nav className="admin-action-board" aria-label="Admin areas">
         <button type="button" onClick={addEvent}><FileText size={22} /><span><strong>Newsletter &amp; event</strong><small>Create one update for the newsletter and community calendar</small></span></button>
-        <a href="#photo-library"><ImagePlus size={22} /><span><strong>Photo library</strong><small>Add or remove public gallery photos</small></span></a>
+        <a href="#photo-library"><ImagePlus size={22} /><span><strong>Photo library</strong><small>Organize public photographs into albums</small></span></a>
         <a href="#payment-qr"><QrCode size={22} /><span><strong>Payment QR</strong><small>Replace the QR everywhere on the website</small></span></a>
         <a href="/" target="_blank" rel="noopener noreferrer"><ExternalLink size={22} /><span><strong>Preview website</strong><small>Open the public site in a new tab</small></span></a>
       </nav>
@@ -1740,76 +1747,7 @@ export function AdminPage() {
         </CollapsibleEditorSection>
         </div>
 
-        <div id="photo-library" className="grid scroll-mt-24 gap-8">
-        {renderMediaGallery(
-          "onTheMatMedia",
-          "On the Mat",
-          "Add or remove photos in the \"On the Mat\" gallery shown on the Dojo page.",
-        )}
-
-        {renderMediaGallery(
-          "historyMedia",
-          "A Look at Our History",
-          "Add or remove photos in the \"A Look at Our History\" gallery shown on the Community page.",
-        )}
-        </div>
-
-        <CollapsibleEditorSection
-          title="Students Who've Passed the Test"
-          copy="Add or remove photos in the graduation gallery shown on the Classes page."
-          summary={`${draft.passedTestStudents.length} photo${draft.passedTestStudents.length === 1 ? "" : "s"}`}
-          open={openSections.passedTestStudents}
-          onToggle={() => toggleSection("passedTestStudents")}
-        >
-          <div className="mb-5 flex flex-wrap items-center gap-3">
-            <label className="btn-secondary cursor-pointer">
-              <ImagePlus size={17} aria-hidden="true" />
-              Add photos
-              <input
-                className="hidden"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                multiple
-                onChange={addPassedStudents}
-              />
-            </label>
-            <p className="text-sm text-charcoal/65">
-              {draft.passedTestStudents.length} photo{draft.passedTestStudents.length === 1 ? "" : "s"}
-            </p>
-          </div>
-
-          {draft.passedTestStudents.length === 0 ? (
-            <p className="rounded-[1.5rem] bg-paper/60 p-5 text-sm leading-6 text-charcoal/72 ring-1 ring-ink/10">
-              No photos yet. Use "Add photos" to upload.
-            </p>
-          ) : (
-            <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              {draft.passedTestStudents.map((student) => (
-                <li key={student.id} className="relative overflow-hidden rounded-[1.25rem] ring-1 ring-ink/10">
-                  <div className="aspect-[4/3] bg-ink/5">
-                    <img
-                      src={resolveSrc(student.image)}
-                      alt={student.alt || student.name || ""}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
-                  </div>
-                  {student.image.startsWith("pending:") ? (
-                    <span className="absolute left-2 top-2 rounded-full bg-bamboo px-2 py-0.5 text-xs font-bold text-paper">New</span>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={() => deletePassedStudent(student.id)}
-                    className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-ink/80 text-paper transition hover:bg-vermilion focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper"
-                    aria-label={`Delete photo ${student.alt || student.name || student.id}`}
-                  >
-                    <Trash2 size={16} aria-hidden="true" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CollapsibleEditorSection>
+        <AdminGalleryDashboard fallback={draft.galleryAlbums} />
 
         <div id="payment-qr" className="scroll-mt-24">
           <CollapsibleEditorSection

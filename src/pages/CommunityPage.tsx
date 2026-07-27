@@ -9,10 +9,9 @@ import {
 } from "lucide-react";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { MediaSlider } from "../components/MediaSlider";
 import { MotionSection } from "../components/MotionSection";
+import { HistoricalTimelineGallery } from "../components/PublicGalleries";
 import { ResponsiveImage } from "../components/ResponsiveImage";
-import { historyMedia } from "../data/editableContent";
 import {
   cmuAikidoClub,
   pcfDojoPhotos,
@@ -29,7 +28,6 @@ import {
 export function CommunityPage() {
   const { t } = useTranslation();
   const { content } = useEditableContent();
-  const activeHistoryMedia = content.historyMedia.length ? content.historyMedia : historyMedia;
   const localizedPcfPhotos = pcfDojoPhotos.map((photo, index) =>
     translateTitleCaption(t, photo, pcfPhotoKeys[index]),
   );
@@ -47,7 +45,7 @@ export function CommunityPage() {
     title: event.title,
     date: event.date,
     description: event.summary || event.body,
-    href: `/newsletter#${event.slug}`,
+    href: event.published && event.slug ? `/newsletter/${event.slug}` : "/contact",
   }));
 
   return (
@@ -105,7 +103,7 @@ export function CommunityPage() {
           </p>
         </div>
 
-        <MediaSlider media={activeHistoryMedia} label={t("community.past.sliderLabel")} showIndexNavigation />
+        <HistoricalTimelineGallery albums={content.galleryAlbums.history} />
       </MotionSection>
 
       {/* Peace Culture Foundation */}

@@ -4,14 +4,13 @@ import { ClassStructureLegend } from "../components/ClassStructureLegend";
 import { DojoJourney } from "../components/DojoJourney";
 import { FacilityGrid } from "../components/FacilityGrid";
 import { InstructorLine } from "../components/InstructorLine";
-import { MediaSlider } from "../components/MediaSlider";
 import { MotionSection } from "../components/MotionSection";
+import { EditorialGallery } from "../components/PublicGalleries";
 import { ResponsiveImage } from "../components/ResponsiveImage";
-import { onTheMatMedia } from "../data/editableContent";
 import { dojoPhotos, renshinkanBuildPhotos } from "../data/siteContent";
 import { classSchedule, googleMapsUrl, siteInfo } from "../data/siteMeta";
 import { useTranslation } from "../i18n";
-import { getPublishedRecentEvents, useEditableContent } from "../lib/content";
+import { useEditableContent } from "../lib/content";
 import { assetPath } from "../utils/assetPath";
 import {
   dojoJourneyPhotoKeys,
@@ -20,24 +19,13 @@ import {
   translateDojoPhoto,
 } from "../utils/siteContentTranslations";
 
-function formatEventDate(value: string) {
-  const date = new Date(`${value}T12:00:00`);
-  return Number.isNaN(date.getTime())
-    ? value
-    : new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long", year: "numeric" }).format(date);
-}
-
 export function DojoPageSections() {
   const { t } = useTranslation();
   const { content } = useEditableContent();
-  const recentUpdates = getPublishedRecentEvents(content, 3);
-  const matMedia = content.onTheMatMedia.length ? content.onTheMatMedia : onTheMatMedia;
   const localizedDojoPhotos = dojoPhotos.map((photo, index) => translateDojoPhoto(t, photo, dojoPhotoKeys[index]));
   const localizedJourney = renshinkanBuildPhotos.map((photo, index) =>
     translateDojoJourneyPhoto(t, photo, dojoJourneyPhotoKeys[index]),
   );
-  const featuredUpdate = recentUpdates[0];
-
   return (
     <>
       <MotionSection id="dojo" className="container-shell dojo-intro scroll-mt-24">
@@ -167,7 +155,7 @@ export function DojoPageSections() {
 
         <div className="photo-journal__mat">
           <p className="vertical-label">{t("home.photos.archiveTitle")}</p>
-          <MediaSlider media={matMedia} label={t("home.photos.onMatGallery")} showIndexNavigation />
+          <EditorialGallery albums={content.galleryAlbums["on-the-mat"]} />
         </div>
       </MotionSection>
 
@@ -184,34 +172,6 @@ export function DojoPageSections() {
             {t("common.sourceGallery")} <ExternalLink size={15} />
           </a>
         </footer>
-      </MotionSection>
-
-      <MotionSection id="recent-events" className="journal-feature scroll-mt-24">
-        <div className="container-shell journal-feature__layout">
-          <header>
-            <p className="eyebrow">{t("home.recent.eyebrow")}</p>
-            <h2>{t("home.recent.title")}</h2>
-          </header>
-          {featuredUpdate ? (
-            <article className="journal-feature__article">
-              <ResponsiveImage
-                src={featuredUpdate.image?.src || featuredUpdate.media?.find((item) => item.type === "image")?.src || assetPath("/dojo-photos/aikido-hero-new.webp")}
-                alt={featuredUpdate.image?.alt || "RenShinKan dojo journal"}
-                imgClassName="journal-feature__image"
-                loading="lazy"
-              />
-              <div>
-                <p className="folio-mark">{formatEventDate(featuredUpdate.date)}</p>
-                <h3>{featuredUpdate.title}</h3>
-                <p>{featuredUpdate.summary}</p>
-                <Link to={`/newsletter/${featuredUpdate.slug}`} className="text-link">{t("common.viewUpdate")} <ArrowRight size={16} /></Link>
-              </div>
-            </article>
-          ) : (
-            <p className="journal-empty">{t("home.recent.empty")}</p>
-          )}
-          <Link to="/newsletter" className="journal-feature__archive">{t("home.recent.archiveCta")} <ArrowRight size={16} /></Link>
-        </div>
       </MotionSection>
 
       <MotionSection id="location" className="container-shell visit-plate scroll-mt-24">

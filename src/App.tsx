@@ -27,6 +27,7 @@ const AdminAuditPage = lazy(() => import("./pages/AdminAuditPage").then((module)
 const AdminMembershipsPage = lazy(() => import("./pages/AdminMembershipsPage").then((module) => ({ default: module.AdminMembershipsPage })));
 const AdminDojosPage = lazy(() => import("./pages/AdminDojosPage").then((module) => ({ default: module.AdminDojosPage })));
 const AdminWorkflowPage = lazy(() => import("./pages/AdminWorkflowPage").then((module) => ({ default: module.AdminWorkflowPage })));
+const AdminGalleryPage = lazy(() => import("./pages/AdminGalleryPage").then((module) => ({ default: module.AdminGalleryPage })));
 
 function RouteFallback() {
   return (
@@ -79,6 +80,7 @@ export default function App() {
             <Route path="/visit" element={<Navigate to="/contact" replace />} />
             <Route path="/admin" element={<AdminDashboardPage />} />
             <Route path="/admin/website" element={<AdminPage />} />
+            <Route path="/admin/galleries/:galleryId" element={<AdminGalleryPage />} />
             <Route path="/admin/dojo-updates" element={<Navigate to="/admin/website" replace />} />
             <Route path="/admin/site-editor" element={<Navigate to="/admin/website" replace />} />
             <Route path="/admin/students" element={<AdminStudentsPage />} />

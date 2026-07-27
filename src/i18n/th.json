@@ -1384,6 +1384,23 @@
     "continueEditing": "แก้ไขต่อ",
     "openSitePages": "เปิดหน้าเว็บไซต์"
   },
+  "photoGalleries": {
+    "onMatLabel": "แกลเลอรีภาพบนเสื่อ",
+    "viewAll": "ดูภาพทั้งหมด {{count}} ภาพ",
+    "photoCount": "{{count}} ภาพ",
+    "openPhoto": "เปิดภาพที่ {{number}} จากอัลบั้ม {{album}}",
+    "photoAlt": "ภาพที่ {{number}} จากอัลบั้ม {{album}}",
+    "openAlbum": "เปิดอัลบั้ม {{album}}",
+    "archive": "คลังภาพ",
+    "undated": "ภาพถ่ายที่ไม่ระบุวันที่",
+    "latestAchievement": "การสอบครั้งล่าสุด",
+    "position": "{{current}} จาก {{total}}",
+    "close": "ปิดโปรแกรมดูภาพ",
+    "previous": "ภาพก่อนหน้า",
+    "next": "ภาพถัดไป",
+    "thumbnails": "ภาพขนาดย่อ",
+    "goTo": "ไปที่ภาพ {{number}}"
+  },
   "studentTasks": {
     "eyebrow": "ระเบียนนักเรียนของฉัน",
     "title": "คุณต้องการทำอะไร",

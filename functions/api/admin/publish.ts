@@ -15,6 +15,7 @@ import {
   writeEditableContentToStorage,
 } from "../../_lib/storage";
 import { adminAuditMetadata, auditStatement, requestIdentifier, requireStudentDb, type StudentEnv } from "../../_lib/studentRecords";
+import { syncLegacyGalleryArrays } from "../../../shared/gallery";
 
 type Env = StorageEnv & StudentEnv & {
   SESSION_SECRET?: string;
@@ -189,10 +190,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     content = preservePreviouslySentNewsletters(
       {
         ...content,
+        // Gallery drafts publish through the dedicated, optimistic-concurrency
+        // endpoint. A long-open newsletter tab must never overwrite albums.
+        galleryAlbums: previousContent.galleryAlbums,
         lastPublishedAt: new Date().toISOString(),
       },
       previousById,
     );
+    content = syncLegacyGalleryArrays(content) as EditableContent;
 
     const candidates = newsletterCandidates(content, previousById);
     const newsletterResult = await publishNewsletterCandidates(env, content, candidates);

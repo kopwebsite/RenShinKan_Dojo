@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { migrateLegacyGalleries } from "../../shared/gallery";
 import type {
   BodyMediaPlacement,
   DocumentDisplayMode,
@@ -26,7 +27,7 @@ import {
 import { isValidEmbedUrl } from "../utils/mediaEmbeds";
 
 export const emptyEditableContent: EditableContent = {
-  version: 1,
+  version: 2,
   lastPublishedAt: null,
   recentEvents: [],
   examAnnouncement: null,
@@ -38,6 +39,11 @@ export const emptyEditableContent: EditableContent = {
   historyMedia: [],
   onTheMatMedia: [],
   passedTestStudents: [],
+  galleryAlbums: {
+    "on-the-mat": [],
+    history: [],
+    achievements: [],
+  },
   sitePages: [],
   siteSettings: {
     translations: Object.fromEntries(SITE_LOCALES.map((locale) => [locale, { footerText: "", notice: "", navigation: {} }])) as SiteSettings["translations"],
@@ -291,6 +297,16 @@ export function normalizeEditableContent(value: unknown): EditableContent {
     return emptyEditableContent;
   }
 
+  const normalizedLegacy = {
+    historyMedia: normalizeMediaList(value.historyMedia),
+    onTheMatMedia: normalizeMediaList(value.onTheMatMedia),
+    passedTestStudents: Array.isArray(value.passedTestStudents)
+      ? value.passedTestStudents
+          .map(normalizePassedTestStudent)
+          .filter((student): student is PassedTestStudent => Boolean(student))
+      : [],
+  };
+
   return {
     version: typeof value.version === "number" ? value.version : 1,
     lastPublishedAt: typeof value.lastPublishedAt === "string" ? value.lastPublishedAt : null,
@@ -299,13 +315,8 @@ export function normalizeEditableContent(value: unknown): EditableContent {
       : [],
     examAnnouncement: normalizeExamAnnouncement(value.examAnnouncement),
     paymentQr: normalizePaymentQr(value.paymentQr),
-    historyMedia: normalizeMediaList(value.historyMedia),
-    onTheMatMedia: normalizeMediaList(value.onTheMatMedia),
-    passedTestStudents: Array.isArray(value.passedTestStudents)
-      ? value.passedTestStudents
-          .map(normalizePassedTestStudent)
-          .filter((student): student is PassedTestStudent => Boolean(student))
-      : [],
+    ...normalizedLegacy,
+    galleryAlbums: migrateLegacyGalleries({ ...normalizedLegacy, galleryAlbums: value.galleryAlbums }),
     sitePages: Array.isArray(value.sitePages) ? value.sitePages.map(normalizeSitePage).filter((page): page is SitePage => Boolean(page)) : [],
     siteSettings: normalizeSiteSettings(value.siteSettings),
   };

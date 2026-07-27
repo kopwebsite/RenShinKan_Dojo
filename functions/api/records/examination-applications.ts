@@ -76,7 +76,7 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
     const nowDate = new Date();
     const now = nowDate.toISOString();
     const dateOfBirth = text(body.dateOfBirth, 10, true);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) return jsonResponse({ error: "Enter a valid date of birth." }, 400);
+    if (!isCanonicalDate(dateOfBirth)) return jsonResponse({ error: "Enter a valid date of birth." }, 400);
     const age = ageOnDate(dateOfBirth, nowDate);
     if (age === null) return jsonResponse({ error: "Enter a valid date of birth." }, 400);
 
@@ -195,3 +195,4 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
     return jsonResponse({ error: message.includes("UNIQUE") ? "This application was already submitted." : message }, message.includes("UNIQUE") ? 409 : 400);
   }
 };
+import { isCanonicalDate } from "../../../shared/date";

@@ -47,8 +47,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   }
   const dateFrom = url.searchParams.get("dateFrom") || "";
   const dateTo = url.searchParams.get("dateTo") || "";
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateFrom)) { conditions.push("a.created_at >= ?"); bindings.push(`${dateFrom}T00:00:00.000Z`); }
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateTo)) { conditions.push("a.created_at <= ?"); bindings.push(`${dateTo}T23:59:59.999Z`); }
+  if (isCanonicalDate(dateFrom)) { conditions.push("a.created_at >= ?"); bindings.push(`${dateFrom}T00:00:00.000Z`); }
+  if (isCanonicalDate(dateTo)) { conditions.push("a.created_at <= ?"); bindings.push(`${dateTo}T23:59:59.999Z`); }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const [rows, count] = await db.batch([
     db.prepare(`SELECT a.id, a.actor_type, a.actor_identifier, a.action, a.entity_type, a.entity_id, a.student_id,
@@ -65,3 +65,4 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const total = Number((count.results?.[0] as { total?: number } | undefined)?.total || 0);
   return jsonResponse({ entries: rows.results || [], pagination: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) } }, 200, { "Cache-Control": "no-store" });
 };
+import { isCanonicalDate } from "../../../shared/date";

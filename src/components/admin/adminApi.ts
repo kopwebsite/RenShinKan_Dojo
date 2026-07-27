@@ -1,3 +1,5 @@
+import { formatGregorianDateTime } from "../../../shared/date";
+
 export async function adminApi<T>(url: string, options: RequestInit = {}) {
   const headers = new Headers(options.headers);
   if (options.body && !(options.body instanceof FormData)) headers.set("Content-Type", "application/json");
@@ -9,11 +11,7 @@ export async function adminApi<T>(url: string, options: RequestInit = {}) {
 }
 
 export function formatAdminDate(value: string | null) {
-  if (!value) return "—";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? value
-    : new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
+  return formatGregorianDateTime(value, "—");
 }
 
 export function adminStatusLabel(value: string) {

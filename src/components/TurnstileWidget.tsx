@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation, type TranslationKey } from "../i18n";
 
 type WidgetSize = "flexible" | "compact";
 type Api = {
@@ -34,6 +35,7 @@ export function TurnstileWidget({ onToken, resetSignal = 0, action = "student-re
   resetSignal?: number;
   action?: "student-records" | "student-lookup" | "profile-request" | "exam-application" | "contribution";
 }) {
+  const { language, t } = useTranslation();
   const shell = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string>();
@@ -41,7 +43,7 @@ export function TurnstileWidget({ onToken, resetSignal = 0, action = "student-re
   const callback = useRef(onToken);
   const initialReset = useRef(true);
   const [size, setSize] = useState<WidgetSize>("flexible");
-  const [message, setMessage] = useState("Loading secure verification…");
+  const [messageKey, setMessageKey] = useState<TranslationKey>("turnstile.loading");
   const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY;
   useEffect(() => { callback.current = onToken; }, [onToken]);
 
@@ -58,23 +60,24 @@ export function TurnstileWidget({ onToken, resetSignal = 0, action = "student-re
       widgetSize.current = nextSize;
       callback.current("");
       setSize(nextSize);
-      setMessage("Loading secure verification…");
+      setMessageKey("turnstile.loading");
       widgetId.current = api.render(container.current, {
         sitekey: siteKey,
         action,
         size: nextSize,
         theme: "auto",
+        language: language === "zh-CN" ? "zh-cn" : language,
         appearance: "interaction-only",
         "response-field": false,
         "feedback-enabled": true,
-        callback: (token: string) => { callback.current(token); setMessage("Verification complete."); },
-        "before-interactive-callback": () => setMessage("Please complete the security check."),
-        "after-interactive-callback": () => setMessage("Checking your response…"),
-        "expired-callback": () => { callback.current(""); setMessage("Verification expired. Please complete it again."); },
-        "timeout-callback": () => { callback.current(""); setMessage("Verification timed out. Please try again."); },
-        "error-callback": () => { callback.current(""); setMessage("Verification could not load. Please retry the check."); },
+        callback: (token: string) => { callback.current(token); setMessageKey("turnstile.complete"); },
+        "before-interactive-callback": () => setMessageKey("turnstile.completeCheck"),
+        "after-interactive-callback": () => setMessageKey("turnstile.checking"),
+        "expired-callback": () => { callback.current(""); setMessageKey("turnstile.expired"); },
+        "timeout-callback": () => { callback.current(""); setMessageKey("turnstile.timedOut"); },
+        "error-callback": () => { callback.current(""); setMessageKey("turnstile.retry"); },
       });
-      if (widgetId.current) setMessage("Secure verification is ready.");
+      if (widgetId.current) setMessageKey("turnstile.ready");
     };
 
     const observer = new ResizeObserver((entries) => {
@@ -87,7 +90,7 @@ export function TurnstileWidget({ onToken, resetSignal = 0, action = "student-re
       api = loaded;
       observer.observe(shell.current);
       render(shell.current.clientWidth < 300 ? "compact" : "flexible");
-    }).catch(() => setMessage("Verification could not load. Refresh the page and try again."));
+    }).catch(() => setMessageKey("turnstile.refresh"));
 
     return () => {
       cancelled = true;
@@ -96,18 +99,18 @@ export function TurnstileWidget({ onToken, resetSignal = 0, action = "student-re
       widgetId.current = undefined;
       widgetSize.current = undefined;
     };
-  }, [action, siteKey]);
+  }, [action, language, siteKey]);
 
   useEffect(() => {
     if (initialReset.current) { initialReset.current = false; return; }
     callback.current("");
-    setMessage("Secure verification is ready.");
+    setMessageKey("turnstile.ready");
     if (widgetId.current) window.turnstile?.reset(widgetId.current);
   }, [resetSignal]);
 
-  if (!siteKey) return <p className="form-error">Cloudflare verification is not configured.</p>;
+  if (!siteKey) return <p className="form-error">{t("turnstile.notConfigured")}</p>;
   return <div ref={shell} className="turnstile-shell" data-size={size}>
-    <div ref={container} className="turnstile-frame" data-action={action} role="group" aria-label="Cloudflare human verification" />
-    <p className="turnstile-status" aria-live="polite">{message}</p>
+    <div ref={container} className="turnstile-frame" data-action={action} role="group" aria-label={t("turnstile.label")} />
+    <p className="turnstile-status" aria-live="polite">{t(messageKey)}</p>
   </div>;
 }

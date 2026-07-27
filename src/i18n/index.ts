@@ -79,7 +79,20 @@ type LanguageContextType = {
   t: (key: TranslationKey, params?: TranslationParams) => string;
 };
 
+export type AdminLanguage = "en" | "th";
+type AdminLanguageContextType = {
+  language: AdminLanguage;
+  setLanguage: (language: AdminLanguage) => void;
+  t: (key: TranslationKey, params?: TranslationParams) => string;
+};
+
 const LanguageContext = createContext<LanguageContextType>({
+  language: "en",
+  setLanguage: () => {},
+  t: (key) => key,
+});
+
+const AdminLanguageContext = createContext<AdminLanguageContextType>({
   language: "en",
   setLanguage: () => {},
   t: (key) => key,
@@ -117,6 +130,23 @@ function getValue(dictionary: Dictionary | PartialDictionary, key: TranslationKe
     }, dictionary);
 }
 
+const translationKeysByEnglishLiteral = new Map<string, TranslationKey[]>();
+
+function indexEnglishLiterals(value: unknown, prefix = "") {
+  if (typeof value === "string") {
+    const existing = translationKeysByEnglishLiteral.get(value) || [];
+    existing.push(prefix as TranslationKey);
+    translationKeysByEnglishLiteral.set(value, existing);
+    return;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return;
+  for (const [key, child] of Object.entries(value)) {
+    indexEnglishLiterals(child, prefix ? `${prefix}.${key}` : key);
+  }
+}
+
+indexEnglishLiterals(en);
+
 async function loadDictionary(language: Language) {
   if (loadedDictionaries[language]) {
     return loadedDictionaries[language];
@@ -148,6 +178,17 @@ export function translate(language: Language, key: TranslationKey, params?: Tran
   const value = typeof localized === "string" ? localized : typeof fallback === "string" ? fallback : key;
 
   return formatTranslation(value, params);
+}
+
+export function translateEnglishLiteral(language: Language, value: string) {
+  if (language === "en") return value;
+  const dictionary = loadedDictionaries[language];
+  if (!dictionary) return value;
+  for (const key of translationKeysByEnglishLiteral.get(value) || []) {
+    const localized = getValue(dictionary, key);
+    if (typeof localized === "string" && localized !== value) return localized;
+  }
+  return value;
 }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
@@ -211,4 +252,59 @@ export function useLanguage() {
 
 export function useTranslation() {
   return useLanguage();
+}
+
+function getSavedAdminLanguage(): AdminLanguage {
+  try {
+    return localStorage.getItem("rsk-admin-lang") === "th" ? "th" : "en";
+  } catch {
+    return "en";
+  }
+}
+
+export function AdminLanguageProvider({ children }: { children: ReactNode }) {
+  const { language: publicLanguage } = useContext(LanguageContext);
+  const [language, setLanguageState] = useState<AdminLanguage>(getSavedAdminLanguage);
+  const [dictionaryVersion, setDictionaryVersion] = useState(0);
+
+  const setLanguage = useCallback((nextLanguage: AdminLanguage) => {
+    const allowed = nextLanguage === "th" ? "th" : "en";
+    setLanguageState(allowed);
+    void loadDictionary(allowed).then(() => setDictionaryVersion((version) => version + 1));
+    try {
+      localStorage.setItem("rsk-admin-lang", allowed);
+    } catch {
+      // Local storage can be unavailable in private contexts.
+    }
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+    void loadDictionary(language).then(() => {
+      if (!ignore) setDictionaryVersion((version) => version + 1);
+    });
+    return () => {
+      ignore = true;
+    };
+  }, [language]);
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+    document.documentElement.dataset.adminLanguage = language;
+    return () => {
+      delete document.documentElement.dataset.adminLanguage;
+      document.documentElement.lang = htmlLangMap[publicLanguage];
+    };
+  }, [language, publicLanguage]);
+
+  const t = useCallback(
+    (key: TranslationKey, params?: TranslationParams) => translate(language, key, params),
+    [dictionaryVersion, language],
+  );
+  const value = useMemo(() => ({ language, setLanguage, t }), [language, setLanguage, t]);
+  return createElement(AdminLanguageContext.Provider, { value }, children);
+}
+
+export function useAdminTranslation() {
+  return useContext(AdminLanguageContext);
 }

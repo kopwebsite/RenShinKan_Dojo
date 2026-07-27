@@ -1266,8 +1266,32 @@
       }
     }
   },
+  "adminAccess": {
+    "language": "管理语言",
+    "checking": "正在检查管理员会话…",
+    "eyebrow": "管理员访问",
+    "signInTitle": "登录道场管理系统",
+    "signInCopy": "您的姓名会附在审计记录中。请使用分配给您角色的管理员密码。",
+    "name": "您的姓名",
+    "password": "管理员密码",
+    "signingIn": "正在登录…",
+    "signIn": "登录",
+    "welcome": "欢迎，{{name}}",
+    "chooseDojo": "选择道场",
+    "chooseDojoCopy": "请选择您正在管理的道场。服务器会为每条记录和每项操作重新检查权限。",
+    "select": "选择 {{dojo}}",
+    "noAccess": "无权访问",
+    "verification": "RenShinKan 验证",
+    "verificationTitle": "输入 RenShinKan 访问密码",
+    "verificationCopy": "解锁完整管理工作区前，需要进行此项额外的服务器端检查。",
+    "renshinkanPassword": "RenShinKan 访问密码",
+    "chooseAnother": "选择其他道场",
+    "verifying": "正在验证…",
+    "verify": "验证访问权限"
+  },
   "adminShell": {
     "administration": "管理",
+    "language": "语言",
     "menu": "菜单",
     "managing": "当前管理",
     "changeDojo": "切换道场",
@@ -1401,6 +1425,30 @@
     "thumbnails": "照片缩略图",
     "goTo": "转到第 {{number}} 张照片"
   },
+  "date": {
+    "gregorianHelp": "日期使用公历，格式为 DD/MM/YYYY。佛历年份转换为公历年份时请减去 543。例如：2569 − 543 = 2026。",
+    "monthHelp": "月份和年份使用公历，格式为 MM/YYYY。佛历年份转换为公历年份时请减去 543。例如：2569 − 543 = 2026。",
+    "dateTimeHelp": "日期和时间使用公历，格式为 DD/MM/YYYY HH:mm。佛历年份转换为公历年份时请减去 543。例如：2569 − 543 = 2026。",
+    "invalid": "请输入 DD/MM/YYYY 格式的有效日期。",
+    "invalidMonth": "请输入 MM/YYYY 格式的有效月份。",
+    "invalidDateTime": "请输入 DD/MM/YYYY HH:mm 格式的有效日期和时间。"
+  },
+  "forms": {
+    "freeTextPreference": "我们希望您使用英语和/或泰语作答。"
+  },
+  "turnstile": {
+    "loading": "正在加载安全验证…",
+    "complete": "验证完成。",
+    "completeCheck": "请完成安全检查。",
+    "checking": "正在检查您的响应…",
+    "expired": "验证已过期，请重新完成。",
+    "timedOut": "验证超时，请重试。",
+    "retry": "无法加载验证，请重试安全检查。",
+    "ready": "安全验证已就绪。",
+    "refresh": "无法加载验证，请刷新页面后重试。",
+    "notConfigured": "尚未配置 Cloudflare 验证。",
+    "label": "Cloudflare 真人验证"
+  },
   "studentTasks": {
     "eyebrow": "我的学员记录",
     "title": "您想做什么？",
@@ -1416,7 +1464,7 @@
     "aatLabel": "支付 AAT 年度会费",
     "aatCopy": "泰国合气道协会年度会费。",
     "updateLabel": "更新我的信息",
-    "updateCopy": "提交更正或新的个人资料信息以供审核。",
+    "updateCopy": "提交对学员记录的更正以供审核。",
     "available": "可用",
     "underReview": "审核中",
     "needsAction": "需要处理",

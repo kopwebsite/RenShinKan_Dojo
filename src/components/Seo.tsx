@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { classSchedule, googleMapsUrl, siteInfo } from "../data/siteMeta";
-import { htmlLangMap, useTranslation, type Language, type TranslationKey } from "../i18n";
+import { htmlLangMap, useAdminTranslation, useTranslation, type Language, type TranslationKey } from "../i18n";
 
 const SITE_URL = (import.meta.env.VITE_SITE_URL || "https://renshinkandojo.org").replace(/\/+$/, "");
 const DEFAULT_IMAGE = `${SITE_URL}/dojo-photos/new-hero-poster.webp`;
@@ -288,7 +288,10 @@ function updateStructuredData(
 
 export function Seo() {
   const location = useLocation();
-  const { language, t } = useTranslation();
+  const publicTranslation = useTranslation();
+  const adminTranslation = useAdminTranslation();
+  const isAdminRoute = location.pathname.startsWith("/admin");
+  const { language, t } = isAdminRoute ? adminTranslation : publicTranslation;
 
   useEffect(() => {
     const pathname = location.pathname === "/dojo" ? "/" : location.pathname;

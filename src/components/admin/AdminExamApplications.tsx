@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { adminApi, adminStatusLabel, formatAdminDate } from "./adminApi";
 import type { AdminDojo, AdminIdentity } from "./AdminAccess";
+import { GregorianDateTimeInput } from "../GregorianDateInput";
 
 type ExamStatus = "not_signed_up" | "unpaid" | "paid";
 type Cycle = { id: string; name: string; title: string; status: "active" | "closed"; lifecycle_status: string; rank_category: string; examination_type: string; application_opens_at: string | null; application_closes_at: string | null; examination_at: string | null; venue: string; instructions: string; rank_fee_config_json: string; annual_fee_config_json: string; created_at: string; closed_at: string | null };
@@ -389,9 +390,9 @@ export function AdminExamApplications({ report, admin, dojos, mode = "applicatio
         <label>Examination type<input value={cycleForm.examinationType} onChange={(event) => setCycleForm({ ...cycleForm, examinationType: event.target.value })} maxLength={80} /></label>
         <label>Rank category<select value={cycleForm.rankCategory} onChange={(event) => setCycleForm({ ...cycleForm, rankCategory: event.target.value })}><option>Kyu and Dan</option><option>Kyu</option><option>Dan</option></select></label>
         {editingCycle ? <label>Application state<select value={cycleForm.lifecycleStatus} onChange={(event) => setCycleForm({ ...cycleForm, lifecycleStatus: event.target.value })}><option value="draft">Draft</option><option value="open">Open</option><option value="closed">Closed</option><option value="completed">Completed</option><option value="archived">Archived</option></select></label> : null}
-        <label>Applications open<input type="datetime-local" value={cycleForm.applicationOpensAt} onChange={(event) => setCycleForm({ ...cycleForm, applicationOpensAt: event.target.value })} /></label>
-        <label>Applications close<input type="datetime-local" value={cycleForm.applicationClosesAt} onChange={(event) => setCycleForm({ ...cycleForm, applicationClosesAt: event.target.value })} /></label>
-        <label>Examination date and time<input type="datetime-local" value={cycleForm.examinationAt} onChange={(event) => setCycleForm({ ...cycleForm, examinationAt: event.target.value })} /></label>
+        <label>Applications open<GregorianDateTimeInput admin value={cycleForm.applicationOpensAt} onChange={(value) => setCycleForm({ ...cycleForm, applicationOpensAt: value })} /></label>
+        <label>Applications close<GregorianDateTimeInput admin value={cycleForm.applicationClosesAt} onChange={(value) => setCycleForm({ ...cycleForm, applicationClosesAt: value })} /></label>
+        <label>Examination date and time<GregorianDateTimeInput admin value={cycleForm.examinationAt} onChange={(value) => setCycleForm({ ...cycleForm, examinationAt: value })} /></label>
         <label>Venue<input value={cycleForm.venue} onChange={(event) => setCycleForm({ ...cycleForm, venue: event.target.value })} maxLength={240} /></label>
         <label>Instructions<textarea value={cycleForm.instructions} onChange={(event) => setCycleForm({ ...cycleForm, instructions: event.target.value })} maxLength={4000} /></label>
         <label>Default Kyu examination fee (THB)<input type="number" min="0" max="1000000" step="0.01" value={cycleForm.kyuExamFee} onChange={(event) => setCycleForm({ ...cycleForm, kyuExamFee: event.target.value })} /></label>

@@ -1,6 +1,7 @@
 import { beltKeyForRank, normalizeRank } from "../../shared/ranks";
 import { aatMembershipStatus } from "../../shared/membership";
 import { studentRequestStatus } from "../../shared/requestStatus";
+import { bangkokGregorianYear, currentBangkokMonthKey as gregorianBangkokMonthKey } from "../../shared/date";
 import { canAccessDojo, effectivePermissionLevel, jsonResponse, type AdminSession } from "./auth";
 
 export type D1Result<T = unknown> = {
@@ -132,17 +133,7 @@ export function isMonthKey(value: string) {
   return year >= 2000 && year <= 2200;
 }
 
-export function currentBangkokMonthKey(date = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Bangkok",
-    year: "numeric",
-    month: "2-digit",
-  }).formatToParts(date);
-  const year = parts.find((part) => part.type === "year")?.value;
-  const month = parts.find((part) => part.type === "month")?.value;
-  if (!year || !month) throw new Error("The current contribution month could not be determined.");
-  return `${year}-${month}`;
-}
+export const currentBangkokMonthKey = gregorianBangkokMonthKey;
 
 export function recentMonthKeys(count = 12, from = currentBangkokMonthKey()) {
   const [year, month] = from.split("-").map(Number);
@@ -178,45 +169,34 @@ export function isValidStudentId(value: string) {
   return STUDENT_ID_PATTERN.test(normalizeStudentId(value));
 }
 
-export function bangkokGregorianYear(date = new Date()) {
-  const year = new Intl.DateTimeFormat("en-CA-u-ca-gregory", {
-    timeZone: "Asia/Bangkok",
-    year: "numeric",
-  }).formatToParts(date).find((part) => part.type === "year")?.value;
-  if (!year) throw new Error("The current Thailand year could not be determined.");
-  return Number(year);
-}
+export { bangkokGregorianYear };
 
-export function thaiBuddhistYear(date = new Date()) {
-  return bangkokGregorianYear(date) + 543;
-}
-
-export function formatStudentId(sequence: number, code = "RSK", buddhistYear = thaiBuddhistYear()) {
+export function formatStudentId(sequence: number, code = "RSK", gregorianYear = bangkokGregorianYear()) {
   const normalizedSequence = Math.max(1, Math.trunc(sequence));
-  const yearSuffix = String(buddhistYear).slice(-2).padStart(2, "0");
+  const yearSuffix = String(gregorianYear).slice(-2).padStart(2, "0");
   return `${code.toLocaleUpperCase("en-US")}-${yearSuffix}${String(normalizedSequence).padStart(2, "0")}`;
 }
 
 export function studentIdSequenceForCurrentYear(studentId: string, code: string, date = new Date()) {
-  const buddhistYear = thaiBuddhistYear(date);
-  const prefix = `${code.toLocaleUpperCase("en-US")}-${String(buddhistYear).slice(-2).padStart(2, "0")}`;
+  const gregorianYear = bangkokGregorianYear(date);
+  const prefix = `${code.toLocaleUpperCase("en-US")}-${String(gregorianYear).slice(-2).padStart(2, "0")}`;
   const normalized = normalizeStudentId(studentId);
   if (!normalized.startsWith(prefix)) return null;
   const sequenceText = normalized.slice(prefix.length);
   if (!/^\d{2,}$/.test(sequenceText)) return null;
   const sequence = Number(sequenceText);
-  return Number.isSafeInteger(sequence) && sequence > 0 ? { buddhistYear, sequence } : null;
+  return Number.isSafeInteger(sequence) && sequence > 0 ? { gregorianYear, sequence } : null;
 }
 
 export function syncStudentIdSequenceStatement(db: D1Database, dojoId: string, dojoCode: string, studentId: string, updatedAt: string) {
   const parsed = studentIdSequenceForCurrentYear(studentId, dojoCode, new Date(updatedAt));
   if (!parsed) return null;
-  return db.prepare(`INSERT INTO dojo_student_year_sequences (dojo_id, buddhist_year, last_number, updated_at)
+  return db.prepare(`INSERT INTO dojo_student_gregorian_sequences (dojo_id, gregorian_year, last_number, updated_at)
       VALUES (?, ?, ?, ?)
-      ON CONFLICT(dojo_id, buddhist_year) DO UPDATE SET
-        last_number = MAX(dojo_student_year_sequences.last_number, excluded.last_number),
+      ON CONFLICT(dojo_id, gregorian_year) DO UPDATE SET
+        last_number = MAX(dojo_student_gregorian_sequences.last_number, excluded.last_number),
         updated_at = excluded.updated_at`)
-    .bind(dojoId, parsed.buddhistYear, parsed.sequence, updatedAt);
+    .bind(dojoId, parsed.gregorianYear, parsed.sequence, updatedAt);
 }
 
 export function rankColor(rank: string, fallback = "white") {
@@ -224,26 +204,26 @@ export function rankColor(rank: string, fallback = "white") {
 }
 
 export async function nextStudentId(db: D1Database, dojoId = DEFAULT_DOJO_ID, date = new Date()) {
-  const buddhistYear = thaiBuddhistYear(date);
-  const row = await db.prepare(`INSERT INTO dojo_student_year_sequences (dojo_id, buddhist_year, last_number, updated_at)
+  const gregorianYear = bangkokGregorianYear(date);
+  const row = await db.prepare(`INSERT INTO dojo_student_gregorian_sequences (dojo_id, gregorian_year, last_number, updated_at)
       SELECT id, ?, 1, ? FROM dojos WHERE id = ? AND active = 1
-      ON CONFLICT(dojo_id, buddhist_year) DO UPDATE SET
-        last_number = dojo_student_year_sequences.last_number + 1,
+      ON CONFLICT(dojo_id, gregorian_year) DO UPDATE SET
+        last_number = dojo_student_gregorian_sequences.last_number + 1,
         updated_at = excluded.updated_at
       RETURNING last_number, (SELECT code FROM dojos WHERE id = ?) AS code`)
-    .bind(buddhistYear, date.toISOString(), dojoId, dojoId).first<{ last_number: number; code: string }>();
+    .bind(gregorianYear, date.toISOString(), dojoId, dojoId).first<{ last_number: number; code: string }>();
   if (!row?.code) throw new Error("The dojo Student ID sequence is not configured");
-  return formatStudentId(Number(row.last_number), row.code, buddhistYear);
+  return formatStudentId(Number(row.last_number), row.code, gregorianYear);
 }
 
 export async function suggestedStudentId(db: D1Database, dojoId = DEFAULT_DOJO_ID, date = new Date()) {
-  const buddhistYear = thaiBuddhistYear(date);
+  const gregorianYear = bangkokGregorianYear(date);
   const row = await db.prepare(`SELECT d.code, COALESCE(seq.last_number, 0) AS last_number
-    FROM dojos d LEFT JOIN dojo_student_year_sequences seq ON seq.dojo_id = d.id AND seq.buddhist_year = ?
+    FROM dojos d LEFT JOIN dojo_student_gregorian_sequences seq ON seq.dojo_id = d.id AND seq.gregorian_year = ?
     WHERE d.id = ? AND d.active = 1`)
-    .bind(buddhistYear, dojoId).first<{ code: string; last_number: number }>();
-  if (!row) return formatStudentId(1, "RSK", buddhistYear);
-  return formatStudentId(Number(row.last_number || 0) + 1, row.code, buddhistYear);
+    .bind(gregorianYear, dojoId).first<{ code: string; last_number: number }>();
+  if (!row) return formatStudentId(1, "RSK", gregorianYear);
+  return formatStudentId(Number(row.last_number || 0) + 1, row.code, gregorianYear);
 }
 
 export type DojoRow = {
@@ -401,7 +381,6 @@ export type StudentRow = {
   aat_number?: string | null;
   aat_last_paid_date?: string | null;
   practice_duration?: string;
-  profile_bio?: string;
   profile_reviewed_at?: string | null;
   profile_student_visible_note?: string | null;
 };
@@ -686,7 +665,6 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
     dojoLogo: student.dojo_logo || null,
     aatNumber: student.aat_number || null,
     practiceDuration: student.practice_duration || null,
-    profileBio: student.profile_bio || null,
     trainingEntries: (trainingResult.results || []).map((entry) => ({
       id: entry.id,
       entryDate: entry.entry_date || entry.created_at,

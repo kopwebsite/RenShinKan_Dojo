@@ -163,21 +163,21 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const dojo = await activeDojo(requireStudentDb(env), dojoId);
     if (!dojo) return jsonResponse({ error: "Choose an active dojo." }, 400);
     if (!canAccessDojo(session, dojo.id)) return jsonResponse({ error: "You do not have access to that dojo." }, 403);
-    if (adminNotes.length > 5_000) return jsonResponse({ error: "Additional information must be 5,000 characters or fewer." }, 400);
+    if (adminNotes.length > 5_000) return jsonResponse({ error: "The administrator note must be 5,000 characters or fewer." }, 400);
     if (!Number.isFinite(currentTrainingHours) || currentTrainingHours < 0 || currentTrainingHours > 1_000_000) return jsonResponse({ error: "Current training hours must be zero or a positive number." }, 400);
     if (profileImageUrl === undefined) return jsonResponse({ error: "The profile image location is invalid." }, 400);
 
     const db = requireStudentDb(env);
     const aatNumber = String(body.aatNumber || "").normalize("NFKC").trim().slice(0, 40) || null;
-    const aatLastPaidDate = typeof body.aatLastPaidDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.aatLastPaidDate) ? body.aatLastPaidDate : null;
+    const aatLastPaidDate = isCanonicalDate(body.aatLastPaidDate) ? body.aatLastPaidDate : null;
     const requestedId = normalizeStudentId(String(body.studentId || ""));
-    if (manualStudentId && !isValidStudentId(requestedId)) return jsonResponse({ error: "Student ID must use a format such as RSK-6901." }, 400);
+    if (manualStudentId && !isValidStudentId(requestedId)) return jsonResponse({ error: "Student ID must use a format such as RSK-2601." }, 400);
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    const accountCreatedDate = typeof body.accountCreatedDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.accountCreatedDate)
+    const accountCreatedDate = isCanonicalDate(body.accountCreatedDate)
       ? body.accountCreatedDate
       : now.slice(0, 10);
-    const dojoJoinedDate = typeof body.dojoJoinedDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.dojoJoinedDate)
+    const dojoJoinedDate = isCanonicalDate(body.dojoJoinedDate)
       ? body.dojoJoinedDate
       : accountCreatedDate;
     const shareFields = JSON.stringify(body.shareFields && typeof body.shareFields === "object" ? body.shareFields : DEFAULT_SHARE_FIELDS);
@@ -267,3 +267,4 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return jsonResponse({ error: duplicate ? "That Student ID is already in use." : error instanceof Error ? error.message : "The student could not be added." }, duplicate ? 409 : 400);
   }
 };
+import { isCanonicalDate } from "../../../../shared/date";

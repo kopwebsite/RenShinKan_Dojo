@@ -112,7 +112,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     } else {
       const levels = Number(body.levels);
       const location = typeof body.location === "string" ? body.location.normalize("NFKC").trim().replace(/\s+/g, " ") : "";
-      const examinationDate = typeof body.examinationDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.examinationDate) ? body.examinationDate : "";
+      const examinationDate = isCanonicalDate(body.examinationDate) ? body.examinationDate : "";
       if (!Number.isInteger(levels) || levels <= 0 || levels > 14) return jsonResponse({ error: "Promotion levels must be a positive whole number." }, 400);
       if (action === "mass_promotion" && (!location || location.length > 200)) return jsonResponse({ error: "Enter the examination location." }, 400);
       if (action === "mass_promotion" && !examinationDate) return jsonResponse({ error: "Choose the examination date." }, 400);
@@ -181,3 +181,4 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return jsonResponse({ error: message }, 400);
   }
 };
+import { isCanonicalDate } from "../../../../shared/date";

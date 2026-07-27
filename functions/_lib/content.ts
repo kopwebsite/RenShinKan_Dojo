@@ -383,7 +383,7 @@ function galleryId(value: unknown, fallback: string) {
 
 function galleryDate(value: unknown) {
   if (typeof value !== "string" || !value) return undefined;
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined;
+  return isCanonicalDate(value) ? value : undefined;
 }
 
 function validateGalleryPhoto(value: unknown, path: string): GalleryPhoto {
@@ -837,3 +837,4 @@ export function replacePendingMediaUrls(content: EditableContent, uploadUrlById:
 
   return syncLegacyGalleryArrays(nextContent) as EditableContent;
 }
+import { isCanonicalDate } from "../../shared/date";

@@ -27,7 +27,8 @@ import {
   type RefObject,
 } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { useTranslation, type TranslationKey } from "../../i18n";
+import { useAdminTranslation, type TranslationKey } from "../../i18n";
+import { useScopedAdminTranslations } from "../../i18n/scopedAdmin";
 import { useAdminSession } from "./useAdminSession";
 
 type NavigationItem = {
@@ -251,7 +252,7 @@ function Navigation({
 }
 
 export function AdminShell({ children }: { children: ReactNode }) {
-  const { t } = useTranslation();
+  const { language, setLanguage, t } = useAdminTranslation();
   const location = useLocation();
   const session = useAdminSession();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -260,9 +261,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const helpPanelRef = useRef<HTMLElement>(null);
   const helpTriggerRef = useRef<HTMLButtonElement>(null);
+  const translationScopeRef = useRef<HTMLDivElement>(null);
   const closeMenu = () => setMenuOpen(false);
   const closeHelp = () => setHelpOpen(false);
 
+  useScopedAdminTranslations(translationScopeRef, language);
   useModalFocus(menuOpen, menuPanelRef, menuTriggerRef, closeMenu);
   useModalFocus(helpOpen, helpPanelRef, helpTriggerRef, closeHelp);
   useEffect(() => setMenuOpen(false), [location.pathname, location.search]);
@@ -286,7 +289,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   if (location.pathname === "/admin" || !ready || !session.admin) return <>{children}</>;
 
-  return <div className="admin-shell">
+  return <div ref={translationScopeRef} className="admin-shell">
     <aside className="admin-shell__sidebar">
       <Link to="/admin" className="admin-shell__brand">
         <strong>RenShinKan</strong>
@@ -306,6 +309,13 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <Link to="/admin">{t("adminShell.changeDojo")}</Link>
         </div>
         <div className="admin-shell__account">
+          <label className="admin-language-select">
+            <span>{t("adminShell.language")}</span>
+            <select value={language} onChange={(event) => setLanguage(event.target.value === "th" ? "th" : "en")}>
+              <option value="en">English</option>
+              <option value="th">ไทย</option>
+            </select>
+          </label>
           <span><strong>{session.admin.name}</strong><small>{central ? t("adminShell.centralAdministrator") : t("adminShell.dojoAdministrator")}</small></span>
           <button ref={helpTriggerRef} type="button" onClick={() => setHelpOpen(true)}><CircleHelp size={18} aria-hidden="true" /> {t("adminShell.help")}</button>
           <a href="/" target="_blank" rel="noopener noreferrer"><ExternalLink size={18} aria-hidden="true" /> {t("adminShell.viewPublicWebsite")}</a>

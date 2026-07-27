@@ -33,7 +33,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       s.account_created_date, s.dojo_joined_date, s.current_belt, s.belt_color,
       s.profile_image_url, s.profile_image_consent, s.public_visible, s.active, s.profile_status, s.share_fields, s.dojo_name,
       s.training_hours_adjustment, s.updated_at, s.created_at, s.dojo_id, s.aat_number, s.aat_last_paid_date,
-      s.practice_duration, s.profile_bio, s.profile_reviewed_at, s.profile_student_visible_note,
+      s.practice_duration, s.profile_reviewed_at, s.profile_student_visible_note,
       d.logo_url AS dojo_logo
       FROM students s LEFT JOIN dojos d ON d.id = s.dojo_id WHERE s.public_student_id = ?
       AND s.active = 1 AND s.public_visible = 1 AND s.profile_status = 'approved' LIMIT 1`)

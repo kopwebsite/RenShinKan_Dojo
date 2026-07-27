@@ -1,14 +1,17 @@
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, Clock3, Copy, Download, FileCheck2, Info, Printer, QrCode, Search, Share2, ShieldCheck, UserPlus, UserRound } from "lucide-react";
 import QRCodeLib from "qrcode";
 import { RANKS } from "../../shared/ranks";
 import { StudentRecordCard } from "../components/StudentRecordCard";
 import { PaymentProofUpload, type PaymentProofAccess } from "../components/PaymentProofUpload";
 import { TurnstileWidget } from "../components/TurnstileWidget";
+import { GregorianDateInput, GregorianMonthInput } from "../components/GregorianDateInput";
 import type { StudentPassportRecord } from "../types/studentRecord";
 import { prepareProfilePhoto } from "../utils/profilePhoto";
 import { useTranslation, type Language } from "../i18n";
 import { useEditableContent } from "../lib/content";
+import { formatGregorianMonth } from "../../shared/date";
+import { useScopedRecordTranslations } from "../i18n/scopedRecords";
 
 type Task = "lookup" | "profile" | "exam";
 type LookupResult = { record: StudentPassportRecord; shareUrl: string; accessToken: string };
@@ -47,21 +50,13 @@ const PHONE_COUNTRIES = [
   ["United Kingdom", "+44"], ["United States", "+1"], ["Vietnam", "+84"],
 ] as const;
 
-const PRACTICE_MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-] as const;
-
-function currentMonthValue() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+function approximatePracticeDuration(value: string) {
+  return formatGregorianMonth(value, "");
 }
 
-function approximatePracticeDuration(value: string) {
-  const match = /^(\d{4})-(\d{2})$/.exec(value);
-  if (!match) return "";
-  const month = Number(match[2]);
-  return month >= 1 && month <= 12 ? `Approx. since ${PRACTICE_MONTHS[month - 1]} ${match[1]}` : "";
+function FreeTextPreference() {
+  const { t } = useTranslation();
+  return <small className="free-text-language-help">{t("forms.freeTextPreference")}</small>;
 }
 
 const EXAM_REVIEW_LABELS: Partial<Record<keyof ExamDraft, string>> = {
@@ -109,6 +104,9 @@ async function responseBody<T>(response: Response) {
 }
 
 export function StudentRecordsPage() {
+  const { language } = useTranslation();
+  const translationScope = useRef<HTMLDivElement>(null);
+  useScopedRecordTranslations(translationScope, language);
   const taskFromUrl = () => {
     const value = new URLSearchParams(window.location.search).get("task");
     return value === "profile" || value === "exam" ? value : "lookup";
@@ -126,7 +124,7 @@ export function StudentRecordsPage() {
     window.history.pushState({}, "", `${url.pathname}${url.search}${url.hash}`);
     setTask(value);
   }
-  return <>
+  return <div ref={translationScope} className="student-records-localized">
     <section className="container-shell records-opening records-opening--tasks"><div><p className="folio-mark">Student records</p><h1>What would you like to do?</h1><p>Choose one task. Only the form you need will be shown.</p></div></section>
     <nav className="container-shell record-task-picker" aria-label="Student record tasks">{([
       ["lookup", Search, "Find my record", "View your approved profile, QR code, and submit hours."],
@@ -134,7 +132,7 @@ export function StudentRecordsPage() {
       ["exam", FileCheck2, "Apply for an exam", "Complete the official belt-examination application."],
     ] as const).map(([value, Icon, title, copy]) => <button key={value} className={task === value ? "is-active" : ""} onClick={() => chooseTask(value)} aria-pressed={task === value}><Icon /><span><strong>{title}</strong><small>{copy}</small></span></button>)}</nav>
     <section className="container-shell record-task-panel">{task === "lookup" ? <LookupWorkflow /> : task === "profile" ? <ProfileWorkflow /> : <ExamWorkflow />}</section>
-  </>;
+  </div>;
 }
 
 function LookupWorkflow() {
@@ -150,14 +148,14 @@ function LookupWorkflow() {
   async function submitHours(event: FormEvent) { event.preventDefault(); if (!result?.accessToken) return; setBusy(true); setError(""); try { const response = await fetch("/api/records/hours", { method: "POST", headers: { "Content-Type": "application/json", "X-Request-ID": crypto.randomUUID() }, body: JSON.stringify({ studentId: result.record.studentId, accessToken: result.accessToken, hours: Number(hours) }) }); const body = await responseBody<{ requestedTotal: number }>(response); setHoursMessage(`Submitted for administrator review. Your requested total is ${body.requestedTotal} hours; your approved total has not changed yet.`); setHours(""); } catch (reason) { setError(reason instanceof Error ? reason.message : "The hours request could not be submitted."); } finally { setBusy(false); } }
   async function copyLink() { if (result) { await navigator.clipboard.writeText(result.shareUrl); setHoursMessage("Profile link copied."); } }
   async function shareLink() { if (!result) return; if (navigator.share) await navigator.share({ title: `${result.record.displayName} · RenShinKan`, url: result.shareUrl }); else await copyLink(); }
-  return <><div className={`records-layout${result ? " records-layout--passport" : ""}`}><form className="record-lookup" onSubmit={submit}><p className="eyebrow">Existing student</p><h2>Look up an approved record</h2><p>Use the Student ID and student name. Small differences in spacing, punctuation, or spelling are okay; neither value works alone.</p><label>Student name<input value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" /></label><label>Student ID <small id="record-student-id-format">Example: RSK-6901.</small><input value={studentId} onChange={(event) => setStudentId(event.target.value.toUpperCase())} placeholder="RSK-6901" aria-describedby="record-student-id-format" /></label><TurnstileWidget onToken={onToken} resetSignal={reset} />{error ? <p className="form-error">{error}</p> : null}<button className="btn-primary" disabled={busy || !token}><Search size={17} /> {busy ? "Checking…" : "Find my record"}</button><p className="record-privacy"><ShieldCheck size={15} /> Verification details are sent securely and never placed in the page URL.</p></form>{result ? <StudentRecordCard record={result.record} /> : <div className="record-placeholder"><span>認</span><h2>Your verified record will appear here</h2><p>Public profile links never allow editing and never reveal application answers or payment details.</p></div>}</div>
+  return <><div className={`records-layout${result ? " records-layout--passport" : ""}`}><form className="record-lookup" onSubmit={submit}><p className="eyebrow">Existing student</p><h2>Look up an approved record</h2><p>Use the Student ID and student name. Small differences in spacing, punctuation, or spelling are okay; neither value works alone.</p><label>Student name<input value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" /></label><label>Student ID <small id="record-student-id-format">Example: RSK-2601.</small><input value={studentId} onChange={(event) => setStudentId(event.target.value.toUpperCase())} placeholder="RSK-2601" aria-describedby="record-student-id-format" /></label><TurnstileWidget onToken={onToken} resetSignal={reset} />{error ? <p className="form-error">{error}</p> : null}<button className="btn-primary" disabled={busy || !token}><Search size={17} /> {busy ? "Checking…" : "Find my record"}</button><p className="record-privacy"><ShieldCheck size={15} /> Verification details are sent securely and never placed in the page URL.</p></form>{result ? <StudentRecordCard record={result.record} /> : <div className="record-placeholder"><span>認</span><h2>Your verified record will appear here</h2><p>Public profile links never allow editing and never reveal application answers or payment details.</p></div>}</div>
     {result ? <section id="student-record-tools" className="student-owner-tools"><header><QrCode /><div><h2>Student record QR</h2><p>This opens your public training record. It is not a payment QR.</p></div></header><div className="student-owner-tools__grid">{qr ? <img src={qr} alt="Student record QR code" /> : null}<div><label>Public student record link<input readOnly value={result.shareUrl} onFocus={(event) => event.currentTarget.select()} /></label><div><button className="btn-secondary" onClick={() => void copyLink()}><Copy size={16} /> Copy link</button><button className="btn-secondary" onClick={() => void shareLink()}><Share2 size={16} /> Share</button><a className="btn-secondary" download={`${result.record.studentId}-profile-qr.png`} href={qr}><Download size={16} /> Download QR</a><button className="btn-secondary" onClick={() => window.print()}><Printer size={16} /> Print</button></div></div></div><form id="student-hours-form" className="student-hours-form" onSubmit={submitHours}><div><h3>Submit additional training hours</h3><p>Your verified lookup session authorizes this request. A sensei will review it before the approved total changes.</p></div><label>Hours to add<input type="number" min="0.25" max="1000" step="0.25" value={hours} onChange={(event) => setHours(event.target.value)} required /></label><button className="btn-primary" disabled={busy || !(Number(hours) > 0)}>Submit for review</button></form>{hoursMessage ? <p className="form-success"><CheckCircle2 /> {hoursMessage}</p> : null}</section> : null}</>;
 }
 
 function ProfileWorkflow() {
   const { language } = useTranslation();
   const aatHelp = AAT_PAYMENT_HELP[language];
-  const [draft, setDraft] = useState({ englishName: "", thaiName: "", currentRank: "Unranked", dojoId: "", aatNumber: "", aatLastPaidDate: "", aatPaidKnown: false, practiceStartMonth: "", profileBio: "" });
+  const [draft, setDraft] = useState({ englishName: "", thaiName: "", currentRank: "Unranked", dojoId: "", aatNumber: "", aatLastPaidDate: "", aatPaidKnown: false, practiceStartMonth: "" });
   const [dojos, setDojos] = useState<PublicDojo[]>([]);
   const [file, setFile] = useState<File | null>(null); const [preview, setPreview] = useState(""); const [token, setToken] = useState(""); const [reset, setReset] = useState(0); const [error, setError] = useState(""); const [busy, setBusy] = useState(false); const [done, setDone] = useState(false);
   const onToken = useCallback((value: string) => setToken(value), []);
@@ -179,11 +177,10 @@ function ProfileWorkflow() {
         <div className="student-aat-card__grid">
           <label><span className="student-field-copy">Membership number <small>Leave blank if one has not been assigned; your record will show “NEW”.</small></span><input name="aatNumber" maxLength={40} placeholder="Optional" value={draft.aatNumber} onChange={(event) => setDraft({ ...draft, aatNumber: event.target.value })} /></label>
           <label className="student-aat-paid-toggle"><input type="checkbox" checked={draft.aatPaidKnown} onChange={(event) => setDraft({ ...draft, aatPaidKnown: event.target.checked, aatLastPaidDate: event.target.checked ? draft.aatLastPaidDate : "" })} /><span><strong>I already paid my AAT annual membership</strong><small>Select this to add your most recent payment date.</small></span></label>
-          {draft.aatPaidKnown ? <label className="student-aat-payment-date"><span className="student-field-copy">Most recent payment date <small>Renewal is normally due one year after this date.</small></span><input name="aatLastPaidDate" type="date" value={draft.aatLastPaidDate} onChange={(event) => setDraft({ ...draft, aatLastPaidDate: event.target.value })} required /></label> : <div className="student-aat-note" aria-label={`${aatHelp.status} ${aatHelp.explanation}`}><Info aria-hidden="true" /><div><strong>{aatHelp.status}</strong><p>{aatHelp.explanation}</p></div></div>}
+          {draft.aatPaidKnown ? <label className="student-aat-payment-date"><span className="student-field-copy">Most recent payment date <small>Renewal is normally due one year after this date.</small></span><GregorianDateInput name="aatLastPaidDate" value={draft.aatLastPaidDate} onChange={(value) => setDraft({ ...draft, aatLastPaidDate: value })} required /></label> : <div className="student-aat-note" aria-label={`${aatHelp.status} ${aatHelp.explanation}`}><Info aria-hidden="true" /><div><strong>{aatHelp.status}</strong><p>{aatHelp.explanation}</p></div></div>}
         </div>
       </fieldset>
-      <label><span className="student-field-copy">Approximately when did you start aikido? <small id="practice-start-help">Choose a month and year. An approximate answer is fine.</small></span><input name="practiceStartMonth" type="month" min="1900-01" max={currentMonthValue()} aria-describedby="practice-start-help" value={draft.practiceStartMonth} onChange={(event) => setDraft({ ...draft, practiceStartMonth: event.target.value })} required /></label>
-      <label className="admin-span-2"><span className="student-field-copy">Additional information for your profile <small>Optional · do not include private contact or payment details.</small></span><textarea maxLength={2000} value={draft.profileBio} onChange={(event) => setDraft({ ...draft, profileBio: event.target.value })} /></label>
+      <label><span className="student-field-copy">Approximately when did you start aikido? <small id="practice-start-help">Choose a month and year. An approximate answer is fine.</small></span><GregorianMonthInput name="practiceStartMonth" aria-describedby="practice-start-help" value={draft.practiceStartMonth} onChange={(value) => setDraft({ ...draft, practiceStartMonth: value })} required /></label>
     </div>
     <label className="student-photo-field"><span>{preview ? <img src={preview} alt="Profile preview" /> : <UserRound aria-hidden="true" />}</span><strong>{preview ? "Replace profile photo" : "Add profile photo (optional)"}</strong><small id="profile-photo-help">Choose one from your photo library or take a new photo. JPEG, PNG, WebP, HEIC, or HEIF; at least 128 × 128 pixels.</small><input type="file" accept="image/*" aria-describedby="profile-photo-help" onChange={(event) => void choose(event.target.files?.[0])} /></label>
     <TurnstileWidget onToken={onToken} resetSignal={reset} />
@@ -240,7 +237,7 @@ function ExamWorkflow() {
     <fieldset>
       <ExamSectionLegend title="Verify your approved student record" copy="These details must match your active student profile." />
       <label><ExamFieldCopy label="Student name on your approved record" help="Use the name shown on your official student profile." /><input name="verificationName" autoComplete="name" value={draft.verificationName} onChange={(event) => set("verificationName", event.target.value)} required /></label>
-      <label><ExamFieldCopy label="Student ID" help="Example: RSK-6901." /><input name="studentId" value={draft.studentId} onChange={(event) => set("studentId", event.target.value.toUpperCase())} required /></label>
+      <label><ExamFieldCopy label="Student ID" help="Example: RSK-2601." /><input name="studentId" value={draft.studentId} onChange={(event) => set("studentId", event.target.value.toUpperCase())} required /></label>
       <label><ExamFieldCopy label="Current dojo" help="Choose the dojo shown on your student record." /><select name="dojoId" value={draft.dojoId} onChange={(event) => set("dojoId", event.target.value)} required><option value="">Choose your dojo</option>{dojos.map((dojo) => <option key={dojo.id} value={dojo.id}>{dojo.official_name}</option>)}</select></label>
       <label><ExamFieldCopy label="Rank you are applying to test for" help="Choose the next rank requested for this examination." /><select name="attemptedRank" value={draft.attemptedRank} onChange={(event) => set("attemptedRank", event.target.value)}>{RANKS.slice(1).map((rank) => <option key={rank}>{rank}</option>)}</select></label>
     </fieldset>
@@ -251,12 +248,12 @@ function ExamWorkflow() {
       <label><ExamFieldCopy label="Family name / surname" /><input name="surname" autoComplete="family-name" value={draft.surname} onChange={(event) => set("surname", event.target.value)} required /></label>
       <label><ExamFieldCopy label="Nationality" /><input name="nationality" autoComplete="country-name" value={draft.nationality} onChange={(event) => set("nationality", event.target.value)} required /></label>
       <label><ExamFieldCopy label="Sex / gender" help="Use the wording you want recorded on the association application." /><input name="sex" value={draft.sex} onChange={(event) => set("sex", event.target.value)} required /></label>
-      <label><ExamFieldCopy label="Date of birth" /><input name="dateOfBirth" type="date" value={draft.dateOfBirth} onChange={(event) => set("dateOfBirth", event.target.value)} required /></label>
+      <label><ExamFieldCopy label="Date of birth" /><GregorianDateInput name="dateOfBirth" value={draft.dateOfBirth} onChange={(value) => set("dateOfBirth", value)} required /></label>
     </fieldset>
     <fieldset>
       <ExamSectionLegend title="Address and contact" copy="How the association or dojo can identify and contact you." />
-      <label><ExamFieldCopy label="Permanent (registered) address" help="Include street, district, province or state, and country." /><textarea name="permanentAddress" autoComplete="street-address" value={draft.permanentAddress} onChange={(event) => set("permanentAddress", event.target.value)} required /></label>
-       <label><ExamFieldCopy label="Current address" optional help="Leave blank if it is the same as your permanent address." /><textarea name="presentAddress" value={draft.presentAddress} onChange={(event) => set("presentAddress", event.target.value)} /></label>
+      <label><ExamFieldCopy label="Permanent (registered) address" help="Include street, district, province or state, and country." /><textarea name="permanentAddress" autoComplete="street-address" value={draft.permanentAddress} onChange={(event) => set("permanentAddress", event.target.value)} required /><FreeTextPreference /></label>
+       <label><ExamFieldCopy label="Current address" optional help="Leave blank if it is the same as your permanent address." /><textarea name="presentAddress" value={draft.presentAddress} onChange={(event) => set("presentAddress", event.target.value)} /><FreeTextPreference /></label>
       <label><ExamFieldCopy label="Country calling code" /><select name="phoneCountry" value={draft.phoneCountry} onChange={(event) => { const option = PHONE_COUNTRIES.find(([country]) => country === event.target.value); if (option) setDraft({ ...draft, phoneCountry: option[0], phoneCallingCode: option[1] }); }}>{PHONE_COUNTRIES.map(([country, callingCode]) => <option key={country} value={country}>{country} ({callingCode})</option>)}</select></label>
       <label><ExamFieldCopy label="Telephone number" help="Enter a local number; the selected calling code is added automatically." /><input name="phone" type="tel" inputMode="tel" autoComplete="tel-national" pattern="[0-9 ()+.-]{6,24}" maxLength={24} placeholder="81 234 5678" value={draft.phone} onChange={(event) => set("phone", event.target.value)} required /></label>
     </fieldset>
@@ -272,8 +269,8 @@ function ExamWorkflow() {
     </fieldset>
     <fieldset>
       <ExamSectionLegend title="Qualifications and experience" copy="A short summary helps the examiners understand your background." />
-      <label><ExamFieldCopy label="Relevant certificates or qualifications" optional help="Include aikido, martial arts, coaching, or related qualifications." /><textarea name="certificate" value={draft.certificate} onChange={(event) => set("certificate", event.target.value)} /></label>
-      <label><ExamFieldCopy label="Aikido, martial arts, or sports experience" help="Briefly describe your training history, competitions, or relevant events." /><textarea name="gamesExperience" value={draft.gamesExperience} onChange={(event) => set("gamesExperience", event.target.value)} required /></label>
+      <label><ExamFieldCopy label="Relevant certificates or qualifications" optional help="Include aikido, martial arts, coaching, or related qualifications." /><textarea name="certificate" value={draft.certificate} onChange={(event) => set("certificate", event.target.value)} /><FreeTextPreference /></label>
+      <label><ExamFieldCopy label="Aikido, martial arts, or sports experience" help="Briefly describe your training history, competitions, or relevant events." /><textarea name="gamesExperience" value={draft.gamesExperience} onChange={(event) => set("gamesExperience", event.target.value)} required /><FreeTextPreference /></label>
     </fieldset>
     <fieldset>
       <ExamSectionLegend title="Declaration and signature" copy="Confirm the application is accurate before review." />

@@ -6,13 +6,12 @@ import { getPublishedRecentEvents, useEditableContent } from "../lib/content";
 import { assetPath } from "../utils/assetPath";
 import { MotionSection } from "./MotionSection";
 import { ResponsiveImage } from "./ResponsiveImage";
+import { formatGregorianDate } from "../../shared/date";
 
 const FALLBACK_COVER = assetPath("/dojo-photos/aikido-hero-new.webp");
 
-function dateLabel(value: string, language: string) {
-  const date = new Date(`${value.slice(0, 10)}T12:00:00`);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat(language, { day: "numeric", month: "short", year: "numeric" }).format(date);
+function dateLabel(value: string, _language: string) {
+  return formatGregorianDate(value, value);
 }
 
 export function LatestDojoNewsletters() {

@@ -11,9 +11,9 @@ describe("student profile form on desktop and mobile", () => {
   const css = file("src/index.css");
 
   it("uses a month-and-year start picker and stores a readable approximate value", () => {
-    expect(page).toContain('type="month"');
+    expect(page).toContain("GregorianMonthInput");
     expect(page).toContain("Choose a month and year. An approximate answer is fine.");
-    expect(page).toContain("Approx. since");
+    expect(page).toContain("formatGregorianMonth");
     expect(page).toContain("approximatePracticeDuration(practiceStartMonth)");
   });
 

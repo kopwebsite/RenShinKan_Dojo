@@ -1,6 +1,7 @@
 import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, rgb } from "pdf-lib";
 import { strToU8, zipSync } from "fflate";
+import { formatGregorianDate } from "../../shared/date";
 
 export type ExamExportRow = {
   public_student_id: string; student_name: string; dojo_name: string; dojo_code: string;
@@ -83,7 +84,7 @@ export function buildExamXlsx(cycle: ExamExportCycle, rows: ExamExportRow[], sco
   const worksheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${widths.map((width, index) => `<col min="${index + 1}" max="${index + 1}" width="${width}" customWidth="1"/>`).join("")}</cols><sheetData><row r="1">${headers.map((header, index) => cell(`${columnName(index)}1`, header, 1)).join("")}</row>${tableRows}${totals}</sheetData><autoFilter ref="A1:R${Math.max(2, totalRow - 1)}"/><pageSetup orientation="landscape" paperSize="9" fitToWidth="1" fitToHeight="0"/></worksheet>`;
   const summary = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="28" customWidth="1"/><col min="2" max="2" width="45" customWidth="1"/></cols><sheetData>${[
     ["Examination report", cycle.title || cycle.name], ["Scope", scopeLabel], ["Category", cycle.rank_category],
-    ["Examination date", cycle.examination_at?.slice(0, 10) || ""], ["Venue", cycle.venue], ["Students", rows.length],
+    ["Examination date", formatGregorianDate(cycle.examination_at, "")], ["Venue", cycle.venue], ["Students", rows.length],
     ["Exam fees", { formula: `SUM('Applications'!M2:M${Math.max(2, data.length + 1)})` }],
     ["Annual fees", { formula: `SUM('Applications'!N2:N${Math.max(2, data.length + 1)})` }],
     ["Grand total", { formula: `SUM('Applications'!P2:P${Math.max(2, data.length + 1)})` }],
@@ -93,7 +94,7 @@ export function buildExamXlsx(cycle: ExamExportCycle, rows: ExamExportRow[], sco
     "_rels/.rels": strToU8(`<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`),
     "xl/workbook.xml": strToU8(`<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Applications" sheetId="1" r:id="rId1"/><sheet name="Summary" sheetId="2" r:id="rId2"/></sheets><calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>`),
     "xl/_rels/workbook.xml.rels": strToU8(`<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`),
-    "xl/styles.xml": strToU8(`<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="2"><numFmt numFmtId="164" formatCode="yyyy-mm-dd"/><numFmt numFmtId="165" formatCode="#,##0.00"/></numFmts><fonts count="2"><font><sz val="10"/><name val="Noto Sans Thai"/></font><font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Noto Sans Thai"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF26382D"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="1" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs></styleSheet>`),
+    "xl/styles.xml": strToU8(`<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="2"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/><numFmt numFmtId="165" formatCode="#,##0.00"/></numFmts><fonts count="2"><font><sz val="10"/><name val="Noto Sans Thai"/></font><font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Noto Sans Thai"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF26382D"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="1" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs></styleSheet>`),
     "xl/worksheets/sheet1.xml": strToU8(worksheet), "xl/worksheets/sheet2.xml": strToU8(summary),
   };
   return zipSync(files, { level: 6 });
@@ -114,7 +115,7 @@ export async function buildExamPdf(cycle: ExamExportCycle, rows: ExamExportRow[]
   const drawHeader = () => {
     pageNumber += 1;
     page.drawText(cycle.title || cycle.name, { x: margin, y: y - 18, size: 16, font, color: accent });
-    page.drawText(`${scopeLabel}  •  ${cycle.examination_at?.slice(0, 10) || "Date not set"}  •  ${cycle.venue || "Venue not set"}`, { x: margin, y: y - 40, size: 9, font, color: bodyColor });
+    page.drawText(`${scopeLabel}  •  ${formatGregorianDate(cycle.examination_at, "Date not set")}  •  ${cycle.venue || "Venue not set"}`, { x: margin, y: y - 40, size: 9, font, color: bodyColor });
     page.drawText(`Page ${pageNumber}`, { x: pageSize[0] - margin - 55, y: y - 18, size: 8, font, color: bodyColor });
     y -= titleHeight;
     let x = margin;

@@ -1,20 +1,12 @@
 import { jsonResponse } from "../_lib/auth";
 import { type StorageEnv, readEditableContentFromStorage } from "../_lib/storage";
 import type { D1Database } from "../_lib/studentRecords";
+import { formatGregorianDate } from "../../shared/date";
 
 type Env = StorageEnv & { STUDENT_DB?: D1Database };
 
 function activeExamAnnouncement(value: string, venue: string) {
-  const day = value.slice(0, 10);
-  const date = new Date(`${day}T12:00:00Z`);
-  const formatted = Number.isNaN(date.getTime())
-    ? day
-    : new Intl.DateTimeFormat("en-GB", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-        timeZone: "UTC",
-      }).format(date);
+  const formatted = formatGregorianDate(value, value);
   return `Next belt examination: ${formatted}${venue ? ` at ${venue}` : ""}`;
 }
 

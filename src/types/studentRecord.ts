@@ -83,7 +83,6 @@ export type StudentPassportRecord = PublicStudentRecord & {
   dojoLogo: string | null;
   aatNumber: string | null;
   practiceDuration: string | null;
-  profileBio: string | null;
   trainingEntries: PassportTrainingEntry[];
   aatContributions: PassportAatContribution[];
   aatSummary: PassportAatSummary;

@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState, type ComponentType, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import {
   BadgeCheck,
   BookOpen,
@@ -27,7 +27,9 @@ import type {
 } from "../../types/studentRecord";
 import { BeltMark } from "../BeltMark";
 import { PaymentProofUpload } from "../PaymentProofUpload";
+import { formatGregorianDate, formatGregorianMonth } from "../../../shared/date";
 import styles from "./DigitalPassport.module.css";
+import { useScopedRecordTranslations } from "../../i18n/scopedRecords";
 
 type PassportTab = "identity" | "training" | "examinations" | "contributions" | "requests";
 type TabDefinition = { id: PassportTab; label: string; Icon: ComponentType<{ size?: number; "aria-hidden"?: boolean }> };
@@ -49,19 +51,11 @@ function isOwnerRecord(record: PublicStudentRecord | StudentPassportRecord): rec
 }
 
 function date(value?: string | null) {
-  if (!value) return "Not recorded";
-  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value;
-  const parsed = new Date(normalized);
-  return Number.isNaN(parsed.getTime())
-    ? value
-    : new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" }).format(parsed);
+  return formatGregorianDate(value, "Not recorded");
 }
 
 function month(value: string) {
-  const parsed = new Date(`${value}-01T12:00:00`);
-  return Number.isNaN(parsed.getTime())
-    ? value
-    : new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(parsed);
+  return formatGregorianMonth(value, value);
 }
 
 function sourceLabel(value: string) {
@@ -131,7 +125,6 @@ function IdentityPage({ record, owner }: { record: PublicStudentRecord | Student
         <div><dt>LAST UPDATED</dt><dd>{date(record.lastUpdated)}</dd></div>
         {owner?.practiceDuration ? <div><dt>PRACTICE RECORD</dt><dd>{owner.practiceDuration}</dd></div> : null}
       </dl>
-      {owner?.profileBio ? <div className={styles.profileNote}><p className={styles.microLabel}>STUDENT PROFILE</p><p>{owner.profileBio}</p></div> : null}
       <VerificationSeal />
     </PassportPage>
   </div>;
@@ -287,7 +280,7 @@ function ContributionsPage({ record }: { record: StudentPassportRecord }) {
       <div className={styles.officialNote}><ShieldCheck aria-hidden="true" /><p>{aatSummaryText(record)}{record.aatSummary.lastVerifiedPayment ? ` Last verified ${date(record.aatSummary.lastVerifiedPayment)}.` : ""}{record.aatSummary.nextDueDate ? ` Next due ${date(record.aatSummary.nextDueDate)}.` : ""}</p></div>
       {record.aatContributions.length ? <div className={styles.stampGrid}>
         {record.aatContributions.map((entry) => { const status = aatStatus(entry); return <article key={entry.id}>
-          <div><span>{new Date(`${entry.paymentDate.slice(0, 10)}T12:00:00`).getFullYear()}</span><strong>{date(entry.paymentDate)}</strong></div>
+          <div><span>{entry.paymentDate.slice(0, 4)}</span><strong>{date(entry.paymentDate)}</strong></div>
           <span className={status.className}><status.Icon aria-hidden="true" /> {status.label}</span>
           <small>{entry.renewalDueDate ? `Renewal due ${date(entry.renewalDueDate)}` : "Renewal date not recorded"}{entry.amount !== null ? ` · ${entry.amount.toLocaleString()} ${entry.currency}` : ""}</small>
           <ProofActions proof={entry.proof} record={record} paymentLabel="AAT annual contribution" />
@@ -373,6 +366,9 @@ function StudentTaskList({
 }
 
 export function DigitalPassport({ record }: { record: PublicStudentRecord | StudentPassportRecord }) {
+  const { language } = useTranslation();
+  const translationScope = useRef<HTMLElement>(null);
+  useScopedRecordTranslations(translationScope, language);
   const owner = isOwnerRecord(record) ? record : null;
   const tabs = owner ? OWNER_TABS : PUBLIC_TABS;
   const [active, setActive] = useState<PassportTab>("identity");
@@ -385,7 +381,7 @@ export function DigitalPassport({ record }: { record: PublicStudentRecord | Stud
     requestAnimationFrame(() => document.getElementById(`${id}-tab-${next.id}`)?.focus());
   }
 
-  return <article className={styles.passport} aria-label={`${record.displayName} digital student passport`}>
+  return <article ref={translationScope} className={styles.passport} aria-label={`${record.displayName} digital student passport`}>
     {owner ? <StudentTaskList record={owner} openPage={setActive} /> : null}
     <header className={styles.coverStrip}><div><span>REN SHIN KAN</span><strong>STUDENT PASSPORT</strong></div><p>Approved digital training record</p></header>
     <nav className={styles.tabs} role="tablist" aria-label="Student passport pages">

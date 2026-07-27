@@ -21,7 +21,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     const attemptedRank = normalizedRankOrError(body.attemptedRank);
     const passed = body.passed === true;
     const location = typeof body.location === "string" ? body.location.normalize("NFKC").trim().replace(/\s+/g, " ") : "";
-    const examinationDate = typeof body.examinationDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.examinationDate) ? body.examinationDate : "";
+    const examinationDate = isCanonicalDate(body.examinationDate) ? body.examinationDate : "";
     const parsedExaminationDate = examinationDate ? new Date(`${examinationDate}T12:00:00.000Z`) : null;
     if (currentRank !== normalizedRankOrError(student.current_belt)) return jsonResponse({ error: "The student's current rank changed. Refresh and try again." }, 409);
     if (rankIndex(attemptedRank) <= rankIndex(currentRank)) return jsonResponse({ error: "The attempted rank must be higher than the current rank." }, 400);
@@ -74,3 +74,4 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     return jsonResponse({ error: conflict ? "This examination application was already processed." : message }, conflict ? 409 : 400);
   }
 };
+import { isCanonicalDate } from "../../../../../shared/date";

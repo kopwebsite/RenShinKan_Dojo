@@ -1266,8 +1266,32 @@
       }
     }
   },
+  "adminAccess": {
+    "language": "Administration language",
+    "checking": "Checking administrator session…",
+    "eyebrow": "Administrator access",
+    "signInTitle": "Sign in to the dojo administration",
+    "signInCopy": "Your name is attached to audit records. Use the administrative password assigned to your role.",
+    "name": "Your name",
+    "password": "Administrative password",
+    "signingIn": "Signing in…",
+    "signIn": "Sign in",
+    "welcome": "Welcome, {{name}}",
+    "chooseDojo": "Choose a dojo",
+    "chooseDojoCopy": "Select the dojo you are working with. Access is checked again by the server for every record and action.",
+    "select": "Select {{dojo}}",
+    "noAccess": "No access",
+    "verification": "RenShinKan verification",
+    "verificationTitle": "Enter the RenShinKan access password",
+    "verificationCopy": "This additional server-side check is required before the full administration workspace is unlocked.",
+    "renshinkanPassword": "RenShinKan access password",
+    "chooseAnother": "Choose another dojo",
+    "verifying": "Verifying…",
+    "verify": "Verify access"
+  },
   "adminShell": {
     "administration": "Administration",
+    "language": "Language",
     "menu": "Menu",
     "managing": "Managing",
     "changeDojo": "Change dojo",
@@ -1401,6 +1425,30 @@
     "thumbnails": "Photo thumbnails",
     "goTo": "Go to photo {{number}}"
   },
+  "date": {
+    "gregorianHelp": "Dates use the Gregorian calendar in DD/MM/YYYY format. To convert a Buddhist Era year, subtract 543. Example: 2569 − 543 = 2026.",
+    "monthHelp": "Month and year use the Gregorian calendar in MM/YYYY format. To convert a Buddhist Era year, subtract 543. Example: 2569 − 543 = 2026.",
+    "dateTimeHelp": "Date and time use the Gregorian calendar in DD/MM/YYYY HH:mm format. To convert a Buddhist Era year, subtract 543. Example: 2569 − 543 = 2026.",
+    "invalid": "Enter a real date in DD/MM/YYYY format.",
+    "invalidMonth": "Enter a real month in MM/YYYY format.",
+    "invalidDateTime": "Enter a real date and time in DD/MM/YYYY HH:mm format."
+  },
+  "forms": {
+    "freeTextPreference": "We prefer answers in English and/or Thai."
+  },
+  "turnstile": {
+    "loading": "Loading secure verification…",
+    "complete": "Verification complete.",
+    "completeCheck": "Please complete the security check.",
+    "checking": "Checking your response…",
+    "expired": "Verification expired. Please complete it again.",
+    "timedOut": "Verification timed out. Please try again.",
+    "retry": "Verification could not load. Please retry the check.",
+    "ready": "Secure verification is ready.",
+    "refresh": "Verification could not load. Refresh the page and try again.",
+    "notConfigured": "Cloudflare verification is not configured.",
+    "label": "Cloudflare human verification"
+  },
   "studentTasks": {
     "eyebrow": "My student record",
     "title": "What would you like to do?",
@@ -1416,7 +1464,7 @@
     "aatLabel": "Pay AAT annual contribution",
     "aatCopy": "Annual Aikido Association of Thailand contribution.",
     "updateLabel": "Update my information",
-    "updateCopy": "Submit a correction or new profile information for review.",
+    "updateCopy": "Submit corrections to your student record for review.",
     "available": "Available",
     "underReview": "Under review",
     "needsAction": "Needs action",

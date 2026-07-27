@@ -6,7 +6,7 @@ import { unzipSync, strFromU8 } from "fflate";
 import { authenticateAdminPassword, canAccessDojo, createSessionCookie, getAdminSession, requiresCentralAdmin, type AdminSession } from "../functions/_lib/auth";
 import { buildExamPdf, buildExamXlsx } from "../functions/_lib/examExports";
 import { validateEditableContent } from "../functions/_lib/content";
-import { formatStudentId, studentIdSequenceForCurrentYear, thaiBuddhistYear } from "../functions/_lib/studentRecords";
+import { bangkokGregorianYear, formatStudentId, studentIdSequenceForCurrentYear } from "../functions/_lib/studentRecords";
 import { aatMembershipStatus, addOneCalendarYear } from "../shared/membership";
 import { onRequestGet as getStudent, onRequestPut as putStudent } from "../functions/api/admin/students/[id]";
 import { onRequestPost as loginAdmin } from "../functions/api/admin/login";
@@ -99,18 +99,21 @@ describe("multi-dojo data model and workflows", () => {
     expect(migration).toContain("UPDATE students"); expect(migration).toContain("ELSE 'dojo-rsk'");
   });
 
-  it("generates dojo-prefixed Buddhist-year IDs with a sequence that resets each year", () => {
-    expect(thaiBuddhistYear(new Date("2026-07-22T00:00:00Z"))).toBe(2569);
-    expect(formatStudentId(1, "RSK", 2569)).toBe("RSK-6901");
-    expect(formatStudentId(2, "cmu", 2569)).toBe("CMU-6902");
-    expect(formatStudentId(1, "RSK", 2570)).toBe("RSK-7001");
-    expect(studentIdSequenceForCurrentYear("RSK-6912", "RSK", new Date("2026-07-22T00:00:00Z"))).toEqual({ buddhistYear: 2569, sequence: 12 });
-    expect(studentIdSequenceForCurrentYear("RSK-6809", "RSK", new Date("2026-07-22T00:00:00Z"))).toBeNull();
+  it("generates dojo-prefixed Gregorian-year IDs without renumbering legacy IDs", () => {
+    expect(bangkokGregorianYear(new Date("2026-07-22T00:00:00Z"))).toBe(2026);
+    expect(formatStudentId(1, "RSK", 2026)).toBe("RSK-2601");
+    expect(formatStudentId(2, "cmu", 2026)).toBe("CMU-2602");
+    expect(formatStudentId(1, "RSK", 2027)).toBe("RSK-2701");
+    expect(studentIdSequenceForCurrentYear("RSK-2612", "RSK", new Date("2026-07-22T00:00:00Z"))).toEqual({ gregorianYear: 2026, sequence: 12 });
+    expect(studentIdSequenceForCurrentYear("RSK-6909", "RSK", new Date("2026-07-22T00:00:00Z"))).toBeNull();
+    expect("RSK-6901").toBe("RSK-6901");
     const records = file("functions/_lib/studentRecords.ts");
-    expect(records).toContain("ON CONFLICT(dojo_id, buddhist_year)");
+    expect(records).toContain("ON CONFLICT(dojo_id, gregorian_year)");
     expect(records).toContain("RETURNING last_number");
-    const yearlyMigration = file("migrations/0011_buddhist_year_student_ids.sql");
-    expect(yearlyMigration).toContain("PRIMARY KEY (dojo_id, buddhist_year)");
+    const yearlyMigration = file("migrations/0020_gregorian_student_id_sequences.sql");
+    expect(yearlyMigration).toContain("PRIMARY KEY (dojo_id, gregorian_year)");
+    expect(yearlyMigration).toContain("strftime('%Y', 'now', '+7 hours')");
+    expect(yearlyMigration).toContain("MAX(CASE");
     expect(yearlyMigration).not.toMatch(/DROP\s+TABLE|UPDATE\s+students/i);
   });
 

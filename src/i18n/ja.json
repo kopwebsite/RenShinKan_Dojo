@@ -1266,8 +1266,32 @@
       }
     }
   },
+  "adminAccess": {
+    "language": "管理画面の言語",
+    "checking": "管理者セッションを確認しています…",
+    "eyebrow": "管理者アクセス",
+    "signInTitle": "道場管理画面にサインイン",
+    "signInCopy": "お名前は監査記録に残ります。役割に割り当てられた管理者パスワードを使用してください。",
+    "name": "お名前",
+    "password": "管理者パスワード",
+    "signingIn": "サインイン中…",
+    "signIn": "サインイン",
+    "welcome": "ようこそ、{{name}}",
+    "chooseDojo": "道場を選択",
+    "chooseDojoCopy": "管理する道場を選択してください。すべての記録と操作についてサーバーがアクセス権を再確認します。",
+    "select": "{{dojo}}を選択",
+    "noAccess": "アクセス不可",
+    "verification": "RenShinKan の確認",
+    "verificationTitle": "RenShinKan アクセスパスワードを入力",
+    "verificationCopy": "管理ワークスペース全体を開く前に、追加のサーバー側確認が必要です。",
+    "renshinkanPassword": "RenShinKan アクセスパスワード",
+    "chooseAnother": "別の道場を選択",
+    "verifying": "確認中…",
+    "verify": "アクセスを確認"
+  },
   "adminShell": {
     "administration": "管理",
+    "language": "言語",
     "menu": "メニュー",
     "managing": "管理中",
     "changeDojo": "道場を変更",
@@ -1401,6 +1425,30 @@
     "thumbnails": "写真のサムネイル",
     "goTo": "写真{{number}}へ移動"
   },
+  "date": {
+    "gregorianHelp": "日付はグレゴリオ暦を使用し、DD/MM/YYYY 形式で入力してください。仏暦から換算する場合は 543 を引きます。例：2569 − 543 = 2026。",
+    "monthHelp": "年月はグレゴリオ暦を使用し、MM/YYYY 形式で入力してください。仏暦から換算する場合は 543 を引きます。例：2569 − 543 = 2026。",
+    "dateTimeHelp": "日時はグレゴリオ暦を使用し、DD/MM/YYYY HH:mm 形式で入力してください。仏暦から換算する場合は 543 を引きます。例：2569 − 543 = 2026。",
+    "invalid": "DD/MM/YYYY 形式で実在する日付を入力してください。",
+    "invalidMonth": "MM/YYYY 形式で実在する年月を入力してください。",
+    "invalidDateTime": "DD/MM/YYYY HH:mm 形式で実在する日時を入力してください。"
+  },
+  "forms": {
+    "freeTextPreference": "回答は英語および／またはタイ語での入力を推奨します。"
+  },
+  "turnstile": {
+    "loading": "安全な確認を読み込んでいます…",
+    "complete": "確認が完了しました。",
+    "completeCheck": "セキュリティ確認を完了してください。",
+    "checking": "回答を確認しています…",
+    "expired": "確認の有効期限が切れました。もう一度行ってください。",
+    "timedOut": "確認がタイムアウトしました。もう一度お試しください。",
+    "retry": "確認を読み込めませんでした。もう一度お試しください。",
+    "ready": "安全な確認の準備ができました。",
+    "refresh": "確認を読み込めませんでした。ページを再読み込みしてお試しください。",
+    "notConfigured": "Cloudflare 確認が設定されていません。",
+    "label": "Cloudflare の本人確認"
+  },
   "studentTasks": {
     "eyebrow": "自分の生徒記録",
     "title": "何をしますか？",
@@ -1416,7 +1464,7 @@
     "aatLabel": "AAT年会費を支払う",
     "aatCopy": "タイ合気道協会の年会費です。",
     "updateLabel": "自分の情報を更新する",
-    "updateCopy": "訂正または新しいプロフィール情報を審査に提出します。",
+    "updateCopy": "生徒記録の訂正を審査に提出します。",
     "available": "利用可能",
     "underReview": "審査中",
     "needsAction": "対応が必要",

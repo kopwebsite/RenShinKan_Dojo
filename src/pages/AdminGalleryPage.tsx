@@ -40,6 +40,7 @@ import {
 import { AdminDojoSelector, AdminLoginFields, AdminRenshinKanVerification } from "../components/admin/AdminAccess";
 import { adminApi, formatAdminDate } from "../components/admin/adminApi";
 import { useAdminSession } from "../components/admin/useAdminSession";
+import { GregorianDateInput } from "../components/GregorianDateInput";
 import {
   AchievementAlbumsGallery,
   EditorialGallery,
@@ -624,7 +625,7 @@ export function AdminGalleryPage() {
           </header>
           <div className="admin-album-fields">
             <label>Album title<input value={selectedAlbum.title} maxLength={160} onChange={(event) => updateAlbum(selectedAlbum.id, (album) => ({ ...album, title: event.target.value }))} /></label>
-            <label>Event or examination date <span>Optional</span><input type="date" value={selectedAlbum.date || ""} onChange={(event) => updateAlbum(selectedAlbum.id, (album) => ({ ...album, date: event.target.value || undefined }))} /></label>
+            <label>Event or examination date <span>Optional</span><GregorianDateInput admin value={selectedAlbum.date || ""} onChange={(value) => updateAlbum(selectedAlbum.id, (album) => ({ ...album, date: value || undefined }))} /></label>
             <label>Visibility<select value={selectedAlbum.visibility} onChange={(event) => updateAlbum(selectedAlbum.id, (album) => ({ ...album, visibility: event.target.value as GalleryAlbum["visibility"] }))}><option value="draft">Draft</option><option value="published">Published</option><option value="hidden">Hidden</option></select></label>
             <label className="admin-album-fields__description">Description <span>Optional</span><textarea value={selectedAlbum.description || ""} maxLength={2000} onChange={(event) => updateAlbum(selectedAlbum.id, (album) => ({ ...album, description: event.target.value || undefined }))} /></label>
           </div>

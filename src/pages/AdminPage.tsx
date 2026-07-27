@@ -45,6 +45,8 @@ import {
 } from "../utils/eventBody";
 import { isValidEmbedUrl, normalizeEmbedUrl } from "../utils/mediaEmbeds";
 import { migrateLegacyGalleries } from "../../shared/gallery";
+import { formatGregorianDate, formatGregorianDateTime } from "../../shared/date";
+import { GregorianDateInput } from "../components/GregorianDateInput";
 
 const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_DOCUMENT_FILE_SIZE = 20 * 1024 * 1024;
@@ -339,7 +341,7 @@ function statusLabel(event: RecentEvent) {
   const status = event.newsletter?.status ?? "not_sent";
 
   if (status === "sent") {
-    return event.newsletter?.sentAt ? `sent ${new Date(event.newsletter.sentAt).toLocaleString()}` : "sent";
+    return event.newsletter?.sentAt ? `sent ${formatGregorianDateTime(event.newsletter.sentAt)}` : "sent";
   }
 
   if (status === "failed") {
@@ -1413,12 +1415,12 @@ export function AdminPage() {
                   </label>
                   <label className="block text-sm font-bold text-ink">
                     Date
-                    <input
+                    <GregorianDateInput
+                      admin
                       className="input-field"
-                      type="date"
                       value={event.date}
-                      onChange={(inputEvent) =>
-                        updateEvent(event.id, (current) => ({ ...current, date: inputEvent.target.value }))
+                      onChange={(value) =>
+                        updateEvent(event.id, (current) => ({ ...current, date: value }))
                       }
                     />
                   </label>
@@ -1759,7 +1761,7 @@ export function AdminPage() {
           <CollapsibleEditorSection
             title="Payment QR"
             copy="Replace the PromptPay QR once. After publishing, the new image is used for contributions, donations, and examination payments."
-            summary={draft.paymentQr.updatedAt ? `Last changed ${new Date(draft.paymentQr.updatedAt).toLocaleDateString()}` : "Using the original QR"}
+            summary={draft.paymentQr.updatedAt ? `Last changed ${formatGregorianDate(draft.paymentQr.updatedAt)}` : "Using the original QR"}
             open={openSections.paymentQr}
             onToggle={() => toggleSection("paymentQr")}
           >

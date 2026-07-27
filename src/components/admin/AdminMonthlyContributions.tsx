@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, ChevronLeft, ChevronRight, LoaderCircle, ReceiptText, Search, UserRound, X } from "lucide-react";
 import { adminApi, adminStatusLabel, formatAdminDate } from "./adminApi";
+import { formatGregorianMonth } from "../../../shared/date";
 
 type ContributionStatus = "no_submission" | "awaiting_payment" | "paid";
 type Contribution = {
@@ -41,8 +42,7 @@ function Status({ value }: { value: ContributionStatus }) {
 }
 
 function monthLabel(value: string) {
-  const date = new Date(`${value}-01T00:00:00Z`);
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric", timeZone: "UTC" }).format(date);
+  return formatGregorianMonth(value, value);
 }
 
 export function AdminMonthlyContributions({ report }: { report: (message: string, isError?: boolean) => void }) {

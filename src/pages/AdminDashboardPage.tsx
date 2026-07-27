@@ -4,17 +4,23 @@ import { Link } from "react-router-dom";
 import {
   AdminCheckingSession,
   AdminDojoSelector,
+  AdminLanguageSelector,
   AdminLoginFields,
   AdminRenshinKanVerification,
 } from "../components/admin/AdminAccess";
 import { useAdminSession } from "../components/admin/useAdminSession";
+import { useAdminTranslation } from "../i18n";
+import { useScopedAdminTranslations } from "../i18n/scopedAdmin";
 
 export function AdminDashboardPage() {
   const session = useAdminSession();
+  const { language, t } = useAdminTranslation();
   const initialSessionHandled = useRef(false);
+  const translationScopeRef = useRef<HTMLElement>(null);
   const [entryReady, setEntryReady] = useState(false);
   const [selectedThisVisit, setSelectedThisVisit] = useState(false);
 
+  useScopedAdminTranslations(translationScopeRef, language);
   useEffect(() => {
     if (!session.checked || initialSessionHandled.current) return;
     initialSessionHandled.current = true;
@@ -55,7 +61,7 @@ export function AdminDashboardPage() {
         }}
       />
       <button className="btn-secondary admin-entry-signout" type="button" onClick={() => void session.logout()}>
-        <LogOut size={17} aria-hidden="true" /> Sign out
+        <LogOut size={17} aria-hidden="true" /> {t("adminAccess.signOut")}
       </button>
     </div>;
   }
@@ -75,7 +81,8 @@ export function AdminDashboardPage() {
     return null;
   }
 
-  return <section className="admin-renshinkan-hub">
+  return <section ref={translationScopeRef} className="admin-renshinkan-hub">
+    <AdminLanguageSelector />
     <header>
       <p className="eyebrow">RenShinKan access confirmed</p>
       <h1>What would you like to manage?</h1>

@@ -14,6 +14,7 @@ import {
   verifyTurnstile,
 } from "../../_lib/studentRecords";
 import { datedProfileKey, validateProfileWebp, type R2Bucket } from "../../_lib/storage";
+import { isCanonicalDate } from "../../../shared/date";
 
 type Env = StudentEnv & { MEDIA_BUCKET?: R2Bucket };
 type ProfilePayload = {
@@ -24,7 +25,6 @@ type ProfilePayload = {
   aatNumber?: unknown;
   aatLastPaidDate?: unknown;
   practiceDuration?: unknown;
-  profileBio?: unknown;
   turnstileToken?: unknown;
 };
 
@@ -54,14 +54,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const dojoId = clean(payload.dojoId, 80);
     const dojo = await activeDojo(db, dojoId);
     const aatNumber = clean(payload.aatNumber, 40) || null;
-    const aatLastPaidDate = typeof payload.aatLastPaidDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(payload.aatLastPaidDate) ? payload.aatLastPaidDate : null;
+    const aatLastPaidDate = isCanonicalDate(payload.aatLastPaidDate) ? payload.aatLastPaidDate : null;
     const practiceDuration = clean(payload.practiceDuration, 160);
-    const profileBio = typeof payload.profileBio === "string" ? payload.profileBio.normalize("NFKC").trim().slice(0, 2001) : "";
     const turnstileToken = typeof payload.turnstileToken === "string" ? payload.turnstileToken : "";
     if (!englishName || englishName.length > 120) return jsonResponse({ error: "Enter the student's English name." }, 400);
     if (!dojo) return jsonResponse({ error: "Choose the dojo where the student currently trains." }, 400);
     if (!practiceDuration || practiceDuration.length > 160) return jsonResponse({ error: "Tell us how long the student has practiced aikido." }, 400);
-    if (profileBio.length > 2000) return jsonResponse({ error: "Additional profile information must be 2,000 characters or fewer." }, 400);
     if (!(await verifyTurnstile(request, env, turnstileToken, "student-records"))) return jsonResponse({ error: "Cloudflare verification failed. Please try again." }, 400);
     const rank = normalizedRankOrError(payload.currentRank);
     const studentId = await nextStudentId(db, dojo.id);
@@ -84,12 +82,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         id, public_student_id, lookup_code_hash, name_verification_hash, display_name, english_name, thai_name, current_belt, belt_color,
         profile_image_url, profile_image_consent, guardian_consent, public_visible, active, share_fields, dojo_name,
         admin_notes, training_hours_adjustment, created_at, updated_at, profile_status, practice_duration,
-        profile_bio, pending_profile_image_key, dojo_id, aat_number, aat_last_paid_date,
+        pending_profile_image_key, dojo_id, aat_number, aat_last_paid_date,
         account_created_date, dojo_joined_date
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, 0, 0, 0, ?, ?, '', 0, ?, ?, 'pending_admin_approval', ?, ?, ?, ?, ?, ?, ?, ?)`)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, 0, 0, 0, ?, ?, '', 0, ?, ?, 'pending_admin_approval', ?, ?, ?, ?, ?, ?, ?)`)
         .bind(
           studentUuid, studentId, "", nameHash, englishName, englishName, thaiName, rank, rankColor(rank),
-          file ? 1 : 0, JSON.stringify(DEFAULT_SHARE_FIELDS), dojo.official_name, now, now, practiceDuration, profileBio, pendingKey || null,
+          file ? 1 : 0, JSON.stringify(DEFAULT_SHARE_FIELDS), dojo.official_name, now, now, practiceDuration, pendingKey || null,
           dojo.id, aatNumber, aatLastPaidDate, today, today,
         ),
       auditStatement(db, {
@@ -100,7 +98,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         entityId: studentUuid,
         studentId: studentUuid,
         previousValues: null,
-        newValues: { studentId, englishName, thaiName, currentRank: rank, dojoId: dojo.id, dojoName: dojo.official_name, aatNumber, aatLastPaidDate, practiceDuration, profileBio, profileStatus: "pending_admin_approval", profileImage: file ? "submitted" : "not_submitted" },
+        newValues: { studentId, englishName, thaiName, currentRank: rank, dojoId: dojo.id, dojoName: dojo.official_name, aatNumber, aatLastPaidDate, practiceDuration, profileStatus: "pending_admin_approval", profileImage: file ? "submitted" : "not_submitted" },
         source: "student_profile_request",
         requestId,
         summary: `Submitted a new profile request for ${englishName}`,

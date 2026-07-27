@@ -1,4 +1,5 @@
 import { addOneCalendarYear } from "../../../shared/membership";
+import { bangkokCanonicalDate } from "../../../shared/date";
 import { getAuthorizedAdminSession, isRenShinKanSuperAdmin, isSameOriginRequest, jsonResponse } from "../../_lib/auth";
 import {
   adminAuditMetadata, auditStatement, requestIdentifier, requireStudentDb,
@@ -21,12 +22,6 @@ function clean(value: unknown, max: number) {
 
 function escapeLike(value: string) {
   return value.replace(/[\\%_]/g, "\\$&");
-}
-
-function bangkokDateKey(date = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
-  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value || "";
-  return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
@@ -115,7 +110,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (rows.length !== proofIds.length) return jsonResponse({ error: "One or more selected payslips is unavailable, already reviewed, or outside your dojo." }, 409);
 
     const now = new Date().toISOString();
-    const paymentDate = bangkokDateKey(new Date(now));
+    const paymentDate = bangkokCanonicalDate(new Date(now));
     const bulkOperationId = crypto.randomUUID();
     const statements: D1PreparedStatement[] = [];
     for (const row of rows) {

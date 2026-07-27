@@ -6,7 +6,7 @@ import { ScrollToTop } from "./components/ScrollToTop";
 import { Seo } from "./components/Seo";
 import { ManagedRoute } from "./components/ManagedRoute";
 import { AdminShell } from "./components/admin/AdminShell";
-import { useTranslation } from "./i18n";
+import { AdminLanguageProvider, useAdminTranslation, useTranslation } from "./i18n";
 import { DojoPage } from "./pages/DojoPage";
 
 const AikidoPage = lazy(() => import("./pages/AikidoPage").then((module) => ({ default: module.AikidoPage })));
@@ -41,6 +41,45 @@ function RouteFallback() {
   );
 }
 
+function AdminRouteFrame() {
+  const { t } = useAdminTranslation();
+
+  return (
+    <>
+      <a href="#main-content" className="skip-link">
+        {t("a11y.skipToContent")}
+      </a>
+      <ScrollToTop />
+      <Seo />
+      <main id="main-content" tabIndex={-1} className="min-h-[var(--hero-viewport-height)]">
+        <AdminShell>
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
+              <Route path="/admin" element={<AdminDashboardPage />} />
+              <Route path="/admin/website" element={<AdminPage />} />
+              <Route path="/admin/galleries/:galleryId" element={<AdminGalleryPage />} />
+              <Route path="/admin/dojo-updates" element={<Navigate to="/admin/website" replace />} />
+              <Route path="/admin/site-editor" element={<Navigate to="/admin/website" replace />} />
+              <Route path="/admin/students" element={<AdminStudentsPage />} />
+              <Route path="/admin/profile-requests" element={<AdminStudentsPage mode="profileRequests" />} />
+              <Route path="/admin/training-requests" element={<AdminStudentsPage mode="trainingRequests" />} />
+              <Route path="/admin/exam-applications" element={<AdminWorkflowPage kind="exam-applications" />} />
+              <Route path="/admin/examination-records" element={<AdminWorkflowPage kind="examination-records" />} />
+              <Route path="/admin/monthly-contributions" element={<AdminWorkflowPage kind="monthly-contributions" />} />
+              <Route path="/admin/aat-contributions" element={<AdminWorkflowPage kind="aat-contributions" />} />
+              <Route path="/admin/payment-proofs" element={<AdminWorkflowPage kind="payment-proofs" />} />
+              <Route path="/admin/audit" element={<AdminAuditPage />} />
+              <Route path="/admin/memberships" element={<AdminMembershipsPage />} />
+              <Route path="/admin/dojos" element={<AdminDojosPage />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </Suspense>
+        </AdminShell>
+      </main>
+    </>
+  );
+}
+
 export default function App() {
   const { t } = useTranslation();
   const location = useLocation();
@@ -55,6 +94,14 @@ export default function App() {
     };
   }, [isAdminRoute]);
 
+  if (isAdminRoute) {
+    return (
+      <AdminLanguageProvider>
+        <AdminRouteFrame />
+      </AdminLanguageProvider>
+    );
+  }
+
   return (
     <>
       <a href="#main-content" className="skip-link">
@@ -62,44 +109,9 @@ export default function App() {
       </a>
       <ScrollToTop />
       <Seo />
-      {isAdminRoute ? null : <Navbar currentPath={`${location.pathname}${location.hash}`} />}
+      <Navbar currentPath={`${location.pathname}${location.hash}`} />
       <main id="main-content" tabIndex={-1} className="min-h-[var(--hero-viewport-height)]">
-        {isAdminRoute ? <AdminShell><Suspense fallback={<RouteFallback />}>
-          <Routes>
-            <Route path="/" element={<ManagedRoute fallback={<DojoPage />} />} />
-            <Route path="/dojo" element={<Navigate to="/" replace />} />
-            <Route path="/aikido" element={<ManagedRoute fallback={<AikidoPage />} />} />
-            <Route path="/instructors" element={<ManagedRoute fallback={<InstructorsPage />} />} />
-            <Route path="/classes" element={<ManagedRoute fallback={<ClassesPage />} />} />
-            <Route path="/workshops" element={<ManagedRoute fallback={<WorkshopsPage />} />} />
-            <Route path="/newsletter" element={<ManagedRoute fallback={<NewsletterPage />} />} />
-            <Route path="/newsletter/:slug" element={<NewsletterPage />} />
-            <Route path="/community" element={<ManagedRoute fallback={<CommunityPage />} />} />
-            <Route path="/support" element={<ManagedRoute fallback={<SupportPage />} />} />
-            <Route path="/contact" element={<ManagedRoute fallback={<ContactPage />} />} />
-            <Route path="/visit" element={<Navigate to="/contact" replace />} />
-            <Route path="/admin" element={<AdminDashboardPage />} />
-            <Route path="/admin/website" element={<AdminPage />} />
-            <Route path="/admin/galleries/:galleryId" element={<AdminGalleryPage />} />
-            <Route path="/admin/dojo-updates" element={<Navigate to="/admin/website" replace />} />
-            <Route path="/admin/site-editor" element={<Navigate to="/admin/website" replace />} />
-            <Route path="/admin/students" element={<AdminStudentsPage />} />
-            <Route path="/admin/profile-requests" element={<AdminStudentsPage mode="profileRequests" />} />
-            <Route path="/admin/training-requests" element={<AdminStudentsPage mode="trainingRequests" />} />
-            <Route path="/admin/exam-applications" element={<AdminWorkflowPage kind="exam-applications" />} />
-            <Route path="/admin/examination-records" element={<AdminWorkflowPage kind="examination-records" />} />
-            <Route path="/admin/monthly-contributions" element={<AdminWorkflowPage kind="monthly-contributions" />} />
-            <Route path="/admin/aat-contributions" element={<AdminWorkflowPage kind="aat-contributions" />} />
-            <Route path="/admin/payment-proofs" element={<AdminWorkflowPage kind="payment-proofs" />} />
-            <Route path="/admin/audit" element={<AdminAuditPage />} />
-            <Route path="/admin/memberships" element={<AdminMembershipsPage />} />
-            <Route path="/admin/dojos" element={<AdminDojosPage />} />
-            <Route path="/student-records" element={<StudentRecordsPage />} />
-            <Route path="/records" element={<Navigate to="/student-records" replace />} />
-            <Route path="/records/share/:token" element={<SharedStudentRecordPage />} />
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
-        </Suspense></AdminShell> : <Suspense fallback={<RouteFallback />}>
+        <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<ManagedRoute fallback={<DojoPage />} />} />
             <Route path="/dojo" element={<Navigate to="/" replace />} />
@@ -118,9 +130,9 @@ export default function App() {
             <Route path="/records/share/:token" element={<SharedStudentRecordPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
-        </Suspense>}
+        </Suspense>
       </main>
-      {isAdminRoute ? null : <Footer />}
+      <Footer />
     </>
   );
 }

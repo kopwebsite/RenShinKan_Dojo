@@ -24,18 +24,14 @@ import { useTranslation, type Language } from "../i18n";
 import { getPublishedRecentEvents, useEditableContent } from "../lib/content";
 import type { RecentEvent } from "../types/editableContent";
 import { assetPath } from "../utils/assetPath";
+import { formatGregorianDate } from "../../shared/date";
 
 const SITE_URL = (import.meta.env.VITE_SITE_URL || "https://renshinkandojo.org").replace(/\/+$/, "");
 const FALLBACK_COVER = assetPath("/dojo-photos/aikido-hero-new.webp");
 const PAGE_SIZE = 9;
 const googleTranslateTarget: Record<Language, string> = { en: "en", th: "th", "zh-CN": "zh-CN", ja: "ja" };
-const dateLocale: Record<Language, string> = { en: "en-GB", th: "th-TH", "zh-CN": "zh-CN", ja: "ja-JP" };
-
-function formatDate(value: string, language: Language) {
-  const date = new Date(`${value.slice(0, 10)}T12:00:00`);
-  return Number.isNaN(date.getTime())
-    ? value
-    : new Intl.DateTimeFormat(dateLocale[language], { day: "numeric", month: "long", year: "numeric" }).format(date);
+function formatDate(value: string, _language: Language) {
+  return formatGregorianDate(value, value);
 }
 
 function coverFor(newsletter: RecentEvent) {

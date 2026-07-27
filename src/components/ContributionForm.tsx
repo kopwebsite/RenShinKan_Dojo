@@ -4,6 +4,7 @@ import { useEditableContent } from "../lib/content";
 import { assetPath } from "../utils/assetPath";
 import { PaymentProofUpload, type PaymentProofAccess } from "./PaymentProofUpload";
 import { TurnstileWidget } from "./TurnstileWidget";
+import { currentBangkokMonthKey, formatGregorianDate, formatGregorianMonth } from "../../shared/date";
 
 const MAX_MONTHLY_STUDENTS = 10;
 
@@ -34,20 +35,15 @@ function baht(value: number) {
 }
 
 function currentBangkokMonth() {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit" }).formatToParts(new Date());
-  const year = parts.find((part) => part.type === "year")?.value;
-  const month = parts.find((part) => part.type === "month")?.value;
-  return year && month ? `${year}-${month}` : new Date().toISOString().slice(0, 7);
+  return currentBangkokMonthKey();
 }
 
 function monthLabel(value: string) {
-  const [year, month] = value.split("-").map(Number);
-  return new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(new Date(Date.UTC(year, month - 1, 1)));
+  return formatGregorianMonth(value, value);
 }
 
 function dateLabel(value: string) {
-  const date = new Date(`${value.slice(0, 10)}T12:00:00`);
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
+  return formatGregorianDate(value, value);
 }
 
 function PaymentReminder({ reminder, month }: { reminder: AatReminder | MonthlyReminder; month: string }) {
@@ -210,7 +206,7 @@ export function ContributionForm() {
             <header><div><UsersRound aria-hidden="true" /><span><strong id="monthly-students-title">Who is this payment for?</strong><small>Add one row for each RenShinKan student covered by the same payment.</small></span></div>{monthlyStudents.length < MAX_MONTHLY_STUDENTS ? <button className="btn-secondary" type="button" onClick={() => setMonthlyStudents((students) => [...students, emptyContributionStudent()])}><Plus size={16} /> Add another student</button> : null}</header>
             <div className="contribution-student-list__rows">{monthlyStudents.map((monthlyStudent, index) => <div className="contribution-student-row" key={monthlyStudent.key}>
               <span className="contribution-student-row__number">{String(index + 1).padStart(2, "0")}</span>
-              <label><span>Student ID <b aria-hidden="true">*</b></span><input value={monthlyStudent.studentId} onChange={(event) => updateMonthlyStudent(monthlyStudent.key, "studentId", event.target.value)} placeholder="RSK-6901" autoComplete="off" required /></label>
+              <label><span>Student ID <b aria-hidden="true">*</b></span><input value={monthlyStudent.studentId} onChange={(event) => updateMonthlyStudent(monthlyStudent.key, "studentId", event.target.value)} placeholder="RSK-2601" autoComplete="off" required /></label>
               <label><span>Student name on the record <b aria-hidden="true">*</b></span><input value={monthlyStudent.studentName} onChange={(event) => updateMonthlyStudent(monthlyStudent.key, "studentName", event.target.value)} autoComplete={index === 0 ? "name" : "off"} required /></label>
               {monthlyStudents.length > 1 ? <button type="button" className="contribution-student-row__remove" aria-label={`Remove student ${index + 1}`} onClick={() => setMonthlyStudents((students) => students.filter((entry) => entry.key !== monthlyStudent.key))}><Trash2 size={16} /></button> : <span />}
             </div>)}</div>
@@ -221,7 +217,7 @@ export function ContributionForm() {
             <p>Use one PromptPay payment and upload one payment proof for everyone listed above.</p>
           </section>
         </>}
-        <label className="contribution-field--wide"><span>{contributionType === "aat_annual" ? "Submission month" : "Contribution month"}</span><input id="contribution-month" name="month" type="month" value={month} readOnly aria-readonly="true" /><small>{contributionType === "aat_annual" ? "The dojo will apply the confirmed annual payment to your membership history." : "This request is for the current month only; earlier months are never changed automatically."}</small></label>
+        <label className="contribution-field--wide"><span>{contributionType === "aat_annual" ? "Submission month" : "Contribution month"}</span><input id="contribution-month" name="month" type="text" value={formatGregorianMonth(month, month)} readOnly aria-readonly="true" /><small>{contributionType === "aat_annual" ? "The dojo will apply the confirmed annual payment to your membership history." : "This request is for the current month only; earlier months are never changed automatically."}</small></label>
       </div>
       <div className="contribution-verification"><TurnstileWidget onToken={onToken} resetSignal={turnstileReset} /></div>
       {error ? <p className="form-error" role="alert">{error}</p> : null}

@@ -57,6 +57,8 @@ import type { EditableContent, MediaItem, RecentEvent } from "../../types/editab
 import { documentKindLabel, formatFileSize } from "../../utils/documentMedia";
 import { isValidEmbedUrl, normalizeEmbedUrl } from "../../utils/mediaEmbeds";
 import { NewsletterRichEditor, plainTextNewsletterDocument } from "./NewsletterRichEditor";
+import { GregorianDateInput, GregorianDateTimeInput } from "../GregorianDateInput";
+import { formatGregorianDate } from "../../../shared/date";
 
 const ADMIN_PAGE_SIZE = 20;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -150,11 +152,7 @@ function isEmptyDraft(event: RecentEvent) {
 }
 
 function dateLabel(value: string) {
-  if (!value) return "No date";
-  const date = new Date(`${value.slice(0, 10)}T12:00:00`);
-  return Number.isNaN(date.getTime())
-    ? value
-    : new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }).format(date);
+  return formatGregorianDate(value, "No date");
 }
 
 function replaceEvent(content: EditableContent, event: RecentEvent) {
@@ -992,13 +990,13 @@ export function AdminNewsletterManager({
                 <p id="newsletter-summary-help" className="admin-help">Used on the archive, homepage, search results, and as the default inbox preview.</p>
                 <div className="admin-newsletter-field-grid">
                   <label>Category <span aria-hidden="true">*</span><select value={editorEvent.category} onChange={(event) => updateEditor((current) => ({ ...current, category: event.target.value as RecentEvent["category"] }))}>{NEWSLETTER_CATEGORIES.map((category) => <option key={category}>{category}</option>)}</select></label>
-                  <label>{editorEvent.contentType === "event" ? "Event date" : "Publication date"} <span aria-hidden="true">*</span><input type="date" value={editorEvent.date} onChange={(event) => updateEditor((current) => ({ ...current, date: event.target.value }))} /></label>
+                  <label>{editorEvent.contentType === "event" ? "Event date" : "Publication date"} <span aria-hidden="true">*</span><GregorianDateInput admin value={editorEvent.date} onChange={(value) => updateEditor((current) => ({ ...current, date: value }))} /></label>
                 </div>
                 {editorEvent.contentType === "event" ? (
                   <fieldset className="admin-newsletter-subsection"><legend>Event details</legend>
                     <div className="admin-newsletter-field-grid">
-                      <label>Starts<input type="datetime-local" value={editorEvent.eventDetails?.startAt || ""} onChange={(event) => updateEditor((current) => ({ ...current, eventDetails: { ...current.eventDetails!, startAt: event.target.value } }))} /></label>
-                      <label>Ends (optional)<input type="datetime-local" value={editorEvent.eventDetails?.endAt || ""} onChange={(event) => updateEditor((current) => ({ ...current, eventDetails: { ...current.eventDetails!, endAt: event.target.value } }))} /></label>
+                      <label>Starts<GregorianDateTimeInput admin value={editorEvent.eventDetails?.startAt || ""} onChange={(value) => updateEditor((current) => ({ ...current, eventDetails: { ...current.eventDetails!, startAt: value } }))} /></label>
+                      <label>Ends (optional)<GregorianDateTimeInput admin value={editorEvent.eventDetails?.endAt || ""} onChange={(value) => updateEditor((current) => ({ ...current, eventDetails: { ...current.eventDetails!, endAt: value } }))} /></label>
                       <label>Location<input value={editorEvent.eventDetails?.location || ""} onChange={(event) => updateEditor((current) => ({ ...current, eventDetails: { ...current.eventDetails!, location: event.target.value } }))} /></label>
                       <label>Registration link<input type="url" value={editorEvent.eventDetails?.registrationUrl || ""} onChange={(event) => updateEditor((current) => ({ ...current, eventDetails: { ...current.eventDetails!, registrationUrl: event.target.value } }))} placeholder="https://…" /></label>
                     </div>

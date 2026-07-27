@@ -1,7 +1,7 @@
 export type AatMembershipState = "new" | "unpaid" | "current" | "expiring" | "expired";
 
 function isoDate(value: string | null | undefined) {
-  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+  return isCanonicalDate(value) ? value : null;
 }
 
 export function addOneCalendarYear(value: string) {
@@ -25,3 +25,4 @@ export function aatMembershipStatus(aatNumber: string | null | undefined, lastPa
   if (days <= 45) return { state: "expiring" as const, label: "Renewal due soon", dueDate, days };
   return { state: "current" as const, label: "Paid and current", dueDate, days };
 }
+import { isCanonicalDate } from "./date";

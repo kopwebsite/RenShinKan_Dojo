@@ -208,6 +208,10 @@ describe("interface and downloadable assets", () => {
     expect(taxonomy).toContain("category_label");
     expect(taxonomy).toContain("rank_label");
     expect(file("src/pages/DownloadsPage.tsx")).toContain("Rank or audience");
+    expect(file("src/components/Seo.tsx")).toContain('"/downloads"');
+    for (const language of ["en", "th", "ja", "zh-CN"]) {
+      expect(file(`src/i18n/${language}.json`)).toContain('"downloadsTitle"');
+    }
   });
 
   it("uses strict manual Gregorian fields with an accessible native calendar trigger", () => {

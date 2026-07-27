@@ -83,6 +83,11 @@ const seoByPath: Record<string, SeoConfig> = {
     descriptionKey: "seo.communityDescription",
     path: "/community",
   },
+  "/downloads": {
+    titleKey: "seo.downloadsTitle",
+    descriptionKey: "seo.downloadsDescription",
+    path: "/downloads",
+  },
   "/support": {
     titleKey: "seo.supportTitle",
     descriptionKey: "seo.supportDescription",

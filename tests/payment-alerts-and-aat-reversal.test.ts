@@ -78,6 +78,14 @@ describe("student passport payment alerts", () => {
     expect(ui).toContain("studentAlerts.actionRequired");
     expect(ui).toContain("ProofActions");
   });
+
+  it("maps a shared AAT request proof to every covered student's payment without exposing the file", () => {
+    const server = file("functions/_lib/studentRecords.ts");
+    expect(server).toContain("LEFT JOIN payment_request_items pri ON pri.payment_reference_id = p.id");
+    expect(server).toContain("COALESCE(pri.payment_request_id, p.id)");
+    expect(server).toContain("proof_owner_student_id");
+    expect(server).toContain("!entry.proof_owner_student_id || entry.proof_owner_student_id === student.id");
+  });
 });
 
 describe("AAT paid-status reversal", () => {
@@ -112,9 +120,21 @@ describe("AAT paid-status reversal", () => {
     const ui = file("src/components/admin/AdminAatMemberships.tsx");
     expect(ui).toContain("Mark as unpaid");
     expect(ui).toContain('role="alertdialog"');
+    expect(ui).toContain("Payment year");
     expect(ui).toContain("Payment ID");
     expect(ui).toContain("Reason or correction note (optional)");
     expect(ui).toContain("await load()");
     expect(ui).toContain("The original payment history was preserved.");
+  });
+});
+
+describe("private route indexing protection", () => {
+  it("adds an X-Robots-Tag header to admin, owner record, and shared record pages", () => {
+    const helper = file("functions/_lib/privateResponse.ts");
+    expect(helper).toContain('"X-Robots-Tag", "noindex, nofollow"');
+    for (const path of ["functions/admin/[[path]].ts", "functions/student-records.ts", "functions/records/[[path]].ts"]) {
+      expect(file(path)).toContain("withPrivateNoIndex");
+    }
+    expect(file("functions/admin/[[path]].ts")).toContain("withPrivateNoIndex(await next())");
   });
 });

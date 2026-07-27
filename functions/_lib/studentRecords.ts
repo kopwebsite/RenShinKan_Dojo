@@ -28,6 +28,7 @@ export type StudentEnv = {
   TURNSTILE_SECRET_KEY?: string;
   SITE_URL?: string;
   RENSHINKAN_MONTHLY_CONTRIBUTION_AMOUNT?: string;
+  AAT_ANNUAL_CONTRIBUTION_AMOUNT?: string;
 };
 
 export const DEFAULT_DOJO = "RenShinKan Dojo";
@@ -39,6 +40,11 @@ const encoder = new TextEncoder();
 
 export function configuredMonthlyContributionAmount(env: StudentEnv) {
   const amount = Number(env.RENSHINKAN_MONTHLY_CONTRIBUTION_AMOUNT);
+  return Number.isSafeInteger(amount) && amount > 0 && amount <= 1_000_000 ? amount : null;
+}
+
+export function configuredAatAnnualContributionAmount(env: StudentEnv) {
+  const amount = Number(env.AAT_ANNUAL_CONTRIBUTION_AMOUNT);
   return Number.isSafeInteger(amount) && amount > 0 && amount <= 1_000_000 ? amount : null;
 }
 
@@ -433,7 +439,9 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
         pp.student_id AS proof_owner_student_id
       FROM payments p
       LEFT JOIN aat_membership_payments ap ON ap.id = p.id
-      LEFT JOIN payment_proofs pp ON pp.payment_type = 'aat_annual' AND pp.payment_reference_id = p.id
+      LEFT JOIN payment_request_items pri ON pri.payment_reference_id = p.id AND pri.student_id = p.student_id
+      LEFT JOIN payment_proofs pp ON pp.payment_type = 'aat_annual'
+        AND pp.payment_reference_id = COALESCE(pri.payment_request_id, p.id)
       WHERE p.student_id = ? AND p.payment_type = 'aat_annual'
       UNION ALL
       SELECT ap.id, ap.payment_date, ap.renewal_due_date, ap.amount, ap.currency, 'paid', ap.created_at AS created_at,
@@ -441,7 +449,9 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
         pp.student_id
       FROM aat_membership_payments ap
       LEFT JOIN payments p ON p.id = ap.id
-      LEFT JOIN payment_proofs pp ON pp.payment_type = 'aat_annual' AND pp.payment_reference_id = ap.id
+      LEFT JOIN payment_request_items pri ON pri.payment_reference_id = ap.id AND pri.student_id = ap.student_id
+      LEFT JOIN payment_proofs pp ON pp.payment_type = 'aat_annual'
+        AND pp.payment_reference_id = COALESCE(pri.payment_request_id, ap.id)
       WHERE ap.student_id = ? AND p.id IS NULL
       ORDER BY created_at DESC LIMIT 30`).bind(student.id, student.id).all<{
         id: string; payment_date: string; renewal_due_date: string | null; amount: number | null;

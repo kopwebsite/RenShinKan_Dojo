@@ -1,4 +1,5 @@
 import { getAdminSession, hasSelectedDojoAccess, isRenShinKanSuperAdmin } from "../_lib/auth";
+import { withPrivateNoIndex } from "../_lib/privateResponse";
 import type { StudentEnv } from "../_lib/studentRecords";
 
 type Env = StudentEnv & { SESSION_SECRET?: string };
@@ -15,16 +16,18 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, next }) =
   const session = await getAdminSession(request, env);
   if (pathname === "/admin") {
     if (hasSelectedDojoAccess(session) && !isRenShinKanSuperAdmin(session)) {
-      return Response.redirect(new URL("/admin/students", url), 302);
+      return withPrivateNoIndex(Response.redirect(new URL("/admin/students", url), 302));
     }
-    return next();
+    return withPrivateNoIndex(await next());
   }
-  if (!hasSelectedDojoAccess(session)) return Response.redirect(new URL("/admin", url), 302);
+  if (!hasSelectedDojoAccess(session)) {
+    return withPrivateNoIndex(Response.redirect(new URL("/admin", url), 302));
+  }
   if (pathname === "/admin/memberships") {
-    return Response.redirect(new URL("/admin/students?section=memberships", url), 302);
+    return withPrivateNoIndex(Response.redirect(new URL("/admin/students?section=memberships", url), 302));
   }
   if (RENSHINKAN_ONLY_PAGES.has(pathname) && !isRenShinKanSuperAdmin(session)) {
-    return Response.redirect(new URL("/admin", url), 302);
+    return withPrivateNoIndex(Response.redirect(new URL("/admin", url), 302));
   }
-  return next();
+  return withPrivateNoIndex(await next());
 };

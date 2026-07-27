@@ -3,6 +3,7 @@ import { createPaymentProofDraft } from "../_lib/paymentProofs";
 import { aatMembershipStatus } from "../../shared/membership";
 import {
   auditStatement,
+  configuredAatAnnualContributionAmount,
   configuredMonthlyContributionAmount,
   currentBangkokMonthKey,
   DEFAULT_DOJO_ID,
@@ -46,7 +47,6 @@ type MonthlyReminder = {
 };
 
 const MAX_CONTRIBUTION_STUDENTS = 10;
-const AAT_ANNUAL_AMOUNT_THB = 1200;
 const headers = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" };
 
 function clean(value: unknown, max: number) {
@@ -126,8 +126,12 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
       return jsonResponse({ error: "Each student can appear only once in the same payment request." }, 400, headers);
     }
     const monthlyAmount = configuredMonthlyContributionAmount(env);
+    const aatAnnualAmount = configuredAatAnnualContributionAmount(env);
     if (contributionType === "renshinkan_monthly" && monthlyAmount === null) {
       return jsonResponse({ error: "The monthly contribution amount is not configured. Please ask a sensei for help." }, 503, headers);
+    }
+    if (contributionType === "aat_annual" && aatAnnualAmount === null) {
+      return jsonResponse({ error: "The AAT annual contribution amount is not configured. Please ask a sensei for help." }, 503, headers);
     }
     if (!(await verifyTurnstile(request, env, turnstileToken, "student-records"))) {
       return jsonResponse({ error: "Cloudflare verification failed. Please try again." }, 400, headers);
@@ -144,7 +148,7 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
 
     const now = new Date().toISOString();
     const paymentRequestId = crypto.randomUUID();
-    const unitAmount = contributionType === "aat_annual" ? AAT_ANNUAL_AMOUNT_THB : monthlyAmount!;
+    const unitAmount = contributionType === "aat_annual" ? aatAnnualAmount! : monthlyAmount!;
     const totalAmount = unitAmount * students.length;
     const proof = await createPaymentProofDraft(db, {
       studentId: students[0].id,
@@ -175,7 +179,7 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
           studentName: student.display_name,
           dojoId: student.dojo_id,
           dojoName: student.dojo_name,
-          amount: AAT_ANNUAL_AMOUNT_THB,
+          amount: unitAmount,
           reminder,
           status: "awaiting_payment",
         });
@@ -183,13 +187,13 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
           db.prepare(`INSERT INTO payments (id, student_id, dojo_id, payment_type, amount, currency, payment_date,
             status, reference, notes, recorded_by, created_at, updated_at)
             VALUES (?, ?, ?, 'aat_annual', ?, 'THB', NULL, 'awaiting_payment', ?, '', ?, ?, ?)`)
-            .bind(paymentId, student.id, student.dojo_id, AAT_ANNUAL_AMOUNT_THB, `AAT shared ${paymentRequestId}`, student.id, now, now),
+            .bind(paymentId, student.id, student.dojo_id, unitAmount, `AAT shared ${paymentRequestId}`, student.id, now, now),
           db.prepare(`INSERT INTO payment_request_items (
             id, payment_request_id, student_id, dojo_id, payment_reference_id, period_key,
             amount_thb, status, last_verified_date, next_due_date, created_at, updated_at
           ) VALUES (?, ?, ?, ?, ?, ?, ?, 'awaiting_payment', ?, ?, ?, ?)`)
             .bind(crypto.randomUUID(), paymentRequestId, student.id, student.dojo_id, paymentId, month.slice(0, 4),
-              AAT_ANNUAL_AMOUNT_THB, reminder.lastPaidDate, reminder.dueDate, now, now),
+              unitAmount, reminder.lastPaidDate, reminder.dueDate, now, now),
           db.prepare(`INSERT INTO payment_history
             (id, payment_id, previous_status, new_status, changed_by, notes, created_at)
             VALUES (?, ?, NULL, 'awaiting_payment', ?, 'Shared AAT contribution request submitted', ?)`)
@@ -199,7 +203,7 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
             action: "aat_contribution_form_submitted", entityType: "payment", entityId: paymentId,
             studentId: student.id, studentPublicId: student.public_student_id, studentNameSnapshot: student.display_name,
             previousValues: null,
-            newValues: { status: "awaiting_payment", contributionType, paymentRequestId, amountThb: AAT_ANNUAL_AMOUNT_THB, groupSize: students.length },
+            newValues: { status: "awaiting_payment", contributionType, paymentRequestId, amountThb: unitAmount, groupSize: students.length },
             source: "contribution_form", requestId,
             summary: `AAT contribution submitted in a ${students.length}-student payment request`, createdAt: now,
           }),
@@ -331,12 +335,13 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
 
 export const onRequestGet: PagesFunction<StudentEnv> = async ({ env }) => {
   const monthlyAmount = configuredMonthlyContributionAmount(env);
+  const aatAnnualAmount = configuredAatAnnualContributionAmount(env);
   return jsonResponse({
     monthlyContribution: {
       dojoId: DEFAULT_DOJO_ID, currency: "THB", amount: monthlyAmount, available: monthlyAmount !== null,
     },
     aatAnnualContribution: {
-      currency: "THB", amount: AAT_ANNUAL_AMOUNT_THB, available: true,
+      currency: "THB", amount: aatAnnualAmount, available: aatAnnualAmount !== null,
     },
   }, 200, { ...headers, Allow: "GET, POST" });
 };

@@ -93,7 +93,9 @@ describe("exact fee and payment models", () => {
 
   it("ignores client prices and creates one server-priced request header with student line items", () => {
     const source = file("functions/api/contributions.ts");
-    expect(source).toContain("const AAT_ANNUAL_AMOUNT_THB = 1200");
+    expect(source).toContain("configuredAatAnnualContributionAmount(env)");
+    expect(source).not.toMatch(/AAT_ANNUAL_AMOUNT_THB\s*=\s*\d+/);
+    expect(file("wrangler.toml")).toContain('AAT_ANNUAL_CONTRIBUTION_AMOUNT = "1200"');
     expect(source).toContain("const totalAmount = unitAmount * students.length");
     expect(source).toContain("INSERT INTO payment_requests");
     expect(source).toContain("INSERT INTO payment_request_items");

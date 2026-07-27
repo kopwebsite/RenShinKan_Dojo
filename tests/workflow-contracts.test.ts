@@ -353,7 +353,7 @@ describe("UI and responsive workflow contracts", () => {
   it("uses the centrally editable PromptPay QR, records an attempt first, and displays a real dojo class photo", () => {
     const form = file("src/components/ContributionForm.tsx");
     const support = file("src/pages/SupportPage.tsx");
-    for (const value of ["/api/contributions", "useEditableContent", "content.paymentQr", "awaiting payment", "Displaying the QR never marks", "Upload the payment proof below"]) expect(form).toContain(value);
+    for (const value of ["/api/contributions", "useEditableContent", "content.paymentQr", "contribution.awaitingPayment", "contribution.qrSafety", "contribution.stepUpload"]) expect(form).toContain(value);
     expect(support).toContain("content.paymentQr");
     expect(support).toContain("/renshinkan-gallery/class-photos/class_group_dojo_wide_01.jpg");
     expect(support).toContain("support-dojo-photo");
@@ -367,7 +367,7 @@ describe("UI and responsive workflow contracts", () => {
     const records = file("src/pages/StudentRecordsPage.tsx");
     const examApi = file("functions/api/records/examination-applications.ts");
     const contributionApi = file("functions/api/contributions.ts");
-    for (const value of ["The dojo cannot confirm your", "send the payment proof directly to a sensei of RenShinKan Dojo", "private authenticated record", "application/pdf", "/api/payment-proofs"]) expect(upload).toContain(value);
+    for (const value of ["paymentProof.cannotConfirm", "paymentProof.contactSensei", "paymentProof.privateRecord", "application/pdf", "/api/payment-proofs"]) expect(upload).toContain(value);
     expect(upload).not.toContain("deleted after 60 days");
     expect(contributions).toContain("PaymentProofUpload");
     expect(records).toContain("PaymentProofUpload");
@@ -386,12 +386,13 @@ describe("UI and responsive workflow contracts", () => {
     const css = file("src/index.css");
     expect(form).toContain('fetch("/api/contributions"');
     expect(form).toContain("monthlyContributionAmount");
-    expect(form).toContain("Choose dojo");
+    expect(form).toContain("contribution.chooseDojo");
     expect(form).toContain('fetch("/api/dojos"');
     expect(form).toContain("PaymentReminder");
-    expect(form).toContain("Gentle monthly reminder");
-    expect(form).toContain("No earlier annual payment date appears on this record");
+    expect(form).toContain("contribution.monthlyReminder");
+    expect(form).toContain("contribution.aatNoHistoryMessage");
     expect(api).toContain("submitted.dojoId");
+    expect(api).toContain("configuredAatAnnualContributionAmount");
     expect(api).toContain("s.dojo_id = ?");
     expect(api).toContain("aat_last_paid_date");
     expect(api).toContain("lastPayment");
@@ -402,7 +403,7 @@ describe("UI and responsive workflow contracts", () => {
   it("calculates one clear monthly total for multiple student records", () => {
     const form = file("src/components/ContributionForm.tsx");
     const css = file("src/index.css");
-    for (const value of ["monthlyContributionAmount", "Add another student", "Who is this payment for?", "monthlyStudents.length", "Total to pay", "Use one PromptPay payment and one payment proof"]) expect(form).toContain(value);
+    for (const value of ["monthlyContributionAmount", "contribution.addStudent", "contribution.who", "monthlyStudents.length", "contribution.totalToPay", "contribution.serverVerifies"]) expect(form).toContain(value);
     expect(form).not.toMatch(/MONTHLY_CONTRIBUTION_AMOUNT\s*=\s*\d+/);
     for (const selector of [".contribution-student-list", ".contribution-student-row", ".contribution-payment-total"]) expect(css).toContain(selector);
   });

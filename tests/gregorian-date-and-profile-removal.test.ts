@@ -86,6 +86,19 @@ describe("translation parity and language isolation", () => {
     expect(keys(ja).sort()).toEqual(expected);
   });
 
+  it("localizes the contribution and payment-proof flows instead of rendering English-only controls", () => {
+    const contribution = file("src/components/ContributionForm.tsx");
+    const proof = file("src/components/PaymentProofUpload.tsx");
+    expect(contribution).toContain("useTranslation()");
+    expect(contribution).toContain('t("contribution.who")');
+    expect(contribution).toContain('t("contribution.errorSubmit")');
+    expect(proof).toContain("useTranslation()");
+    expect(proof).toContain('t("paymentProof.chooseFile")');
+    expect(th.contribution.who).not.toBe(en.contribution.who);
+    expect(zh.paymentProof.contactSensei).not.toBe(en.paymentProof.contactSensei);
+    expect(ja.contribution.completePromptPay).not.toBe(en.contribution.completePromptPay);
+  });
+
   it("keeps scoped Student Records and passport phrases in parity", () => {
     const phraseKeys = scopedRecordPhraseKeys();
     expect(phraseKeys.th).toEqual(phraseKeys.en);

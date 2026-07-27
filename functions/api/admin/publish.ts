@@ -1,5 +1,4 @@
 import { getAuthorizedAdminSession, isSameOriginRequest, jsonResponse, requiresCentralAdmin } from "../../_lib/auth";
-import { createAndSendRecentEventCampaign, missingBrevoEnv } from "../../_lib/brevo";
 import {
   type EditableContent,
   type RecentEvent,
@@ -77,62 +76,11 @@ function updateEventNewsletter(content: EditableContent, id: string, newsletter:
   };
 }
 
-async function publishNewsletterCandidates(env: Env, content: EditableContent, candidates: RecentEvent[]) {
-  let nextContent = content;
+async function publishNewsletterCandidates(_env: Env, content: EditableContent, candidates: RecentEvent[]) {
+  const nextContent = content;
   const warnings: string[] = [];
-  const missingBrevo = missingBrevoEnv(env);
-
-  if (candidates.length === 0) {
-    return { content: nextContent, warnings };
-  }
-
-  if (missingBrevo.length > 0) {
-    for (const candidate of candidates) {
-      const message = `Brevo is not configured: ${missingBrevo.join(", ")}`;
-      warnings.push(`${candidate.title}: ${message}`);
-      nextContent = updateEventNewsletter(nextContent, candidate.id, {
-        status: "failed",
-        sentAt: null,
-        brevoCampaignId: null,
-        error: message,
-      });
-    }
-
-    return { content: nextContent, warnings };
-  }
-
   for (const candidate of candidates) {
-    nextContent = updateEventNewsletter(nextContent, candidate.id, {
-      status: "pending",
-      sentAt: null,
-      brevoCampaignId: null,
-      error: null,
-    });
-  }
-
-  await writeEditableContentToStorage(env, nextContent);
-
-  for (const candidate of candidates) {
-    const event = nextContent.recentEvents.find((item) => item.id === candidate.id)!;
-
-    try {
-      const result = await createAndSendRecentEventCampaign(env, event);
-      nextContent = updateEventNewsletter(nextContent, event.id, {
-        status: "sent",
-        sentAt: new Date().toISOString(),
-        brevoCampaignId: result.campaignId,
-        error: null,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message.slice(0, 240) : "Brevo send failed";
-      warnings.push(`${event.title}: ${message}`);
-      nextContent = updateEventNewsletter(nextContent, event.id, {
-        status: "failed",
-        sentAt: null,
-        brevoCampaignId: null,
-        error: message,
-      });
-    }
+    warnings.push(`${candidate.title || "Untitled draft"} was saved, but email was not sent. Use the newsletter editor's final confirmation screen to send it safely.`);
   }
 
   return { content: nextContent, warnings };
@@ -213,9 +161,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         newValues: { lastPublishedAt: content.lastPublishedAt, uploaded: uploaded.length, newsletterCandidates: candidates.length },
         source: "admin_content_publish", requestId: requestIdentifier(request), summary: `Published public content; ${uploaded.length} upload(s), ${candidates.length} newsletter candidate(s)`, createdAt: now }),
       ...candidates.map((event) => auditStatement(db, { actorType: "administrator", ...adminAuditMetadata(session!, request),
-        action: "newsletter_send_attempted", entityType: "recent_event", entityId: event.id,
+        action: "newsletter_send_deferred", entityType: "recent_event", entityId: event.id,
         newValues: content.recentEvents.find((item) => item.id === event.id)?.newsletter || null,
-        source: "admin_content_publish", requestId: requestIdentifier(request), summary: `Newsletter send attempted for ${event.title}`, createdAt: now })),
+        source: "admin_content_publish", requestId: requestIdentifier(request), summary: `Newsletter email deferred for explicit confirmation: ${event.title}`, createdAt: now })),
     ]);
 
     return jsonResponse({

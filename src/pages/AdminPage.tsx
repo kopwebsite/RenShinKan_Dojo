@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { AdminDojoSelector, AdminLoginFields, AdminRenshinKanVerification, type AdminDojo, type AdminIdentity, type AdminSessionResponse } from "../components/admin/AdminAccess";
 import { AdminGalleryDashboard } from "../components/admin/AdminGalleryDashboard";
+import { AdminNewsletterManager } from "../components/admin/AdminNewsletterManager";
 import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { EventBodyRenderer } from "../components/EventBodyRenderer";
@@ -625,12 +626,6 @@ export function AdminPage() {
     setOpenSections((current) => ({ ...current, recentEvents: true }));
     setOpenEventIds((current) => [event.id, ...current]);
   };
-
-  useEffect(() => {
-    if (!editorLoaded || new URLSearchParams(window.location.search).get("action") !== "create") return;
-    addEvent();
-    window.history.replaceState(null, "", "/admin/website#admin-recent-events");
-  }, [editorLoaded]);
 
   const deleteEvent = (id: string) => {
     const removed = draft.recentEvents.find((event) => event.id === id);
@@ -1330,6 +1325,16 @@ export function AdminPage() {
 
       <div className="grid gap-8">
         <div id="admin-recent-events" className="scroll-mt-24">
+          <AdminNewsletterManager
+            draft={draft}
+            baseline={baseline}
+            setDraft={setDraft}
+            setBaseline={setBaseline}
+          />
+        </div>
+
+        {false && (
+        <div id="admin-recent-events-legacy" className="hidden" aria-hidden="true">
         <CollapsibleEditorSection
           title="Newsletters & community events"
           copy="Create one update, then choose whether it appears on the website, the community calendar, and in a subscriber email."
@@ -1746,6 +1751,7 @@ export function AdminPage() {
           </div>
         </CollapsibleEditorSection>
         </div>
+        )}
 
         <AdminGalleryDashboard fallback={draft.galleryAlbums} />
 

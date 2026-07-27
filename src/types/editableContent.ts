@@ -1,4 +1,12 @@
 import type { GalleryAlbums } from "../../shared/gallery";
+import type {
+  NewsletterCategory,
+  NewsletterContentType,
+  NewsletterDocument,
+  NewsletterEmailSettings,
+  NewsletterEventDetails,
+  NewsletterLifecycleStatus,
+} from "../../shared/newsletter";
 
 export type NewsletterStatus = "not_sent" | "pending" | "sent" | "failed";
 
@@ -38,12 +46,33 @@ export type RecentEvent = {
   date: string;
   summary: string;
   body: string;
+  bodyContent?: NewsletterDocument;
   slug: string;
+  slugHistory?: string[];
   published: boolean;
+  websitePublishRequested?: boolean;
+  publishedAt?: string | null;
+  publishAt?: string | null;
+  contentType?: NewsletterContentType;
+  category?: NewsletterCategory;
+  tags?: string[];
+  lifecycleStatus?: NewsletterLifecycleStatus;
+  archivedAt?: string | null;
+  trashedAt?: string | null;
+  featured?: boolean;
+  coverImageId?: string | null;
+  relatedNewsletterIds?: string[];
+  emailSettings?: NewsletterEmailSettings;
+  eventDetails?: NewsletterEventDetails;
   image?: MediaItem;
   media?: MediaItem[];
   notifySubscribers?: boolean;
   showInCommunityCalendar?: boolean;
+  calendar?: {
+    status: "not_added" | "published" | "failed";
+    publishedAt?: string | null;
+    error?: string | null;
+  };
   newsletter?: {
     status: NewsletterStatus;
     sentAt?: string | null;

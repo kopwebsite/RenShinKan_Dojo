@@ -1,6 +1,7 @@
 import type { RecentEvent } from "./content";
+import type { NewsletterDocumentMark, NewsletterDocumentNode } from "../../shared/newsletter";
 
-type BrevoEnv = {
+export type BrevoEnv = {
   BREVO_API_KEY?: string;
   BREVO_LIST_ID?: string;
   BREVO_SENDER_EMAIL?: string;
@@ -32,7 +33,7 @@ function escapeHtml(value: string) {
 
 function eventUrl(env: BrevoEnv, event: RecentEvent) {
   const baseUrl = (env.SITE_URL || "").replace(/\/+$/, "");
-  return `${baseUrl}/newsletter#${encodeURIComponent(event.slug)}`;
+  return `${baseUrl}/newsletter/${encodeURIComponent(event.slug)}`;
 }
 
 function absoluteUrl(base: string, src: string) {
@@ -216,10 +217,56 @@ function renderMediaRow(base: string, item: NonNullable<RecentEvent["media"]>[nu
                   : ""
               }
             </td>
-          </tr>`;
+  </tr>`;
+}
+
+function renderDocumentText(text: string, marks: NewsletterDocumentMark[] = []) {
+  return marks.reduce((html, mark) => {
+    if (mark.type === "bold") return `<strong>${html}</strong>`;
+    if (mark.type === "italic") return `<em>${html}</em>`;
+    if (mark.type === "link" && mark.attrs?.href) {
+      return `<a href="${escapeHtml(absoluteUrl("", mark.attrs.href))}" style="color:#b22a22;text-decoration:underline;">${html}</a>`;
+    }
+    return html;
+  }, escapeHtml(text));
+}
+
+function renderDocumentNode(node: NewsletterDocumentNode): string {
+  if (node.type === "text") return renderDocumentText(node.text ?? "", node.marks);
+  if (node.type === "hardBreak") return "<br />";
+  if (node.type === "horizontalRule") return '<hr style="border:0;border-top:1px solid #d8ccb7;margin:28px 0;" />';
+  const children = (node.content ?? []).map(renderDocumentNode).join("");
+  if (node.type === "paragraph") {
+    if (node.attrs?.variant === "cta") {
+      return `<p style="margin:24px 0;text-align:center;"><span style="display:inline-block;background:#2a2018;color:#faf6f0;padding:13px 24px;border-radius:999px;font-weight:700;">${children}</span></p>`;
+    }
+    return `<p style="margin:0 0 18px 0;">${children}</p>`;
+  }
+  if (node.type === "heading") {
+    const size = node.attrs?.level === 3 ? "22px" : "27px";
+    return `<h${node.attrs?.level === 3 ? "3" : "2"} style="margin:28px 0 12px;font-family:Georgia,'Times New Roman',serif;font-size:${size};line-height:1.2;color:#1f1b16;">${children}</h${node.attrs?.level === 3 ? "3" : "2"}>`;
+  }
+  if (node.type === "bulletList") return `<ul style="margin:0 0 20px 22px;padding:0;">${children}</ul>`;
+  if (node.type === "orderedList") return `<ol style="margin:0 0 20px 22px;padding:0;">${children}</ol>`;
+  if (node.type === "listItem") return `<li style="margin:0 0 8px;">${children}</li>`;
+  if (node.type === "blockquote") {
+    return `<blockquote style="margin:24px 0;padding:2px 0 2px 18px;border-left:3px solid #c8312a;color:#5b5145;font-style:italic;">${children}</blockquote>`;
+  }
+  return children;
 }
 
 function renderEventBodyRows(base: string, event: RecentEvent) {
+  if (event.bodyContent) {
+    const media = event.media?.length ? event.media : event.image ? [event.image] : [];
+    const documentHtml = (event.bodyContent.content ?? []).map(renderDocumentNode).join("");
+    return `
+          <tr>
+            <td class="pad body-txt sans" style="padding:24px 48px 0 48px; font-size:17px; line-height:29px; color:#3d362c;">
+              ${documentHtml}
+            </td>
+          </tr>
+          ${media.map((item) => renderMediaRow(base, item, 0)).join("\n")}`;
+  }
   const bodyText = event.body && event.body.trim() ? event.body : event.summary;
   const paragraphs = splitBodyParagraphs(bodyText);
   const paragraphCount = paragraphs.length;
@@ -249,13 +296,30 @@ function renderEventBodyRows(base: string, event: RecentEvent) {
   return rows.join("\n");
 }
 
-function campaignHtml(env: BrevoEnv, event: RecentEvent) {
+export function renderNewsletterCampaignHtml(env: BrevoEnv, event: RecentEvent) {
   const base = (env.SITE_URL || "https://renshinkandojo.org").replace(/\/+$/, "");
   const link = escapeHtml(eventUrl(env, event));
   const logo = `${base}/renshinkan-logo.png`;
   const texture = `${base}/parchment-texture.png`;
   const contactUrl = `${base}/contact`;
   const bodyRows = renderEventBodyRows(base, event);
+  const websiteCta = event.published && event.slug
+    ? `
+          <!-- Read the full post on the website -->
+          <tr>
+            <td align="center" class="pad" style="padding:26px 48px 6px 48px;">
+              <!--[if mso]>
+              <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${link}" style="height:50px;v-text-anchor:middle;width:260px;" arcsize="50%" strokecolor="#2a2018" fillcolor="#2a2018">
+                <w:anchorlock/>
+                <center style="color:#faf6f0;font-family:Georgia,'Times New Roman',serif;font-size:15px;font-weight:bold;">Read the full post</center>
+              </v:roundrect>
+              <![endif]-->
+              <!--[if !mso]><!-- -->
+              <a class="btn-a sans" href="${link}" style="display:inline-block; background-color:#2a2018; color:#faf6f0; font-size:15px; font-weight:600; line-height:20px; padding:15px 32px; border-radius:999px; text-decoration:none;">Read the full post</a>
+              <!--<![endif]-->
+            </td>
+          </tr>`
+    : "";
 
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en">
@@ -266,7 +330,7 @@ function campaignHtml(env: BrevoEnv, event: RecentEvent) {
   <meta name="x-apple-disable-message-reformatting" />
   <meta name="color-scheme" content="light" />
   <meta name="supported-color-schemes" content="light" />
-  <title>${escapeHtml(event.title)}</title>
+  <title>${escapeHtml(event.emailSettings?.subject || event.title)}</title>
   <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet" />
   <style type="text/css">
@@ -291,7 +355,7 @@ function campaignHtml(env: BrevoEnv, event: RecentEvent) {
 </head>
 <body class="bg-canvas" style="margin:0; padding:0; width:100%; background-color:#eae0cb;">
   <!-- Preheader: inbox preview text (the post summary) -->
-  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#eae0cb; opacity:0;">${escapeHtml(event.summary)}&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;</div>
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#eae0cb; opacity:0;">${escapeHtml(event.emailSettings?.previewText || event.summary)}&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;</div>
 
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bg-canvas" style="background-color:#eae0cb; background-image:url('${texture}'); background-size:cover; background-position:center;">
     <tr>
@@ -331,20 +395,7 @@ function campaignHtml(env: BrevoEnv, event: RecentEvent) {
           </tr>
           <!-- Post body and embedded media -->
 ${bodyRows}
-          <!-- Read the full post on the website -->
-          <tr>
-            <td align="center" class="pad" style="padding:26px 48px 6px 48px;">
-              <!--[if mso]>
-              <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${link}" style="height:50px;v-text-anchor:middle;width:260px;" arcsize="50%" strokecolor="#2a2018" fillcolor="#2a2018">
-                <w:anchorlock/>
-                <center style="color:#faf6f0;font-family:Georgia,'Times New Roman',serif;font-size:15px;font-weight:bold;">Read the full post</center>
-              </v:roundrect>
-              <![endif]-->
-              <!--[if !mso]><!-- -->
-              <a class="btn-a sans" href="${link}" style="display:inline-block; background-color:#2a2018; color:#faf6f0; font-size:15px; font-weight:600; line-height:20px; padding:15px 32px; border-radius:999px; text-decoration:none;">Read the full post</a>
-              <!--<![endif]-->
-            </td>
-          </tr>
+${websiteCta}
 
           <!-- Call to action -->
           <tr>
@@ -439,18 +490,36 @@ function shortError(data: Record<string, unknown>, fallback: string) {
   return message.slice(0, 240);
 }
 
-export async function createAndSendRecentEventCampaign(env: BrevoEnv, event: RecentEvent) {
+function brevoListId(env: BrevoEnv) {
   const missing = missingBrevoEnv(env);
-
   if (missing.length) {
     throw new Error(`Brevo is not configured: ${missing.join(", ")}`);
   }
-
   const listId = Number(env.BREVO_LIST_ID);
-
   if (!Number.isFinite(listId)) {
     throw new Error("Brevo list ID must be numeric");
   }
+  return listId;
+}
+
+export async function getBrevoSubscriberCount(env: BrevoEnv) {
+  const listId = brevoListId(env);
+  const response = await fetch(`https://api.brevo.com/v3/contacts/lists/${listId}`, {
+    headers: {
+      Accept: "application/json",
+      "api-key": env.BREVO_API_KEY!,
+    },
+  });
+  const data = await readBrevoJson(response);
+  if (!response.ok) throw new Error(shortError(data, "Subscriber count is unavailable"));
+  return typeof data.totalSubscribers === "number" && Number.isFinite(data.totalSubscribers)
+    ? Math.max(0, Math.round(data.totalSubscribers))
+    : null;
+}
+
+export async function createRecentEventCampaign(env: BrevoEnv, event: RecentEvent) {
+  const listId = brevoListId(env);
+  const settings = event.emailSettings;
 
   const createResponse = await fetch("https://api.brevo.com/v3/emailCampaigns", {
     method: "POST",
@@ -461,13 +530,16 @@ export async function createAndSendRecentEventCampaign(env: BrevoEnv, event: Rec
     },
     body: JSON.stringify({
       name: `RenShinKan Dojo: ${event.title}`.slice(0, 120),
-      subject: event.title,
+      subject: settings?.subject || event.title,
       sender: {
         email: env.BREVO_SENDER_EMAIL,
-        name: env.BREVO_SENDER_NAME || "RenShinKan Dojo",
+        name: settings?.senderName || env.BREVO_SENDER_NAME || "RenShinKan Dojo",
       },
+      replyTo: settings?.replyTo || env.BREVO_SENDER_EMAIL,
+      previewText: settings?.previewText || event.summary,
       type: "classic",
-      htmlContent: campaignHtml(env, event),
+      mirrorActive: true,
+      htmlContent: renderNewsletterCampaignHtml(env, event),
       recipients: {
         listIds: [listId],
       },
@@ -484,7 +556,10 @@ export async function createAndSendRecentEventCampaign(env: BrevoEnv, event: Rec
   if (typeof campaignId !== "number" && typeof campaignId !== "string") {
     throw new Error("Brevo did not return a campaign id");
   }
+  return { campaignId };
+}
 
+export async function sendRecentEventCampaignNow(env: BrevoEnv, campaignId: number | string) {
   const sendResponse = await fetch(`https://api.brevo.com/v3/emailCampaigns/${campaignId}/sendNow`, {
     method: "POST",
     headers: {
@@ -497,6 +572,28 @@ export async function createAndSendRecentEventCampaign(env: BrevoEnv, event: Rec
   if (!sendResponse.ok) {
     throw new Error(shortError(sendData, "Brevo campaign send failed"));
   }
+}
 
+export async function sendRecentEventCampaignTest(
+  env: BrevoEnv,
+  campaignId: number | string,
+  email: string,
+) {
+  const response = await fetch(`https://api.brevo.com/v3/emailCampaigns/${campaignId}/sendTest`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "api-key": env.BREVO_API_KEY!,
+    },
+    body: JSON.stringify({ emailTo: [email] }),
+  });
+  const data = await readBrevoJson(response);
+  if (!response.ok) throw new Error(shortError(data, "Brevo test email failed"));
+}
+
+export async function createAndSendRecentEventCampaign(env: BrevoEnv, event: RecentEvent) {
+  const { campaignId } = await createRecentEventCampaign(env, event);
+  await sendRecentEventCampaignNow(env, campaignId);
   return { campaignId };
 }

@@ -1,5 +1,16 @@
 import { useEffect, useState } from "react";
 import { migrateLegacyGalleries } from "../../shared/gallery";
+import {
+  NEWSLETTER_CATEGORIES,
+  inferNewsletterCategory,
+  isDocumentDerivedImage,
+  type NewsletterCategory,
+  type NewsletterContentType,
+  type NewsletterDocument,
+  type NewsletterEmailSettings,
+  type NewsletterEventDetails,
+  type NewsletterLifecycleStatus,
+} from "../../shared/newsletter";
 import type {
   BodyMediaPlacement,
   DocumentDisplayMode,
@@ -27,7 +38,7 @@ import {
 import { isValidEmbedUrl } from "../utils/mediaEmbeds";
 
 export const emptyEditableContent: EditableContent = {
-  version: 2,
+  version: 3,
   lastPublishedAt: null,
   recentEvents: [],
   examAnnouncement: null,
@@ -149,18 +160,14 @@ function normalizeRecentEvent(value: unknown): RecentEvent | null {
     return null;
   }
 
-  const id = asString(value.id);
+  const id = asString(value.id) || `untitled-newsletter-${crypto.randomUUID()}`;
   const title = asString(value.title);
   const date = asString(value.date);
   const summary = asString(value.summary);
   const body = asString(value.body);
   const slug = asString(value.slug);
-  const createdAt = asString(value.createdAt);
-  const updatedAt = asString(value.updatedAt);
-
-  if (!id || !title || !date || !slug || !createdAt || !updatedAt) {
-    return null;
-  }
+  const createdAt = asString(value.createdAt) || "1970-01-01T00:00:00.000Z";
+  const updatedAt = asString(value.updatedAt) || createdAt;
 
   const newsletter = isRecord(value.newsletter)
     ? {
@@ -175,6 +182,36 @@ function normalizeRecentEvent(value: unknown): RecentEvent | null {
     : { status: "not_sent" as const, sentAt: null, brevoCampaignId: null, error: null };
   const image = normalizeMediaItem(value.image);
   const media = normalizeMediaList(value.media);
+  const category = NEWSLETTER_CATEGORIES.includes(value.category as NewsletterCategory)
+    ? value.category as NewsletterCategory
+    : inferNewsletterCategory(title);
+  const contentType: NewsletterContentType = value.contentType === "event" || value.contentType === "newsletter"
+    ? value.contentType
+    : value.showInCommunityCalendar === true
+      ? "event"
+      : "newsletter";
+  const lifecycleStatus: NewsletterLifecycleStatus =
+    value.lifecycleStatus === "archived" || value.lifecycleStatus === "trash" ? value.lifecycleStatus : "active";
+  const explicitCoverId = asOptionalString(value.coverImageId);
+  const coverImageId = explicitCoverId && media.some((item) => item.id === explicitCoverId && item.type === "image")
+    ? explicitCoverId
+    : image?.type === "image" && !isDocumentDerivedImage(image)
+      ? image.id
+      : null;
+  const emailValue = isRecord(value.emailSettings) ? value.emailSettings : {};
+  const emailSettings: NewsletterEmailSettings = {
+    subject: asString(emailValue.subject) || title,
+    previewText: asString(emailValue.previewText) || summary,
+    senderName: asString(emailValue.senderName) || "RenShinKan Dojo",
+    replyTo: asString(emailValue.replyTo),
+  };
+  const eventValue = isRecord(value.eventDetails) ? value.eventDetails : {};
+  const eventDetails: NewsletterEventDetails = {
+    startAt: asString(eventValue.startAt),
+    endAt: asString(eventValue.endAt),
+    location: asString(eventValue.location),
+    registrationUrl: asString(eventValue.registrationUrl),
+  };
 
   return {
     id,
@@ -182,12 +219,45 @@ function normalizeRecentEvent(value: unknown): RecentEvent | null {
     date,
     summary,
     body,
+    bodyContent: isRecord(value.bodyContent) && value.bodyContent.type === "doc"
+      ? value.bodyContent as NewsletterDocument
+      : undefined,
     slug,
+    slugHistory: Array.isArray(value.slugHistory)
+      ? value.slugHistory.filter((entry): entry is string => typeof entry === "string")
+      : [],
     published: value.published === true,
+    websitePublishRequested: value.websitePublishRequested === true || value.published === true,
+    publishedAt: typeof value.publishedAt === "string" ? value.publishedAt : null,
+    publishAt: typeof value.publishAt === "string" ? value.publishAt : null,
+    contentType,
+    category,
+    tags: Array.isArray(value.tags) ? value.tags.filter((tag): tag is string => typeof tag === "string") : [],
+    lifecycleStatus,
+    archivedAt: typeof value.archivedAt === "string" ? value.archivedAt : null,
+    trashedAt: typeof value.trashedAt === "string" ? value.trashedAt : null,
+    featured: value.featured === true,
+    coverImageId,
+    relatedNewsletterIds: Array.isArray(value.relatedNewsletterIds)
+      ? value.relatedNewsletterIds.filter((entry): entry is string => typeof entry === "string").slice(0, 3)
+      : [],
+    emailSettings,
+    eventDetails,
     image: image ?? undefined,
     media,
     notifySubscribers: value.notifySubscribers === true,
     showInCommunityCalendar: value.showInCommunityCalendar === true,
+    calendar: isRecord(value.calendar)
+      ? {
+          status: value.calendar.status === "published" || value.calendar.status === "failed" ? value.calendar.status : "not_added",
+          publishedAt: typeof value.calendar.publishedAt === "string" ? value.calendar.publishedAt : null,
+          error: typeof value.calendar.error === "string" ? value.calendar.error : null,
+        }
+      : {
+          status: value.published === true && value.showInCommunityCalendar === true ? "published" : "not_added",
+          publishedAt: null,
+          error: null,
+        },
     newsletter,
     createdAt,
     updatedAt,
@@ -394,10 +464,11 @@ export function useEditableContent() {
 export function getPublishedRecentEvents(content: EditableContent, limit?: number) {
   const events = content.recentEvents
     .filter((event) => {
-      if (!event.published) return false;
+      if (!event.published || (event.lifecycleStatus ?? "active") !== "active") return false;
+      if (event.publishAt && Date.parse(event.publishAt) > Date.now()) return false;
+      if (!event.title.trim() || !event.slug.trim()) return false;
       const compactTitle = event.title.replace(/[^a-z0-9]/gi, "");
-      const looksLikeTestContent = compactTitle.length < 5 || /^(test|draft|sample|dsadsadsa|asdf)+$/i.test(compactTitle);
-      return !looksLikeTestContent;
+      return compactTitle.length >= 5 && !/^(test|draft|sample|dsadsadsa|asdf)+$/i.test(compactTitle);
     })
     .sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
 
@@ -406,6 +477,10 @@ export function getPublishedRecentEvents(content: EditableContent, limit?: numbe
 
 export function getCommunityCalendarEvents(content: EditableContent) {
   return content.recentEvents
-    .filter((event) => event.published && event.showInCommunityCalendar === true)
+    .filter((event) =>
+      (event.lifecycleStatus ?? "active") === "active" &&
+      event.showInCommunityCalendar === true &&
+      (event.calendar?.status === "published" || (event.calendar == null && event.published)) &&
+      (!event.publishAt || Date.parse(event.publishAt) <= Date.now()))
     .sort((a, b) => Date.parse(a.date) - Date.parse(b.date));
 }

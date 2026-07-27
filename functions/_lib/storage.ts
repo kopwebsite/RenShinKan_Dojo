@@ -113,7 +113,7 @@ export function datedProfileKey(prefix: "student-profiles" | "pending-student-pr
 
 export function emptyContent(): EditableContent {
   return {
-    version: 2,
+    version: 3,
     lastPublishedAt: null,
     recentEvents: [],
     examAnnouncement: null,

@@ -7,6 +7,19 @@ import {
   type GalleryId,
   type GalleryPhoto,
 } from "../../shared/gallery";
+import {
+  NEWSLETTER_CATEGORIES,
+  inferNewsletterCategory,
+  isDocumentDerivedImage,
+  type NewsletterCategory,
+  type NewsletterContentType,
+  type NewsletterDocument,
+  type NewsletterDocumentMark,
+  type NewsletterDocumentNode,
+  type NewsletterEmailSettings,
+  type NewsletterEventDetails,
+  type NewsletterLifecycleStatus,
+} from "../../shared/newsletter";
 
 export type NewsletterStatus = "not_sent" | "pending" | "sent" | "failed";
 
@@ -46,12 +59,33 @@ export type RecentEvent = {
   date: string;
   summary: string;
   body: string;
+  bodyContent?: NewsletterDocument;
   slug: string;
+  slugHistory?: string[];
   published: boolean;
+  websitePublishRequested?: boolean;
+  publishedAt?: string | null;
+  publishAt?: string | null;
+  contentType?: NewsletterContentType;
+  category?: NewsletterCategory;
+  tags?: string[];
+  lifecycleStatus?: NewsletterLifecycleStatus;
+  archivedAt?: string | null;
+  trashedAt?: string | null;
+  featured?: boolean;
+  coverImageId?: string | null;
+  relatedNewsletterIds?: string[];
+  emailSettings?: NewsletterEmailSettings;
+  eventDetails?: NewsletterEventDetails;
   image?: MediaItem;
   media?: MediaItem[];
   notifySubscribers?: boolean;
   showInCommunityCalendar?: boolean;
+  calendar?: {
+    status: "not_added" | "published" | "failed";
+    publishedAt?: string | null;
+    error?: string | null;
+  };
   newsletter?: {
     status: NewsletterStatus;
     sentAt?: string | null;
@@ -115,6 +149,9 @@ export type EditableContent = {
 };
 
 const allowedNewsletterStatuses = new Set<NewsletterStatus>(["not_sent", "pending", "sent", "failed"]);
+const allowedNewsletterCategories = new Set<NewsletterCategory>(NEWSLETTER_CATEGORIES);
+const allowedNewsletterContentTypes = new Set<NewsletterContentType>(["newsletter", "event"]);
+const allowedNewsletterLifecycleStatuses = new Set<NewsletterLifecycleStatus>(["active", "archived", "trash"]);
 const allowedBodyMediaAligns = new Set<BodyMediaAlign>(["left", "center", "right"]);
 const allowedDocumentKinds = new Set<DocumentMediaKind>(["pdf", "docx", "ppt"]);
 const allowedDocumentDisplayModes = new Set<DocumentDisplayMode>(["inline", "link"]);
@@ -443,6 +480,109 @@ function validateNewsletter(value: unknown) {
   };
 }
 
+function cleanNewsletterText(value: unknown, max: number) {
+  return typeof value === "string"
+    ? value.normalize("NFKC").replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "").slice(0, max)
+    : "";
+}
+
+function cleanNewsletterIdentifier(value: unknown) {
+  const clean = cleanNewsletterText(value, 140).trim();
+  return /^[A-Za-z0-9_-]{1,140}$/.test(clean) ? clean : "";
+}
+
+function cleanNewsletterSlug(value: unknown) {
+  const clean = cleanNewsletterText(value, 160).trim().toLowerCase();
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(clean) ? clean : "";
+}
+
+function validateNewsletterMark(value: unknown, path: string): NewsletterDocumentMark {
+  if (!isRecord(value) || (value.type !== "bold" && value.type !== "italic" && value.type !== "link")) {
+    throw new Error(`${path} contains an unsupported text style`);
+  }
+  if (value.type !== "link") return { type: value.type };
+  const href = isRecord(value.attrs) ? safeInternalOrHttpsUrl(value.attrs.href, 800) : "";
+  if (!href) throw new Error(`${path}.attrs.href must be a safe website or HTTPS URL`);
+  return { type: "link", attrs: { href } };
+}
+
+function validateNewsletterDocument(value: unknown, path = "bodyContent"): NewsletterDocument | undefined {
+  if (value == null) return undefined;
+  let nodeCount = 0;
+  let textLength = 0;
+  const visit = (nodeValue: unknown, nodePath: string, depth: number): NewsletterDocumentNode => {
+    if (!isRecord(nodeValue) || typeof nodeValue.type !== "string") throw new Error(`${nodePath} must be a document node`);
+    if (depth > 16) throw new Error(`${path} is nested too deeply`);
+    nodeCount += 1;
+    if (nodeCount > 5_000) throw new Error(`${path} contains too many blocks`);
+    const allowedTypes = new Set<NewsletterDocumentNode["type"]>([
+      "doc", "paragraph", "heading", "bulletList", "orderedList", "listItem", "blockquote", "horizontalRule", "hardBreak", "text",
+    ]);
+    if (!allowedTypes.has(nodeValue.type as NewsletterDocumentNode["type"])) {
+      throw new Error(`${nodePath}.type is not supported`);
+    }
+    const type = nodeValue.type as NewsletterDocumentNode["type"];
+    const node: NewsletterDocumentNode = { type };
+    if (type === "text") {
+      const text = cleanNewsletterText(nodeValue.text, 60_000 - textLength);
+      textLength += text.length;
+      if (textLength > 60_000) throw new Error(`${path} is too long`);
+      node.text = text;
+      if (Array.isArray(nodeValue.marks)) {
+        node.marks = nodeValue.marks.slice(0, 8).map((mark, index) => validateNewsletterMark(mark, `${nodePath}.marks[${index}]`));
+      }
+      return node;
+    }
+    if (type === "heading") {
+      const level = isRecord(nodeValue.attrs) && (nodeValue.attrs.level === 2 || nodeValue.attrs.level === 3)
+        ? nodeValue.attrs.level
+        : 2;
+      node.attrs = { level };
+    } else if (type === "paragraph") {
+      const variant = isRecord(nodeValue.attrs) && nodeValue.attrs.variant === "cta" ? "cta" : "default";
+      node.attrs = { variant };
+    }
+    if (Array.isArray(nodeValue.content)) {
+      node.content = nodeValue.content.slice(0, 1_000).map((child, index) => visit(child, `${nodePath}.content[${index}]`, depth + 1));
+    }
+    return node;
+  };
+  const document = visit(value, path, 0);
+  if (document.type !== "doc") throw new Error(`${path} must begin with a document node`);
+  return document as NewsletterDocument;
+}
+
+function cleanNewsletterTags(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map((tag) => cleanNewsletterText(tag, 40).trim()).filter(Boolean))].slice(0, 10);
+}
+
+function cleanRelatedNewsletterIds(value: unknown, ownId: string) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map(cleanNewsletterIdentifier).filter((id) => id && id !== ownId))].slice(0, 3);
+}
+
+function validateEmailSettings(value: unknown, title: string, summary: string): NewsletterEmailSettings {
+  const settings = isRecord(value) ? value : {};
+  const replyTo = cleanNewsletterText(settings.replyTo, 254).trim();
+  return {
+    subject: cleanNewsletterText(settings.subject, 200).trim() || title,
+    previewText: cleanNewsletterText(settings.previewText, 240).trim() || summary,
+    senderName: cleanNewsletterText(settings.senderName, 120).trim() || "RenShinKan Dojo",
+    replyTo: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyTo) ? replyTo : "",
+  };
+}
+
+function validateEventDetails(value: unknown): NewsletterEventDetails {
+  const details = isRecord(value) ? value : {};
+  return {
+    startAt: cleanNewsletterText(details.startAt, 40).trim(),
+    endAt: cleanNewsletterText(details.endAt, 40).trim(),
+    location: cleanNewsletterText(details.location, 300).trim(),
+    registrationUrl: safeInternalOrHttpsUrl(details.registrationUrl, 800),
+  };
+}
+
 function validateRecentEvent(value: unknown, index: number): RecentEvent {
   const path = `recentEvents[${index}]`;
 
@@ -450,18 +590,15 @@ function validateRecentEvent(value: unknown, index: number): RecentEvent {
     throw new Error(`${path} must be an object`);
   }
 
-  const id = requireString(value, "id").trim();
-  const title = requireString(value, "title").trim();
-  const date = requireString(value, "date").trim();
-  const summary = requireString(value, "summary").trim();
-  const body = requireString(value, "body").trim();
-  const slug = requireString(value, "slug").trim();
-  const createdAt = requireString(value, "createdAt").trim();
-  const updatedAt = requireString(value, "updatedAt").trim();
-
-  if (!id || !title || !date || !slug || !createdAt || !updatedAt) {
-    throw new Error(`${path} is missing a required string field`);
-  }
+  const id = cleanNewsletterIdentifier(value.id) || `untitled-newsletter-${index + 1}`;
+  const title = cleanNewsletterText(value.title, 240).trim();
+  const date = cleanNewsletterText(value.date, 32).trim();
+  const summary = cleanNewsletterText(value.summary, 1_000).trim();
+  const body = cleanNewsletterText(value.body, 60_000).trim();
+  const bodyContent = validateNewsletterDocument(value.bodyContent, `${path}.bodyContent`);
+  const slug = cleanNewsletterSlug(value.slug);
+  const createdAt = cleanNewsletterText(value.createdAt, 40).trim() || "1970-01-01T00:00:00.000Z";
+  const updatedAt = cleanNewsletterText(value.updatedAt, 40).trim() || createdAt;
 
   const image = value.image == null ? undefined : validateMediaItem(value.image, `${path}.image`);
   const media = value.media == null ? [] : validateMediaList(value.media, `${path}.media`);
@@ -475,18 +612,65 @@ function validateRecentEvent(value: unknown, index: number): RecentEvent {
     throw new Error(`${path}.media can include at most ${MAX_RECENT_EVENT_PHOTOS} photos`);
   }
 
+  const explicitCoverId = cleanNewsletterIdentifier(value.coverImageId);
+  const coverImageId = explicitCoverId && media.some((item) => item.id === explicitCoverId && item.type === "image")
+    ? explicitCoverId
+    : image?.type === "image" && !isDocumentDerivedImage(image)
+      ? image.id
+      : null;
+  const contentType = allowedNewsletterContentTypes.has(value.contentType as NewsletterContentType)
+    ? value.contentType as NewsletterContentType
+    : value.showInCommunityCalendar === true
+      ? "event"
+      : "newsletter";
+  const category = allowedNewsletterCategories.has(value.category as NewsletterCategory)
+    ? value.category as NewsletterCategory
+    : inferNewsletterCategory(title);
+  const lifecycleStatus = allowedNewsletterLifecycleStatuses.has(value.lifecycleStatus as NewsletterLifecycleStatus)
+    ? value.lifecycleStatus as NewsletterLifecycleStatus
+    : "active";
+
   return {
     id,
     title,
     date,
     summary,
     body,
+    bodyContent,
     slug,
+    slugHistory: Array.isArray(value.slugHistory)
+      ? [...new Set(value.slugHistory.map(cleanNewsletterSlug).filter((entry) => entry && entry !== slug))].slice(0, 20)
+      : [],
     published: value.published === true,
+    websitePublishRequested: value.websitePublishRequested === true || value.published === true,
+    publishedAt: typeof value.publishedAt === "string" ? value.publishedAt.slice(0, 40) : null,
+    publishAt: typeof value.publishAt === "string" ? value.publishAt.slice(0, 40) : null,
+    contentType,
+    category,
+    tags: cleanNewsletterTags(value.tags),
+    lifecycleStatus,
+    archivedAt: typeof value.archivedAt === "string" ? value.archivedAt.slice(0, 40) : null,
+    trashedAt: typeof value.trashedAt === "string" ? value.trashedAt.slice(0, 40) : null,
+    featured: value.featured === true,
+    coverImageId,
+    relatedNewsletterIds: cleanRelatedNewsletterIds(value.relatedNewsletterIds, id),
+    emailSettings: validateEmailSettings(value.emailSettings, title, summary),
+    eventDetails: validateEventDetails(value.eventDetails),
     image,
     media,
     notifySubscribers: value.notifySubscribers === true,
     showInCommunityCalendar: value.showInCommunityCalendar === true,
+    calendar: isRecord(value.calendar)
+      ? {
+          status: value.calendar.status === "published" || value.calendar.status === "failed" ? value.calendar.status : "not_added",
+          publishedAt: typeof value.calendar.publishedAt === "string" ? value.calendar.publishedAt.slice(0, 40) : null,
+          error: typeof value.calendar.error === "string" ? value.calendar.error.slice(0, 240) : null,
+        }
+      : {
+          status: value.published === true && value.showInCommunityCalendar === true ? "published" : "not_added",
+          publishedAt: null,
+          error: null,
+        },
     newsletter: validateNewsletter(value.newsletter),
     createdAt,
     updatedAt,
@@ -535,7 +719,7 @@ export function validateEditableContent(value: unknown): EditableContent {
   };
 
   return {
-    version: 2,
+    version: 3,
     lastPublishedAt: typeof value.lastPublishedAt === "string" ? value.lastPublishedAt : null,
     recentEvents: Array.isArray(value.recentEvents)
       ? value.recentEvents.map(validateRecentEvent)

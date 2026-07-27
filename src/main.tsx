@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { LanguageProvider } from "./i18n";
 import "./index.css";
+import "./newsletter.css";
 
 const routerBasename =
   import.meta.env.BASE_URL === "/" || import.meta.env.BASE_URL === "./"

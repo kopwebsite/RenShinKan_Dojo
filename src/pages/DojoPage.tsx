@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { BrushCircleLogo } from "../components/BrushCircleLogo";
+import { LatestDojoNewsletters } from "../components/LatestDojoNewsletters";
 import { ResponsiveImage } from "../components/ResponsiveImage";
 import { useTranslation } from "../i18n";
 import { assetPath } from "../utils/assetPath";
@@ -43,6 +44,7 @@ export function DojoPage() {
         </a>
       </section>
 
+      <LatestDojoNewsletters />
       <DojoPageSections />
     </>
   );

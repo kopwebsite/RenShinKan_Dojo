@@ -209,6 +209,22 @@ describe("related-newsletter and scalable archive behavior", () => {
     expect(sortNewslettersNewest(many)).toHaveLength(45);
     expect(new Set(sortNewslettersNewest(many).map((item) => item.id)).size).toBe(45);
   });
+
+  it("treats the most recently published item as latest and renders one homepage feature", () => {
+    const newlyPublished = recommendationEvent("newly-published", {
+      date: "2025-01-01",
+      publishedAt: "2026-07-20T09:00:00.000Z",
+    });
+    const previouslyPublished = recommendationEvent("previously-published", {
+      date: "2026-07-01",
+      publishedAt: "2026-06-01T09:00:00.000Z",
+    });
+    expect(sortNewslettersNewest([previouslyPublished, newlyPublished])[0].id).toBe("newly-published");
+    const homepage = file("src/components/LatestDojoNewsletters.tsx");
+    expect(homepage).toContain("getPublishedRecentEvents(content, 1)[0]");
+    expect(homepage).not.toContain("home-journal__supporting");
+    expect(homepage).toContain('t("home.journal.title")');
+  });
 });
 
 describe("publishing, delivery, privacy, and interface safety contracts", () => {

@@ -2,6 +2,7 @@ import { beltKeyForRank, normalizeRank } from "../../shared/ranks";
 import { aatMembershipStatus } from "../../shared/membership";
 import { studentRequestStatus } from "../../shared/requestStatus";
 import { bangkokGregorianYear, currentBangkokMonthKey as gregorianBangkokMonthKey } from "../../shared/date";
+import { decideStudentPaymentAlerts } from "../../shared/studentPaymentAlerts";
 import { canAccessDojo, effectivePermissionLevel, jsonResponse, type AdminSession } from "./auth";
 
 export type D1Result<T = unknown> = {
@@ -459,12 +460,14 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
         reviewed_at: string | null; student_visible_note: string | null; training_date: string | null;
         source_type: string | null; organization: string | null; source_details: string | null; student_notes: string | null;
       }>(),
-    db.prepare(`SELECT id, current_rank, attempted_rank, status, payment_status, submitted_at, updated_at,
-        completed_at, student_visible_decision_note
-      FROM examination_applications WHERE student_id = ?
+    db.prepare(`SELECT ea.id, ea.current_rank, ea.attempted_rank, ea.status, ea.payment_status, ea.submitted_at, ea.updated_at,
+        ea.completed_at, ea.student_visible_decision_note, ec.lifecycle_status, ec.application_opens_at
+      FROM examination_applications ea JOIN examination_cycles ec ON ec.id = ea.cycle_id
+      WHERE ea.student_id = ?
       ORDER BY submitted_at DESC LIMIT 60`).bind(student.id).all<{
         id: string; current_rank: string; attempted_rank: string; status: string; payment_status: string;
         submitted_at: string; updated_at: string; completed_at: string | null; student_visible_decision_note: string | null;
+        lifecycle_status: string; application_opens_at: string | null;
       }>(),
     db.prepare(`SELECT DISTINCT pp.id, pp.student_id AS proof_owner_student_id, pp.payment_type, pp.payment_reference_id, pp.status,
         pp.submitted_at, pp.reviewed_at, pp.student_visible_note, pp.object_key, pp.content_type,
@@ -556,7 +559,10 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
     status: entry.status,
     proof: proof(entry),
   }));
-  const membership = aatMembershipStatus(student.aat_number, student.aat_last_paid_date);
+  const latestPaidAat = aatContributions
+    .filter((entry) => entry.status === "paid")
+    .sort((left, right) => right.paymentDate.localeCompare(left.paymentDate))[0];
+  const membership = aatMembershipStatus(student.aat_number, latestPaidAat?.paymentDate || "");
   const currentAatProof = aatContributions.find((entry) => entry.status === "awaiting_payment")?.proof || null;
   const aatSummary = {
     state: currentAatProof?.status === "pending_review"
@@ -568,7 +574,7 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
           : membership.state === "expiring"
             ? "due_soon" as const
             : "payment_record_missing" as const,
-    lastVerifiedPayment: student.aat_last_paid_date || null,
+    lastVerifiedPayment: latestPaidAat?.paymentDate || null,
     nextDueDate: membership.dueDate,
   };
 
@@ -660,6 +666,70 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
     .filter((entry) => entry.submittedAt !== new Date(0).toISOString())
     .sort((left, right) => right.submittedAt.localeCompare(left.submittedAt));
 
+  const monthlyContributions = monthlyResult ? (monthlyResult.results || []).map((entry) => ({
+    id: entry.id,
+    month: entry.month_key,
+    status: entry.status,
+    submittedAt: entry.submitted_at || null,
+    paidAt: entry.paid_at || null,
+    updatedAt: entry.updated_at,
+    expected: entry.expected === 1,
+    proof: proof(entry),
+  })) : null;
+  const currentMonth = currentBangkokMonthKey();
+  const currentMonthly = monthlyContributions?.find((entry) => entry.month === currentMonth) || null;
+  const pendingAat = aatContributions.find((entry) => entry.status === "awaiting_payment") || null;
+  const proofForRequest = (entry: NonNullable<typeof proofRequestResult.results>[number] | undefined) => entry ? proof({
+    proof_id: entry.id,
+    proof_status: entry.status,
+    proof_submitted_at: entry.submitted_at,
+    proof_reviewed_at: entry.reviewed_at,
+    proof_student_visible_note: entry.student_visible_note,
+    proof_object_key: entry.object_key,
+    proof_content_type: entry.content_type,
+    proof_owner_student_id: entry.proof_owner_student_id,
+  }) : null;
+  const examAlerts = (examRequestResult.results || []).map((entry) => {
+    const examProofEntry = (proofRequestResult.results || []).find((candidate) =>
+      candidate.payment_type === "exam" && candidate.payment_reference_id === entry.id);
+    return { entry, proof: proofForRequest(examProofEntry) };
+  });
+  const alertDecisions = decideStudentPaymentAlerts({
+    isRenshinKan: student.dojo_id === DEFAULT_DOJO_ID,
+    currentMonth,
+    monthly: currentMonthly ? {
+      id: currentMonthly.id,
+      month: currentMonthly.month,
+      expected: currentMonthly.expected,
+      paymentStatus: currentMonthly.status,
+      proofStatus: currentMonthly.proof?.status || null,
+    } : null,
+    aat: {
+      id: pendingAat?.id || `aat:${student.id}`,
+      membershipState: membership.state,
+      proofStatus: pendingAat?.proof?.status || null,
+    },
+    exams: examAlerts.map(({ entry, proof: examProof }) => ({
+      id: entry.id,
+      applicationStatus: entry.status,
+      paymentStatus: entry.payment_status,
+      lifecycleStatus: entry.lifecycle_status,
+      applicationOpensAt: entry.application_opens_at,
+      proofStatus: examProof?.status || null,
+    })),
+    nowIso: new Date().toISOString(),
+  });
+  const paymentAlerts = alertDecisions.map((decision) => {
+    if (decision.type === "monthly_contribution") {
+      return { ...decision, period: currentMonthly?.month || null, attemptedRank: null, proof: currentMonthly?.proof || null };
+    }
+    if (decision.type === "aat_membership") {
+      return { ...decision, period: null, attemptedRank: null, proof: pendingAat?.proof || null };
+    }
+    const exam = examAlerts.find(({ entry }) => entry.id === decision.id);
+    return { ...decision, period: null, attemptedRank: exam?.entry.attempted_rank || null, proof: exam?.proof || null };
+  });
+
   return {
     ...base,
     registrationDate: student.account_created_date || student.created_at || null,
@@ -684,16 +754,8 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
     })),
     aatContributions,
     aatSummary,
-    monthlyContributions: monthlyResult ? (monthlyResult.results || []).map((entry) => ({
-      id: entry.id,
-      month: entry.month_key,
-      status: entry.status,
-      submittedAt: entry.submitted_at || null,
-      paidAt: entry.paid_at || null,
-      updatedAt: entry.updated_at,
-      expected: entry.expected === 1,
-      proof: proof(entry),
-    })) : null,
+    monthlyContributions,
+    paymentAlerts,
     requests,
   };
 }

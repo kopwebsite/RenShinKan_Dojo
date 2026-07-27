@@ -35,10 +35,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       s.dojo_id, d.official_name AS dojo_name, s.aat_number, s.aat_last_paid_date, s.aat_notes,
       EXISTS(SELECT 1 FROM payments pending WHERE pending.student_id = s.id
         AND pending.payment_type = 'aat_annual' AND pending.status = 'awaiting_payment') AS payment_awaiting_review,
-      (SELECT json_group_array(json_object('id', p.id, 'paymentDate', p.payment_date,
-        'renewalDueDate', p.renewal_due_date, 'amount', p.amount, 'currency', p.currency,
-        'notes', p.notes, 'recordedBy', p.recorded_by, 'createdAt', p.created_at))
-       FROM aat_membership_payments p WHERE p.student_id = s.id ORDER BY p.payment_date DESC) AS history_json
+      (SELECT json_group_array(json_object('id', ap.id, 'paymentDate', ap.payment_date,
+        'renewalDueDate', ap.renewal_due_date, 'amount', ap.amount, 'currency', ap.currency,
+        'notes', ap.notes, 'recordedBy', ap.recorded_by, 'createdAt', ap.created_at,
+        'paymentStatus', COALESCE(ledger.status, 'paid')))
+       FROM aat_membership_payments ap LEFT JOIN payments ledger ON ledger.id = ap.id
+       WHERE ap.student_id = s.id ORDER BY ap.payment_date DESC) AS history_json
     FROM students s JOIN dojos d ON d.id = s.dojo_id
     WHERE ${conditions.join(" AND ")} ORDER BY s.display_name COLLATE NOCASE`).bind(...bindings).all<Record<string, unknown>>()).results || [];
   const statusFilter = clean(url.searchParams.get("status"), 30);
@@ -66,6 +68,63 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   try {
     const body = await request.json<Record<string, unknown>>();
+    if (body.action === "mark_unpaid") {
+      if (body.confirmed !== true) return jsonResponse({ error: "Confirm removal of the paid status." }, 400);
+      const studentId = clean(body.studentId, 80);
+      const paymentId = clean(body.paymentId, 120);
+      const reason = clean(body.reason, 2_000);
+      if (!studentId || !paymentId) return jsonResponse({ error: "Choose the exact student and payment to reverse." }, 400);
+      const db = requireStudentDb(env);
+      const access = await assertStudentAccess(db, session, studentId);
+      if (!access.ok) return jsonResponse({ error: access.error }, access.status);
+      const payment = await db.prepare(`SELECT p.id, p.student_id, p.dojo_id, p.payment_date, p.status,
+          s.display_name, s.public_student_id, s.aat_last_paid_date
+        FROM payments p JOIN students s ON s.id = p.student_id
+        WHERE p.id = ? AND p.student_id = ? AND p.payment_type = 'aat_annual' LIMIT 1`)
+        .bind(paymentId, studentId).first<{
+          id: string; student_id: string; dojo_id: string; payment_date: string | null; status: string;
+          display_name: string; public_student_id: string; aat_last_paid_date: string | null;
+        }>();
+      if (!payment) return jsonResponse({ error: "That AAT payment does not exist for this student." }, 404);
+      if (payment.status !== "paid") return jsonResponse({ error: "Only a payment currently marked paid can be reversed." }, 409);
+      const latestRemaining = await db.prepare(`SELECT payment_date FROM payments
+        WHERE student_id = ? AND payment_type = 'aat_annual' AND status = 'paid' AND id <> ?
+        ORDER BY payment_date DESC, created_at DESC LIMIT 1`)
+        .bind(studentId, paymentId).first<{ payment_date: string | null }>();
+      const previousPaidDate = payment.aat_last_paid_date;
+      const nextPaidDate = latestRemaining?.payment_date || null;
+      const now = new Date().toISOString();
+      const requestId = requestIdentifier(request);
+      const historyNote = reason || "Paid status removed by administrator";
+      await db.batch([
+        db.prepare("UPDATE payments SET status = 'cancelled', updated_at = ? WHERE id = ? AND status = 'paid'")
+          .bind(now, paymentId),
+        db.prepare(`UPDATE payment_request_items SET status = 'cancelled', updated_at = ?
+          WHERE payment_reference_id = ? AND status = 'paid'`).bind(now, paymentId),
+        db.prepare(`UPDATE payment_requests SET status = 'cancelled', updated_at = ?
+          WHERE id IN (SELECT payment_request_id FROM payment_request_items WHERE payment_reference_id = ?)
+            AND NOT EXISTS (
+              SELECT 1 FROM payment_request_items remaining
+              WHERE remaining.payment_request_id = payment_requests.id
+                AND remaining.status NOT IN ('cancelled', 'refunded')
+            )`).bind(now, paymentId),
+        db.prepare("UPDATE students SET aat_last_paid_date = ?, updated_at = ? WHERE id = ?")
+          .bind(nextPaidDate, now, studentId),
+        db.prepare(`INSERT INTO payment_history (id, payment_id, previous_status, new_status, changed_by, notes, created_at)
+          VALUES (?, ?, 'paid', 'cancelled', ?, ?, ?)`)
+          .bind(crypto.randomUUID(), paymentId, session.adminName, historyNote, now),
+        auditStatement(db, {
+          actorType: "administrator", ...adminAuditMetadata(session, request), action: "aat_membership_paid_status_removed",
+          entityType: "aat_membership_payment", entityId: paymentId, studentId,
+          studentPublicId: payment.public_student_id, studentNameSnapshot: payment.display_name,
+          previousValues: { paymentStatus: "paid", latestPaidDate: previousPaidDate },
+          newValues: { paymentStatus: "cancelled", latestPaidDate: nextPaidDate, reason: reason || null },
+          source: "admin_aat_membership", requestId, administratorNote: reason || null,
+          summary: `Removed paid status from AAT payment for ${payment.public_student_id}`, createdAt: now,
+        }),
+      ]);
+      return jsonResponse({ ok: true, paymentId, status: "cancelled", latestPaidDate: nextPaidDate }, 200, { "Cache-Control": "no-store" });
+    }
     if (body.action !== "mark_paid" || body.confirmed !== true) return jsonResponse({ error: "Confirm the annual membership payment." }, 400);
     const studentId = clean(body.studentId, 80);
     const paymentDate = clean(body.paymentDate, 10);

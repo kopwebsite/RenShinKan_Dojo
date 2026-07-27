@@ -73,6 +73,15 @@ export type PassportAatSummary = {
   nextDueDate: string | null;
 };
 
+export type PassportPaymentAlert = {
+  id: string;
+  type: "monthly_contribution" | "aat_membership" | "examination_payment";
+  status: "action_required" | "under_review";
+  period: string | null;
+  attemptedRank: string | null;
+  proof: PassportPaymentProof | null;
+};
+
 export type PublicStudentRecord = {
   displayName: string; englishName: string; thaiName: string | null; studentId: string; currentBelt: string; beltColor: string;
   totalVerifiedTrainingHours: number; examinations: PublicExamination[]; dojoName: string;
@@ -92,5 +101,6 @@ export type StudentPassportRecord = PublicStudentRecord & {
   aatContributions: PassportAatContribution[];
   aatSummary: PassportAatSummary;
   monthlyContributions: PassportMonthlyContribution[] | null;
+  paymentAlerts: PassportPaymentAlert[];
   requests: PassportRequest[];
 };

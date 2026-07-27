@@ -78,7 +78,7 @@ export function DojoPageSections() {
             {classSchedule.map((session) => (
               <div className="schedule-ledger__row" key={session.day}>
                 <span>{t(session.labelKey)}</span>
-                <time>{session.time.replace("-", " — ")}</time>
+                <time>{session.time.replace("-", " to ")}</time>
               </div>
             ))}
           </div>

@@ -61,7 +61,7 @@ export function DownloadsPage() {
         {asset.description_th ? <p className="mt-2 leading-7 text-ink/65" lang="th">{asset.description_th}</p> : null}
         <dl className="mt-5 grid grid-cols-2 gap-3 border-y border-ink/10 py-4 text-sm">
           <div><dt className="text-ink/55">Language</dt><dd className="mt-1 flex items-center gap-1 font-semibold"><Languages size={15} aria-hidden="true" />{asset.language_label}</dd></div>
-          <div><dt className="text-ink/55">File details</dt><dd className="mt-1 font-semibold">{asset.page_count || "—"} page{asset.page_count === 1 ? "" : "s"} · {sizeLabel(asset.file_size)}</dd></div>
+          <div><dt className="text-ink/55">File details</dt><dd className="mt-1 font-semibold">{asset.page_count || "Unknown"} page{asset.page_count === 1 ? "" : "s"} · {sizeLabel(asset.file_size)}</dd></div>
           {asset.rank_label ? <div className="col-span-2"><dt className="text-ink/55">Rank or audience</dt><dd className="mt-1 font-semibold">{asset.rank_label}</dd></div> : null}
           <div className="col-span-2"><dt className="text-ink/55">Last updated</dt><dd className="mt-1 font-semibold">{formatGregorianDate(asset.updated_at, "Not recorded")}</dd></div>
         </dl>

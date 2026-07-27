@@ -216,7 +216,7 @@ describe("interface and downloadable assets", () => {
 
   it("uses strict manual Gregorian fields with an accessible native calendar trigger", () => {
     const source = file("src/components/GregorianDateInput.tsx");
-    for (const value of ['placeholder="DD/MM/YYYY"', 'aria-label="Open calendar"', "showPicker", 'type="date"', 'type="month"', 'type="datetime-local"']) {
+    for (const value of ['placeholder="DD/MM/YYYY"', 'aria-label={t("date.openCalendar")}', "showPicker", 'type="date"', 'type="month"', 'type="datetime-local"']) {
       expect(source).toContain(value);
     }
   });

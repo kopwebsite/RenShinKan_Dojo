@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle, Archive, Camera, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Database, Eye, FileImage, GraduationCap,
-  LoaderCircle, Plus, ReceiptText, RotateCcw, Save, Search, SlidersHorizontal, Trash2, UserRound, Users, X,
+  LoaderCircle, Plus, ReceiptText, RotateCcw, Save, Search, Trash2, UserRound, Users, X,
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { RANKS } from "../../shared/ranks";
@@ -105,14 +105,16 @@ export function AdminStudentsPage({ mode = "students" }: { mode?: StudentPageMod
   const [examinationStatus, setExaminationStatus] = useState(() => new URLSearchParams(window.location.search).get("examinationStatus") || "");
   const [paymentStatus, setPaymentStatus] = useState(() => new URLSearchParams(window.location.search).get("paymentStatus") || "");
   const [hoursStatus, setHoursStatus] = useState(() => mode === "trainingRequests" || new URLSearchParams(window.location.search).get("hoursStatus") === "pending" ? "pending" : "");
-  const [dojoFilter, setDojoFilter] = useState("");
+  const [dojoFilters, setDojoFilters] = useState<Set<string>>(() => new Set(
+    (new URLSearchParams(window.location.search).get("dojoIds") || "").split(",").filter(Boolean),
+  ));
   const [aatStatus, setAatStatus] = useState("");
   const [status, setStatus] = useState(() => {
     if (mode === "profileRequests") return "pending";
     const params = new URLSearchParams(window.location.search);
     if (params.get("profileStatus") === "pending_admin_approval") return "pending";
     const value = params.get("status");
-    return value === "active" || value === "pending" || value === "archived" ? value : "all";
+    return value === "all" || value === "active" || value === "pending" || value === "archived" ? value : "active";
   });
   const [section, setSectionState] = useState<"students" | "exams" | "memberships" | "contributions" | "payslips">(() => {
     const value = new URLSearchParams(window.location.search).get("section");
@@ -131,12 +133,12 @@ export function AdminStudentsPage({ mode = "students" }: { mode?: StudentPageMod
   const [bulk, setBulk] = useState<BulkDraft | null>(null);
   const [selectionAction, setSelectionAction] = useState<SelectionAction | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [workspaceStart, setWorkspaceStart] = useState<WorkspaceSection>("overview");
   const skipHoursBlur = useRef(false);
   const selectAllRef = useRef<HTMLInputElement>(null);
 
-  const filtersActive = Boolean(query || rank || examinationStatus || paymentStatus || hoursStatus || dojoFilter || aatStatus || status !== "all");
+  const defaultStatus = mode === "profileRequests" ? "pending" : "active";
+  const filtersActive = Boolean(query || rank || examinationStatus || paymentStatus || hoursStatus || dojoFilters.size || aatStatus || status !== defaultStatus);
   const selectedRows = useMemo(() => students.filter((student) => selected.has(student.id)), [students, selected]);
   const selectedActiveRows = useMemo(() => selectedRows.filter((student) => student.active === 1 && !student.archived_at && student.profile_status === "approved"), [selectedRows]);
   const selectedPendingProfiles = useMemo(() => selectedRows.filter((student) => !student.archived_at && student.profile_status === "pending_admin_approval"), [selectedRows]);
@@ -173,7 +175,7 @@ export function AdminStudentsPage({ mode = "students" }: { mode?: StudentPageMod
       if (examinationStatus) params.set("examinationStatus", examinationStatus);
       if (paymentStatus) params.set("paymentStatus", paymentStatus);
       if (hoursStatus) params.set("hoursStatus", hoursStatus);
-      if (dojoFilter) params.set("dojoId", dojoFilter);
+      if (dojoFilters.size) params.set("dojoIds", [...dojoFilters].sort().join(","));
       if (aatStatus) params.set("aatStatus", aatStatus);
       if (mode === "students") params.set("excludePending", "1");
       if (mode === "profileRequests") params.set("profileStatus", "pending_admin_approval");
@@ -196,11 +198,10 @@ export function AdminStudentsPage({ mode = "students" }: { mode?: StudentPageMod
     const requestedAction = params.get("action");
     if (requestedAction === "add") setCreateOpen(true);
     setWorkspaceStart(requestedAction === "training" ? "training" : requestedAction === "exam" ? "examinations" : "overview");
-    if (params.get("profileStatus") || params.get("hoursStatus") || params.get("status")) setFiltersOpen(true);
     setPage(1);
     setSelected(new Set());
   }, [location.search, mode]);
-  useEffect(() => { if (authed && admin?.selectedDojoId && !admin.renshinkanVerificationRequired) void load(page); }, [authed, admin?.selectedDojoId, admin?.renshinkanVerificationRequired, page, query, rank, examinationStatus, paymentStatus, hoursStatus, dojoFilter, aatStatus, status, sort]);
+  useEffect(() => { if (authed && admin?.selectedDojoId && !admin.renshinkanVerificationRequired) void load(page); }, [authed, admin?.selectedDojoId, admin?.renshinkanVerificationRequired, page, query, rank, examinationStatus, paymentStatus, hoursStatus, dojoFilters, aatStatus, status, sort]);
   useEffect(() => {
     if (admin && admin.permissionLevel !== "renshinkan_super_admin" && section === "contributions") setSection("students");
   }, [admin?.permissionLevel, section]);
@@ -244,7 +245,17 @@ export function AdminStudentsPage({ mode = "students" }: { mode?: StudentPageMod
   }
 
   function clearFilters() {
-    setQueryInput(""); setQuery(""); setRank(""); setExaminationStatus(""); setPaymentStatus(""); setHoursStatus(mode === "trainingRequests" ? "pending" : ""); setDojoFilter(""); setAatStatus(""); setStatus(mode === "profileRequests" ? "pending" : "all"); setPage(1);
+    setQueryInput(""); setQuery(""); setRank(""); setExaminationStatus(""); setPaymentStatus(""); setHoursStatus(mode === "trainingRequests" ? "pending" : ""); setDojoFilters(new Set()); setAatStatus(""); setStatus(defaultStatus); setPage(1);
+  }
+
+  function toggleDojoFilter(dojoId: string) {
+    setDojoFilters((current) => {
+      const next = new Set(current);
+      if (next.has(dojoId)) next.delete(dojoId);
+      else next.add(dojoId);
+      return next;
+    });
+    setPage(1);
   }
 
   async function openStudent(id: string) {
@@ -355,7 +366,6 @@ export function AdminStudentsPage({ mode = "students" }: { mode?: StudentPageMod
   if (admin && !admin.selectedDojoId) return <AdminDojoSelector dojos={dojos} admin={admin} busyId={selectingDojo} error={error} onSelect={(dojoId) => void selectDojo(dojoId)} />;
   if (admin?.renshinkanVerificationRequired) return <AdminRenshinKanVerification password={secondaryPassword} error={error} busy={verifying} setPassword={setSecondaryPassword} onSubmit={verifyRenshinKan} onCancel={() => void switchDojo()} />;
 
-  const selectedDojo = dojos.find((dojo) => dojo.id === admin?.selectedDojoId);
   const superAdmin = admin?.permissionLevel === "renshinkan_super_admin";
   const examinationRecordsView = section === "exams" && new URLSearchParams(location.search).get("view") === "records";
   const pageHeading = section === "students"
@@ -363,7 +373,7 @@ export function AdminStudentsPage({ mode = "students" }: { mode?: StudentPageMod
       ? ["Profile requests", "Review new student profiles independently from the approved student database."]
       : mode === "trainingRequests"
         ? ["Training hour requests", "Review student-submitted hours independently from the student database."]
-        : ["Students", "Search, review, and manage approved and archived student records for the selected dojo."]
+        : ["Students", superAdmin ? "Search, filter, and manage approved student records across all dojos." : "Search, filter, and manage approved student records for your dojo."]
     : section === "exams"
       ? examinationRecordsView
         ? ["Examination records", "Review completed cycles and open a student record for the permanent result history."]
@@ -375,20 +385,22 @@ export function AdminStudentsPage({ mode = "students" }: { mode?: StudentPageMod
           : ["Payment proofs", "Review private proof files and confirm or reject the related payment."];
 
   return <section className="container-shell student-admin student-admin--table">
-    <header className="student-admin__header"><div><p className="eyebrow">Managing: {selectedDojo?.official_name || "Selected dojo"}</p><h1>{pageHeading[0]}</h1><p>{pageHeading[1]}</p></div>{section === "students" ? <div className="admin-header-actions"><button className="btn-secondary" type="button" aria-expanded={filtersOpen} onClick={() => setFiltersOpen((value) => !value)}><SlidersHorizontal size={17} /> Filters{filtersActive ? " · active" : ""}</button>{mode === "students" ? <button className="btn-primary" onClick={() => setCreateOpen(true)}><Plus size={17} /> Add student</button> : null}</div> : null}</header>
+    <header className="student-admin__header"><div><p className="eyebrow">Administration</p><h1>{pageHeading[0]}</h1><p>{pageHeading[1]}</p></div>{section === "students" && mode === "students" ? <div className="admin-header-actions"><button className="btn-primary" onClick={() => setCreateOpen(true)}><Plus size={17} /> Add student</button></div> : null}</header>
     {notice ? <div className="admin-notice"><CheckCircle2 size={18} /><span>{notice}</span><button onClick={() => setNotice("")}><X size={15} /></button></div> : null}
     {error ? <div className="admin-page-error" role="alert"><AlertCircle size={18} /><span>{error}</span><button onClick={() => setError("")}><X size={15} /></button></div> : null}
 
     <div hidden={section !== "students"}>
     <form className="admin-student-controls admin-student-controls--workflow admin-student-search-and-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(queryInput.trim()); }}>
       <label className="admin-search-wide">Search by name, Student ID, or AAT number<div><Search size={17} /><input value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="Name, CMU-6901, or AAT number" /><button className="btn-secondary">Search</button></div></label>
-      <div className="admin-student-filter-panel" hidden={!filtersOpen}>
-        {superAdmin ? <label>Dojo<select value={dojoFilter} onChange={(event) => { setDojoFilter(event.target.value); setPage(1); }}><option value="">All dojos</option>{dojos.map((dojo) => <option key={dojo.id} value={dojo.id}>{dojo.official_name}</option>)}</select></label> : null}
+      <div className="admin-student-filter-panel">
+        {superAdmin ? <fieldset className="admin-dojo-filter"><legend>Dojo</legend><label><input type="checkbox" checked={dojoFilters.size === 0} onChange={() => { setDojoFilters(new Set()); setPage(1); }} /> All dojos</label>{dojos.map((dojo) => <label key={dojo.id}><input type="checkbox" checked={dojoFilters.has(dojo.id)} onChange={() => toggleDojoFilter(dojo.id)} /> {dojo.official_name}</label>)}</fieldset> : null}
         <label>Current rank<select value={rank} onChange={(event) => { setRank(event.target.value); setPage(1); }}><option value="">All ranks</option>{RANKS.map((item) => <option key={item}>{item}</option>)}</select></label>
+        <label>Examination status<select value={examinationStatus} onChange={(event) => { setExaminationStatus(event.target.value); setPage(1); }}><option value="">All examination statuses</option><option value="none">No current application</option><option value="application_submitted">Application submitted</option><option value="examination_completed">Examination completed</option></select></label>
+        <label>Examination payment<select value={paymentStatus} onChange={(event) => { setPaymentStatus(event.target.value); setPage(1); }}><option value="">All payment statuses</option><option value="payment_pending">Payment pending</option><option value="paid">Paid</option><option value="not_applicable">Not applicable</option></select></label>
         <label>Training hours<select value={hoursStatus} onChange={(event) => { setHoursStatus(event.target.value); setPage(1); }}><option value="">All hour records</option><option value="pending">Pending approval</option></select></label>
         {mode === "students" ? <label>Record status<select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="all">All</option><option value="active">Active</option><option value="archived">Archived</option></select></label> : null}
         <label>AAT status<select value={aatStatus} onChange={(event) => { setAatStatus(event.target.value); setPage(1); }}><option value="">All AAT statuses</option><option value="payment_required">Payment required</option><option value="current">Current</option><option value="expired">Expired</option></select></label>
-        <label>Sort order<select value={sort} onChange={(event) => setSort(event.target.value)}><option value="name">Name</option><option value="studentId">Student ID</option><option value="trainingHours">Training hours</option><option value="updated">Last updated</option></select></label>
+        <label>Sort order<select value={sort} onChange={(event) => { setSort(event.target.value); setPage(1); }}><option value="name">Name</option><option value="studentId">Student ID</option><option value="trainingHours">Training hours</option><option value="updated">Last updated</option></select></label>
         <button type="button" className="btn-secondary admin-clear" disabled={!filtersActive} onClick={clearFilters}>{filtersActive ? "Clear filters" : "No active filters"}</button>
       </div>
     </form>

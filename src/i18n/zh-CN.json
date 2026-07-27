@@ -115,6 +115,14 @@
     "updatesCta": "道场更新"
   },
   "home": {
+    "journal": {
+      "eyebrow": "道场通讯",
+      "title": "道场最新动态",
+      "viewAll": "查看所有通讯",
+      "defaultCategory": "道场新闻",
+      "read": "阅读通讯",
+      "fallbackCover": "道场通讯"
+    },
     "hero": {
       "subtitle": "Hang Dong, Chiang Mai 的合气道。",
       "place": "合气道 · 杭东 · 清迈 · 创立于2013年",
@@ -1287,7 +1295,6 @@
     "administration": "管理",
     "language": "语言",
     "menu": "菜单",
-    "managing": "当前管理",
     "changeDojo": "切换道场",
     "centralAdministrator": "中央管理员",
     "dojoAdministrator": "道场管理员",
@@ -1341,8 +1348,8 @@
     "helpTechnical": "查看技术详情",
     "helpTechnicalCopy": "仅在调查需要请求 ID 或设备信息时打开技术详情。",
     "helpThisPage": "本页帮助",
-    "helpConfirmDojo": "确认道场",
-    "helpConfirmDojoCopy": "查看或更改记录前，请核对“正在管理”标签。",
+    "helpConfirmDojo": "确认数据范围",
+    "helpConfirmDojoCopy": "查看或更改记录前，请确认管理页面顶部显示的数据范围。",
     "helpPending": "处理待办工作",
     "helpPendingCopy": "从“需要处理”开始。每一行都会打开对应的工作队列。",
     "helpCommonAction": "查找常用操作",
@@ -1425,7 +1432,33 @@
     "dateTimeHelp": "DD/MM/YYYY HH:mm（公历）",
     "invalid": "请输入 DD/MM/YYYY 格式的有效日期。",
     "invalidMonth": "请输入 MM/YYYY 格式的有效月份。",
-    "invalidDateTime": "请输入 DD/MM/YYYY HH:mm 格式的有效日期和时间。"
+    "invalidDateTime": "请输入 DD/MM/YYYY HH:mm 格式的有效日期和时间。",
+    "openCalendar": "打开日历",
+    "openMonthPicker": "打开月份选择器",
+    "openDateTimePicker": "打开日期和时间选择器"
+  },
+  "studentAlerts": {
+    "eyebrow": "付款提醒",
+    "title": "需要处理的付款项目",
+    "clearTitle": "目前没有付款提醒",
+    "clearCopy": "当前的月费、年费和考试付款记录均已完成。",
+    "actionRequired": "需要处理",
+    "underReview": "审核中",
+    "monthlyTitle": "月度会费",
+    "monthlyCopy": "本月的RenShinKan月度会费尚未记录为已支付。",
+    "monthlyReview": "您本月的会费凭证正在审核中。",
+    "aatTitle": "AAT年度会费",
+    "aatCopy": "当前AAT年度会费尚未记录为已支付。",
+    "aatReview": "您的AAT年度会费凭证正在审核中。",
+    "examTitle": "考试付款",
+    "examCopy": "此有效考试申请的付款尚未完成。",
+    "examReview": "您的考试付款凭证正在审核中。",
+    "openContributions": "打开会费详情",
+    "openRequests": "打开考试申请",
+    "payOnline": "付款或提交凭证",
+    "downloadForm": "下载AAT表格",
+    "registerOnline": "AAT在线注册",
+    "opensNewWindow": "在新窗口中打开"
   },
   "forms": {
     "freeTextPreference": "我们希望您使用英语和/或泰语作答。"

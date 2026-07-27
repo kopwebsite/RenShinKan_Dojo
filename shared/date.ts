@@ -68,7 +68,7 @@ function bangkokParts(value: Date) {
   return { year: part("year"), month: part("month"), day: part("day"), hour: part("hour"), minute: part("minute") };
 }
 
-export function formatGregorianDate(value: unknown, fallback = "—") {
+export function formatGregorianDate(value: unknown, fallback = "Not recorded") {
   if (isCanonicalDate(value)) return canonicalDateToDisplay(value);
   const timestamp = validTimestamp(value);
   if (!timestamp) return fallback;
@@ -76,7 +76,7 @@ export function formatGregorianDate(value: unknown, fallback = "—") {
   return `${parts.day}/${parts.month}/${parts.year}`;
 }
 
-export function formatGregorianDateTime(value: unknown, fallback = "—") {
+export function formatGregorianDateTime(value: unknown, fallback = "Not recorded") {
   const localDateTime = canonicalDateTimeToDisplay(value);
   if (localDateTime) return localDateTime;
   const timestamp = validTimestamp(value);
@@ -85,7 +85,7 @@ export function formatGregorianDateTime(value: unknown, fallback = "—") {
   return `${parts.day}/${parts.month}/${parts.year} ${parts.hour}:${parts.minute}`;
 }
 
-export function formatGregorianMonth(value: unknown, fallback = "—") {
+export function formatGregorianMonth(value: unknown, fallback = "Not recorded") {
   if (!isMonthKey(value)) return fallback;
   const [year, month] = value.split("-");
   return `${month}/${year}`;

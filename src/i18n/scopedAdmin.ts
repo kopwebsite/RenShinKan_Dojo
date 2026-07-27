@@ -2,9 +2,6 @@ import { useEffect, type RefObject } from "react";
 import { translateEnglishLiteral, type AdminLanguage } from "./index";
 
 const thaiPhrases: Record<string, string> = {
-  "RenShinKan access confirmed": "ยืนยันสิทธิ์ RenShinKan แล้ว",
-  "What would you like to manage?": "คุณต้องการจัดการส่วนใด",
-  "Choose one focused workspace. You can return here later to switch dojo.": "เลือกพื้นที่ทำงานหนึ่งรายการ คุณสามารถกลับมาที่นี่ภายหลังเพื่อเปลี่ยนโดโจ",
   "Edit the website": "แก้ไขเว็บไซต์",
   "Publish newsletters and community events, update the photo library, or replace the payment QR.": "เผยแพร่จดหมายข่าวและกิจกรรมชุมชน อัปเดตคลังรูปภาพ หรือเปลี่ยนคิวอาร์ชำระเงิน",
   "Student management": "การจัดการนักเรียน",

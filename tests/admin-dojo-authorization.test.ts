@@ -308,15 +308,16 @@ describe("dojo route, record, and interface scoping", () => {
     expect(dashboard).not.toContain('<Link to="/admin/memberships"');
   });
 
-  it("keeps the RenShinKan landing page focused on its two requested workspaces", () => {
+  it("opens the RenShinKan dashboard directly without a workspace chooser", () => {
     const dashboard = file("src/pages/AdminDashboardPage.tsx");
-    expect(dashboard).toContain("Edit the website");
-    expect(dashboard).toContain("Student management");
+    expect(dashboard).toContain("<AdminAlerts />");
+    expect(dashboard).toContain("Administration overview");
     expect(dashboard).toContain('<Link to="/admin/website">');
     expect(dashboard).toContain('<Link to="/admin/students">');
-    expect(dashboard).toContain("session.switchDojo()");
-    expect(dashboard).not.toContain("needsAttention");
-    expect(dashboard).not.toContain('<Link to="/admin/dojos"');
+    expect(dashboard).toContain('get("switch") === "1"');
+    expect(dashboard).toContain('window.history.replaceState(window.history.state, "", "/admin")');
+    expect(dashboard).not.toContain("What would you like to manage?");
+    expect(dashboard).not.toContain("admin-renshinkan-hub__choices");
   });
 
   it("shows Monthly Contributions only in the verified RenShinKan workspace", () => {
@@ -330,14 +331,30 @@ describe("dojo route, record, and interface scoping", () => {
     expect(endpoint).toContain("dojo_id = 'dojo-rsk'");
   });
 
-  it("renders selected dojo identity once in the unified administration shell", () => {
+  it("renders the data scope without the old Managing label in the unified administration shell", () => {
     const shell = file("src/components/admin/AdminShell.tsx");
     expect(shell).toContain("selectedDojo");
     expect(shell).toContain("official_name");
-    expect(shell).toContain('<Link to="/admin">{t("adminShell.changeDojo")}</Link>');
-    expect(shell).toContain("adminShell.managing");
+    expect(shell).toContain('<Link to="/admin?switch=1">{t("adminShell.changeDojo")}</Link>');
+    expect(shell).toContain('"All dojos"');
+    expect(shell).not.toContain("adminShell.managing");
     expect(shell).toContain("adminShell.changeDojo");
     expect(file("src/pages/AdminPage.tsx")).not.toContain("renshinkan-admin-hint");
+  });
+
+  it("shows all-dojo multi-filters by default while preserving server-enforced standard scope", () => {
+    const page = file("src/pages/AdminStudentsPage.tsx");
+    const endpoint = file("functions/api/admin/students/index.ts");
+    expect(page).toContain('className="admin-student-filter-panel"');
+    expect(page).not.toContain("filtersOpen");
+    expect(page).toContain('className="admin-dojo-filter"');
+    expect(page).toContain('params.set("dojoIds"');
+    expect(page).toContain("Examination status");
+    expect(page).toContain("Examination payment");
+    expect(endpoint).toContain('url.searchParams.get("dojoIds")');
+    expect(endpoint).toContain("s.dojo_id IN");
+    expect(endpoint).toContain('conditions.push("s.dojo_id = ?")');
+    expect(endpoint.indexOf('conditions.push("s.dojo_id = ?")')).toBeLessThan(endpoint.indexOf("s.dojo_id IN"));
   });
 
   it("keeps standard dojos on scoped student and audit destinations", () => {

@@ -61,6 +61,7 @@ export type NewsletterLike = {
   body: string;
   slug: string;
   published: boolean;
+  publishedAt?: string | null;
   publishAt?: string | null;
   contentType?: NewsletterContentType;
   category?: NewsletterCategory;
@@ -150,7 +151,8 @@ function timestamp(value: string) {
 
 export function sortNewslettersNewest<T extends NewsletterLike>(items: T[]) {
   return [...items].sort((left, right) => {
-    const dateDifference = timestamp(right.date) - timestamp(left.date);
+    const dateDifference = timestamp(right.publishedAt || right.publishAt || right.date)
+      - timestamp(left.publishedAt || left.publishAt || left.date);
     if (dateDifference !== 0) return dateDifference;
     const updatedDifference = timestamp(right.updatedAt) - timestamp(left.updatedAt);
     if (updatedDifference !== 0) return updatedDifference;

@@ -290,7 +290,7 @@ function ExamWorkflow() {
       <label><ExamFieldCopy label="Family name / surname" /><input name="surname" autoComplete="family-name" value={draft.surname} onChange={(event) => set("surname", event.target.value)} required /></label>
       <label><ExamFieldCopy label="Nationality" /><input name="nationality" autoComplete="country-name" value={draft.nationality} onChange={(event) => set("nationality", event.target.value)} required /></label>
       <label><ExamFieldCopy label="Sex / gender" help="Use the wording you want recorded on the association application." /><input name="sex" value={draft.sex} onChange={(event) => set("sex", event.target.value)} required /></label>
-      <label><ExamFieldCopy label="Date of birth" /><GregorianDateInput name="dateOfBirth" value={draft.dateOfBirth} onChange={(value) => set("dateOfBirth", value)} required /></label>
+      <label><ExamFieldCopy label="Date of birth" /><GregorianDateInput name="dateOfBirth" autoComplete="bday" value={draft.dateOfBirth} onChange={(value) => set("dateOfBirth", value)} required /></label>
     </fieldset>
     <fieldset>
       <ExamSectionLegend title="Address and contact" copy="How the association or dojo can identify and contact you." />

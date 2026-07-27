@@ -49,7 +49,7 @@ export function ClassesPage() {
               <div role="listitem" key={session.day}>
                 <span>{String(index + 1).padStart(2, "0")}</span>
                 <strong>{t(session.labelKey)}</strong>
-                <time>{session.time.replace("-", " — ")}</time>
+                <time>{session.time.replace("-", " to ")}</time>
               </div>
             ))}
             <ClassStructureLegend />

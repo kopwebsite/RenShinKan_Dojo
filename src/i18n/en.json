@@ -115,6 +115,14 @@
     "updatesCta": "Dojo Updates"
   },
   "home": {
+    "journal": {
+      "eyebrow": "Dojo Journal",
+      "title": "Latest from the Dojo",
+      "viewAll": "View all newsletters",
+      "defaultCategory": "Dojo News",
+      "read": "Read newsletter",
+      "fallbackCover": "Dojo Journal"
+    },
     "hero": {
       "subtitle": "Aikido in Hang Dong, Chiang Mai.",
       "place": "Aikido · Hang Dong · Chiang Mai · Est. 2013",
@@ -145,7 +153,7 @@
       "note": "Completed in {{year}} on a quiet piece of land in Baan Waen · training hall, garden, koi pond and viewing deck",
       "photoCaption": "RenShinKan Dojo · Baan Waen, Hang Dong",
       "detailCaption": "The koi pond beside the training hall",
-      "quote": "A place to practise without competition or domination — with attention, discipline and care for one another."
+      "quote": "A place to practise without competition or domination, with attention, discipline and care for one another."
     },
     "instructors": {
       "eyebrow": "Who Teaches Here",
@@ -1287,7 +1295,6 @@
     "administration": "Administration",
     "language": "Language",
     "menu": "Menu",
-    "managing": "Managing",
     "changeDojo": "Change dojo",
     "centralAdministrator": "Central administrator",
     "dojoAdministrator": "Dojo administrator",
@@ -1341,8 +1348,8 @@
     "helpTechnical": "See technical details",
     "helpTechnicalCopy": "Open Technical details only when an investigation needs the request ID or device details.",
     "helpThisPage": "Help with this page",
-    "helpConfirmDojo": "Confirm your dojo",
-    "helpConfirmDojoCopy": "Check the Managing label before you review or change any record.",
+    "helpConfirmDojo": "Confirm the data scope",
+    "helpConfirmDojoCopy": "Check the Data scope shown in the administration header before you review or change any record.",
     "helpPending": "Review pending work",
     "helpPendingCopy": "Start in Needs attention. Each row opens the exact queue that needs work.",
     "helpCommonAction": "Find a common action",
@@ -1425,7 +1432,33 @@
     "dateTimeHelp": "DD/MM/YYYY HH:mm (Gregorian)",
     "invalid": "Enter a real date in DD/MM/YYYY format.",
     "invalidMonth": "Enter a real month in MM/YYYY format.",
-    "invalidDateTime": "Enter a real date and time in DD/MM/YYYY HH:mm format."
+    "invalidDateTime": "Enter a real date and time in DD/MM/YYYY HH:mm format.",
+    "openCalendar": "Open calendar",
+    "openMonthPicker": "Open month picker",
+    "openDateTimePicker": "Open date and time picker"
+  },
+  "studentAlerts": {
+    "eyebrow": "Payment notice",
+    "title": "Payment items need attention",
+    "clearTitle": "No current payment alerts",
+    "clearCopy": "Your current monthly, annual, and examination payment records are complete.",
+    "actionRequired": "Action required",
+    "underReview": "Under review",
+    "monthlyTitle": "Monthly contribution",
+    "monthlyCopy": "The current RenShinKan monthly contribution is not recorded as paid.",
+    "monthlyReview": "Your current monthly contribution proof is being reviewed.",
+    "aatTitle": "AAT annual contribution",
+    "aatCopy": "A current AAT annual contribution is not recorded as paid.",
+    "aatReview": "Your AAT annual contribution proof is being reviewed.",
+    "examTitle": "Examination payment",
+    "examCopy": "Payment for this active examination application is incomplete.",
+    "examReview": "Your examination payment proof is being reviewed.",
+    "openContributions": "Open contribution details",
+    "openRequests": "Open examination request",
+    "payOnline": "Pay or submit proof",
+    "downloadForm": "Download AAT form",
+    "registerOnline": "AAT registration",
+    "opensNewWindow": "opens in a new window"
   },
   "forms": {
     "freeTextPreference": "We prefer answers in English and/or Thai."

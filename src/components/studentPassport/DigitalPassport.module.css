@@ -33,6 +33,149 @@
 .coverStrip strong { font-family: "Cormorant Garamond", serif; font-size: 1.45rem; letter-spacing: .08em; }
 .coverStrip p { font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; opacity: .78; }
 
+.paymentAlerts {
+  padding: .8rem;
+  color: #f8eee2;
+  background: #4a101b;
+  border-bottom: 1px solid rgba(247, 217, 163, .35);
+}
+
+.paymentAlerts > header {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  padding: .2rem .25rem .75rem;
+}
+
+.paymentAlerts > header > svg {
+  flex: 0 0 auto;
+  color: #f0c766;
+}
+
+.paymentAlerts > header p {
+  color: #e5cfae;
+  font-size: .58rem;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.paymentAlerts > header h2 {
+  margin-top: .1rem;
+  font: 700 1.1rem/1.2 Inter, "Noto Sans Thai", sans-serif;
+}
+
+.paymentAlerts > header > span {
+  display: grid;
+  min-width: 1.8rem;
+  height: 1.8rem;
+  margin-left: auto;
+  place-items: center;
+  border-radius: 50%;
+  color: #351018;
+  background: #f0c766;
+  font-weight: 900;
+}
+
+.paymentAlerts > div {
+  display: grid;
+  gap: .55rem;
+}
+
+.paymentAlerts article {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) auto;
+  gap: .75rem 1rem;
+  padding: .85rem;
+  color: #302722;
+  border-left: 4px solid #c69235;
+  border-radius: .35rem;
+  background: #fffaf1;
+}
+
+.paymentAlertCopy {
+  min-width: 0;
+}
+
+.paymentAlertCopy > span {
+  display: inline-flex;
+  margin-bottom: .3rem;
+  padding: .18rem .4rem;
+  border-radius: 999px;
+  font-size: .56rem;
+  font-weight: 900;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.alertAction {
+  color: #761b22;
+  background: #f8d9d7;
+}
+
+.alertReview {
+  color: #675018;
+  background: #f6e9b8;
+}
+
+.paymentAlertCopy h3 {
+  font: 800 .9rem/1.25 Inter, "Noto Sans Thai", sans-serif;
+}
+
+.paymentAlertCopy p {
+  margin-top: .3rem;
+  color: #64584e;
+  font-size: .7rem;
+  line-height: 1.5;
+}
+
+.paymentAlertActions {
+  display: flex;
+  max-width: 22rem;
+  flex-wrap: wrap;
+  align-content: start;
+  justify-content: flex-end;
+  gap: .4rem;
+}
+
+.paymentAlertActions a,
+.paymentAlertActions button {
+  min-height: 2.35rem;
+  padding: .5rem .65rem;
+  color: #fff;
+  border-radius: .3rem;
+  background: #681927;
+  font-size: .65rem;
+  font-weight: 800;
+}
+
+.paymentAlerts article > .proofActions {
+  grid-column: 1 / -1;
+}
+
+.paymentAlertsClear {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  padding: .7rem 1rem;
+  color: #274c35;
+  background: #e8f1e8;
+  border-bottom-color: #afc9b3;
+}
+
+.paymentAlertsClear p {
+  display: grid;
+  gap: .08rem;
+}
+
+.paymentAlertsClear strong {
+  font-size: .75rem;
+}
+
+.paymentAlertsClear span {
+  font-size: .62rem;
+}
+
 .tabs {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
@@ -378,6 +521,12 @@
 }
 
 @media (max-width: 620px) {
+  .paymentAlerts article {
+    grid-template-columns: 1fr;
+  }
+  .paymentAlertActions {
+    justify-content: flex-start;
+  }
   .taskList > header {
     align-items: flex-start;
     flex-direction: column;
@@ -420,6 +569,17 @@
 
 @media (prefers-reduced-motion: reduce) {
   .tabs button { scroll-behavior: auto; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .paymentAlerts:not(.paymentAlertsClear) {
+    animation: payment-alert-arrival .55s ease-out 1;
+  }
+}
+
+@keyframes payment-alert-arrival {
+  from { background-color: #711d29; }
+  to { background-color: #4a101b; }
 }
 
 @media print {

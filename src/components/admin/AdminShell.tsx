@@ -100,7 +100,7 @@ function navigationGroups(t: Translate): NavigationGroup[] {
     {
       label: t("adminShell.overview"),
       items: [
-        { label: "Choose or switch dojo", href: "/admin", Icon: Home, match: (path) => path === "/admin" },
+        { label: "Dashboard", href: "/admin", Icon: Home, match: (path) => path === "/admin" },
       ],
     },
     {
@@ -318,7 +318,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     window.location.assign("/admin");
   }
 
-  if (location.pathname === "/admin" || !ready || !session.admin) return <>{children}</>;
+  if (!ready || !session.admin) return <>{children}</>;
 
   return <div ref={translationScopeRef} className="admin-shell">
     <aside className="admin-shell__sidebar">
@@ -335,9 +335,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <Menu size={20} aria-hidden="true" /> {t("adminShell.menu")}
         </button>
         <div className="admin-shell__dojo-context">
-          <span>{t("adminShell.managing")}</span>
-          <strong><Building2 size={17} aria-hidden="true" /> {selectedDojo?.official_name || t("adminShell.selectedDojo")}</strong>
-          <Link to="/admin">{t("adminShell.changeDojo")}</Link>
+          <span>Data scope</span>
+          <strong><Building2 size={17} aria-hidden="true" /> {central ? "All dojos" : selectedDojo?.official_name || t("adminShell.selectedDojo")}</strong>
+          <Link to="/admin?switch=1">{t("adminShell.changeDojo")}</Link>
         </div>
         <div className="admin-shell__account">
           <span><strong>{session.admin.name}</strong><small>{central ? t("adminShell.centralAdministrator") : t("adminShell.dojoAdministrator")}</small></span>
@@ -363,7 +363,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     {menuOpen ? <div className="admin-shell__overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) closeMenu(); }}>
       <aside ref={menuPanelRef} className="admin-shell__mobile-panel" role="dialog" aria-modal="true" aria-labelledby="admin-mobile-menu-title">
         <header><div><strong id="admin-mobile-menu-title">RenShinKan</strong><span>{t("adminShell.administration")}</span></div><button type="button" onClick={closeMenu} aria-label={t("adminShell.closeMenu")}><X /></button></header>
-        <div className="admin-shell__mobile-context"><span>{t("adminShell.managing")}</span><strong>{selectedDojo?.official_name}</strong></div>
+        <div className="admin-shell__mobile-context"><span>Data scope</span><strong>{central ? "All dojos" : selectedDojo?.official_name}</strong><Link to="/admin?switch=1" onClick={closeMenu}>{t("adminShell.changeDojo")}</Link></div>
         <Navigation central={central} pathname={location.pathname} search={location.search} hash={location.hash} close={closeMenu} t={t} />
         <footer><button type="button" onClick={() => { closeMenu(); setHelpOpen(true); }}><CircleHelp size={18} /> {t("adminShell.help")}</button><button type="button" onClick={() => void signOut()}><LogOut size={18} /> {t("adminShell.signOut")}</button></footer>
       </aside>

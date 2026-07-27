@@ -51,7 +51,7 @@ export function AdminWorkflowPage({ kind }: { kind: AdminWorkflowKind }) {
 
   return <section className="container-shell student-admin student-admin--table admin-independent-page">
     <header className="student-admin__header">
-      <div><p className="eyebrow">Managing selected dojo</p><h1>{title}</h1><p>{copy}</p></div>
+      <div><p className="eyebrow">Administration</p><h1>{title}</h1><p>{copy}</p></div>
     </header>
     {notice ? <div className="admin-notice" role="status"><CheckCircle2 size={18} /><span>{notice}</span></div> : null}
     {error ? <div className="admin-page-error" role="alert"><AlertCircle size={18} /><span>{error}</span></div> : null}

@@ -1,10 +1,10 @@
-import { ArrowRight, Database, ExternalLink, FileText, LogOut } from "lucide-react";
+import { Database, FileText, LogOut, Settings } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { AdminAlerts } from "../components/AdminAlerts";
 import {
   AdminCheckingSession,
   AdminDojoSelector,
-  AdminLanguageSelector,
   AdminLoginFields,
   AdminRenshinKanVerification,
 } from "../components/admin/AdminAccess";
@@ -15,25 +15,21 @@ import { useScopedAdminTranslations } from "../i18n/scopedAdmin";
 export function AdminDashboardPage() {
   const session = useAdminSession();
   const { language, t } = useAdminTranslation();
-  const initialSessionHandled = useRef(false);
   const translationScopeRef = useRef<HTMLElement>(null);
-  const [entryReady, setEntryReady] = useState(false);
-  const [selectedThisVisit, setSelectedThisVisit] = useState(false);
+  const [switchingDojo, setSwitchingDojo] = useState(false);
 
   useScopedAdminTranslations(translationScopeRef, language);
   useEffect(() => {
-    if (!session.checked || initialSessionHandled.current) return;
-    initialSessionHandled.current = true;
-    if (session.admin?.selectedDojoId) {
-      void session.switchDojo()
-        .catch((reason) => session.setError(reason instanceof Error ? reason.message : "The dojo selection could not be reset."))
-        .finally(() => setEntryReady(true));
-    } else {
-      setEntryReady(true);
-    }
-  }, [session]);
+    const switchRequested = new URLSearchParams(window.location.search).get("switch") === "1";
+    if (!session.checked || !session.admin?.selectedDojoId || !switchRequested || switchingDojo) return;
+    setSwitchingDojo(true);
+    void session.switchDojo()
+      .then(() => window.history.replaceState(window.history.state, "", "/admin"))
+      .catch((reason) => session.setError(reason instanceof Error ? reason.message : "The dojo selection could not be reset."))
+      .finally(() => setSwitchingDojo(false));
+  }, [session, switchingDojo]);
 
-  if (!session.checked || !entryReady) return <AdminCheckingSession />;
+  if (!session.checked || switchingDojo) return <AdminCheckingSession />;
   if (!session.admin) {
     return <section className="admin-login-screen">
       <form className="admin-login-card" onSubmit={session.login}>
@@ -55,10 +51,7 @@ export function AdminDashboardPage() {
         admin={session.admin}
         busyId={session.selecting}
         error={session.error}
-        onSelect={(id) => {
-          setSelectedThisVisit(true);
-          void session.selectDojo(id);
-        }}
+        onSelect={(id) => void session.selectDojo(id)}
       />
       <button className="btn-secondary admin-entry-signout" type="button" onClick={() => void session.logout()}>
         <LogOut size={17} aria-hidden="true" /> {t("adminAccess.signOut")}
@@ -76,33 +69,22 @@ export function AdminDashboardPage() {
     />;
   }
 
-  if (session.admin.selectedDojoId !== "dojo-rsk") {
-    if (selectedThisVisit) return <AdminCheckingSession />;
-    return null;
-  }
-
-  return <section ref={translationScopeRef} className="admin-renshinkan-hub">
-    <AdminLanguageSelector />
+  return <section ref={translationScopeRef} className="container-shell admin-dashboard">
     <header>
-      <p className="eyebrow">RenShinKan access confirmed</p>
-      <h1>What would you like to manage?</h1>
-      <p>Choose one focused workspace. You can return here later to switch dojo.</p>
+      <p className="eyebrow">Administration overview</p>
+      <h1>Dashboard</h1>
+      <p>Review work that needs attention, then continue to the relevant administration page.</p>
     </header>
-    <div className="admin-renshinkan-hub__choices">
-      <Link to="/admin/website">
-        <span><FileText size={28} aria-hidden="true" /></span>
-        <div><h2>Edit the website</h2><p>Publish newsletters and community events, update the photo library, or replace the payment QR.</p></div>
-        <ArrowRight aria-hidden="true" />
-      </Link>
-      <Link to="/admin/students">
-        <span><Database size={28} aria-hidden="true" /></span>
-        <div><h2>Student management</h2><p>Open the student database, profile requests, examinations, contributions, and payment records.</p></div>
-        <ArrowRight aria-hidden="true" />
-      </Link>
-    </div>
+    <AdminAlerts />
+    <section className="admin-dashboard__quick-links" aria-labelledby="admin-quick-links-title">
+      <h2 id="admin-quick-links-title">Common tasks</h2>
+      <div>
+        <Link to="/admin/students"><Database size={19} aria-hidden="true" /> Student database</Link>
+        <Link to="/admin/website"><FileText size={19} aria-hidden="true" /> Edit website</Link>
+        <Link to="/admin/dojos"><Settings size={19} aria-hidden="true" /> Dojo settings</Link>
+      </div>
+    </section>
     <footer>
-      <button className="btn-secondary" type="button" onClick={() => void session.switchDojo()}>Choose another dojo</button>
-      <a className="btn-secondary" href="/" target="_blank" rel="noopener noreferrer"><ExternalLink size={17} /> View public website</a>
       <button className="btn-secondary" type="button" onClick={() => void session.logout()}><LogOut size={17} /> Sign out</button>
     </footer>
   </section>;

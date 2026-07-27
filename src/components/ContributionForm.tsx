@@ -70,7 +70,7 @@ function PaymentReminder({ reminder, month }: { reminder: AatReminder | MonthlyR
   }
 
   const message = reminder.state === "current"
-    ? `Thank you—your most recent confirmed contribution is for ${monthLabel(reminder.lastPaidMonth!)}. This QR is for ${monthLabel(month)}.`
+    ? `Thank you. Your most recent confirmed contribution is for ${monthLabel(reminder.lastPaidMonth!)}. This QR is for ${monthLabel(month)}.`
     : reminder.state === "check_in"
       ? `Your last confirmed contribution is for ${monthLabel(reminder.lastPaidMonth!)}. This QR is only for ${monthLabel(month)}; a sensei can kindly help if you would like to check any earlier months.`
       : "We do not see an earlier confirmed monthly contribution on this record. If you paid another way, a sensei can kindly help update it.";

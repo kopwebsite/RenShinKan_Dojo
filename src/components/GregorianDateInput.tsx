@@ -24,8 +24,16 @@ function useDateCopy(admin: boolean) {
 
 function useDraft(value: string, toDisplay: (value: string) => string) {
   const [draft, setDraft] = useState(() => toDisplay(value));
-  useEffect(() => setDraft(toDisplay(value)), [toDisplay, value]);
-  return [draft, setDraft] as const;
+  const locallyEmittedValue = useRef(value);
+  useEffect(() => {
+    if (value !== locallyEmittedValue.current) setDraft(toDisplay(value));
+    locallyEmittedValue.current = value;
+  }, [toDisplay, value]);
+  return [draft, setDraft, locallyEmittedValue] as const;
+}
+
+function canonicalMonthToDisplay(value: string) {
+  return formatGregorianMonth(value, "");
 }
 
 function describedBy(input: string | undefined, helperId: string, errorId: string, invalid: boolean) {
@@ -36,7 +44,7 @@ export function GregorianDateInput({ value, onChange, admin = false, "aria-descr
   const t = useDateCopy(admin);
   const helperId = useId();
   const errorId = useId();
-  const [draft, setDraft] = useDraft(value, canonicalDateToDisplay);
+  const [draft, setDraft, locallyEmittedValue] = useDraft(value, canonicalDateToDisplay);
   const invalid = Boolean(draft && !displayDateToCanonical(draft));
   const pickerRef = useRef<HTMLInputElement>(null);
 
@@ -55,12 +63,12 @@ export function GregorianDateInput({ value, onChange, admin = false, "aria-descr
         onChange={(event) => {
           const next = event.target.value.replace(/[^\d/]/g, "").slice(0, 10);
           setDraft(next);
-          if (!next) onChange("");
           const canonical = displayDateToCanonical(next);
-          if (canonical) onChange(canonical);
+          locallyEmittedValue.current = canonical || "";
+          onChange(canonical || "");
         }}
       />
-      <button type="button" aria-label="Open calendar" onClick={() => {
+      <button type="button" aria-label={t("date.openCalendar")} onClick={() => {
         const picker = pickerRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
         if (picker?.showPicker) picker.showPicker(); else picker?.click();
       }}><CalendarDays aria-hidden="true" /></button>
@@ -76,7 +84,7 @@ export function GregorianMonthInput({ value, onChange, admin = false, "aria-desc
   const t = useDateCopy(admin);
   const helperId = useId();
   const errorId = useId();
-  const [draft, setDraft] = useDraft(value, (next) => formatGregorianMonth(next, ""));
+  const [draft, setDraft, locallyEmittedValue] = useDraft(value, canonicalMonthToDisplay);
   const invalid = Boolean(draft && !displayMonthToCanonical(draft));
   const pickerRef = useRef<HTMLInputElement>(null);
 
@@ -95,12 +103,12 @@ export function GregorianMonthInput({ value, onChange, admin = false, "aria-desc
         onChange={(event) => {
           const next = event.target.value.replace(/[^\d/]/g, "").slice(0, 7);
           setDraft(next);
-          if (!next) onChange("");
           const canonical = displayMonthToCanonical(next);
-          if (canonical) onChange(canonical);
+          locallyEmittedValue.current = canonical || "";
+          onChange(canonical || "");
         }}
       />
-      <button type="button" aria-label="Open month picker" onClick={() => {
+      <button type="button" aria-label={t("date.openMonthPicker")} onClick={() => {
         const picker = pickerRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
         if (picker?.showPicker) picker.showPicker(); else picker?.click();
       }}><CalendarDays aria-hidden="true" /></button>
@@ -116,7 +124,7 @@ export function GregorianDateTimeInput({ value, onChange, admin = false, "aria-d
   const t = useDateCopy(admin);
   const helperId = useId();
   const errorId = useId();
-  const [draft, setDraft] = useDraft(value, canonicalDateTimeToDisplay);
+  const [draft, setDraft, locallyEmittedValue] = useDraft(value, canonicalDateTimeToDisplay);
   const invalid = Boolean(draft && !displayDateTimeToCanonical(draft));
   const pickerRef = useRef<HTMLInputElement>(null);
 
@@ -135,12 +143,12 @@ export function GregorianDateTimeInput({ value, onChange, admin = false, "aria-d
         onChange={(event) => {
           const next = event.target.value.replace(/[^\d/ :]/g, "").slice(0, 16);
           setDraft(next);
-          if (!next) onChange("");
           const canonical = displayDateTimeToCanonical(next);
-          if (canonical) onChange(canonical);
+          locallyEmittedValue.current = canonical || "";
+          onChange(canonical || "");
         }}
       />
-      <button type="button" aria-label="Open date and time picker" onClick={() => {
+      <button type="button" aria-label={t("date.openDateTimePicker")} onClick={() => {
         const picker = pickerRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
         if (picker?.showPicker) picker.showPicker(); else picker?.click();
       }}><CalendarDays aria-hidden="true" /></button>

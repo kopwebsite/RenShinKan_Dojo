@@ -55,7 +55,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const hoursStatus = (url.searchParams.get("hoursStatus") || "").trim();
   const requestedStatus = url.searchParams.get("status");
   const status = requestedStatus === "active" || requestedStatus === "pending" || requestedStatus === "archived" ? requestedStatus : "all";
-  const dojoId = (url.searchParams.get("dojoId") || "").trim();
+  const dojoIds = (url.searchParams.get("dojoIds") || url.searchParams.get("dojoId") || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value, index, values) => /^[a-z0-9-]{1,80}$/i.test(value) && values.indexOf(value) === index)
+    .slice(0, 20);
   const aatStatus = (url.searchParams.get("aatStatus") || "").trim();
   const sort = url.searchParams.get("sort") || "name";
   const direction = url.searchParams.get("direction") === "desc" ? "DESC" : "ASC";
@@ -79,9 +83,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   if (!isRenShinKanSuperAdmin(session)) {
     conditions.push("s.dojo_id = ?");
     bindings.push(session.selectedDojoId || "__none__");
-  } else if (dojoId) {
-    conditions.push("s.dojo_id = ?");
-    bindings.push(dojoId);
+  } else if (dojoIds.length) {
+    conditions.push(`s.dojo_id IN (${dojoIds.map(() => "?").join(", ")})`);
+    bindings.push(...dojoIds);
   }
   if (query) {
     conditions.push("(s.display_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR COALESCE(s.thai_name, '') LIKE ? ESCAPE '\\' COLLATE NOCASE OR s.public_student_id LIKE ? ESCAPE '\\' COLLATE NOCASE OR COALESCE(s.aat_number, '') LIKE ? ESCAPE '\\' COLLATE NOCASE)");

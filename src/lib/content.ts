@@ -5,6 +5,7 @@ import {
   inferNewsletterCategory,
   isDocumentDerivedImage,
   publicNewsletter,
+  sortNewslettersNewest,
   type NewsletterCategory,
   type NewsletterContentType,
   type NewsletterDocument,
@@ -463,9 +464,7 @@ export function useEditableContent() {
 }
 
 export function getPublishedRecentEvents(content: EditableContent, limit?: number) {
-  const events = content.recentEvents
-    .filter((event) => publicNewsletter(event))
-    .sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+  const events = sortNewslettersNewest(content.recentEvents.filter((event) => publicNewsletter(event)));
 
   return typeof limit === "number" ? events.slice(0, limit) : events;
 }

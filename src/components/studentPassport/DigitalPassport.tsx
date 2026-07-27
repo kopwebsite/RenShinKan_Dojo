@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import {
   BadgeCheck,
+  AlertTriangle,
   BookOpen,
   Camera,
   CalendarDays,
@@ -20,6 +21,7 @@ import { useTranslation } from "../../i18n";
 import type {
   PassportAatContribution,
   PassportPaymentProof,
+  PassportPaymentAlert,
   PassportRequest,
   PassportMonthlyContribution,
   PublicExamination,
@@ -345,6 +347,56 @@ function ProofActions({ proof, record, paymentLabel }: { proof: PassportPaymentP
   </div>;
 }
 
+const AAT_ONLINE_REGISTRATION_URL = "https://thaiaikikai-registration.com/forms";
+
+function PaymentAlerts({ record, openTab }: { record: StudentPassportRecord; openTab: (tab: PassportTab) => void }) {
+  const { t } = useTranslation();
+  const alerts = record.paymentAlerts || [];
+  if (!alerts.length) {
+    return <section className={`${styles.paymentAlerts} ${styles.paymentAlertsClear}`} aria-label={t("studentAlerts.title")}>
+      <CheckCircle2 aria-hidden="true" />
+      <p><strong>{t("studentAlerts.clearTitle")}</strong><span>{t("studentAlerts.clearCopy")}</span></p>
+    </section>;
+  }
+
+  function alertCopy(alert: PassportPaymentAlert) {
+    if (alert.type === "monthly_contribution") return {
+      title: t("studentAlerts.monthlyTitle"),
+      copy: alert.status === "under_review" ? t("studentAlerts.monthlyReview") : t("studentAlerts.monthlyCopy"),
+      label: alert.period ? formatGregorianMonth(alert.period, alert.period) : "",
+    };
+    if (alert.type === "aat_membership") return {
+      title: t("studentAlerts.aatTitle"),
+      copy: alert.status === "under_review" ? t("studentAlerts.aatReview") : t("studentAlerts.aatCopy"),
+      label: "",
+    };
+    return {
+      title: t("studentAlerts.examTitle"),
+      copy: alert.status === "under_review" ? t("studentAlerts.examReview") : t("studentAlerts.examCopy"),
+      label: alert.attemptedRank || "",
+    };
+  }
+
+  return <section className={styles.paymentAlerts} aria-labelledby="student-payment-alerts-title">
+    <header><AlertTriangle aria-hidden="true" /><div><p>{t("studentAlerts.eyebrow")}</p><h2 id="student-payment-alerts-title">{t("studentAlerts.title")}</h2></div><span>{alerts.length}</span></header>
+    <div>{alerts.map((alert) => {
+      const copy = alertCopy(alert);
+      const paymentLabel = alert.type === "monthly_contribution"
+        ? `${copy.label} monthly contribution`
+        : alert.type === "aat_membership" ? "AAT annual contribution" : `${copy.label} examination`;
+      return <article key={`${alert.type}:${alert.id}`}>
+        <div className={styles.paymentAlertCopy}><span className={alert.status === "under_review" ? styles.alertReview : styles.alertAction}>{alert.status === "under_review" ? t("studentAlerts.underReview") : t("studentAlerts.actionRequired")}</span><h3>{copy.title}{copy.label ? `: ${copy.label}` : ""}</h3><p>{copy.copy}</p></div>
+        <div className={styles.paymentAlertActions}>
+          {alert.type === "monthly_contribution" ? <><button type="button" onClick={() => openTab("contributions")}>{t("studentAlerts.openContributions")}</button><a href="/support#monthly-contribution">{t("studentAlerts.payOnline")}</a></> : null}
+          {alert.type === "aat_membership" ? <><button type="button" onClick={() => openTab("contributions")}>{t("studentAlerts.openContributions")}</button><a href="/support#monthly-contribution">{t("studentAlerts.payOnline")}</a><a href="/downloads/aat-membership-application-en-th-2026.pdf" download>{t("studentAlerts.downloadForm")}</a><a href={AAT_ONLINE_REGISTRATION_URL} target="_blank" rel="noopener noreferrer">{t("studentAlerts.registerOnline")}<span className="sr-only"> ({t("studentAlerts.opensNewWindow")})</span></a></> : null}
+          {alert.type === "examination_payment" ? <button type="button" onClick={() => openTab("requests")}>{t("studentAlerts.openRequests")}</button> : null}
+        </div>
+        <ProofActions proof={alert.proof} record={record} paymentLabel={paymentLabel} />
+      </article>;
+    })}</div>
+  </section>;
+}
+
 function aatSummaryText(record: StudentPassportRecord) {
   const labels: Record<StudentPassportRecord["aatSummary"]["state"], string> = {
     up_to_date: "Your AAT annual membership payment is up to date.",
@@ -444,6 +496,7 @@ export function DigitalPassport({ record, onRecordChange }: {
 
   return <article ref={translationScope} className={styles.passport} aria-label={`${record.displayName} digital student passport`}>
     <header className={styles.coverStrip}><div><span>REN SHIN KAN</span><strong>STUDENT PASSPORT</strong></div><p>Approved digital training record</p></header>
+    {owner ? <PaymentAlerts record={owner} openTab={setActive} /> : null}
     <nav className={styles.tabs} role="tablist" aria-label="Student passport pages">
       {tabs.map(({ id: tab, label, Icon }, index) => <button
         id={`${id}-tab-${tab}`} key={tab} type="button" role="tab"

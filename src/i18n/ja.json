@@ -115,6 +115,14 @@
     "updatesCta": "道場の最新情報"
   },
   "home": {
+    "journal": {
+      "eyebrow": "道場だより",
+      "title": "道場からの最新情報",
+      "viewAll": "すべてのお知らせを見る",
+      "defaultCategory": "道場ニュース",
+      "read": "お知らせを読む",
+      "fallbackCover": "道場だより"
+    },
     "hero": {
       "subtitle": "Hang Dong・Chiang Mai の合気道。",
       "place": "合気道 · ハンドン · チェンマイ · 2013年設立",
@@ -1287,7 +1295,6 @@
     "administration": "管理",
     "language": "言語",
     "menu": "メニュー",
-    "managing": "管理中",
     "changeDojo": "道場を変更",
     "centralAdministrator": "中央管理者",
     "dojoAdministrator": "道場管理者",
@@ -1341,8 +1348,8 @@
     "helpTechnical": "技術的な詳細を見る",
     "helpTechnicalCopy": "調査にリクエスト ID や端末情報が必要な場合だけ、技術的な詳細を開きます。",
     "helpThisPage": "このページのヘルプ",
-    "helpConfirmDojo": "道場を確認する",
-    "helpConfirmDojoCopy": "記録を確認・変更する前に［管理中］の表示を確認します。",
+    "helpConfirmDojo": "データ範囲を確認する",
+    "helpConfirmDojoCopy": "記録を確認または変更する前に、管理画面のヘッダーに表示されるデータ範囲を確認してください。",
     "helpPending": "保留中の作業を確認する",
     "helpPendingCopy": "［要対応］から始めます。各行から必要な作業キューを直接開けます。",
     "helpCommonAction": "よく使う操作を探す",
@@ -1425,7 +1432,33 @@
     "dateTimeHelp": "DD/MM/YYYY HH:mm（グレゴリオ暦）",
     "invalid": "DD/MM/YYYY 形式で実在する日付を入力してください。",
     "invalidMonth": "MM/YYYY 形式で実在する年月を入力してください。",
-    "invalidDateTime": "DD/MM/YYYY HH:mm 形式で実在する日時を入力してください。"
+    "invalidDateTime": "DD/MM/YYYY HH:mm 形式で実在する日時を入力してください。",
+    "openCalendar": "カレンダーを開く",
+    "openMonthPicker": "月選択を開く",
+    "openDateTimePicker": "日時選択を開く"
+  },
+  "studentAlerts": {
+    "eyebrow": "支払い通知",
+    "title": "確認が必要な支払い項目",
+    "clearTitle": "現在、支払い通知はありません",
+    "clearCopy": "月会費、年会費、審査料の現在の記録は完了しています。",
+    "actionRequired": "対応が必要",
+    "underReview": "確認中",
+    "monthlyTitle": "月会費",
+    "monthlyCopy": "今月のRenShinKan月会費は支払済みとして記録されていません。",
+    "monthlyReview": "今月の月会費の支払い証明を確認中です。",
+    "aatTitle": "AAT年会費",
+    "aatCopy": "現在のAAT年会費は支払済みとして記録されていません。",
+    "aatReview": "AAT年会費の支払い証明を確認中です。",
+    "examTitle": "審査料",
+    "examCopy": "受付中の審査申請に対する支払いが完了していません。",
+    "examReview": "審査料の支払い証明を確認中です。",
+    "openContributions": "会費の詳細を開く",
+    "openRequests": "審査申請を開く",
+    "payOnline": "支払いまたは証明を提出",
+    "downloadForm": "AAT用紙をダウンロード",
+    "registerOnline": "AATオンライン登録",
+    "opensNewWindow": "新しいウィンドウで開きます"
   },
   "forms": {
     "freeTextPreference": "回答は英語および／またはタイ語での入力を推奨します。"

@@ -26,10 +26,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
     await db.prepare("UPDATE payment_proofs SET object_key = NULL, purged_at = ?, updated_at = ? WHERE id = ?").bind(now, now, proof.id).run();
     return jsonResponse({ error: "This payslip file is unavailable." }, 410);
   }
+  const download = new URL(request.url).searchParams.get("download") === "1";
   const headers = new Headers({
     "Cache-Control": "private, no-store",
     "Content-Type": proof.content_type || "application/octet-stream",
-    "Content-Disposition": `inline; filename="${proof.original_filename.replace(/["\\\r\n]/g, "_")}"`,
+    "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${proof.original_filename.replace(/["\\\r\n]/g, "_")}"`,
     "Content-Security-Policy": "sandbox",
     "X-Content-Type-Options": "nosniff",
     "X-Robots-Tag": "noindex, nofollow",

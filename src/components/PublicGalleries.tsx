@@ -1,10 +1,11 @@
 import { ArrowRight, CalendarDays, Images } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   galleryCover,
   publishedAlbums,
   visibleAlbumPhotos,
   type GalleryAlbum,
+  type GalleryId,
   type GalleryPhoto,
 } from "../../shared/gallery";
 import { useTranslation } from "../i18n";
@@ -20,7 +21,7 @@ function GalleryTileImage({
   alt?: string;
   eager?: boolean;
 }) {
-  if (photo.thumbnailSrc) {
+  if (photo.thumbnailSrc && photo.thumbnailSrc !== photo.src) {
     return (
       <img
         src={photo.thumbnailSrc}
@@ -74,9 +75,46 @@ function useGalleryLightbox(albums: GalleryAlbum[]) {
   };
 }
 
-export function EditorialGallery({ albums }: { albums: GalleryAlbum[] }) {
+function useIncrementalGallery(galleryId: GalleryId, initialAlbums: GalleryAlbum[], incremental: boolean) {
+  const [albums, setAlbums] = useState(initialAlbums);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!incremental) { setAlbums(initialAlbums); return; }
+    if (!initialAlbums.length) return;
+    const controller = new AbortController();
+    setLoading(true);
+    fetch(`/api/galleries?galleryId=${encodeURIComponent(galleryId)}&page=1`, { signal: controller.signal })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Gallery unavailable")))
+      .then((body: { albums: GalleryAlbum[]; pagination: { page: number; totalPages: number } }) => {
+        setAlbums(body.albums);
+        setPage(body.pagination.page);
+        setTotalPages(body.pagination.totalPages);
+      })
+      .catch(() => undefined)
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [galleryId, incremental, initialAlbums]);
+  const loadMore = async () => {
+    if (!incremental || loading || page >= totalPages) return;
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/galleries?galleryId=${encodeURIComponent(galleryId)}&page=${page + 1}`);
+      if (!response.ok) return;
+      const body = await response.json() as { albums: GalleryAlbum[]; pagination: { page: number; totalPages: number } };
+      setAlbums((current) => [...current, ...body.albums]);
+      setPage(body.pagination.page);
+      setTotalPages(body.pagination.totalPages);
+    } finally { setLoading(false); }
+  };
+  return { albums: incremental ? albums : initialAlbums, hasMore: incremental && page < totalPages, loading, loadMore };
+}
+
+export function EditorialGallery({ albums, incremental = false }: { albums: GalleryAlbum[]; incremental?: boolean }) {
   const { t } = useTranslation();
-  const visibleAlbums = useMemo(() => publishedAlbums(albums), [albums]);
+  const source = useIncrementalGallery("on-the-mat", albums, incremental);
+  const visibleAlbums = useMemo(() => publishedAlbums(source.albums), [source.albums]);
   const gallery = useGalleryLightbox(visibleAlbums);
   const collage = gallery.items.slice(0, 6);
   if (!collage.length) return null;
@@ -110,6 +148,7 @@ export function EditorialGallery({ albums }: { albums: GalleryAlbum[] }) {
         {t("photoGalleries.viewAll", { count: gallery.items.length })}
         <ArrowRight size={16} aria-hidden="true" />
       </button>
+      {source.hasMore ? <button type="button" className="editorial-gallery__all btn-secondary" disabled={source.loading} onClick={() => void source.loadMore()}>{source.loading ? "Loading…" : "Load more albums"}</button> : null}
       {gallery.lightbox}
     </div>
   );
@@ -146,9 +185,10 @@ function TimelineAlbumCard({
   );
 }
 
-export function HistoricalTimelineGallery({ albums }: { albums: GalleryAlbum[] }) {
+export function HistoricalTimelineGallery({ albums, incremental = false }: { albums: GalleryAlbum[]; incremental?: boolean }) {
   const { t } = useTranslation();
-  const visibleAlbums = useMemo(() => publishedAlbums(albums).filter((album) => visibleAlbumPhotos(album).length), [albums]);
+  const source = useIncrementalGallery("history", albums, incremental);
+  const visibleAlbums = useMemo(() => publishedAlbums(source.albums).filter((album) => visibleAlbumPhotos(album).length), [source.albums]);
   const gallery = useGalleryLightbox(visibleAlbums);
   const dated = visibleAlbums.filter((album) => album.date).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
   const archive = visibleAlbums.filter((album) => !album.date);
@@ -180,6 +220,7 @@ export function HistoricalTimelineGallery({ albums }: { albums: GalleryAlbum[] }
           </div>
         </section>
       ) : null}
+      {source.hasMore ? <button type="button" className="btn-secondary" disabled={source.loading} onClick={() => void source.loadMore()}>{source.loading ? "Loading…" : "Load more albums"}</button> : null}
       {gallery.lightbox}
     </div>
   );
@@ -220,9 +261,10 @@ function AchievementAlbumCard({
   );
 }
 
-export function AchievementAlbumsGallery({ albums }: { albums: GalleryAlbum[] }) {
+export function AchievementAlbumsGallery({ albums, incremental = false }: { albums: GalleryAlbum[]; incremental?: boolean }) {
   const { t } = useTranslation();
-  const visibleAlbums = useMemo(() => publishedAlbums(albums).filter((album) => visibleAlbumPhotos(album).length), [albums]);
+  const source = useIncrementalGallery("achievements", albums, incremental);
+  const visibleAlbums = useMemo(() => publishedAlbums(source.albums).filter((album) => visibleAlbumPhotos(album).length), [source.albums]);
   const gallery = useGalleryLightbox(visibleAlbums);
   const dated = visibleAlbums.filter((album) => album.date).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
   const archive = visibleAlbums.filter((album) => !album.date);
@@ -249,6 +291,7 @@ export function AchievementAlbumsGallery({ albums }: { albums: GalleryAlbum[] })
           </div>
         </section>
       ) : null}
+      {source.hasMore ? <button type="button" className="btn-secondary" disabled={source.loading} onClick={() => void source.loadMore()}>{source.loading ? "Loading…" : "Load more albums"}</button> : null}
       {gallery.lightbox}
     </div>
   );

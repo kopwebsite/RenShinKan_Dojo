@@ -1,5 +1,5 @@
 import { Home, Mail } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { MotionSection } from "../components/MotionSection";
 import { useTranslation } from "../i18n";
 

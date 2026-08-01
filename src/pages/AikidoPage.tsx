@@ -1,5 +1,5 @@
 import { ArrowUpRight } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { MotionSection } from "../components/MotionSection";
 import { ResponsiveImage } from "../components/ResponsiveImage";
 import { Timeline } from "../components/Timeline";

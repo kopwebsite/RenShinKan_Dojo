@@ -1,5 +1,5 @@
 import { ArrowUpRight, MapPin } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { googleMapsUrl, siteInfo, socialLinks } from "../data/siteMeta";
 import { useTranslation, type TranslationKey } from "../i18n";
 import { recordsCopy } from "../data/recordsCopy";

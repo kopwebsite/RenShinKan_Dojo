@@ -26,19 +26,26 @@ function sizeLabel(bytes: number | null) {
 export function DownloadsPage() {
   const [downloads, setDownloads] = useState<DownloadAsset[]>([]);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
     const controller = new AbortController();
-    fetch("/api/downloads", { signal: controller.signal })
+    setLoading(true);
+    fetch(`/api/downloads?page=${page}`, { signal: controller.signal })
       .then(async (response) => {
-        const body = await response.json() as { downloads?: DownloadAsset[]; error?: string };
+        const body = await response.json() as { downloads?: DownloadAsset[]; pagination?: { totalPages: number }; error?: string };
         if (!response.ok) throw new Error(body.error || "Downloads could not be loaded.");
-        setDownloads(body.downloads || []);
+        setDownloads((current) => page === 1 ? body.downloads || [] : [...current, ...(body.downloads || [])]);
+        setTotalPages(body.pagination?.totalPages || 1);
+        setError("");
       })
       .catch((reason) => {
         if ((reason as Error).name !== "AbortError") setError(reason instanceof Error ? reason.message : "Downloads could not be loaded.");
-      });
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, []);
+  }, [page]);
 
   return <section className="container-shell py-14 md:py-20">
     <header className="mx-auto max-w-3xl text-center">
@@ -47,7 +54,7 @@ export function DownloadsPage() {
       <p className="mt-4 text-base leading-7 text-ink/70">Official bilingual forms and grading references for students and families.</p>
     </header>
     {error ? <p className="form-error mx-auto mt-10 max-w-2xl" role="alert">{error}</p> : null}
-    {!error && !downloads.length ? <p className="mt-10 text-center" role="status">Loading downloads…</p> : null}
+    {!error && loading && !downloads.length ? <p className="mt-10 text-center" role="status">Loading downloads…</p> : null}
     <div className="mx-auto mt-10 grid max-w-5xl gap-5 md:grid-cols-2">
       {downloads.map((asset) => <article key={asset.slug} className="rounded-3xl border border-ink/10 bg-paper/80 p-6 shadow-line">
         <div className="flex items-start justify-between gap-4">
@@ -70,5 +77,12 @@ export function DownloadsPage() {
         </a>
       </article>)}
     </div>
+    {page < totalPages ? (
+      <div className="mt-8 flex justify-center">
+        <button className="btn-secondary" type="button" disabled={loading} onClick={() => setPage((current) => current + 1)}>
+          {loading ? "Loading…" : "Load more downloads"}
+        </button>
+      </div>
+    ) : downloads.length ? <p className="mt-8 text-center text-sm text-ink/60" role="status">All {downloads.length} downloads are shown.</p> : null}
   </section>;
 }

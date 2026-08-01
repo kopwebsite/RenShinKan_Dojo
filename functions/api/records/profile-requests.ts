@@ -15,8 +15,9 @@ import {
 } from "../../_lib/studentRecords";
 import { datedProfileKey, validateProfileWebp, type R2Bucket } from "../../_lib/storage";
 import { isCanonicalDate } from "../../../shared/date";
+import { uploadsEnabled } from "../../_lib/operationalControls";
 
-type Env = StudentEnv & { MEDIA_BUCKET?: R2Bucket };
+type Env = StudentEnv & { MEDIA_BUCKET?: R2Bucket; UPLOADS_ENABLED?: string };
 type ProfilePayload = {
   englishName?: unknown;
   thaiName?: unknown;
@@ -47,6 +48,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const payloadValue = form.get("payload");
     const fileValue = form.get("file");
     const file = fileValue instanceof File && fileValue.size > 0 ? fileValue : null;
+    if (file && !uploadsEnabled(env)) return jsonResponse({ error: "Profile photo uploads are temporarily paused. Remove the optional photo and submit the form again." }, 503);
     if (typeof payloadValue !== "string") return jsonResponse({ error: "Complete the profile form." }, 400);
     if (file && !env.MEDIA_BUCKET) return jsonResponse({ error: "Profile image storage is temporarily unavailable. Remove the optional photo and try again." }, 503);
     const payload = JSON.parse(payloadValue) as ProfilePayload;
@@ -61,7 +63,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const turnstileToken = typeof payload.turnstileToken === "string" ? payload.turnstileToken : "";
     if (!englishName || englishName.length > 120) return jsonResponse({ error: "Enter the student's English name." }, 400);
     if (!dojo) return jsonResponse({ error: "Choose the dojo where the student currently trains." }, 400);
-    if (!practiceDuration || practiceDuration.length > 160) return jsonResponse({ error: "Tell us how long the student has practiced aikido." }, 400);
+    if (practiceDuration.length > 160) return jsonResponse({ error: "The practice-start answer is too long." }, 400);
     if (!(await verifyTurnstile(request, env, turnstileToken, "student-records"))) return jsonResponse({ error: "Cloudflare verification failed. Please try again." }, 400);
     const rank = normalizedRankOrError(payload.currentRank);
     const studentId = await nextStudentId(db, dojo.id);

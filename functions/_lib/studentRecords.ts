@@ -1,9 +1,19 @@
 import { beltKeyForRank, normalizeRank } from "../../shared/ranks";
 import { aatMembershipStatus } from "../../shared/membership";
 import { studentRequestStatus } from "../../shared/requestStatus";
-import { bangkokGregorianYear, currentBangkokMonthKey as gregorianBangkokMonthKey } from "../../shared/date";
+import {
+  bangkokGregorianYear,
+  currentBangkokMonthKey as gregorianBangkokMonthKey,
+} from "../../shared/date";
 import { decideStudentPaymentAlerts } from "../../shared/studentPaymentAlerts";
-import { canAccessDojo, effectivePermissionLevel, jsonResponse, type AdminSession } from "./auth";
+import {
+  canAccessDojo,
+  effectivePermissionLevel,
+  jsonResponse,
+  type AdminSession,
+} from "./auth";
+import { consumeRateLimit } from "./rateLimit";
+import { trustedClientIp } from "./requestIdentity";
 
 export type D1Result<T = unknown> = {
   results?: T[];
@@ -22,6 +32,8 @@ export type D1Database = {
 };
 
 export type StudentEnv = {
+  APP_ENV?: string;
+  BUILD_ID?: string;
   STUDENT_DB?: D1Database;
   STUDENT_LOOKUP_PEPPER?: string;
   SESSION_SECRET?: string;
@@ -33,19 +45,28 @@ export type StudentEnv = {
 
 export const DEFAULT_DOJO = "RenShinKan Dojo";
 export const DEFAULT_DOJO_ID = "dojo-rsk";
-export const DEFAULT_SHARE_FIELDS = { photo: true, trainingHours: true, examinations: true, lastUpdated: true };
+export const DEFAULT_SHARE_FIELDS = {
+  photo: true,
+  trainingHours: true,
+  examinations: true,
+  lastUpdated: true,
+};
 const STUDENT_ID_PATTERN = /^[A-Z0-9]{2,8}-\d{4,}$/;
 const ACCESS_SESSION_MINUTES = 20;
 const encoder = new TextEncoder();
 
 export function configuredMonthlyContributionAmount(env: StudentEnv) {
   const amount = Number(env.RENSHINKAN_MONTHLY_CONTRIBUTION_AMOUNT);
-  return Number.isSafeInteger(amount) && amount > 0 && amount <= 1_000_000 ? amount : null;
+  return Number.isSafeInteger(amount) && amount > 0 && amount <= 1_000_000
+    ? amount
+    : null;
 }
 
 export function configuredAatAnnualContributionAmount(env: StudentEnv) {
   const amount = Number(env.AAT_ANNUAL_CONTRIBUTION_AMOUNT);
-  return Number.isSafeInteger(amount) && amount > 0 && amount <= 1_000_000 ? amount : null;
+  return Number.isSafeInteger(amount) && amount > 0 && amount <= 1_000_000
+    ? amount
+    : null;
 }
 
 function bytesToHex(value: ArrayBuffer | Uint8Array) {
@@ -58,12 +79,18 @@ function bytesToBase64Url(bytes: Uint8Array) {
   for (let index = 0; index < bytes.length; index += 0x8000) {
     binary += String.fromCharCode(...bytes.slice(index, index + 0x8000));
   }
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
 }
 
 function base64UrlToBytes(value: string) {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
+  const padded = normalized.padEnd(
+    normalized.length + ((4 - (normalized.length % 4)) % 4),
+    "=",
+  );
   const binary = atob(padded);
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }
@@ -74,63 +101,57 @@ export function randomToken(byteLength = 32) {
 
 export function requestIdentifier(request: Request) {
   const supplied = request.headers.get("X-Request-ID")?.trim() || "";
-  return /^[A-Za-z0-9._:-]{8,128}$/.test(supplied) ? supplied : crypto.randomUUID();
+  return /^[A-Za-z0-9._:-]{8,128}$/.test(supplied)
+    ? supplied
+    : crypto.randomUUID();
 }
 
 export function normalizeVerifiedName(value: string) {
-  return value.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("und");
-}
-
-function compactVerifiedName(value: string) {
-  return normalizeVerifiedName(value).replace(/[\p{P}\p{S}\s]+/gu, "");
-}
-
-function editDistance(left: string, right: string) {
-  if (left === right) return 0;
-  if (!left) return [...right].length;
-  if (!right) return [...left].length;
-  const a = [...left];
-  const b = [...right];
-  let previous = Array.from({ length: b.length + 1 }, (_, index) => index);
-  for (let row = 0; row < a.length; row += 1) {
-    const current = [row + 1];
-    for (let column = 0; column < b.length; column += 1) {
-      current[column + 1] = Math.min(
-        current[column] + 1,
-        previous[column + 1] + 1,
-        previous[column] + (a[row] === b[column] ? 0 : 1),
-      );
-    }
-    previous = current;
-  }
-  return previous[b.length];
+  return value
+    .normalize("NFKC")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLocaleLowerCase("und");
 }
 
 export function namesLikelyMatch(submitted: string, recorded: string) {
-  const left = compactVerifiedName(submitted);
-  const right = compactVerifiedName(recorded);
-  if (!left || !right) return false;
-  if (left === right) return true;
-  if (Math.min(left.length, right.length) >= 6 && (left.includes(right) || right.includes(left))) return true;
-  const allowance = Math.max(2, Math.ceil(Math.max(left.length, right.length) * 0.12));
-  return editDistance(left, right) <= allowance;
+  const left = normalizeVerifiedName(submitted);
+  const right = normalizeVerifiedName(recorded);
+  return Boolean(left && right && left === right);
 }
 
-export function normalizeInternationalPhone(callingCodeValue: unknown, phoneValue: unknown) {
-  const callingCode = typeof callingCodeValue === "string" ? callingCodeValue.trim().replace(/\s+/g, "") : "";
-  const phone = typeof phoneValue === "string" ? phoneValue.normalize("NFKC").trim() : "";
-  if (!/^\+[1-9]\d{0,3}$/.test(callingCode)) throw new Error("Choose a valid telephone country and calling code.");
-  if (!phone || !/^[\d\s()+.\-]+$/.test(phone)) throw new Error("Enter a telephone number using digits, spaces, parentheses, dots, or hyphens.");
+export function normalizeInternationalPhone(
+  callingCodeValue: unknown,
+  phoneValue: unknown,
+) {
+  const callingCode =
+    typeof callingCodeValue === "string"
+      ? callingCodeValue.trim().replace(/\s+/g, "")
+      : "";
+  const phone =
+    typeof phoneValue === "string" ? phoneValue.normalize("NFKC").trim() : "";
+  if (!/^\+[1-9]\d{0,3}$/.test(callingCode))
+    throw new Error("Choose a valid telephone country and calling code.");
+  if (!phone || !/^[\d\s()+.\-]+$/.test(phone))
+    throw new Error(
+      "Enter a telephone number using digits, spaces, parentheses, dots, or hyphens.",
+    );
 
   const digits = phone.replace(/\D/g, "");
   let international = "";
   if (phone.startsWith("+")) {
     international = `+${digits}`;
-    if (!international.startsWith(callingCode)) throw new Error(`The telephone number must use the selected ${callingCode} calling code.`);
+    if (!international.startsWith(callingCode))
+      throw new Error(
+        `The telephone number must use the selected ${callingCode} calling code.`,
+      );
   } else {
     international = `${callingCode}${digits.replace(/^0/, "")}`;
   }
-  if (!/^\+[1-9]\d{7,14}$/.test(international)) throw new Error("Enter a valid international telephone number containing 8 to 15 digits.");
+  if (!/^\+[1-9]\d{7,14}$/.test(international))
+    throw new Error(
+      "Enter a valid international telephone number containing 8 to 15 digits.",
+    );
   return international;
 }
 
@@ -145,16 +166,27 @@ export const currentBangkokMonthKey = gregorianBangkokMonthKey;
 export function recentMonthKeys(count = 12, from = currentBangkokMonthKey()) {
   const [year, month] = from.split("-").map(Number);
   return Array.from({ length: Math.max(1, Math.min(24, count)) }, (_, index) =>
-    new Date(Date.UTC(year, month - 1 - index, 1)).toISOString().slice(0, 7));
+    new Date(Date.UTC(year, month - 1 - index, 1)).toISOString().slice(0, 7),
+  );
 }
 
 export async function hmacHex(secret: string, value: string) {
-  const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  return bytesToHex(await crypto.subtle.sign("HMAC", key, encoder.encode(value)));
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  return bytesToHex(
+    await crypto.subtle.sign("HMAC", key, encoder.encode(value)),
+  );
 }
 
 export async function sha256Hex(value: string) {
-  return bytesToHex(await crypto.subtle.digest("SHA-256", encoder.encode(value)));
+  return bytesToHex(
+    await crypto.subtle.digest("SHA-256", encoder.encode(value)),
+  );
 }
 
 function studentSecret(env: StudentEnv) {
@@ -163,9 +195,64 @@ function studentSecret(env: StudentEnv) {
   return secret;
 }
 
-export async function studentNameVerificationHash(env: StudentEnv, name: string) {
+export async function studentNameVerificationHash(
+  env: StudentEnv,
+  name: string,
+) {
   const secret = studentSecret(env);
   return hmacHex(secret, `name:${normalizeVerifiedName(name)}`);
+}
+
+export function normalizeStudentAccessCode(value: string) {
+  return value
+    .normalize("NFKC")
+    .toLocaleUpperCase("en-US")
+    .replace(/[^A-Z0-9]/g, "");
+}
+
+export async function studentAccessCodeHash(
+  env: StudentEnv,
+  studentId: string,
+  code: string,
+) {
+  const normalized = normalizeStudentAccessCode(code);
+  if (!/^[A-Z2-9]{12,20}$/.test(normalized))
+    throw new Error("Student access code is invalid");
+  return hmacHex(
+    studentSecret(env),
+    `student-access:${studentId}:${normalized}`,
+  );
+}
+
+export function generateStudentAccessCode() {
+  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const output: string[] = [];
+  while (output.length < 15) {
+    const values = crypto.getRandomValues(new Uint8Array(20));
+    for (const value of values) {
+      if (value >= 224 || output.length >= 15) continue;
+      output.push(alphabet[value % alphabet.length]);
+    }
+  }
+  return `${output.slice(0, 5).join("")}-${output.slice(5, 10).join("")}-${output.slice(10).join("")}`;
+}
+
+export async function verifyStudentAccessCode(
+  env: StudentEnv,
+  studentId: string,
+  code: string,
+  expectedHash: string,
+) {
+  try {
+    const actual = await studentAccessCodeHash(env, studentId, code);
+    if (actual.length !== expectedHash.length) return false;
+    let difference = 0;
+    for (let index = 0; index < actual.length; index += 1)
+      difference |= actual.charCodeAt(index) ^ expectedHash.charCodeAt(index);
+    return difference === 0;
+  } catch {
+    return false;
+  }
 }
 
 export function normalizeStudentId(value: string) {
@@ -178,13 +265,21 @@ export function isValidStudentId(value: string) {
 
 export { bangkokGregorianYear };
 
-export function formatStudentId(sequence: number, code = "RSK", gregorianYear = bangkokGregorianYear()) {
+export function formatStudentId(
+  sequence: number,
+  code = "RSK",
+  gregorianYear = bangkokGregorianYear(),
+) {
   const normalizedSequence = Math.max(1, Math.trunc(sequence));
   const yearSuffix = String(gregorianYear).slice(-2).padStart(2, "0");
   return `${code.toLocaleUpperCase("en-US")}-${yearSuffix}${String(normalizedSequence).padStart(2, "0")}`;
 }
 
-export function studentIdSequenceForCurrentYear(studentId: string, code: string, date = new Date()) {
+export function studentIdSequenceForCurrentYear(
+  studentId: string,
+  code: string,
+  date = new Date(),
+) {
   const gregorianYear = bangkokGregorianYear(date);
   const prefix = `${code.toLocaleUpperCase("en-US")}-${String(gregorianYear).slice(-2).padStart(2, "0")}`;
   const normalized = normalizeStudentId(studentId);
@@ -192,17 +287,32 @@ export function studentIdSequenceForCurrentYear(studentId: string, code: string,
   const sequenceText = normalized.slice(prefix.length);
   if (!/^\d{2,}$/.test(sequenceText)) return null;
   const sequence = Number(sequenceText);
-  return Number.isSafeInteger(sequence) && sequence > 0 ? { gregorianYear, sequence } : null;
+  return Number.isSafeInteger(sequence) && sequence > 0
+    ? { gregorianYear, sequence }
+    : null;
 }
 
-export function syncStudentIdSequenceStatement(db: D1Database, dojoId: string, dojoCode: string, studentId: string, updatedAt: string) {
-  const parsed = studentIdSequenceForCurrentYear(studentId, dojoCode, new Date(updatedAt));
+export function syncStudentIdSequenceStatement(
+  db: D1Database,
+  dojoId: string,
+  dojoCode: string,
+  studentId: string,
+  updatedAt: string,
+) {
+  const parsed = studentIdSequenceForCurrentYear(
+    studentId,
+    dojoCode,
+    new Date(updatedAt),
+  );
   if (!parsed) return null;
-  return db.prepare(`INSERT INTO dojo_student_gregorian_sequences (dojo_id, gregorian_year, last_number, updated_at)
+  return db
+    .prepare(
+      `INSERT INTO dojo_student_gregorian_sequences (dojo_id, gregorian_year, last_number, updated_at)
       VALUES (?, ?, ?, ?)
       ON CONFLICT(dojo_id, gregorian_year) DO UPDATE SET
         last_number = MAX(dojo_student_gregorian_sequences.last_number, excluded.last_number),
-        updated_at = excluded.updated_at`)
+        updated_at = excluded.updated_at`,
+    )
     .bind(dojoId, parsed.gregorianYear, parsed.sequence, updatedAt);
 }
 
@@ -210,27 +320,48 @@ export function rankColor(rank: string, fallback = "white") {
   return beltKeyForRank(rank) || fallback || "white";
 }
 
-export async function nextStudentId(db: D1Database, dojoId = DEFAULT_DOJO_ID, date = new Date()) {
+export async function nextStudentId(
+  db: D1Database,
+  dojoId = DEFAULT_DOJO_ID,
+  date = new Date(),
+) {
   const gregorianYear = bangkokGregorianYear(date);
-  const row = await db.prepare(`INSERT INTO dojo_student_gregorian_sequences (dojo_id, gregorian_year, last_number, updated_at)
+  const row = await db
+    .prepare(
+      `INSERT INTO dojo_student_gregorian_sequences (dojo_id, gregorian_year, last_number, updated_at)
       SELECT id, ?, 1, ? FROM dojos WHERE id = ? AND active = 1
       ON CONFLICT(dojo_id, gregorian_year) DO UPDATE SET
         last_number = dojo_student_gregorian_sequences.last_number + 1,
         updated_at = excluded.updated_at
-      RETURNING last_number, (SELECT code FROM dojos WHERE id = ?) AS code`)
-    .bind(gregorianYear, date.toISOString(), dojoId, dojoId).first<{ last_number: number; code: string }>();
-  if (!row?.code) throw new Error("The dojo Student ID sequence is not configured");
+      RETURNING last_number, (SELECT code FROM dojos WHERE id = ?) AS code`,
+    )
+    .bind(gregorianYear, date.toISOString(), dojoId, dojoId)
+    .first<{ last_number: number; code: string }>();
+  if (!row?.code)
+    throw new Error("The dojo Student ID sequence is not configured");
   return formatStudentId(Number(row.last_number), row.code, gregorianYear);
 }
 
-export async function suggestedStudentId(db: D1Database, dojoId = DEFAULT_DOJO_ID, date = new Date()) {
+export async function suggestedStudentId(
+  db: D1Database,
+  dojoId = DEFAULT_DOJO_ID,
+  date = new Date(),
+) {
   const gregorianYear = bangkokGregorianYear(date);
-  const row = await db.prepare(`SELECT d.code, COALESCE(seq.last_number, 0) AS last_number
+  const row = await db
+    .prepare(
+      `SELECT d.code, COALESCE(seq.last_number, 0) AS last_number
     FROM dojos d LEFT JOIN dojo_student_gregorian_sequences seq ON seq.dojo_id = d.id AND seq.gregorian_year = ?
-    WHERE d.id = ? AND d.active = 1`)
-    .bind(gregorianYear, dojoId).first<{ code: string; last_number: number }>();
+    WHERE d.id = ? AND d.active = 1`,
+    )
+    .bind(gregorianYear, dojoId)
+    .first<{ code: string; last_number: number }>();
   if (!row) return formatStudentId(1, "RSK", gregorianYear);
-  return formatStudentId(Number(row.last_number || 0) + 1, row.code, gregorianYear);
+  return formatStudentId(
+    Number(row.last_number || 0) + 1,
+    row.code,
+    gregorianYear,
+  );
 }
 
 export type DojoRow = {
@@ -246,15 +377,32 @@ export type DojoRow = {
 };
 
 export async function activeDojo(db: D1Database, dojoId: string) {
-  return db.prepare(`SELECT id, official_name, short_name, code, logo_url, slug, active, sort_order, contact_json
-    FROM dojos WHERE id = ? AND active = 1 LIMIT 1`).bind(dojoId).first<DojoRow>();
+  return db
+    .prepare(
+      `SELECT id, official_name, short_name, code, logo_url, slug, active, sort_order, contact_json
+    FROM dojos WHERE id = ? AND active = 1 LIMIT 1`,
+    )
+    .bind(dojoId)
+    .first<DojoRow>();
 }
 
-export async function assertStudentAccess(db: D1Database, session: AdminSession, studentId: string) {
-  const student = await db.prepare("SELECT id, dojo_id FROM students WHERE id = ? LIMIT 1")
-    .bind(studentId).first<{ id: string; dojo_id: string | null }>();
-  if (!student) return { ok: false as const, status: 404, error: "Student not found" };
-  if (!canAccessDojo(session, student.dojo_id)) return { ok: false as const, status: 403, error: "You do not have access to this student's dojo." };
+export async function assertStudentAccess(
+  db: D1Database,
+  session: AdminSession,
+  studentId: string,
+) {
+  const student = await db
+    .prepare("SELECT id, dojo_id FROM students WHERE id = ? LIMIT 1")
+    .bind(studentId)
+    .first<{ id: string; dojo_id: string | null }>();
+  if (!student)
+    return { ok: false as const, status: 404, error: "Student not found" };
+  if (!canAccessDojo(session, student.dojo_id))
+    return {
+      ok: false as const,
+      status: 403,
+      error: "You do not have access to this student's dojo.",
+    };
   return { ok: true as const, student };
 }
 
@@ -263,19 +411,49 @@ export function requireStudentDb(env: StudentEnv) {
   return env.STUDENT_DB;
 }
 
-export async function verifyTurnstile(request: Request, env: StudentEnv, token: string, expectedAction: string) {
+export async function verifyTurnstile(
+  request: Request,
+  env: StudentEnv,
+  token: string,
+  expectedAction: string,
+) {
   if (!env.TURNSTILE_SECRET_KEY || !token || token.length > 2048) return false;
-  const body = new URLSearchParams({ secret: env.TURNSTILE_SECRET_KEY, response: token, idempotency_key: crypto.randomUUID() });
-  const ip = request.headers.get("CF-Connecting-IP");
+  const body = new URLSearchParams({
+    secret: env.TURNSTILE_SECRET_KEY,
+    response: token,
+    idempotency_key: crypto.randomUUID(),
+  });
+  const ip = trustedClientIp(request);
   if (ip) body.set("remoteip", ip);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10_000);
   try {
-    const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", body, signal: controller.signal });
+    const response = await fetch(
+      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      { method: "POST", body, signal: controller.signal },
+    );
     if (!response.ok) return false;
-    const result = await response.json<{ success?: boolean; action?: string; hostname?: string }>();
+    const result = await response.json<{
+      success?: boolean;
+      action?: string;
+      hostname?: string;
+      metadata?: { result_with_testing_key?: boolean };
+    }>();
+    const officialPassingTestSecret = "1x0000000000000000000000000000000AA";
+    if (
+      env.APP_ENV !== "production" &&
+      env.TURNSTILE_SECRET_KEY === officialPassingTestSecret &&
+      result.success === true &&
+      result.metadata?.result_with_testing_key === true
+    ) {
+      return true;
+    }
     const expectedHostname = new URL(env.SITE_URL || request.url).hostname;
-    return result.success === true && result.action === expectedAction && result.hostname === expectedHostname;
+    return (
+      result.success === true &&
+      result.action === expectedAction &&
+      result.hostname === expectedHostname
+    );
   } catch {
     return false;
   } finally {
@@ -283,31 +461,40 @@ export async function verifyTurnstile(request: Request, env: StudentEnv, token: 
   }
 }
 
-export async function enforceLookupRateLimit(request: Request, env: StudentEnv) {
-  const db = requireStudentDb(env);
-  const actor = await sha256Hex(`${request.headers.get("CF-Connecting-IP") || "unknown"}:${request.headers.get("User-Agent") || ""}`);
-  const now = Date.now();
-  const row = await db.prepare("SELECT window_started_at, attempts FROM lookup_attempts WHERE actor_hash = ?").bind(actor)
-    .first<{ window_started_at: string; attempts: number }>();
-  const expired = !row || now - Date.parse(row.window_started_at) > 15 * 60 * 1000;
-  if (!expired && row.attempts >= 8) return false;
-  if (expired) {
-    await db.prepare("INSERT INTO lookup_attempts (actor_hash, window_started_at, attempts) VALUES (?, ?, 1) ON CONFLICT(actor_hash) DO UPDATE SET window_started_at = excluded.window_started_at, attempts = 1")
-      .bind(actor, new Date(now).toISOString()).run();
-  } else {
-    await db.prepare("UPDATE lookup_attempts SET attempts = attempts + 1 WHERE actor_hash = ?").bind(actor).run();
-  }
-  return true;
+export async function enforceLookupRateLimit(
+  request: Request,
+  env: StudentEnv,
+  subject?: string | null,
+) {
+  return consumeRateLimit(request, env, {
+    endpoint: subject ? "student-lookup-subject" : "student-lookup-ip",
+    subject,
+    limit: subject ? 6 : 16,
+    windowSeconds: 15 * 60,
+    lockSeconds: subject ? 15 * 60 : 5 * 60,
+  });
 }
 
 async function capabilityKey(env: StudentEnv) {
-  const digest = await crypto.subtle.digest("SHA-256", encoder.encode(`share:${studentSecret(env)}`));
-  return crypto.subtle.importKey("raw", digest, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    encoder.encode(`share:${studentSecret(env)}`),
+  );
+  return crypto.subtle.importKey("raw", digest, { name: "AES-GCM" }, false, [
+    "encrypt",
+    "decrypt",
+  ]);
 }
 
 export async function encryptCapabilityToken(env: StudentEnv, token: string) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encrypted = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await capabilityKey(env), encoder.encode(token)));
+  const encrypted = new Uint8Array(
+    await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv },
+      await capabilityKey(env),
+      encoder.encode(token),
+    ),
+  );
   return `v1.${bytesToBase64Url(iv)}.${bytesToBase64Url(encrypted)}`;
 }
 
@@ -326,40 +513,94 @@ export async function decryptCapabilityToken(env: StudentEnv, value: string) {
   }
 }
 
-export async function ensureOwnerShareUrl(db: D1Database, env: StudentEnv, studentId: string, request: Request) {
-  const existing = await db.prepare("SELECT token_ciphertext FROM share_tokens WHERE student_id = ? AND active = 1 AND purpose = 'owner' AND token_ciphertext IS NOT NULL ORDER BY created_at DESC LIMIT 1")
-    .bind(studentId).first<{ token_ciphertext: string }>();
-  let token = existing?.token_ciphertext ? await decryptCapabilityToken(env, existing.token_ciphertext) : null;
+export async function ensureOwnerShareUrl(
+  db: D1Database,
+  env: StudentEnv,
+  studentId: string,
+  request: Request,
+) {
+  const existing = await db
+    .prepare(
+      "SELECT token_ciphertext FROM share_tokens WHERE student_id = ? AND active = 1 AND purpose = 'owner' AND token_ciphertext IS NOT NULL ORDER BY created_at DESC LIMIT 1",
+    )
+    .bind(studentId)
+    .first<{ token_ciphertext: string }>();
+  let token = existing?.token_ciphertext
+    ? await decryptCapabilityToken(env, existing.token_ciphertext)
+    : null;
   let created = false;
   if (!token) {
     token = randomToken();
     created = true;
     const now = new Date().toISOString();
-    await db.prepare("INSERT INTO share_tokens (id, token_hash, student_id, active, created_at, token_ciphertext, purpose) VALUES (?, ?, ?, 1, ?, ?, 'owner')")
-      .bind(crypto.randomUUID(), await sha256Hex(token), studentId, now, await encryptCapabilityToken(env, token)).run();
+    await db
+      .prepare(
+        "INSERT INTO share_tokens (id, token_hash, student_id, active, created_at, token_ciphertext, purpose) VALUES (?, ?, ?, 1, ?, ?, 'owner')",
+      )
+      .bind(
+        crypto.randomUUID(),
+        await sha256Hex(token),
+        studentId,
+        now,
+        await encryptCapabilityToken(env, token),
+      )
+      .run();
   }
-  const origin = (env.SITE_URL || new URL(request.url).origin).replace(/\/$/, "");
+  const origin = (env.SITE_URL || new URL(request.url).origin).replace(
+    /\/$/,
+    "",
+  );
   return { url: `${origin}/records/share/${token}`, created };
 }
 
-export async function issueStudentAccessSession(db: D1Database, studentId: string, requestId: string) {
+export async function issueStudentAccessSession(
+  db: D1Database,
+  studentId: string,
+  requestId: string,
+) {
   const token = randomToken();
   const now = new Date();
-  const expires = new Date(now.getTime() + ACCESS_SESSION_MINUTES * 60 * 1000).toISOString();
-  await db.prepare("INSERT INTO student_access_sessions (id, token_hash, student_id, expires_at, request_id, created_at) VALUES (?, ?, ?, ?, ?, ?)")
-    .bind(crypto.randomUUID(), await sha256Hex(token), studentId, expires, requestId, now.toISOString()).run();
+  const expires = new Date(
+    now.getTime() + ACCESS_SESSION_MINUTES * 60 * 1000,
+  ).toISOString();
+  await db
+    .prepare(
+      "INSERT INTO student_access_sessions (id, token_hash, student_id, expires_at, request_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+    )
+    .bind(
+      crypto.randomUUID(),
+      await sha256Hex(token),
+      studentId,
+      expires,
+      requestId,
+      now.toISOString(),
+    )
+    .run();
   return token;
 }
 
-export async function validStudentAccessSession(db: D1Database, studentId: string, token: string) {
+export async function validStudentAccessSession(
+  db: D1Database,
+  studentId: string,
+  token: string,
+) {
   if (!/^[A-Za-z0-9_-]{40,100}$/.test(token)) return null;
-  return db.prepare("SELECT id FROM student_access_sessions WHERE token_hash = ? AND student_id = ? AND used_at IS NULL AND expires_at > ? LIMIT 1")
-    .bind(await sha256Hex(token), studentId, new Date().toISOString()).first<{ id: string }>();
+  return db
+    .prepare(
+      "SELECT id FROM student_access_sessions WHERE token_hash = ? AND student_id = ? AND used_at IS NULL AND expires_at > ? LIMIT 1",
+    )
+    .bind(await sha256Hex(token), studentId, new Date().toISOString())
+    .first<{ id: string }>();
 }
 
 export async function studentTotal(db: D1Database, studentId: string) {
-  const row = await db.prepare(`SELECT COALESCE((SELECT SUM(verified_hours) FROM training_hours WHERE student_id = s.id), 0)
-    + s.training_hours_adjustment AS total FROM students s WHERE s.id = ?`).bind(studentId).first<{ total: number }>();
+  const row = await db
+    .prepare(
+      `SELECT COALESCE((SELECT SUM(verified_hours) FROM training_hours WHERE student_id = s.id), 0)
+    + s.training_hours_adjustment AS total FROM students s WHERE s.id = ?`,
+    )
+    .bind(studentId)
+    .first<{ total: number }>();
   return row ? Number(row.total || 0) : null;
 }
 
@@ -393,17 +634,30 @@ export type StudentRow = {
 };
 
 function safeVisibility(value: string) {
-  try { return JSON.parse(value) as Record<string, boolean>; } catch { return {}; }
+  try {
+    return JSON.parse(value) as Record<string, boolean>;
+  } catch {
+    return {};
+  }
 }
 
 export async function publicStudentRecord(db: D1Database, student: StudentRow) {
   const visibility = safeVisibility(student.share_fields);
-  const exams = visibility.examinations !== false
-    ? (await db.prepare(`SELECT id, examination_date, belt_awarded, belt_color, rank, examiner, public_notes,
+  const exams =
+    visibility.examinations !== false
+      ? (
+          await db
+            .prepare(
+              `SELECT id, examination_date, belt_awarded, belt_color, rank, examiner, public_notes,
         passed, rank_before, rank_attempted, rank_after, examination_location
-        FROM belt_examinations WHERE student_id = ? ORDER BY examination_date DESC`).bind(student.id).all()).results || []
-    : [];
-  const total = visibility.trainingHours !== false ? await studentTotal(db, student.id) : 0;
+        FROM belt_examinations WHERE student_id = ? ORDER BY examination_date DESC`,
+            )
+            .bind(student.id)
+            .all()
+        ).results || []
+      : [];
+  const total =
+    visibility.trainingHours !== false ? await studentTotal(db, student.id) : 0;
   return {
     displayName: student.display_name,
     englishName: student.english_name || student.display_name,
@@ -415,23 +669,46 @@ export async function publicStudentRecord(db: D1Database, student: StudentRow) {
     examinations: exams,
     dojoName: student.dojo_name,
     lastUpdated: visibility.lastUpdated === false ? null : student.updated_at,
-    profileImage: student.profile_image_consent ? student.profile_image_url : null,
+    profileImage: student.profile_image_consent
+      ? student.profile_image_url
+      : null,
     verified: true,
   };
 }
 
 export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
   const base = await publicStudentRecord(db, student);
-  const [trainingResult, aatResult, hourRequestResult, examRequestResult, proofRequestResult] = await Promise.all([
-    db.prepare(`SELECT id, entry_date, period_end, verified_hours, source, training_location,
+  const [
+    trainingResult,
+    aatResult,
+    hourRequestResult,
+    examRequestResult,
+    proofRequestResult,
+  ] = await Promise.all([
+    db
+      .prepare(
+        `SELECT id, entry_date, period_end, verified_hours, source, training_location,
         source_type, organization, source_details, notes, created_at
       FROM training_hours WHERE student_id = ?
-      ORDER BY COALESCE(entry_date, created_at) DESC, created_at DESC, id ASC LIMIT 500`).bind(student.id).all<{
-        id: string; entry_date: string; period_end: string | null; verified_hours: number;
-        source: string; training_location: string | null; source_type: string | null;
-        organization: string | null; source_details: string | null; notes: string | null; created_at: string;
+      ORDER BY COALESCE(entry_date, created_at) DESC, created_at DESC, id ASC LIMIT 500`,
+      )
+      .bind(student.id)
+      .all<{
+        id: string;
+        entry_date: string;
+        period_end: string | null;
+        verified_hours: number;
+        source: string;
+        training_location: string | null;
+        source_type: string | null;
+        organization: string | null;
+        source_details: string | null;
+        notes: string | null;
+        created_at: string;
       }>(),
-    db.prepare(`SELECT p.id, COALESCE(p.payment_date, substr(p.created_at, 1, 10)) AS payment_date,
+    db
+      .prepare(
+        `SELECT p.id, COALESCE(p.payment_date, substr(p.created_at, 1, 10)) AS payment_date,
         ap.renewal_due_date, p.amount, p.currency, p.status, p.created_at AS created_at,
         pp.id AS proof_id, pp.status AS proof_status, pp.submitted_at AS proof_submitted_at,
         pp.reviewed_at AS proof_reviewed_at, pp.student_visible_note AS proof_student_visible_note,
@@ -453,33 +730,76 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
       LEFT JOIN payment_proofs pp ON pp.payment_type = 'aat_annual'
         AND pp.payment_reference_id = COALESCE(pri.payment_request_id, ap.id)
       WHERE ap.student_id = ? AND p.id IS NULL
-      ORDER BY created_at DESC LIMIT 30`).bind(student.id, student.id).all<{
-        id: string; payment_date: string; renewal_due_date: string | null; amount: number | null;
-        currency: string; status: "paid" | "awaiting_payment" | "cancelled" | "refunded"; created_at: string;
-        proof_id: string | null; proof_status: "awaiting_upload" | "pending_review" | "approved" | "denied" | null;
-        proof_submitted_at: string | null; proof_reviewed_at: string | null; proof_student_visible_note: string | null;
-        proof_object_key: string | null; proof_content_type: string | null; proof_owner_student_id: string | null;
+      ORDER BY created_at DESC LIMIT 30`,
+      )
+      .bind(student.id, student.id)
+      .all<{
+        id: string;
+        payment_date: string;
+        renewal_due_date: string | null;
+        amount: number | null;
+        currency: string;
+        status: "paid" | "awaiting_payment" | "cancelled" | "refunded";
+        created_at: string;
+        proof_id: string | null;
+        proof_status:
+          "awaiting_upload" | "pending_review" | "approved" | "denied" | null;
+        proof_submitted_at: string | null;
+        proof_reviewed_at: string | null;
+        proof_student_visible_note: string | null;
+        proof_object_key: string | null;
+        proof_content_type: string | null;
+        proof_owner_student_id: string | null;
       }>(),
-    db.prepare(`SELECT id, submitted_hours, previous_total, requested_total, status,
+    db
+      .prepare(
+        `SELECT id, submitted_hours, previous_total, requested_total, status,
         submitted_at, reviewed_at, student_visible_note, training_date, source_type,
         organization, source_details, student_notes
       FROM training_hour_requests WHERE student_id = ?
-      ORDER BY submitted_at DESC LIMIT 60`).bind(student.id).all<{
-        id: string; submitted_hours: number; previous_total: number; requested_total: number;
-        status: "pending" | "approved" | "rejected"; submitted_at: string;
-        reviewed_at: string | null; student_visible_note: string | null; training_date: string | null;
-        source_type: string | null; organization: string | null; source_details: string | null; student_notes: string | null;
+      ORDER BY submitted_at DESC LIMIT 60`,
+      )
+      .bind(student.id)
+      .all<{
+        id: string;
+        submitted_hours: number;
+        previous_total: number;
+        requested_total: number;
+        status: "pending" | "approved" | "rejected";
+        submitted_at: string;
+        reviewed_at: string | null;
+        student_visible_note: string | null;
+        training_date: string | null;
+        source_type: string | null;
+        organization: string | null;
+        source_details: string | null;
+        student_notes: string | null;
       }>(),
-    db.prepare(`SELECT ea.id, ea.current_rank, ea.attempted_rank, ea.status, ea.payment_status, ea.submitted_at, ea.updated_at,
+    db
+      .prepare(
+        `SELECT ea.id, ea.current_rank, ea.attempted_rank, ea.status, ea.payment_status, ea.submitted_at, ea.updated_at,
         ea.completed_at, ea.student_visible_decision_note, ec.lifecycle_status, ec.application_opens_at
       FROM examination_applications ea JOIN examination_cycles ec ON ec.id = ea.cycle_id
       WHERE ea.student_id = ?
-      ORDER BY submitted_at DESC LIMIT 60`).bind(student.id).all<{
-        id: string; current_rank: string; attempted_rank: string; status: string; payment_status: string;
-        submitted_at: string; updated_at: string; completed_at: string | null; student_visible_decision_note: string | null;
-        lifecycle_status: string; application_opens_at: string | null;
+      ORDER BY submitted_at DESC LIMIT 60`,
+      )
+      .bind(student.id)
+      .all<{
+        id: string;
+        current_rank: string;
+        attempted_rank: string;
+        status: string;
+        payment_status: string;
+        submitted_at: string;
+        updated_at: string;
+        completed_at: string | null;
+        student_visible_decision_note: string | null;
+        lifecycle_status: string;
+        application_opens_at: string | null;
       }>(),
-    db.prepare(`SELECT DISTINCT pp.id, pp.student_id AS proof_owner_student_id, pp.payment_type, pp.payment_reference_id, pp.status,
+    db
+      .prepare(
+        `SELECT DISTINCT pp.id, pp.student_id AS proof_owner_student_id, pp.payment_type, pp.payment_reference_id, pp.status,
         pp.submitted_at, pp.reviewed_at, pp.student_visible_note, pp.object_key, pp.content_type,
         COALESCE(mc.month_key, substr(pay.created_at, 1, 7)) AS period
       FROM payment_proofs pp
@@ -487,15 +807,28 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
         AND (mc.payment_group_id = pp.payment_reference_id OR mc.id = pp.payment_reference_id)
       LEFT JOIN payments pay ON pay.id = pp.payment_reference_id
       WHERE pp.student_id = ? OR mc.student_id = ?
-      ORDER BY COALESCE(pp.submitted_at, pp.created_at) DESC LIMIT 100`).bind(student.id, student.id).all<{
-        id: string; proof_owner_student_id: string; payment_type: "exam" | "aat_annual" | "renshinkan_monthly"; payment_reference_id: string;
-        status: "awaiting_upload" | "pending_review" | "approved" | "denied"; submitted_at: string | null;
-        reviewed_at: string | null; student_visible_note: string | null; object_key: string | null;
-        content_type: string | null; period: string | null;
+      ORDER BY COALESCE(pp.submitted_at, pp.created_at) DESC LIMIT 100`,
+      )
+      .bind(student.id, student.id)
+      .all<{
+        id: string;
+        proof_owner_student_id: string;
+        payment_type: "exam" | "aat_annual" | "renshinkan_monthly";
+        payment_reference_id: string;
+        status: "awaiting_upload" | "pending_review" | "approved" | "denied";
+        submitted_at: string | null;
+        reviewed_at: string | null;
+        student_visible_note: string | null;
+        object_key: string | null;
+        content_type: string | null;
+        period: string | null;
       }>(),
   ]);
-  const monthlyResult = student.dojo_id === DEFAULT_DOJO_ID
-    ? await db.prepare(`SELECT COALESCE(mc.id, 'expected:' || cps.month_key) AS id, cps.month_key,
+  const monthlyResult =
+    student.dojo_id === DEFAULT_DOJO_ID
+      ? await db
+          .prepare(
+            `SELECT COALESCE(mc.id, 'expected:' || cps.month_key) AS id, cps.month_key,
           COALESCE(mc.status, 'no_submission') AS status, mc.submitted_at, mc.paid_at,
           COALESCE(mc.updated_at, cps.created_at) AS updated_at, 1 AS expected,
           pp.id AS proof_id, pp.status AS proof_status, pp.submitted_at AS proof_submitted_at,
@@ -518,47 +851,96 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
           SELECT 1 FROM contribution_period_students cps
           WHERE cps.student_id = mc.student_id AND cps.month_key = mc.month_key
         )
-        ORDER BY month_key DESC LIMIT 36`).bind(student.id, student.id).all<{
-          id: string; month_key: string; status: "no_submission" | "awaiting_payment" | "paid";
-          submitted_at: string | null; paid_at: string | null; updated_at: string; expected: number;
-          proof_id: string | null; proof_status: "awaiting_upload" | "pending_review" | "approved" | "denied" | null;
-          proof_submitted_at: string | null; proof_reviewed_at: string | null; proof_student_visible_note: string | null;
-          proof_object_key: string | null; proof_content_type: string | null; proof_owner_student_id: string | null;
-        }>()
-    : null;
+        ORDER BY month_key DESC LIMIT 36`,
+          )
+          .bind(student.id, student.id)
+          .all<{
+            id: string;
+            month_key: string;
+            status: "no_submission" | "awaiting_payment" | "paid";
+            submitted_at: string | null;
+            paid_at: string | null;
+            updated_at: string;
+            expected: number;
+            proof_id: string | null;
+            proof_status:
+              | "awaiting_upload"
+              | "pending_review"
+              | "approved"
+              | "denied"
+              | null;
+            proof_submitted_at: string | null;
+            proof_reviewed_at: string | null;
+            proof_student_visible_note: string | null;
+            proof_object_key: string | null;
+            proof_content_type: string | null;
+            proof_owner_student_id: string | null;
+          }>()
+      : null;
 
   const uploadTokens = new Map<string, string>();
-  const uploadTokenExpiry = new Date(Date.now() + ACCESS_SESSION_MINUTES * 60 * 1000).toISOString();
-  const refreshableProofIds = Array.from(new Set((proofRequestResult.results || [])
-    .filter((entry) => entry.proof_owner_student_id === student.id && (entry.status === "awaiting_upload" || entry.status === "denied"))
-    .map((entry) => entry.id)));
+  const uploadTokenExpiry = new Date(
+    Date.now() + ACCESS_SESSION_MINUTES * 60 * 1000,
+  ).toISOString();
+  const refreshableProofIds = Array.from(
+    new Set(
+      (proofRequestResult.results || [])
+        .filter(
+          (entry) =>
+            entry.proof_owner_student_id === student.id &&
+            (entry.status === "awaiting_upload" || entry.status === "denied"),
+        )
+        .map((entry) => entry.id),
+    ),
+  );
   if (refreshableProofIds.length) {
     const tokenStatements: D1PreparedStatement[] = [];
     for (const proofId of refreshableProofIds) {
       const uploadToken = randomToken();
       uploadTokens.set(proofId, uploadToken);
-      tokenStatements.push(db.prepare(`UPDATE payment_proofs SET upload_token_hash = ?, upload_token_expires_at = ?, updated_at = ?
-        WHERE id = ? AND status IN ('awaiting_upload', 'denied')`)
-        .bind(await sha256Hex(uploadToken), uploadTokenExpiry, new Date().toISOString(), proofId));
+      tokenStatements.push(
+        db
+          .prepare(
+            `UPDATE payment_proofs SET upload_token_hash = ?, upload_token_expires_at = ?, updated_at = ?
+        WHERE id = ? AND status IN ('awaiting_upload', 'denied')`,
+          )
+          .bind(
+            await sha256Hex(uploadToken),
+            uploadTokenExpiry,
+            new Date().toISOString(),
+            proofId,
+          ),
+      );
     }
     await db.batch(tokenStatements);
   }
 
   const proof = (entry: {
-    proof_id: string | null; proof_status: "awaiting_upload" | "pending_review" | "approved" | "denied" | null;
-    proof_submitted_at: string | null; proof_reviewed_at: string | null; proof_student_visible_note: string | null;
-    proof_object_key: string | null; proof_content_type: string | null;
+    proof_id: string | null;
+    proof_status:
+      "awaiting_upload" | "pending_review" | "approved" | "denied" | null;
+    proof_submitted_at: string | null;
+    proof_reviewed_at: string | null;
+    proof_student_visible_note: string | null;
+    proof_object_key: string | null;
+    proof_content_type: string | null;
     proof_owner_student_id?: string | null;
-  }) => entry.proof_id && entry.proof_status ? {
-    id: entry.proof_id,
-    status: entry.proof_status,
-    submittedAt: entry.proof_submitted_at || null,
-    reviewedAt: entry.proof_reviewed_at || null,
-    studentVisibleNote: entry.proof_student_visible_note || null,
-    fileAvailable: Boolean(entry.proof_object_key) && (!entry.proof_owner_student_id || entry.proof_owner_student_id === student.id),
-    contentType: entry.proof_content_type || null,
-    uploadToken: uploadTokens.get(entry.proof_id) || null,
-  } : null;
+  }) =>
+    entry.proof_id && entry.proof_status
+      ? {
+          id: entry.proof_id,
+          status: entry.proof_status,
+          submittedAt: entry.proof_submitted_at || null,
+          reviewedAt: entry.proof_reviewed_at || null,
+          studentVisibleNote: entry.proof_student_visible_note || null,
+          fileAvailable:
+            Boolean(entry.proof_object_key) &&
+            (!entry.proof_owner_student_id ||
+              entry.proof_owner_student_id === student.id),
+          contentType: entry.proof_content_type || null,
+          uploadToken: uploadTokens.get(entry.proof_id) || null,
+        }
+      : null;
 
   const aatContributions = (aatResult.results || []).map((entry) => ({
     id: entry.id,
@@ -571,19 +953,28 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
   }));
   const latestPaidAat = aatContributions
     .filter((entry) => entry.status === "paid")
-    .sort((left, right) => right.paymentDate.localeCompare(left.paymentDate))[0];
-  const membership = aatMembershipStatus(student.aat_number, latestPaidAat?.paymentDate || "");
-  const currentAatProof = aatContributions.find((entry) => entry.status === "awaiting_payment")?.proof || null;
+    .sort((left, right) =>
+      right.paymentDate.localeCompare(left.paymentDate),
+    )[0];
+  const membership = aatMembershipStatus(
+    student.aat_number,
+    latestPaidAat?.paymentDate || "",
+  );
+  const currentAatProof =
+    aatContributions.find((entry) => entry.status === "awaiting_payment")
+      ?.proof || null;
   const aatSummary = {
-    state: currentAatProof?.status === "pending_review"
-      ? "submitted_for_review" as const
-      : currentAatProof?.status === "awaiting_upload" || currentAatProof?.status === "denied"
-        ? "payslip_needed" as const
-        : membership.state === "current"
-          ? "up_to_date" as const
-          : membership.state === "expiring"
-            ? "due_soon" as const
-            : "payment_record_missing" as const,
+    state:
+      currentAatProof?.status === "pending_review"
+        ? ("submitted_for_review" as const)
+        : currentAatProof?.status === "awaiting_upload" ||
+            currentAatProof?.status === "denied"
+          ? ("payslip_needed" as const)
+          : membership.state === "current"
+            ? ("up_to_date" as const)
+            : membership.state === "expiring"
+              ? ("due_soon" as const)
+              : ("payment_record_missing" as const),
     lastVerifiedPayment: latestPaidAat?.paymentDate || null,
     nextDueDate: membership.dueDate,
   };
@@ -601,9 +992,12 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
     paymentStatus: null,
     documentStatus: null,
     period: null,
-    explanation: entry.status === "approved" ? "The approved hours have been added to your verified record."
-      : entry.status === "rejected" ? "This request was not approved. Please review the note from your sensei below."
-        : "This request is waiting for a sensei to review it.",
+    explanation:
+      entry.status === "approved"
+        ? "The approved hours have been added to your verified record."
+        : entry.status === "rejected"
+          ? "This request was not approved. Please review the note from your sensei below."
+          : "This request is waiting for a sensei to review it.",
   }));
   const examRequests = (examRequestResult.results || []).map((entry) => ({
     id: entry.id,
@@ -612,108 +1006,196 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
     previousValue: entry.current_rank,
     requestedValue: entry.attempted_rank,
     submittedAt: entry.submitted_at,
-    decisionAt: entry.status === "application_submitted" ? null : entry.completed_at || entry.updated_at,
+    decisionAt:
+      entry.status === "application_submitted"
+        ? null
+        : entry.completed_at || entry.updated_at,
     studentVisibleNote: entry.student_visible_decision_note || null,
     status: studentRequestStatus(entry.status),
     paymentStatus: entry.payment_status,
     documentStatus: null,
     period: null,
-    explanation: entry.status === "rejected" ? "This application was not approved. Please review the note from your sensei below."
-      : entry.status === "examination_completed" ? "The examination workflow has been completed."
-        : "Your application has been received and is waiting for review.",
+    explanation:
+      entry.status === "rejected"
+        ? "This application was not approved. Please review the note from your sensei below."
+        : entry.status === "examination_completed"
+          ? "The examination workflow has been completed."
+          : "Your application has been received and is waiting for review.",
   }));
   const contributionRequests = [
-    ...aatContributions.filter((entry) => entry.status !== "paid").map((entry) => ({
-      id: `aat:${entry.id}`, type: "aat_contribution" as const, title: "AAT annual contribution",
-      previousValue: null, requestedValue: entry.paymentDate, submittedAt: entry.paymentDate,
-      decisionAt: entry.proof?.reviewedAt || null, studentVisibleNote: entry.proof?.studentVisibleNote || null,
-      status: entry.proof?.status === "denied" ? "denied" as const : entry.status === "paid" ? "approved" as const : "pending" as const,
-      paymentStatus: entry.status, documentStatus: entry.proof?.status || "awaiting_upload", period: entry.paymentDate.slice(0, 4),
-      explanation: entry.proof?.status === "denied" ? "The submitted payslip was not approved. Please review the note from your sensei below."
-        : entry.proof?.status === "pending_review" ? "A payslip has been submitted and is waiting for review."
-          : "This contribution is waiting for a payslip or payment review.",
-    })),
-    ...((monthlyResult?.results || []).filter((entry) => entry.status !== "no_submission").map((entry) => ({
-      id: `monthly:${entry.id}`, type: "monthly_contribution" as const, title: `RenShinKan monthly contribution: ${entry.month_key}`,
-      previousValue: null, requestedValue: entry.month_key, submittedAt: entry.submitted_at || entry.updated_at,
-      decisionAt: entry.proof_reviewed_at || entry.paid_at || null, studentVisibleNote: entry.proof_student_visible_note || null,
-      status: entry.proof_status === "denied" ? "denied" as const : entry.status === "paid" ? "approved" as const : "pending" as const,
-      paymentStatus: entry.status, documentStatus: entry.proof_status || "awaiting_upload", period: entry.month_key,
-      explanation: entry.proof_status === "denied" ? "The submitted payslip was not approved. Please review the note from your sensei below."
-        : entry.status === "paid" ? "This monthly contribution has been verified."
-          : entry.proof_status === "pending_review" ? "A payslip has been submitted and is waiting for review."
-            : "This contribution is waiting for a payslip.",
-    }))),
+    ...aatContributions
+      .filter((entry) => entry.status !== "paid")
+      .map((entry) => ({
+        id: `aat:${entry.id}`,
+        type: "aat_contribution" as const,
+        title: "AAT annual contribution",
+        previousValue: null,
+        requestedValue: entry.paymentDate,
+        submittedAt: entry.paymentDate,
+        decisionAt: entry.proof?.reviewedAt || null,
+        studentVisibleNote: entry.proof?.studentVisibleNote || null,
+        status:
+          entry.proof?.status === "denied"
+            ? ("denied" as const)
+            : entry.status === "paid"
+              ? ("approved" as const)
+              : ("pending" as const),
+        paymentStatus: entry.status,
+        documentStatus: entry.proof?.status || "awaiting_upload",
+        period: entry.paymentDate.slice(0, 4),
+        explanation:
+          entry.proof?.status === "denied"
+            ? "The submitted payslip was not approved. Please review the note from your sensei below."
+            : entry.proof?.status === "pending_review"
+              ? "A payslip has been submitted and is waiting for review."
+              : "This contribution is waiting for a payslip or payment review.",
+      })),
+    ...(monthlyResult?.results || [])
+      .filter((entry) => entry.status !== "no_submission")
+      .map((entry) => ({
+        id: `monthly:${entry.id}`,
+        type: "monthly_contribution" as const,
+        title: `RenShinKan monthly contribution: ${entry.month_key}`,
+        previousValue: null,
+        requestedValue: entry.month_key,
+        submittedAt: entry.submitted_at || entry.updated_at,
+        decisionAt: entry.proof_reviewed_at || entry.paid_at || null,
+        studentVisibleNote: entry.proof_student_visible_note || null,
+        status:
+          entry.proof_status === "denied"
+            ? ("denied" as const)
+            : entry.status === "paid"
+              ? ("approved" as const)
+              : ("pending" as const),
+        paymentStatus: entry.status,
+        documentStatus: entry.proof_status || "awaiting_upload",
+        period: entry.month_key,
+        explanation:
+          entry.proof_status === "denied"
+            ? "The submitted payslip was not approved. Please review the note from your sensei below."
+            : entry.status === "paid"
+              ? "This monthly contribution has been verified."
+              : entry.proof_status === "pending_review"
+                ? "A payslip has been submitted and is waiting for review."
+                : "This contribution is waiting for a payslip.",
+      })),
   ];
   const proofRequests = (proofRequestResult.results || [])
-    .filter((entry) => entry.payment_type !== "renshinkan_monthly" || student.dojo_id === DEFAULT_DOJO_ID)
+    .filter(
+      (entry) =>
+        entry.payment_type !== "renshinkan_monthly" ||
+        student.dojo_id === DEFAULT_DOJO_ID,
+    )
     .map((entry) => ({
-    id: `proof:${entry.id}`,
-    type: "payslip" as const,
-    title: `${entry.payment_type === "exam" ? "Examination" : entry.payment_type === "aat_annual" ? "AAT annual contribution" : "Monthly contribution"} payslip`,
-    previousValue: null,
-    requestedValue: "Payslip submitted for review",
-    submittedAt: entry.submitted_at || new Date(0).toISOString(),
-    decisionAt: entry.reviewed_at || null,
-    studentVisibleNote: entry.student_visible_note || null,
-    status: entry.status === "approved" ? "approved" as const : entry.status === "denied" ? "denied" as const : "pending" as const,
-    paymentStatus: null,
-    documentStatus: entry.status,
-    period: entry.period || null,
-    explanation: entry.status === "approved" ? "Your payslip has been verified."
-      : entry.status === "denied" ? "This payslip was not approved. Please review the note from your sensei below."
-        : entry.status === "pending_review" ? "A payslip has been submitted and is waiting for review."
-          : "A payslip has not been uploaded yet.",
-  }));
-  const profileRequest = student.profile_reviewed_at ? [{
-    id: `profile:${student.id}`, type: "profile_information" as const, title: "Student profile request",
-    previousValue: null, requestedValue: "Create an approved student profile", submittedAt: student.created_at,
-    decisionAt: student.profile_reviewed_at || null, studentVisibleNote: student.profile_student_visible_note || null,
-    status: studentRequestStatus(student.profile_status || "approved"), paymentStatus: null, documentStatus: null, period: null,
-    explanation: "Your student profile is approved and available in this passport.",
-  }] : [];
-  const requests = [...profileRequest, ...hourRequests, ...examRequests, ...contributionRequests, ...proofRequests]
+      id: `proof:${entry.id}`,
+      type: "payslip" as const,
+      title: `${entry.payment_type === "exam" ? "Examination" : entry.payment_type === "aat_annual" ? "AAT annual contribution" : "Monthly contribution"} payslip`,
+      previousValue: null,
+      requestedValue: "Payslip submitted for review",
+      submittedAt: entry.submitted_at || new Date(0).toISOString(),
+      decisionAt: entry.reviewed_at || null,
+      studentVisibleNote: entry.student_visible_note || null,
+      status:
+        entry.status === "approved"
+          ? ("approved" as const)
+          : entry.status === "denied"
+            ? ("denied" as const)
+            : ("pending" as const),
+      paymentStatus: null,
+      documentStatus: entry.status,
+      period: entry.period || null,
+      explanation:
+        entry.status === "approved"
+          ? "Your payslip has been verified."
+          : entry.status === "denied"
+            ? "This payslip was not approved. Please review the note from your sensei below."
+            : entry.status === "pending_review"
+              ? "A payslip has been submitted and is waiting for review."
+              : "A payslip has not been uploaded yet.",
+    }));
+  const profileRequest = student.profile_reviewed_at
+    ? [
+        {
+          id: `profile:${student.id}`,
+          type: "profile_information" as const,
+          title: "Student profile request",
+          previousValue: null,
+          requestedValue: "Create an approved student profile",
+          submittedAt: student.created_at,
+          decisionAt: student.profile_reviewed_at || null,
+          studentVisibleNote: student.profile_student_visible_note || null,
+          status: studentRequestStatus(student.profile_status || "approved"),
+          paymentStatus: null,
+          documentStatus: null,
+          period: null,
+          explanation:
+            "Your student profile is approved and available in this passport.",
+        },
+      ]
+    : [];
+  const requests = [
+    ...profileRequest,
+    ...hourRequests,
+    ...examRequests,
+    ...contributionRequests,
+    ...proofRequests,
+  ]
     .filter((entry) => entry.submittedAt !== new Date(0).toISOString())
     .sort((left, right) => right.submittedAt.localeCompare(left.submittedAt));
 
-  const monthlyContributions = monthlyResult ? (monthlyResult.results || []).map((entry) => ({
-    id: entry.id,
-    month: entry.month_key,
-    status: entry.status,
-    submittedAt: entry.submitted_at || null,
-    paidAt: entry.paid_at || null,
-    updatedAt: entry.updated_at,
-    expected: entry.expected === 1,
-    proof: proof(entry),
-  })) : null;
+  const monthlyContributions = monthlyResult
+    ? (monthlyResult.results || []).map((entry) => ({
+        id: entry.id,
+        month: entry.month_key,
+        status: entry.status,
+        submittedAt: entry.submitted_at || null,
+        paidAt: entry.paid_at || null,
+        updatedAt: entry.updated_at,
+        expected: entry.expected === 1,
+        proof: proof(entry),
+      }))
+    : null;
   const currentMonth = currentBangkokMonthKey();
-  const currentMonthly = monthlyContributions?.find((entry) => entry.month === currentMonth) || null;
-  const pendingAat = aatContributions.find((entry) => entry.status === "awaiting_payment") || null;
-  const proofForRequest = (entry: NonNullable<typeof proofRequestResult.results>[number] | undefined) => entry ? proof({
-    proof_id: entry.id,
-    proof_status: entry.status,
-    proof_submitted_at: entry.submitted_at,
-    proof_reviewed_at: entry.reviewed_at,
-    proof_student_visible_note: entry.student_visible_note,
-    proof_object_key: entry.object_key,
-    proof_content_type: entry.content_type,
-    proof_owner_student_id: entry.proof_owner_student_id,
-  }) : null;
+  const currentMonthly =
+    monthlyContributions?.find((entry) => entry.month === currentMonth) || null;
+  const pendingAat =
+    aatContributions.find((entry) => entry.status === "awaiting_payment") ||
+    null;
+  const proofForRequest = (
+    entry: NonNullable<typeof proofRequestResult.results>[number] | undefined,
+  ) =>
+    entry
+      ? proof({
+          proof_id: entry.id,
+          proof_status: entry.status,
+          proof_submitted_at: entry.submitted_at,
+          proof_reviewed_at: entry.reviewed_at,
+          proof_student_visible_note: entry.student_visible_note,
+          proof_object_key: entry.object_key,
+          proof_content_type: entry.content_type,
+          proof_owner_student_id: entry.proof_owner_student_id,
+        })
+      : null;
   const examAlerts = (examRequestResult.results || []).map((entry) => {
-    const examProofEntry = (proofRequestResult.results || []).find((candidate) =>
-      candidate.payment_type === "exam" && candidate.payment_reference_id === entry.id);
+    const examProofEntry = (proofRequestResult.results || []).find(
+      (candidate) =>
+        candidate.payment_type === "exam" &&
+        candidate.payment_reference_id === entry.id,
+    );
     return { entry, proof: proofForRequest(examProofEntry) };
   });
   const alertDecisions = decideStudentPaymentAlerts({
     isRenshinKan: student.dojo_id === DEFAULT_DOJO_ID,
     currentMonth,
-    monthly: currentMonthly ? {
-      id: currentMonthly.id,
-      month: currentMonthly.month,
-      expected: currentMonthly.expected,
-      paymentStatus: currentMonthly.status,
-      proofStatus: currentMonthly.proof?.status || null,
-    } : null,
+    monthly: currentMonthly
+      ? {
+          id: currentMonthly.id,
+          month: currentMonthly.month,
+          expected: currentMonthly.expected,
+          paymentStatus: currentMonthly.status,
+          proofStatus: currentMonthly.proof?.status || null,
+        }
+      : null,
     aat: {
       id: pendingAat?.id || `aat:${student.id}`,
       membershipState: membership.state,
@@ -731,19 +1213,36 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
   });
   const paymentAlerts = alertDecisions.map((decision) => {
     if (decision.type === "monthly_contribution") {
-      return { ...decision, period: currentMonthly?.month || null, attemptedRank: null, proof: currentMonthly?.proof || null };
+      return {
+        ...decision,
+        period: currentMonthly?.month || null,
+        attemptedRank: null,
+        proof: currentMonthly?.proof || null,
+      };
     }
     if (decision.type === "aat_membership") {
-      return { ...decision, period: null, attemptedRank: null, proof: pendingAat?.proof || null };
+      return {
+        ...decision,
+        period: null,
+        attemptedRank: null,
+        proof: pendingAat?.proof || null,
+      };
     }
     const exam = examAlerts.find(({ entry }) => entry.id === decision.id);
-    return { ...decision, period: null, attemptedRank: exam?.entry.attempted_rank || null, proof: exam?.proof || null };
+    return {
+      ...decision,
+      period: null,
+      attemptedRank: exam?.entry.attempted_rank || null,
+      proof: exam?.proof || null,
+    };
   });
 
   return {
     ...base,
-    registrationDate: student.account_created_date || student.created_at || null,
-    accountCreatedDate: student.account_created_date || student.created_at || null,
+    registrationDate:
+      student.account_created_date || student.created_at || null,
+    accountCreatedDate:
+      student.account_created_date || student.created_at || null,
     dojoJoinedDate: student.dojo_joined_date || null,
     dojoId: student.dojo_id || "",
     dojoLogo: student.dojo_logo || null,
@@ -772,7 +1271,10 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
 
 export function genericLookupFailure(status = 404) {
   return jsonResponse(
-    { error: "We could not find a matching student record. Please check the details and try again." },
+    {
+      error:
+        "We could not find a matching student record. Please check the details and try again.",
+    },
     status,
     { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" },
   );
@@ -808,7 +1310,7 @@ export type AuditInput = {
 
 export function adminAuditMetadata(session: AdminSession, request: Request) {
   return {
-    actorIdentifier: session.sessionId,
+    actorIdentifier: session.accountId,
     administratorName: session.adminName,
     administratorRole: effectivePermissionLevel(session),
     selectedDojoId: session.selectedDojoId,
@@ -824,22 +1326,44 @@ function structuredValue(value: unknown) {
 
 export function auditStatement(db: D1Database, input: AuditInput) {
   const createdAt = input.createdAt || new Date().toISOString();
-  return db.prepare(`INSERT INTO audit_log (
+  return db
+    .prepare(
+      `INSERT INTO audit_log (
       id, admin_action, record_type, record_id, action_summary, created_at,
       actor_type, actor_identifier, action, entity_type, entity_id, student_id,
       previous_values, new_values, source, bulk_operation_id, request_id, administrator_note,
       student_public_id_snapshot, student_name_snapshot, exam_cycle_id, contribution_month,
       administrator_name, administrator_role, selected_dojo_id, ip_address, country_code, user_agent, outcome
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
     .bind(
-      crypto.randomUUID(), input.action, input.entityType, input.entityId, input.summary.slice(0, 300), createdAt,
-      input.actorType, input.actorIdentifier.slice(0, 160), input.action, input.entityType, input.entityId,
-      input.studentId || null, structuredValue(input.previousValues), structuredValue(input.newValues), input.source,
-      input.bulkOperationId || null, input.requestId, input.administratorNote?.slice(0, 2000) || null,
-      input.studentPublicId?.slice(0, 80) || null, input.studentNameSnapshot?.slice(0, 160) || null,
-      input.examCycleId || null, input.contributionMonth || null,
-      input.administratorName?.slice(0, 120) || null, input.administratorRole || null,
-      input.selectedDojoId || null, input.ipAddress || null, input.countryCode?.slice(0, 8) || null,
+      crypto.randomUUID(),
+      input.action,
+      input.entityType,
+      input.entityId,
+      input.summary.slice(0, 300),
+      createdAt,
+      input.actorType,
+      input.actorIdentifier.slice(0, 160),
+      input.action,
+      input.entityType,
+      input.entityId,
+      input.studentId || null,
+      structuredValue(input.previousValues),
+      structuredValue(input.newValues),
+      input.source,
+      input.bulkOperationId || null,
+      input.requestId,
+      input.administratorNote?.slice(0, 2000) || null,
+      input.studentPublicId?.slice(0, 80) || null,
+      input.studentNameSnapshot?.slice(0, 160) || null,
+      input.examCycleId || null,
+      input.contributionMonth || null,
+      input.administratorName?.slice(0, 120) || null,
+      input.administratorRole || null,
+      input.selectedDojoId || null,
+      input.ipAddress || null,
+      input.countryCode?.slice(0, 8) || null,
       input.userAgent?.slice(0, 500) || null,
       input.outcome || "success",
     );
@@ -851,6 +1375,7 @@ export async function audit(db: D1Database, input: AuditInput) {
 
 export function normalizedRankOrError(value: unknown) {
   const rank = normalizeRank(value);
-  if (!rank) throw new Error("Choose a valid rank from the official progression.");
+  if (!rank)
+    throw new Error("Choose a valid rank from the official progression.");
   return rank;
 }

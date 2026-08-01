@@ -23,17 +23,20 @@ export function AdminDownloadsPage() {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ page: 1, total: 0, totalPages: 1 });
 
   async function load() {
     setError("");
     try {
-      const result = await adminApi<{ downloads: AdminDownload[] }>("/api/admin/downloads");
+      const result = await adminApi<{ downloads: AdminDownload[]; pagination: { page: number; total: number; totalPages: number } }>(`/api/admin/downloads?page=${page}`);
       setDownloads(result.downloads);
+      setPagination(result.pagination);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Downloads could not be loaded.");
     }
   }
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [page]);
 
   async function upload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -168,5 +171,12 @@ export function AdminDownloadsPage() {
         </div>
       </article>)}
     </div>
+    {pagination.totalPages > 1 ? (
+      <nav className="mt-7 flex items-center justify-center gap-4" aria-label="Download management pages">
+        <button type="button" className="btn-secondary" disabled={pagination.page <= 1 || Boolean(busy)} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</button>
+        <span role="status">Page {pagination.page} of {pagination.totalPages} · {pagination.total} downloads</span>
+        <button type="button" className="btn-secondary" disabled={pagination.page >= pagination.totalPages || Boolean(busy)} onClick={() => setPage((current) => current + 1)}>Next</button>
+      </nav>
+    ) : null}
   </section>;
 }

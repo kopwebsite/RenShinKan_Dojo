@@ -8,11 +8,13 @@ import {
   type StudentEnv,
   validStudentAccessSession,
 } from "../../_lib/studentRecords";
+import { uploadsEnabled } from "../../_lib/operationalControls";
 
-type Env = StudentEnv & { MEDIA_BUCKET?: R2Bucket };
+type Env = StudentEnv & { MEDIA_BUCKET?: R2Bucket; UPLOADS_ENABLED?: string };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const requestId = requestIdentifier(request);
+  if (!uploadsEnabled(env)) return jsonResponse({ error: "Profile photo uploads are temporarily paused. Your current photo is unchanged." }, 503);
   let objectKey = "";
   try {
     const db = requireStudentDb(env);

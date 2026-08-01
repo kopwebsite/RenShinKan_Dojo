@@ -17,8 +17,9 @@ import {
   requireStudentDb,
   type StudentEnv,
 } from "../../../_lib/studentRecords";
+import { newsletterPublishingEnabled } from "../../../_lib/operationalControls";
 
-type Env = StorageEnv & StudentEnv & BrevoEnv & { SESSION_SECRET?: string };
+type Env = StorageEnv & StudentEnv & BrevoEnv & { SESSION_SECRET?: string; NEWSLETTER_PUBLISHING_ENABLED?: string };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ ok: false, error: "Forbidden" }, 403);
@@ -26,6 +27,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!requiresCentralAdmin(session)) {
     return jsonResponse({ ok: false, error: "Only the RenShinKan administrator may send a test newsletter." }, session ? 403 : 401);
   }
+  if (!newsletterPublishingEnabled(env)) return jsonResponse({ ok: false, error: "Newsletter delivery is temporarily paused. The saved draft is unchanged." }, 503);
   try {
     const input = await request.json<Record<string, unknown>>();
     const newsletterId = typeof input.newsletterId === "string" ? input.newsletterId : "";

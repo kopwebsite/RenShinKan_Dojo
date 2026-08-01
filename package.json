@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "engines": {
-    "node": ">=20 <26"
+    "node": ">=22.22 <25"
   },
   "type": "module",
   "scripts": {
@@ -13,14 +13,31 @@
     "build": "npm run optimize:images && vite build",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run tests",
     "test:unit": "vitest run tests/ranks-and-security.test.ts",
     "test:integration": "vitest run tests/workflow-contracts.test.ts",
-    "check": "npm run lint && npm run test && npm run build",
+    "test:hardening": "vitest run tests/production-hardening-runtime.test.ts",
+    "test:migrations": "node scripts/replay-migrations.mjs",
+    "test:recovery": "node scripts/test-d1-recovery.mjs",
+    "test:e2e": "node scripts/run-e2e.mjs",
+    "perf:fixtures": "node scripts/generate-performance-fixtures.mjs",
+    "perf:prepare": "node scripts/prepare-performance-env.mjs",
+    "perf:api": "node scripts/run-performance-api-benchmark.mjs",
+    "perf:browser": "node scripts/run-browser-performance.mjs",
+    "perf:capacity": "node scripts/run-performance-capacity.mjs",
+    "perf:queries": "node scripts/inspect-performance-queries.mjs",
+    "perf:cache": "node scripts/verify-performance-cache.mjs",
+    "perf:budget": "node scripts/check-performance-budgets.mjs",
+    "help:screenshots": "node scripts/capture-help-screenshots.mjs",
+    "format:check": "prettier --check shared/adminPermissions.ts functions/_lib/requestIdentity.ts functions/_lib/rateLimit.ts functions/_lib/publishing.ts src/components/AccessibleDialog.tsx scripts/check-release-archive.mjs scripts/replay-migrations.mjs scripts/run-e2e.mjs scripts/start-pages-smoke.mjs scripts/validate-cloudflare-config.mjs tests/production-hardening-runtime.test.ts e2e/hardening.spec.ts e2e/release-matrix.spec.ts playwright.config.ts",
+    "config:check": "node scripts/validate-cloudflare-config.mjs",
+    "config:release": "node scripts/validate-cloudflare-config.mjs --release",
+    "archive:check": "node scripts/check-release-archive.mjs",
+    "check": "npm run config:check && npm run archive:check && npm run lint && npm run test && npm run build",
     "auth:hash-password": "node scripts/hash-password.mjs",
     "audit:worker:types": "wrangler types audit-cleanup-env.d.ts --cwd serverless --config ../wrangler.audit-cleanup.jsonc --env-file serverless/.env.types --include-runtime=false",
     "audit:worker:check": "wrangler deploy --dry-run --config wrangler.audit-cleanup.jsonc",
-    "deploy": "npm run build && wrangler pages deploy dist --project-name renshinkan-dojo --branch main",
+    "deploy": "node -e \"throw new Error('Direct deployment is disabled. Use the authorized release workflow after backups and config:release.')\"",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -34,23 +51,27 @@
     "lucide-react": "^0.468.0",
     "pdf-lib": "^1.17.1",
     "qrcode": "^1.5.4",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.30.4"
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-router": "8.3.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
+    "@playwright/test": "^1.62.1",
     "@types/qrcode": "^1.5.6",
-    "@types/react": "^18.3.18",
-    "@types/react-dom": "^18.3.5",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
+    "jsdom": "^26.1.0",
     "postcss": "^8.4.49",
+    "prettier": "^3.9.6",
     "sharp": "^0.35.3",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2",
     "vite": "^6.0.5",
     "vitest": "^3.2.7",
-    "wrangler": "^4.110.0"
+    "wrangler": "4.110.0"
   },
   "overrides": {
     "sharp": "$sharp"

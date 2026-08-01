@@ -1,5 +1,5 @@
 import { ArrowRight, Download } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { BeltProgressionChart } from "../components/BeltProgressionChart";
 import { ClassStructureLegend } from "../components/ClassStructureLegend";
 import { FAQAccordion } from "../components/FAQAccordion";
@@ -88,7 +88,7 @@ export function ClassesPage() {
         <div id="gallery" className="graduation-strip scroll-mt-24">
           <p className="eyebrow">{t("classes.beltExams.graduationEyebrow")}</p>
           <h3>{t("classes.beltExams.graduationTitle")}</h3>
-          <AchievementAlbumsGallery albums={content.galleryAlbums.achievements} />
+          <AchievementAlbumsGallery albums={content.galleryAlbums.achievements} incremental />
         </div>
       </MotionSection>
 

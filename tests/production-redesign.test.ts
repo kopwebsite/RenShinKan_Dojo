@@ -35,7 +35,7 @@ function splitSqlList(value: string) {
 describe("student database reliability redesign", () => {
   it("keeps the administrator student INSERT at exactly 26 columns and 26 values", () => {
     const source = file("functions/api/admin/students/index.ts");
-    const match = source.match(/INSERT INTO students \(\s*([\s\S]*?)\s*\)\s*VALUES \(([\s\S]*?)\)`\)/);
+    const match = source.match(/INSERT INTO students \(\s*([\s\S]*?)\s*\)\s*VALUES \(([\s\S]*?)\)\s*`/);
     expect(match).not.toBeNull();
     const columns = splitSqlList(match![1]);
     const values = splitSqlList(match![2]);
@@ -216,11 +216,15 @@ describe("interface and downloadable assets", () => {
     }
   });
 
-  it("uses strict manual Gregorian fields with an accessible native calendar trigger", () => {
+  it("uses accessible Gregorian pickers without slash-typed date fields", () => {
     const source = file("src/components/GregorianDateInput.tsx");
-    for (const value of ['placeholder="DD/MM/YYYY"', 'aria-label={t("date.openCalendar")}', "showPicker", 'type="date"', 'type="month"', 'type="datetime-local"']) {
+    for (const value of ['type="date"', 'type="datetime-local"', 'className={`gregorian-month-control', 't("date.monthLabel")', 't("date.yearLabel")', 'type="number"', 'inputMode="numeric"', 'min={1900}', 'max={maximumYear}']) {
       expect(source).toContain(value);
     }
+    expect(source).toContain('t("date.monthMissing")');
+    expect(source).toContain('t("date.yearMissing")');
+    expect(source).not.toContain('placeholder="DD/MM/YYYY"');
+    expect(source).not.toContain("showPicker");
   });
 
   it("opens the admin profile editor by default and bounds large passport histories", () => {

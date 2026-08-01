@@ -1,16 +1,17 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   AlertCircle, Archive, Camera, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Database, Eye, FileImage, GraduationCap,
-  LoaderCircle, Plus, ReceiptText, RotateCcw, Save, Search, Trash2, UserRound, Users, X,
+  Building2, LoaderCircle, Plus, ReceiptText, RotateCcw, Save, Search, Trash2, UserRound, Users, X,
 } from "lucide-react";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 import { RANKS } from "../../shared/ranks";
 import { BeltMark } from "../components/BeltMark";
 import { AdminExamApplications } from "../components/admin/AdminExamApplications";
 import { AdminAatMemberships } from "../components/admin/AdminAatMemberships";
 import { AdminMonthlyContributions } from "../components/admin/AdminMonthlyContributions";
 import { AdminPaymentProofs } from "../components/admin/AdminPaymentProofs";
-import { AdminDojoSelector, AdminLoginFields, AdminRenshinKanVerification, type AdminDojo, type AdminIdentity, type AdminSessionResponse } from "../components/admin/AdminAccess";
+import { AdminDojoSelector, AdminLoginFields, AdminRenshinKanVerification, type AdminDojo } from "../components/admin/AdminAccess";
+import { useAdminSession } from "../components/admin/useAdminSession";
 import { prepareProfilePhoto } from "../utils/profilePhoto";
 import { bangkokCanonicalDate, formatGregorianDate, formatGregorianDateTime, isCanonicalDate } from "../../shared/date";
 import { GregorianDateInput } from "../components/GregorianDateInput";
@@ -35,7 +36,16 @@ type Application = {
   id: string; status: string; payment_status: string; attempted_rank: string; current_rank: string; submitted_at: string;
   administrator_notes: string; cycle_name: string; answers: Record<string, string>; history: Array<Record<string, string>>;
 };
-type Detail = { student: Student; examinations: Examination[]; trainingHours: TrainingHour[]; hourRequests: HourRequest[]; applications: Application[] };
+type PaymentEntry = {
+  id: string; payment_type: string; amount: number | null; currency: string; payment_date: string | null; status: string;
+  reference: string; notes: string; created_at: string; updated_at: string; period_key: string | null;
+  proof_id: string | null; proof_status: string | null; proof_content_type: string | null; proof_filename: string | null; proof_submitted_at: string | null;
+};
+type PaymentProof = {
+  id: string; payment_type: string; payment_reference_id: string; status: string; content_type: string | null;
+  original_filename: string | null; file_size: number | null; submitted_at: string | null; reviewed_at: string | null; period_key: string | null;
+};
+type Detail = { student: Student; examinations: Examination[]; trainingHours: TrainingHour[]; hourRequests: HourRequest[]; applications: Application[]; payments: PaymentEntry[]; paymentProofs: PaymentProof[] };
 type ListResponse = {
   students: StudentSummary[]; pagination: { page: number; pageSize: number; total: number; totalPages: number };
   summary: { total: number; active: number; archived: number; pending_profiles: number }; ranks: string[]; suggestedStudentId: string;
@@ -85,17 +95,65 @@ function studentRecordStatus(student: Pick<StudentSummary, "profile_status" | "a
   return "active";
 }
 
+function DojoFilter({ dojos, value, onApply }: { dojos: AdminDojo[]; value: Set<string>; onApply: (value: Set<string>) => void }) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<Set<string>>(new Set(value));
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const selectedDojos = dojos.filter((dojo) => value.has(dojo.id));
+  function close() { setOpen(false); requestAnimationFrame(() => triggerRef.current?.focus()); }
+
+  useEffect(() => {
+    if (!open) return;
+    setDraft(new Set(value));
+    const panel = panelRef.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    requestAnimationFrame(() => panel?.querySelector<HTMLInputElement>("input")?.focus());
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") { event.preventDefault(); close(); return; }
+      if (event.key !== "Tab" || !panel) return;
+      const controls = [...panel.querySelectorAll<HTMLElement>('input, button:not([disabled])')];
+      const first = controls[0]; const last = controls.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => { document.removeEventListener("keydown", onKeyDown); document.body.style.overflow = previousOverflow; };
+  }, [open, value]);
+
+  return <div className="admin-dojo-filter">
+    <button ref={triggerRef} type="button" className="admin-dojo-filter__trigger" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>
+      <span><Building2 size={17} aria-hidden="true" /><span><small>Dojo</small><strong>{value.size ? `${value.size} selected` : "All dojos"}</strong></span></span><span aria-hidden="true">Edit</span>
+    </button>
+    {selectedDojos.length ? <div className="admin-dojo-filter__chips" aria-label="Selected dojos">{selectedDojos.map((dojo) => <span key={dojo.id}>{dojo.short_name}</span>)}</div> : null}
+    {open ? <div className="admin-dojo-filter__backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
+      <div ref={panelRef} className="admin-dojo-filter__panel" role="dialog" aria-modal="true" aria-labelledby="dojo-filter-title">
+        <header><div><p className="eyebrow">Student filter</p><h2 id="dojo-filter-title">Choose dojos</h2></div><button type="button" aria-label="Close dojo filter" onClick={close}><X size={18} /></button></header>
+        <fieldset><legend className="sr-only">Dojos included in results</legend>
+          <label><input type="checkbox" checked={draft.size === 0} onChange={() => setDraft(new Set())} /> <span><strong>All dojos</strong><small>Do not limit results by dojo</small></span></label>
+          {dojos.map((dojo) => <label key={dojo.id}><input type="checkbox" checked={draft.has(dojo.id)} onChange={() => setDraft((current) => { const next = new Set(current); if (next.has(dojo.id)) next.delete(dojo.id); else next.add(dojo.id); return next; })} /> <span><strong>{dojo.official_name}</strong><small>{dojo.code}</small></span></label>)}
+        </fieldset>
+        <footer><button type="button" className="btn-secondary" onClick={() => setDraft(new Set())}>Clear</button><button type="button" className="btn-primary" onClick={() => { onApply(new Set(draft)); close(); }}>Apply filter</button></footer>
+      </div>
+    </div> : null}
+  </div>;
+}
+
 export function AdminStudentsPage({ mode = "students" }: { mode?: StudentPageMode }) {
   const location = useLocation();
-  const [checked, setChecked] = useState(false);
-  const [authed, setAuthed] = useState(false);
-  const [adminName, setAdminName] = useState("");
-  const [password, setPassword] = useState("");
-  const [admin, setAdmin] = useState<AdminIdentity | null>(null);
-  const [dojos, setDojos] = useState<AdminDojo[]>([]);
-  const [selectingDojo, setSelectingDojo] = useState("");
-  const [secondaryPassword, setSecondaryPassword] = useState("");
-  const [verifying, setVerifying] = useState(false);
+  const session = useAdminSession();
+  const checked = session.checked;
+  const authed = session.status === "authenticated";
+  const { admin, dojos, name: adminName, password, secondaryPassword, verifying } = session;
+  const selectingDojo = session.selecting;
+  const setAdminName = session.setName;
+  const setPassword = session.setPassword;
+  const setSecondaryPassword = session.setSecondaryPassword;
+  const login = session.login;
+  const selectDojo = session.selectDojo;
+  const verifyRenshinKan = session.verifyRenshinKan;
+  const switchDojo = session.switchDojo;
   const [students, setStudents] = useState<StudentSummary[]>([]);
   const [pagination, setPagination] = useState(EMPTY_PAGE);
   const [suggestedId, setSuggestedId] = useState("RSK-2601");
@@ -187,9 +245,6 @@ export function AdminStudentsPage({ mode = "students" }: { mode?: StudentPageMod
   }
 
   useEffect(() => {
-    api<AdminSessionResponse>("/api/admin/session").then((body) => { setAuthed(body.authenticated); setAdmin(body.admin); setDojos(body.dojos || []); }).catch(() => setAuthed(false)).finally(() => setChecked(true));
-  }, []);
-  useEffect(() => {
     const params = new URLSearchParams(location.search);
     const requestedSection = params.get("section");
     setSectionState(requestedSection === "exams" || requestedSection === "memberships" || requestedSection === "contributions" || requestedSection === "payslips" ? requestedSection : "students");
@@ -206,56 +261,8 @@ export function AdminStudentsPage({ mode = "students" }: { mode?: StudentPageMod
     if (admin && admin.permissionLevel !== "renshinkan_super_admin" && section === "contributions") setSection("students");
   }, [admin?.permissionLevel, section]);
 
-  async function login(event: FormEvent) {
-    event.preventDefault(); setError("");
-    try {
-      await api("/api/admin/login", { method: "POST", body: JSON.stringify({ adminName, password }) });
-      const session = await api<AdminSessionResponse>("/api/admin/session");
-      setPassword(""); setAuthed(true); setAdmin(session.admin); setDojos(session.dojos || []);
-    }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "Sign in failed."); }
-  }
-
-  async function logout() {
-    await api("/api/admin/logout", { method: "POST" });
-    setAuthed(false); setAdmin(null); setDojos([]); setStudents([]); setAdminName(""); setPassword(""); setSecondaryPassword("");
-  }
-
-  async function selectDojo(dojoId: string) {
-    setSelectingDojo(dojoId); setError("");
-    try {
-      const result = await api<{ admin: AdminIdentity }>("/api/admin/select-dojo", { method: "POST", body: JSON.stringify({ dojoId }) });
-      setAdmin(result.admin);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "The dojo could not be selected."); }
-    finally { setSelectingDojo(""); }
-  }
-
-  async function verifyRenshinKan(event: FormEvent) {
-    event.preventDefault(); setVerifying(true); setError("");
-    try {
-      const result = await api<{ admin: AdminIdentity }>("/api/admin/verify-renshinkan", { method: "POST", body: JSON.stringify({ password: secondaryPassword }) });
-      setSecondaryPassword(""); setAdmin(result.admin);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "RenShinKan access could not be verified."); }
-    finally { setVerifying(false); }
-  }
-
-  async function switchDojo() {
-    const result = await api<{ admin: AdminIdentity }>("/api/admin/switch-dojo", { method: "POST" });
-    setAdmin(result.admin); setStudents([]); setSecondaryPassword(""); setError("");
-  }
-
   function clearFilters() {
     setQueryInput(""); setQuery(""); setRank(""); setExaminationStatus(""); setPaymentStatus(""); setHoursStatus(mode === "trainingRequests" ? "pending" : ""); setDojoFilters(new Set()); setAatStatus(""); setStatus(defaultStatus); setPage(1);
-  }
-
-  function toggleDojoFilter(dojoId: string) {
-    setDojoFilters((current) => {
-      const next = new Set(current);
-      if (next.has(dojoId)) next.delete(dojoId);
-      else next.add(dojoId);
-      return next;
-    });
-    setPage(1);
   }
 
   async function openStudent(id: string) {
@@ -362,9 +369,9 @@ export function AdminStudentsPage({ mode = "students" }: { mode?: StudentPageMod
   }
 
   if (!checked) return <div className="admin-gate"><LoaderCircle className="spin" /><p>Checking administrator session…</p></div>;
-  if (!authed) return <section className="container-shell student-admin"><form className="admin-login-card" onSubmit={login}><AdminLoginFields name={adminName} password={password} error={error} setName={setAdminName} setPassword={setPassword} /></form></section>;
-  if (admin && !admin.selectedDojoId) return <AdminDojoSelector dojos={dojos} admin={admin} busyId={selectingDojo} error={error} onSelect={(dojoId) => void selectDojo(dojoId)} />;
-  if (admin?.renshinkanVerificationRequired) return <AdminRenshinKanVerification password={secondaryPassword} error={error} busy={verifying} setPassword={setSecondaryPassword} onSubmit={verifyRenshinKan} onCancel={() => void switchDojo()} />;
+  if (!authed) return <section className="container-shell student-admin"><form className="admin-login-card" onSubmit={login}><AdminLoginFields name={adminName} password={password} error={session.error || error} setName={setAdminName} setPassword={setPassword} /></form></section>;
+  if (admin && !admin.selectedDojoId) return <AdminDojoSelector dojos={dojos} admin={admin} busyId={selectingDojo} error={session.error || error} onSelect={(dojoId) => void selectDojo(dojoId)} />;
+  if (admin?.renshinkanVerificationRequired) return <AdminRenshinKanVerification password={secondaryPassword} error={session.error || error} busy={verifying} setPassword={setSecondaryPassword} onSubmit={verifyRenshinKan} onCancel={() => void switchDojo()} />;
 
   const superAdmin = admin?.permissionLevel === "renshinkan_super_admin";
   const examinationRecordsView = section === "exams" && new URLSearchParams(location.search).get("view") === "records";
@@ -393,7 +400,7 @@ export function AdminStudentsPage({ mode = "students" }: { mode?: StudentPageMod
     <form className="admin-student-controls admin-student-controls--workflow admin-student-search-and-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(queryInput.trim()); }}>
       <label className="admin-search-wide">Search by name, Student ID, or AAT number<div><Search size={17} /><input value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="Name, CMU-6901, or AAT number" /><button className="btn-secondary">Search</button></div></label>
       <div className="admin-student-filter-panel">
-        {superAdmin ? <fieldset className="admin-dojo-filter"><legend>Dojo</legend><label><input type="checkbox" checked={dojoFilters.size === 0} onChange={() => { setDojoFilters(new Set()); setPage(1); }} /> All dojos</label>{dojos.map((dojo) => <label key={dojo.id}><input type="checkbox" checked={dojoFilters.has(dojo.id)} onChange={() => toggleDojoFilter(dojo.id)} /> {dojo.official_name}</label>)}</fieldset> : null}
+        {superAdmin ? <DojoFilter dojos={dojos} value={dojoFilters} onApply={(next) => { setDojoFilters(next); setPage(1); }} /> : null}
         <label>Current rank<select value={rank} onChange={(event) => { setRank(event.target.value); setPage(1); }}><option value="">All ranks</option>{RANKS.map((item) => <option key={item}>{item}</option>)}</select></label>
         <label>Examination status<select value={examinationStatus} onChange={(event) => { setExaminationStatus(event.target.value); setPage(1); }}><option value="">All examination statuses</option><option value="none">No current application</option><option value="application_submitted">Application submitted</option><option value="examination_completed">Examination completed</option></select></label>
         <label>Examination payment<select value={paymentStatus} onChange={(event) => { setPaymentStatus(event.target.value); setPage(1); }}><option value="">All payment statuses</option><option value="payment_pending">Payment pending</option><option value="paid">Paid</option><option value="not_applicable">Not applicable</option></select></label>
@@ -596,16 +603,38 @@ function StudentDrawer({ detail, loading, initialSection, admin, dojos, close, r
   const [profileNotes, setProfileNotes] = useState({ studentVisibleNote: "", internalNote: "" });
   const [hourReview, setHourReview] = useState<{ id: string; hours: number; action: "approve" | "reject"; studentVisibleNote: string; internalNote: string } | null>(null);
   const [busy, setBusy] = useState(false); const [applicationNote, setApplicationNote] = useState("");
+  const [issuedAccessCode, setIssuedAccessCode] = useState<{ code: string; studentId: string } | null>(null);
   const [workspaceSection, setWorkspaceSection] = useState<WorkspaceSection>(initialSection);
   useEffect(() => { setWorkspaceSection(initialSection); }, [detail?.student.id, initialSection]);
+  useEffect(() => { setIssuedAccessCode(null); }, [detail?.student.id]);
   useEffect(() => { if (detail) setExam((value) => ({ ...value, current: detail.student.current_belt, attempted: RANKS[Math.min(RANKS.length - 1, Math.max(1, RANKS.indexOf(detail.student.current_belt as (typeof RANKS)[number]) + 1))] })); }, [detail?.student.id, detail?.student.current_belt]);
   async function mutate(path: string, body: Record<string, unknown>, success: string) { if (!detail) return false; setBusy(true); try { await api(path, { method: "POST", body: JSON.stringify(body) }); report(success); await refresh(); return true; } catch (reason) { report(reason instanceof Error ? reason.message : "The change could not be saved.", true); return false; } finally { setBusy(false); } }
+  async function issueAccessCode() {
+    if (!detail || !window.confirm("Issue a new private passport access code? Any earlier code will stop working immediately.")) return;
+    setBusy(true);
+    try {
+      const result = await api<{ code: string; studentId: string }>(`/api/admin/students/${detail.student.id}/access-code`, { method: "POST" });
+      setIssuedAccessCode(result);
+      report("Private passport access code issued. Give it to the student through a trusted channel.");
+    } catch (reason) {
+      report(reason instanceof Error ? reason.message : "The access code could not be issued.", true);
+    } finally { setBusy(false); }
+  }
   if (loading || !detail) return <div className="admin-drawer-backdrop"><section className="admin-drawer" role="dialog" aria-modal="true" aria-labelledby="student-record-loading-title"><header><h2 id="student-record-loading-title">Student record</h2><button aria-label="Close student record" onClick={close}><X /></button></header><div className="admin-drawer-loading"><LoaderCircle className="spin" /> Loading complete record…</div></section></div>;
   const student = detail.student; const currentApp = detail.applications[0]; const pendingRequests = detail.hourRequests.filter((request) => request.status === "pending");
   const workspaceSections = [["overview", "Overview"], ["profile", "Profile"], ["training", "Training"], ["examinations", "Examinations"], ["payments", "Payments"], ["history", "History"]] as const;
-  return <div className="admin-drawer-backdrop"><section className="admin-drawer admin-drawer--workflow admin-student-workspace" role="dialog" aria-modal="true" aria-labelledby="student-workspace-title"><header><div className="admin-student-workspace__identity"><span>{student.pending_profile_image_url ? <img src={student.pending_profile_image_url} alt="" /> : student.profile_image_url ? <img src={student.profile_image_url} alt="" /> : <UserRound />}</span><div><p className="eyebrow">Student workspace</p><h2 id="student-workspace-title">{student.english_name || student.display_name}</h2>{student.thai_name ? <p className="admin-student-workspace__thai" lang="th">{student.thai_name}</p> : null}<p><code>{student.public_student_id}</code> · <BeltMark rank={student.current_belt} /> {student.current_belt} · {student.dojo_name}</p></div></div><button className="admin-icon-button" aria-label="Close student workspace" onClick={close}><X /></button></header><nav className="admin-student-workspace__tabs" aria-label="Student workspace sections">{workspaceSections.map(([id, title]) => <button key={id} className={workspaceSection === id ? "is-active" : ""} aria-current={workspaceSection === id ? "page" : undefined} onClick={() => setWorkspaceSection(id)}>{title}{id === "training" && pendingRequests.length ? <span>{pendingRequests.length}</span> : null}</button>)}</nav><div className="admin-drawer__body" data-section={workspaceSection}>
-    <div className="admin-profile-review"><div>{student.pending_profile_image_url ? <img src={student.pending_profile_image_url} alt="Pending profile" /> : student.profile_image_url ? <img src={student.profile_image_url} alt="Profile" /> : <UserRound />}</div><dl><div><dt>Status</dt><dd><Status value={studentRecordStatus(student)} /></dd></div><div><dt>Total hours</dt><dd>{Number(student.total_hours).toLocaleString()} hr</dd></div><div><dt>Account created</dt><dd>{student.account_created_date ? formatDay(student.account_created_date) : "Not supplied"}</dd></div><div><dt>Joined dojo</dt><dd>{student.dojo_joined_date ? formatDay(student.dojo_joined_date) : "Not supplied"}</dd></div><div><dt>Practice duration</dt><dd>{student.practice_duration || "Not supplied"}</dd></div></dl></div>
+  function moveTab(event: ReactKeyboardEvent<HTMLButtonElement>, index: number) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? workspaceSections.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + workspaceSections.length) % workspaceSections.length;
+    const nextSection = workspaceSections[nextIndex][0];
+    setWorkspaceSection(nextSection);
+    document.getElementById(`student-tab-${nextSection}`)?.focus();
+  }
+  return <div className="admin-drawer-backdrop"><section className="admin-drawer admin-drawer--workflow admin-student-workspace" role="dialog" aria-modal="true" aria-labelledby="student-workspace-title"><header><div className="admin-student-workspace__identity"><span>{student.pending_profile_image_url ? <img src={student.pending_profile_image_url} alt="" /> : student.profile_image_url ? <img src={student.profile_image_url} alt="" /> : <UserRound />}</span><div><p className="eyebrow">Student workspace</p><h2 id="student-workspace-title">{student.english_name || student.display_name}</h2>{student.thai_name ? <p className="admin-student-workspace__thai" lang="th">{student.thai_name}</p> : null}<p><code>{student.public_student_id}</code> · <BeltMark rank={student.current_belt} /> {student.current_belt} · {student.dojo_name}</p><Status value={studentRecordStatus(student)} /></div></div><button className="admin-icon-button" aria-label="Close student workspace" onClick={close}><X /></button></header><nav className="admin-student-workspace__tabs" role="tablist" aria-label="Student workspace sections">{workspaceSections.map(([id, title], index) => <button key={id} id={`student-tab-${id}`} role="tab" aria-selected={workspaceSection === id} aria-controls="student-workspace-panel" tabIndex={workspaceSection === id ? 0 : -1} className={workspaceSection === id ? "is-active" : ""} onKeyDown={(event) => moveTab(event, index)} onClick={() => setWorkspaceSection(id)}>{title}{id === "training" && pendingRequests.length ? <span>{pendingRequests.length}</span> : null}</button>)}</nav><div id="student-workspace-panel" className="admin-drawer__body" role="tabpanel" aria-labelledby={`student-tab-${workspaceSection}`} data-section={workspaceSection}>
+    <div className="admin-profile-review"><div>{student.pending_profile_image_url ? <img src={student.pending_profile_image_url} alt="Pending profile" /> : student.profile_image_url ? <img src={student.profile_image_url} alt="Profile" /> : <UserRound />}</div><dl><div><dt>Status</dt><dd><Status value={studentRecordStatus(student)} /></dd></div><div><dt>Total hours</dt><dd>{Number(student.total_hours).toLocaleString()} hr</dd></div><div><dt>Current rank</dt><dd>{student.current_belt}</dd></div><div><dt>Current dojo</dt><dd>{student.dojo_name}</dd></div><div><dt>Pending profile</dt><dd>{student.profile_status === "pending_admin_approval" ? "Needs review" : "None"}</dd></div><div><dt>Pending hours</dt><dd>{pendingRequests.length ? `${pendingRequests.length} request${pendingRequests.length === 1 ? "" : "s"}` : "None"}</dd></div><div><dt>Account created</dt><dd>{student.account_created_date ? formatDay(student.account_created_date) : "Not supplied"}</dd></div><div><dt>Joined dojo</dt><dd>{student.dojo_joined_date ? formatDay(student.dojo_joined_date) : "Not supplied"}</dd></div><div><dt>Practice start</dt><dd>{student.practice_duration || "Not supplied"}</dd></div></dl></div>
     <StudentDetailsEditor student={student} admin={admin} dojos={dojos} refresh={refresh} report={report} />
+    <section className="admin-workflow-card"><h3>Private passport access</h3><p>Issue or reset a random code for private record lookup. The code is shown once and is never stored in readable form.</p><button className="btn-secondary" type="button" disabled={busy} onClick={() => void issueAccessCode()}>{issuedAccessCode ? "Issue another code" : "Issue private access code"}</button>{issuedAccessCode ? <div className="form-success" role="status"><strong>{issuedAccessCode.studentId}</strong><code>{issuedAccessCode.code}</code><small>Copy this now and deliver it privately. Closing this record removes it from the screen.</small></div> : null}</section>
     {student.profile_status === "pending_admin_approval" ? <section className="admin-workflow-card admin-profile-approval"><h3>Review profile request</h3><p>Pending profiles remain inactive and private until approval.</p>
       <label>Student-visible explanation <small>Shown in the authenticated student passport. Required when rejecting.</small><textarea value={profileNotes.studentVisibleNote} maxLength={2000} onChange={(event) => setProfileNotes({ ...profileNotes, studentVisibleNote: event.target.value })} /></label>
       <label>Private internal note <small>Administrator-only context. Never shown to students or the public.</small><textarea value={profileNotes.internalNote} maxLength={2000} onChange={(event) => setProfileNotes({ ...profileNotes, internalNote: event.target.value })} /></label>
@@ -620,6 +649,10 @@ function StudentDrawer({ detail, loading, initialSection, admin, dojos, close, r
       <div className="admin-inline-actions"><button className="btn-secondary" onClick={() => setHourReview(null)}>Cancel</button><button className={`btn-primary${hourReview.action === "reject" ? " is-danger" : ""}`} disabled={busy || (hourReview.action === "reject" && !hourReview.studentVisibleNote.trim())} onClick={() => void (async () => { const saved = await mutate(`/api/admin/students/${student.id}/hours-requests`, { hourRequestId: hourReview.id, action: hourReview.action, studentVisibleNote: hourReview.studentVisibleNote, internalNote: hourReview.internalNote }, `Student hours ${hourReview.action === "approve" ? "approved" : "rejected"}.`); if (saved) setHourReview(null); })()}>{hourReview.action === "approve" ? "Confirm approval" : "Confirm rejection"}</button></div>
     </section> : null}
     {currentApp ? <section className="admin-workflow-card admin-application"><header><div><h3>Examination application</h3><p>{currentApp.cycle_name} · submitted {formatDate(currentApp.submitted_at)}</p></div><Status value={currentApp.payment_status} /></header><dl className="admin-detail-grid"><div><dt>Current rank</dt><dd>{currentApp.current_rank}</dd></div><div><dt>Attempting</dt><dd>{currentApp.attempted_rank}</dd></div><div><dt>Status</dt><dd><Status value={currentApp.status} /></dd></div><div><dt>Payment</dt><dd><Status value={currentApp.payment_status} /></dd></div></dl><details><summary>View every PDF questionnaire answer</summary><dl className="admin-answer-list">{Object.entries(currentApp.answers).map(([key, value]) => <div key={key}><dt>{label(key)}</dt><dd>{value || "—"}</dd></div>)}</dl></details><label>Administrator note <small>Private admin-only note. Only authorized administrators can see it; it is never shown to students or on public profiles.</small><textarea value={applicationNote || currentApp.administrator_notes} onChange={(event) => setApplicationNote(event.target.value)} /></label><div className="admin-inline-actions">{currentApp.status === "rejected" ? <p>This application was denied. Payment actions are unavailable.</p> : currentApp.payment_status === "paid" ? <button className="btn-secondary is-danger" onClick={() => { if (window.confirm("Reverse this payment confirmation? The reversal will be logged.")) void mutate(`/api/admin/students/${student.id}/application`, { applicationId: currentApp.id, action: "reverse_payment", confirmed: true }, "Payment confirmation reversed."); }}>Undo payment confirmation</button> : <button className="btn-primary" onClick={() => void mutate(`/api/admin/students/${student.id}/application`, { applicationId: currentApp.id, action: "mark_paid" }, "Payment confirmed.")}>Mark paid</button>}<button className="btn-secondary" onClick={() => void mutate(`/api/admin/students/${student.id}/application`, { applicationId: currentApp.id, action: "update_note", note: applicationNote || currentApp.administrator_notes }, "Administrator note saved.")}>Save note</button></div>{currentApp.history?.length ? <details><summary>Status and payment history</summary><ol className="admin-status-history">{currentApp.history.map((entry, index) => <li key={String(entry.id || index)}>{formatDate(String(entry.createdAt))} · {label(String(entry.newStatus || entry.newPaymentStatus || "updated"))}</li>)}</ol></details> : null}</section> : null}
+    <section className="admin-workflow-card admin-payment-history" aria-labelledby="student-payment-history-title"><header><div><h3 id="student-payment-history-title"><ReceiptText size={18} aria-hidden="true" /> Payment records</h3><p>Private proof files are available only through authorized administration routes.</p></div></header>
+      {detail.payments.length ? <div className="admin-payment-history__table"><table><thead><tr><th>Type</th><th>Period / date</th><th>Amount</th><th>Status</th><th>Proof</th></tr></thead><tbody>{detail.payments.map((payment) => <tr key={payment.id}><td>{label(payment.payment_type)}</td><td>{payment.period_key || (payment.payment_date ? formatDay(payment.payment_date) : formatDay(payment.created_at))}</td><td>{payment.amount == null ? "Not recorded" : `${Number(payment.amount).toLocaleString()} ${payment.currency}`}</td><td><Status value={payment.status} /></td><td>{payment.proof_id ? <span className="admin-proof-actions"><Status value={payment.proof_status || "submitted"} /><a href={`/api/admin/payment-proofs/${payment.proof_id}`} target="_blank" rel="noopener noreferrer">View</a><a href={`/api/admin/payment-proofs/${payment.proof_id}?download=1`} download>Download</a></span> : "No proof attached"}</td></tr>)}</tbody></table></div> : <div className="admin-empty admin-payment-history__empty"><ReceiptText size={28} aria-hidden="true" /><h3>No payment records yet</h3><p>Payments and contribution confirmations for this student will appear here.</p></div>}
+      {detail.paymentProofs.filter((proof) => !detail.payments.some((payment) => payment.proof_id === proof.id)).length ? <section className="admin-payment-history__unlinked"><h4>Other submitted proofs</h4><ul>{detail.paymentProofs.filter((proof) => !detail.payments.some((payment) => payment.proof_id === proof.id)).map((proof) => <li key={proof.id}><span><strong>{label(proof.payment_type)}</strong><small>{proof.period_key || (proof.submitted_at ? formatDay(proof.submitted_at) : "Date not recorded")} · {proof.original_filename || "Payment proof"}</small></span><Status value={proof.status} /><a href={`/api/admin/payment-proofs/${proof.id}`} target="_blank" rel="noopener noreferrer">View</a><a href={`/api/admin/payment-proofs/${proof.id}?download=1`} download>Download</a></li>)}</ul></section> : null}
+    </section>
     <section className="admin-history-grid"><section><h3>Training history</h3>{detail.trainingHours.length ? <ol>{detail.trainingHours.map((entry) => <li key={entry.id}><strong>+{entry.verified_hours} hours</strong><time>{formatDay(entry.entry_date || entry.created_at)}</time><span>{entry.organization || entry.source_details || entry.training_location || label(entry.source_type || entry.source)}</span>{entry.notes ? <small>{entry.notes}</small> : null}</li>)}</ol> : <p>No entries yet.</p>}</section><section><h3>Examination history</h3>{detail.examinations.length ? <ol>{detail.examinations.map((entry) => <li key={entry.id}><strong>{entry.rank_before ? `${entry.rank_before} → ` : ""}{entry.rank_after || entry.rank_attempted}</strong><time>{formatDay(entry.examination_date || entry.examination_timestamp)}</time><span>{entry.passed ? "Passed" : "Did not pass"}{entry.examination_location ? ` · ${entry.examination_location}` : ""}</span></li>)}</ol> : <p>No examinations yet.</p>}</section></section>
   </div></section></div>;
 }

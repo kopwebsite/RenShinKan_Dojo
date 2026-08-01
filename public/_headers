@@ -7,7 +7,19 @@
   X-Frame-Options: DENY
 
 /fonts/*
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
+/assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+/build.json
+  Cache-Control: no-cache, must-revalidate
+
+/site-bootstrap.js
+  Cache-Control: no-cache, must-revalidate
+
+/help/screenshots/*
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
 
 /optimized/*
   Cache-Control: public, max-age=604800, stale-while-revalidate=86400
@@ -30,6 +42,11 @@
 /*.jpg
   Cache-Control: public, max-age=86400, stale-while-revalidate=86400
 
+/*.pdf
+  Cache-Control: public, max-age=86400, stale-while-revalidate=86400
+  ! Content-Security-Policy
+  ! X-Frame-Options
+
 /
   Cache-Control: public, max-age=0, must-revalidate
 
@@ -51,6 +68,17 @@
 /newsletter
   Cache-Control: public, max-age=0, must-revalidate
 
+/newsletter/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/downloads
+  Cache-Control: public, max-age=0, must-revalidate
+
+/downloads/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=86400
+  ! Content-Security-Policy
+  ! X-Frame-Options
+
 /support
   Cache-Control: public, max-age=0, must-revalidate
 
@@ -58,17 +86,21 @@
   Cache-Control: public, max-age=0, must-revalidate
 
 /api/*
-  Cache-Control: no-store
+  Cache-Control: private, no-store
   X-Robots-Tag: noindex, nofollow
 
 /admin
+  Cache-Control: private, no-store
   X-Robots-Tag: noindex, nofollow
 
 /admin/*
+  Cache-Control: private, no-store
   X-Robots-Tag: noindex, nofollow
 
 /student-records
+  Cache-Control: private, no-store
   X-Robots-Tag: noindex, nofollow
 
 /records/*
+  Cache-Control: private, no-store
   X-Robots-Tag: noindex, nofollow

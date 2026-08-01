@@ -648,6 +648,23 @@
     "translate": {
       "label": "แปลจดหมายข่าวนี้",
       "aria": "แปล {{title}} ด้วย Google แปลภาษา"
+    },
+    "presentation": {
+      "eyebrow": "จดหมายข่าวแบบนำเสนอ",
+      "instructions": "ใช้ปุ่มควบคุมหน้า หรือปุ่มลูกศรซ้ายและขวา โปรแกรมดู PDF มีเครื่องมือซูมและพิมพ์ของตัวเองด้วย",
+      "fullScreen": "เต็มหน้าจอ",
+      "exitFullScreen": "ออกจากโหมดเต็มหน้าจอ",
+      "controls": "ตัวควบคุมหน้าการนำเสนอ",
+      "previous": "ก่อนหน้า",
+      "page": "หน้า",
+      "ofTotal": "จาก {{total}}",
+      "next": "ถัดไป",
+      "frameTitle": "{{title}}, หน้า {{page}}",
+      "unavailableTitle": "ไม่สามารถดูงานนำเสนอบนเว็บได้",
+      "unavailableCopy": "โดโจยังไม่ได้แนบไฟล์ PDF ที่จำเป็นสำหรับโปรแกรมดู",
+      "downloadPdf": "ดาวน์โหลด PDF",
+      "downloadPowerPoint": "ดาวน์โหลด PowerPoint ต้นฉบับ",
+      "outline": "เค้าโครงการนำเสนอ"
     }
   },
   "workshops": {
@@ -1427,9 +1444,17 @@
     "goTo": "ไปที่ภาพ {{number}}"
   },
   "date": {
-    "gregorianHelp": "DD/MM/YYYY (ปฏิทินเกรกอเรียน)",
-    "monthHelp": "MM/YYYY (ปฏิทินเกรกอเรียน)",
-    "dateTimeHelp": "DD/MM/YYYY HH:mm (ปฏิทินเกรกอเรียน)",
+    "gregorianHelp": "เลือกวันที่ตามปฏิทินเกรกอเรียน",
+    "monthHelp": "เลือกเดือนและปีตามปฏิทินเกรกอเรียน",
+    "dateTimeHelp": "เลือกวันที่และเวลาตามปฏิทินเกรกอเรียน",
+    "monthLabel": "เดือน",
+    "yearLabel": "ปีเกรกอเรียน",
+    "chooseMonth": "เลือกเดือน",
+    "chooseYear": "เลือกปี",
+    "yearPlaceholder": "YYYY",
+    "monthMissing": "เลือกเดือนหรือเว้นว่างทั้งสองช่อง",
+    "yearMissing": "กรอกปีเกรกอเรียนสี่หลักหรือเว้นว่างทั้งสองช่อง",
+    "yearRange": "กรอกปีเกรกอเรียนตั้งแต่ {{minimum}} ถึง {{maximum}}",
     "invalid": "กรุณากรอกวันที่จริงในรูปแบบ DD/MM/YYYY",
     "invalidMonth": "กรุณากรอกเดือนและปีในรูปแบบ MM/YYYY",
     "invalidDateTime": "กรุณากรอกวันที่และเวลาในรูปแบบ DD/MM/YYYY HH:mm",

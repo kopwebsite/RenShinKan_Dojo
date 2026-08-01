@@ -1,6 +1,6 @@
 import { CheckCircle2, Clock3, FileImage, GraduationCap, HandCoins, ReceiptText, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 
 type CountKey = "pendingProfiles" | "pendingExams" | "pendingAatPayments" | "pendingHours" | "pendingMonthlyContributions" | "pendingPayslips";
 type Dashboard = {
@@ -24,7 +24,10 @@ export function AdminAlerts() {
       if (response.ok) setDashboard(await response.json() as Dashboard);
     }).catch(() => undefined);
   }, []);
-  if (!dashboard) return null;
+  if (!dashboard) return <section className="admin-alerts admin-alerts--loading" aria-busy="true" aria-label="Loading approval center">
+    <header><div><p className="eyebrow">Approval center</p><h2>Loading approvals…</h2><p>Checking work for the selected dojo.</p></div></header>
+    <div aria-hidden="true">{cards.map((card) => <span key={card.key} />)}</div>
+  </section>;
 
   const visibleCards = cards.filter((card) => !card.renshinkanOnly || dashboard.capabilities.monthlyContributions);
   const total = visibleCards.reduce((sum, card) => sum + dashboard.counts[card.key], 0);

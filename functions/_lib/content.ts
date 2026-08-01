@@ -19,6 +19,8 @@ import {
   type NewsletterEmailSettings,
   type NewsletterEventDetails,
   type NewsletterLifecycleStatus,
+  type NewsletterFormat,
+  type NewsletterPresentation,
 } from "../../shared/newsletter";
 
 export type NewsletterStatus = "not_sent" | "pending" | "sent" | "failed";
@@ -70,6 +72,8 @@ export type RecentEvent = {
   category?: NewsletterCategory;
   tags?: string[];
   lifecycleStatus?: NewsletterLifecycleStatus;
+  newsletterFormat?: NewsletterFormat;
+  presentation?: NewsletterPresentation;
   archivedAt?: string | null;
   trashedAt?: string | null;
   featured?: boolean;
@@ -152,6 +156,7 @@ const allowedNewsletterStatuses = new Set<NewsletterStatus>(["not_sent", "pendin
 const allowedNewsletterCategories = new Set<NewsletterCategory>(NEWSLETTER_CATEGORIES);
 const allowedNewsletterContentTypes = new Set<NewsletterContentType>(["newsletter", "event"]);
 const allowedNewsletterLifecycleStatuses = new Set<NewsletterLifecycleStatus>(["active", "archived", "trash"]);
+const allowedNewsletterFormats = new Set<NewsletterFormat>(["article", "presentation"]);
 const allowedBodyMediaAligns = new Set<BodyMediaAlign>(["left", "center", "right"]);
 const allowedDocumentKinds = new Set<DocumentMediaKind>(["pdf", "docx", "ppt"]);
 const allowedDocumentDisplayModes = new Set<DocumentDisplayMode>(["inline", "link"]);
@@ -583,6 +588,24 @@ function validateEventDetails(value: unknown): NewsletterEventDetails {
   };
 }
 
+function validatePresentation(value: unknown, media: MediaItem[], title: string): NewsletterPresentation {
+  const presentation = isRecord(value) ? value : {};
+  const originalMediaId = cleanNewsletterIdentifier(presentation.originalMediaId);
+  const pdfMediaId = cleanNewsletterIdentifier(presentation.pdfMediaId);
+  const validOriginal = media.some((item) => item.id === originalMediaId && item.type === "document" && item.documentKind === "ppt");
+  const validPdf = media.some((item) => item.id === pdfMediaId && item.type === "document" && item.documentKind === "pdf");
+  const slideCount = Number(presentation.slideCount);
+  return {
+    originalMediaId: validOriginal ? originalMediaId : null,
+    pdfMediaId: validPdf ? pdfMediaId : null,
+    viewerTitle: cleanNewsletterText(presentation.viewerTitle, 240).trim() || title,
+    slideCount: Number.isInteger(slideCount) && slideCount >= 1 && slideCount <= 999 ? slideCount : null,
+    outline: Array.isArray(presentation.outline)
+      ? presentation.outline.map((item) => cleanNewsletterText(item, 240).trim()).filter(Boolean).slice(0, 100)
+      : [],
+  };
+}
+
 function validateRecentEvent(value: unknown, index: number): RecentEvent {
   const path = `recentEvents[${index}]`;
 
@@ -629,6 +652,9 @@ function validateRecentEvent(value: unknown, index: number): RecentEvent {
   const lifecycleStatus = allowedNewsletterLifecycleStatuses.has(value.lifecycleStatus as NewsletterLifecycleStatus)
     ? value.lifecycleStatus as NewsletterLifecycleStatus
     : "active";
+  const newsletterFormat = allowedNewsletterFormats.has(value.newsletterFormat as NewsletterFormat)
+    ? value.newsletterFormat as NewsletterFormat
+    : "article";
 
   return {
     id,
@@ -649,6 +675,8 @@ function validateRecentEvent(value: unknown, index: number): RecentEvent {
     category,
     tags: cleanNewsletterTags(value.tags),
     lifecycleStatus,
+    newsletterFormat,
+    presentation: validatePresentation(value.presentation, media, title),
     archivedAt: typeof value.archivedAt === "string" ? value.archivedAt.slice(0, 40) : null,
     trashedAt: typeof value.trashedAt === "string" ? value.trashedAt.slice(0, 40) : null,
     featured: value.featured === true,

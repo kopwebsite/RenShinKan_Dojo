@@ -1,13 +1,16 @@
 import { getAuthorizedAdminSession, isSameOriginRequest, jsonResponse, requiresCentralAdmin } from "../../_lib/auth";
-import { getUploadFiles, uploadFilesToR2, type StorageEnv } from "../../_lib/storage";
+import { getUploadFiles, StorageOperationError, uploadFilesToR2, type StorageEnv } from "../../_lib/storage";
 import { adminAuditMetadata, auditStatement, requestIdentifier, requireStudentDb, type StudentEnv } from "../../_lib/studentRecords";
+import { uploadsEnabled } from "../../_lib/operationalControls";
 
-type Env = StudentEnv & StorageEnv & { SESSION_SECRET?: string };
+type Env = StudentEnv & StorageEnv & { SESSION_SECRET?: string; UPLOADS_ENABLED?: string };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
   const session = await getAuthorizedAdminSession(request, env);
   if (!requiresCentralAdmin(session)) return jsonResponse({ error: "Only the RenShinKan administrator may upload website media." }, session ? 403 : 401);
+  if (!uploadsEnabled(env)) return jsonResponse({ error: "Website uploads are temporarily paused. Existing media is unchanged." }, 503);
+  let uploadedKey = "";
   try {
     const files = getUploadFiles(await request.formData());
     if (files.length !== 1) return jsonResponse({ error: "Choose one image to upload." }, 400);
@@ -15,6 +18,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const result = await uploadFilesToR2(env, files);
     const uploaded = result.uploaded[0];
     if (!uploaded || uploaded.contentType !== "image/webp") return jsonResponse({ error: "Website images must be WebP." }, 400);
+    uploadedKey = uploaded.key;
     const db = requireStudentDb(env);
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
@@ -27,8 +31,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         source: "admin_site_editor", requestId: requestIdentifier(request), summary: "Uploaded website image", createdAt: now,
       }),
     ]);
+    uploadedKey = "";
     return jsonResponse({ ok: true, asset: { id, url: uploaded.url, contentType: uploaded.contentType, size: uploaded.size } }, 201, { "Cache-Control": "no-store" });
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : "The image could not be uploaded." }, 400);
+    if (uploadedKey && env.MEDIA_BUCKET) await env.MEDIA_BUCKET.delete(uploadedKey).catch(() => undefined);
+    const unavailable = error instanceof StorageOperationError;
+    return jsonResponse({ error: unavailable ? error.message : error instanceof Error ? error.message : "The image could not be uploaded." }, unavailable ? 503 : 400);
   }
 };

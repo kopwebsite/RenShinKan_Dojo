@@ -1,13 +1,15 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router";
 import { Footer } from "./components/Footer";
 import { Navbar } from "./components/Navbar";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { Seo } from "./components/Seo";
 import { ManagedRoute } from "./components/ManagedRoute";
 import { AdminShell } from "./components/admin/AdminShell";
+import { AdminSessionProvider } from "./components/admin/useAdminSession";
 import { AdminLanguageProvider, useAdminTranslation, useTranslation } from "./i18n";
 import { DojoPage } from "./pages/DojoPage";
+import { HelpLauncher } from "./help/HelpLauncher";
 
 const AikidoPage = lazy(() => import("./pages/AikidoPage").then((module) => ({ default: module.AikidoPage })));
 const AdminPage = lazy(() => import("./pages/AdminPage").then((module) => ({ default: module.AdminPage })));
@@ -58,6 +60,7 @@ function AdminRouteFrame() {
           <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/admin" element={<AdminDashboardPage />} />
+              <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
               <Route path="/admin/website" element={<AdminPage />} />
               <Route path="/admin/downloads" element={<AdminDownloadsPage />} />
               <Route path="/admin/galleries/:galleryId" element={<AdminGalleryPage />} />
@@ -79,6 +82,7 @@ function AdminRouteFrame() {
           </Suspense>
         </AdminShell>
       </main>
+      <HelpLauncher audience="admin" />
     </>
   );
 }
@@ -100,7 +104,9 @@ export default function App() {
   if (isAdminRoute) {
     return (
       <AdminLanguageProvider>
-        <AdminRouteFrame />
+        <AdminSessionProvider>
+          <AdminRouteFrame />
+        </AdminSessionProvider>
       </AdminLanguageProvider>
     );
   }
@@ -136,6 +142,7 @@ export default function App() {
           </Routes>
         </Suspense>
       </main>
+      <HelpLauncher audience="public" />
       <Footer />
     </>
   );

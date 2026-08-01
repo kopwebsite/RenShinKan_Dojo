@@ -1,3 +1,9 @@
+import {
+  clearRateLimit,
+  consumeRateLimit,
+  isRateLimitAllowed,
+} from "./rateLimit";
+
 const COOKIE_NAME = "rsk_admin_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 export const RENSHINKAN_DOJO_ID = "dojo-rsk";
@@ -8,6 +14,7 @@ type AuthEnv = {
   RSK_ADMIN_SECONDARY_PASSWORD?: string;
   RSK_ADMIN_SECONDARY_PASSWORD_HASH?: string;
   SESSION_SECRET?: string;
+  STUDENT_LOOKUP_PEPPER?: string;
   STUDENT_DB?: {
     prepare(query: string): {
       bind(...values: unknown[]): {
@@ -26,6 +33,7 @@ export type AdminSession = {
   iat: number;
   exp: number;
   sessionId: string;
+  accountId: string;
   adminName: string;
   role: AdminRole;
   allowedDojoIds: string[];
@@ -33,13 +41,18 @@ export type AdminSession = {
   renshinkanVerified: boolean;
 };
 
-export function jsonResponse(data: unknown, status = 200, headers: HeadersInit = {}) {
+export function jsonResponse(
+  data: unknown,
+  status = 200,
+  headers: HeadersInit = {},
+) {
+  const responseHeaders = new Headers(headers);
+  responseHeaders.set("Content-Type", "application/json; charset=utf-8");
+  if (!responseHeaders.has("Cache-Control"))
+    responseHeaders.set("Cache-Control", "private, no-store");
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      ...headers,
-    },
+    headers: responseHeaders,
   });
 }
 
@@ -81,12 +94,18 @@ function bytesToBase64Url(bytes: Uint8Array) {
     binary += String.fromCharCode(...bytes.slice(index, index + chunkSize));
   }
 
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
 }
 
 function base64UrlToBytes(value: string) {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
+  const padded = normalized.padEnd(
+    normalized.length + ((4 - (normalized.length % 4)) % 4),
+    "=",
+  );
   const binary = atob(padded);
   const bytes = new Uint8Array(binary.length);
 
@@ -100,14 +119,26 @@ function base64UrlToBytes(value: string) {
 function timingSafeEqualBytes(a: Uint8Array, b: Uint8Array) {
   if (a.byteLength !== b.byteLength) return false;
   const subtle = crypto.subtle as SubtleCrypto & {
-    timingSafeEqual?: (left: ArrayBufferView, right: ArrayBufferView) => boolean;
+    timingSafeEqual?: (
+      left: ArrayBufferView,
+      right: ArrayBufferView,
+    ) => boolean;
   };
-  if (typeof subtle.timingSafeEqual === "function") return subtle.timingSafeEqual(a, b);
+  if (typeof subtle.timingSafeEqual === "function") {
+    try {
+      return subtle.timingSafeEqual(a, b);
+    } catch {
+      // Some Workers compatibility dates expose the extension but reject a
+      // typed-array view. The fixed-size digest fallback below is also
+      // constant-time and is shared with the Node-based test runtime.
+    }
+  }
 
   // Node's Web Crypto used by the unit tests does not yet expose the Workers
   // timingSafeEqual extension. Both inputs are fixed-size digests here.
   let result = 0;
-  for (let index = 0; index < a.byteLength; index += 1) result |= a[index] ^ b[index];
+  for (let index = 0; index < a.byteLength; index += 1)
+    result |= a[index] ^ b[index];
   return result === 0;
 }
 
@@ -135,49 +166,48 @@ async function hmacSha256(secret: string, value: string) {
 async function hmacSha256Hex(secret: string, value: string) {
   const bytes = await hmacSha256(secret, value);
 
-  return [...bytes]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-async function loginActorHash(request: Request, purpose = "login") {
-  const value = `${purpose}:${request.headers.get("CF-Connecting-IP") || "unknown"}:${request.headers.get("User-Agent") || ""}`;
-  const digest = await crypto.subtle.digest("SHA-256", textToBytes(value));
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 export async function allowAdminLoginAttempt(request: Request, env: AuthEnv) {
-  if (!env.STUDENT_DB) return true;
-  const actor = await loginActorHash(request);
-  const row = await env.STUDENT_DB.prepare("SELECT locked_until FROM admin_login_attempts WHERE actor_hash = ?")
-    .bind(actor).first<{ locked_until: string | null }>();
-  return !(row?.locked_until && Date.parse(row.locked_until) > Date.now());
+  return isRateLimitAllowed(request, env, {
+    endpoint: "admin-login",
+    limit: 8,
+    windowSeconds: 15 * 60,
+    lockSeconds: 15 * 60,
+  });
 }
 
-export async function recordFailedAdminLoginAttempt(request: Request, env: AuthEnv) {
-  if (!env.STUDENT_DB) return true;
-  const actor = await loginActorHash(request);
-  const now = Date.now();
-  const row = await env.STUDENT_DB.prepare("SELECT window_started_at, attempts FROM admin_login_attempts WHERE actor_hash = ?")
-    .bind(actor).first<{ window_started_at: string; attempts: number }>();
-  const expired = !row || now - Date.parse(row.window_started_at) > 15 * 60 * 1000;
-  const attempts = expired ? 1 : Number(row.attempts || 0) + 1;
-  const lockedUntil = attempts >= 8 ? new Date(now + 15 * 60 * 1000).toISOString() : null;
-  await env.STUDENT_DB.prepare(`INSERT INTO admin_login_attempts (actor_hash, window_started_at, attempts, locked_until)
-    VALUES (?, ?, ?, ?) ON CONFLICT(actor_hash) DO UPDATE SET window_started_at = excluded.window_started_at,
-    attempts = excluded.attempts, locked_until = excluded.locked_until`)
-    .bind(actor, expired ? new Date(now).toISOString() : row!.window_started_at, attempts, lockedUntil).run();
-  return !lockedUntil;
+export async function recordFailedAdminLoginAttempt(
+  request: Request,
+  env: AuthEnv,
+) {
+  const rule = {
+    endpoint: "admin-login",
+    limit: 8,
+    windowSeconds: 15 * 60,
+    lockSeconds: 15 * 60,
+  };
+  const accepted = await consumeRateLimit(request, env, rule);
+  if (!accepted) return false;
+  return isRateLimitAllowed(request, env, rule);
 }
 
 export async function clearAdminLoginAttempts(request: Request, env: AuthEnv) {
-  if (!env.STUDENT_DB) return;
-  await env.STUDENT_DB.prepare("DELETE FROM admin_login_attempts WHERE actor_hash = ?").bind(await loginActorHash(request)).run();
+  await clearRateLimit(request, env, "admin-login");
 }
 
-export async function verifyRenshinKanSecondaryPassword(password: string, env: AuthEnv) {
+export async function verifyRenshinKanSecondaryPassword(
+  password: string,
+  env: AuthEnv,
+) {
   if (isConfigured(env.RSK_ADMIN_SECONDARY_PASSWORD_HASH)) {
-    return verifyStoredPassword(password, env.RSK_ADMIN_SECONDARY_PASSWORD_HASH!, env, false);
+    return verifyStoredPassword(
+      password,
+      env.RSK_ADMIN_SECONDARY_PASSWORD_HASH!,
+      env,
+      false,
+    );
   }
 
   // Deployment compatibility only: existing installations may still have the
@@ -190,12 +220,24 @@ export async function verifyRenshinKanSecondaryPassword(password: string, env: A
 
 const MIN_PBKDF2_ITERATIONS = 210_000;
 
-async function verifyStoredPassword(password: string, stored: string, env: AuthEnv, allowLegacyHmac: boolean) {
+async function verifyStoredPassword(
+  password: string,
+  stored: string,
+  env: AuthEnv,
+  allowLegacyHmac: boolean,
+) {
   const value = stored.trim();
-  const match = value.match(/^pbkdf2-sha256:(\d+):([A-Za-z0-9_-]{20,}):([A-Za-z0-9_-]{40,})$/i);
+  const match = value.match(
+    /^pbkdf2-sha256:(\d+):([A-Za-z0-9_-]{20,}):([A-Za-z0-9_-]{40,})$/i,
+  );
   if (match) {
     const iterations = Number(match[1]);
-    if (!Number.isSafeInteger(iterations) || iterations < MIN_PBKDF2_ITERATIONS || iterations > 2_000_000) return false;
+    if (
+      !Number.isSafeInteger(iterations) ||
+      iterations < MIN_PBKDF2_ITERATIONS ||
+      iterations > 2_000_000
+    )
+      return false;
     let salt: Uint8Array;
     let expected: Uint8Array;
     try {
@@ -205,9 +247,54 @@ async function verifyStoredPassword(password: string, stored: string, env: AuthE
       return false;
     }
     if (salt.byteLength < 16 || expected.byteLength !== 32) return false;
-    const key = await crypto.subtle.importKey("raw", textToBytes(password), "PBKDF2", false, ["deriveBits"]);
-    const derived = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations }, key, 256);
-    return timingSafeEqualBytes(new Uint8Array(derived), expected);
+    try {
+      const key = await crypto.subtle.importKey(
+        "raw",
+        textToBytes(password),
+        { name: "PBKDF2" },
+        false,
+        ["deriveBits"],
+      );
+      const derived = await crypto.subtle.deriveBits(
+        { name: "PBKDF2", hash: { name: "SHA-256" }, salt, iterations },
+        key,
+        256,
+      );
+      return timingSafeEqualBytes(new Uint8Array(derived), expected);
+    } catch (error) {
+      const errorName =
+        typeof error === "object" && error !== null && "name" in error
+          ? String(error.name)
+          : "";
+      if (errorName !== "NotSupportedError") throw error;
+      try {
+        const key = await crypto.subtle.importKey(
+          "raw",
+          textToBytes(password),
+          { name: "PBKDF2" },
+          false,
+          ["deriveKey"],
+        );
+        const derivedKey = await crypto.subtle.deriveKey(
+          { name: "PBKDF2", hash: { name: "SHA-256" }, salt, iterations },
+          key,
+          { name: "HMAC", hash: { name: "SHA-256" }, length: 256 },
+          true,
+          ["sign"],
+        );
+        const derived = await crypto.subtle.exportKey("raw", derivedKey);
+        return timingSafeEqualBytes(new Uint8Array(derived), expected);
+      } catch (deriveKeyError) {
+        const deriveKeyErrorName =
+          typeof deriveKeyError === "object" &&
+          deriveKeyError !== null &&
+          "name" in deriveKeyError
+            ? String(deriveKeyError.name)
+            : "";
+        if (deriveKeyErrorName !== "NotSupportedError") throw deriveKeyError;
+      }
+      throw error;
+    }
   }
 
   // Temporary compatibility for existing primary/dojo HMAC hashes. New and
@@ -216,7 +303,10 @@ async function verifyStoredPassword(password: string, stored: string, env: AuthE
   if (!allowLegacyHmac || !isConfigured(env.SESSION_SECRET)) return false;
   const expected = value.replace(/^hmac-sha256:/i, "");
   if (!/^[a-f0-9]{64}$/i.test(expected)) return false;
-  return timingSafeEqual(await hmacSha256Hex(env.SESSION_SECRET!, password), expected);
+  return timingSafeEqual(
+    await hmacSha256Hex(env.SESSION_SECRET!, password),
+    expected,
+  );
 }
 
 export async function verifyAdminPassword(password: string, env: AuthEnv) {
@@ -225,32 +315,70 @@ export async function verifyAdminPassword(password: string, env: AuthEnv) {
 }
 
 function configuredDojoPasswordHashes(env: AuthEnv) {
-  if (!isConfigured(env.DOJO_ADMIN_PASSWORD_HASHES)) return new Map<string, string>();
+  if (!isConfigured(env.DOJO_ADMIN_PASSWORD_HASHES))
+    return new Map<string, string>();
   try {
-    const parsed = JSON.parse(env.DOJO_ADMIN_PASSWORD_HASHES!) as Record<string, unknown>;
-    return new Map(Object.entries(parsed)
-      .filter((entry): entry is [string, string] => /^dojo-[a-z0-9-]+$/.test(entry[0]) && typeof entry[1] === "string")
-      .map(([dojoId, hash]) => [dojoId, hash.trim()]));
+    const parsed = JSON.parse(env.DOJO_ADMIN_PASSWORD_HASHES!) as Record<
+      string,
+      unknown
+    >;
+    return new Map(
+      Object.entries(parsed)
+        .filter(
+          (entry): entry is [string, string] =>
+            /^dojo-[a-z0-9-]+$/.test(entry[0]) && typeof entry[1] === "string",
+        )
+        .map(([dojoId, hash]) => [dojoId, hash.trim()]),
+    );
   } catch {
     return new Map<string, string>();
   }
 }
 
-export async function authenticateAdminPassword(password: string, env: AuthEnv) {
+export async function authenticateAdminPassword(
+  password: string,
+  env: AuthEnv,
+) {
   if (await verifyAdminPassword(password, env)) {
-    return { role: "central" as const, allowedDojoIds: [] };
+    return {
+      role: "central" as const,
+      allowedDojoIds: [],
+      accountId: "legacy-central",
+      credentialId: "env:central",
+      displayName: "Central administrator",
+    };
   }
   for (const [dojoId, expectedHash] of configuredDojoPasswordHashes(env)) {
     if (await verifyStoredPassword(password, expectedHash, env, true)) {
-      return { role: "dojo" as const, allowedDojoIds: [dojoId] };
+      return {
+        role: "dojo" as const,
+        allowedDojoIds: [dojoId],
+        accountId: `legacy-${dojoId}`,
+        credentialId: `env:${dojoId}`,
+        displayName: "Dojo administrator",
+      };
     }
   }
   return null;
 }
 
-type NewSession = Partial<Pick<AdminSession, "sessionId" | "adminName" | "role" | "allowedDojoIds" | "selectedDojoId" | "renshinkanVerified">>;
+type NewSession = Partial<
+  Pick<
+    AdminSession,
+    | "sessionId"
+    | "accountId"
+    | "adminName"
+    | "role"
+    | "allowedDojoIds"
+    | "selectedDojoId"
+    | "renshinkanVerified"
+  >
+>;
 
-export async function createSessionCookie(env: AuthEnv, session: NewSession = {}) {
+export async function createSessionCookie(
+  env: AuthEnv,
+  session: NewSession = {},
+) {
   if (!isConfigured(env.SESSION_SECRET)) {
     throw new Error("SESSION_SECRET is not configured");
   }
@@ -261,14 +389,27 @@ export async function createSessionCookie(env: AuthEnv, session: NewSession = {}
     iat: now,
     exp: now + SESSION_TTL_SECONDS,
     sessionId: session.sessionId || crypto.randomUUID(),
-    adminName: (session.adminName || "Administrator").normalize("NFKC").trim().replace(/\s+/g, " ").slice(0, 120),
+    accountId: (session.accountId || "legacy-central").slice(0, 120),
+    adminName: (session.adminName || "Administrator")
+      .normalize("NFKC")
+      .trim()
+      .replace(/\s+/g, " ")
+      .slice(0, 120),
     role: session.role === "dojo" ? "dojo" : "central",
-    allowedDojoIds: session.role === "dojo" ? Array.from(new Set(session.allowedDojoIds || [])).slice(0, 3) : [],
+    allowedDojoIds:
+      session.role === "dojo"
+        ? Array.from(new Set(session.allowedDojoIds || [])).slice(0, 3)
+        : [],
     selectedDojoId: session.selectedDojoId || null,
-    renshinkanVerified: session.selectedDojoId === RENSHINKAN_DOJO_ID && session.role === "central" && session.renshinkanVerified === true,
+    renshinkanVerified:
+      session.selectedDojoId === RENSHINKAN_DOJO_ID &&
+      session.role === "central" &&
+      session.renshinkanVerified === true,
   };
   const encodedPayload = bytesToBase64Url(textToBytes(JSON.stringify(payload)));
-  const encodedSignature = bytesToBase64Url(await hmacSha256(env.SESSION_SECRET!, encodedPayload));
+  const encodedSignature = bytesToBase64Url(
+    await hmacSha256(env.SESSION_SECRET!, encodedPayload),
+  );
   const token = `${encodedPayload}.${encodedSignature}`;
 
   return `${COOKIE_NAME}=${token}; Max-Age=${SESSION_TTL_SECONDS}; Path=/; HttpOnly; Secure; SameSite=Strict`;
@@ -287,7 +428,10 @@ function getCookie(request: Request, name: string) {
   return match ? decodeURIComponent(match.slice(prefix.length)) : "";
 }
 
-export async function getAdminSession(request: Request, env: AuthEnv): Promise<AdminSession | null> {
+export async function getAdminSession(
+  request: Request,
+  env: AuthEnv,
+): Promise<AdminSession | null> {
   if (!isConfigured(env.SESSION_SECRET)) {
     return null;
   }
@@ -299,39 +443,79 @@ export async function getAdminSession(request: Request, env: AuthEnv): Promise<A
     return null;
   }
 
-  const expectedSignature = bytesToBase64Url(await hmacSha256(env.SESSION_SECRET!, encodedPayload));
+  const expectedSignature = bytesToBase64Url(
+    await hmacSha256(env.SESSION_SECRET!, encodedPayload),
+  );
 
   if (!(await timingSafeEqual(encodedSignature, expectedSignature))) {
     return null;
   }
 
   try {
-    const payloadJson = new TextDecoder().decode(base64UrlToBytes(encodedPayload));
+    const payloadJson = new TextDecoder().decode(
+      base64UrlToBytes(encodedPayload),
+    );
     const payload = JSON.parse(payloadJson) as Partial<AdminSession>;
-    if (payload.sub !== "admin" || typeof payload.exp !== "number" || payload.exp <= Math.floor(Date.now() / 1000)
-      || (payload.role !== "central" && payload.role !== "dojo") || typeof payload.sessionId !== "string"
-      || typeof payload.adminName !== "string" || !payload.adminName.trim()) return null;
+    if (
+      payload.sub !== "admin" ||
+      typeof payload.exp !== "number" ||
+      payload.exp <= Math.floor(Date.now() / 1000) ||
+      (payload.role !== "central" && payload.role !== "dojo") ||
+      typeof payload.sessionId !== "string" ||
+      typeof payload.adminName !== "string" ||
+      !payload.adminName.trim()
+    )
+      return null;
     const role = payload.role;
-    const allowedDojoIds = role === "dojo" && Array.isArray(payload.allowedDojoIds)
-      ? payload.allowedDojoIds.filter((value): value is string => typeof value === "string" && /^dojo-[a-z0-9-]+$/.test(value)).slice(0, 3)
-      : [];
+    const allowedDojoIds =
+      role === "dojo" && Array.isArray(payload.allowedDojoIds)
+        ? payload.allowedDojoIds
+            .filter(
+              (value): value is string =>
+                typeof value === "string" && /^dojo-[a-z0-9-]+$/.test(value),
+            )
+            .slice(0, 3)
+        : [];
     if (role === "dojo" && allowedDojoIds.length === 0) return null;
     const result: AdminSession = {
       sub: "admin",
       iat: typeof payload.iat === "number" ? payload.iat : 0,
       exp: payload.exp,
       sessionId: payload.sessionId.slice(0, 120),
+      accountId:
+        typeof payload.accountId === "string" && payload.accountId.trim()
+          ? payload.accountId.trim().slice(0, 120)
+          : `legacy-${role}`,
       adminName: payload.adminName.trim().slice(0, 120),
       role,
       allowedDojoIds,
-      selectedDojoId: typeof payload.selectedDojoId === "string" ? payload.selectedDojoId : null,
+      selectedDojoId:
+        typeof payload.selectedDojoId === "string"
+          ? payload.selectedDojoId
+          : null,
       renshinkanVerified: payload.renshinkanVerified === true,
     };
-    if (!/^[A-Za-z0-9-]{8,120}$/.test(result.sessionId)) return null;
+    if (
+      !/^[A-Za-z0-9-]{8,120}$/.test(result.sessionId) ||
+      !/^[A-Za-z0-9:_-]{3,120}$/.test(result.accountId)
+    )
+      return null;
     if (env.STUDENT_DB) {
-      const revoked = await env.STUDENT_DB.prepare(`SELECT session_id FROM revoked_admin_sessions
-        WHERE session_id = ? AND expires_at > ? LIMIT 1`).bind(result.sessionId, new Date().toISOString()).first<{ session_id: string }>();
+      const [revoked, account] = await Promise.all([
+        env.STUDENT_DB.prepare(
+          `SELECT session_id FROM revoked_admin_sessions
+          WHERE session_id = ? AND expires_at > ? LIMIT 1`,
+        )
+          .bind(result.sessionId, new Date().toISOString())
+          .first<{ session_id: string }>(),
+        env.STUDENT_DB.prepare(
+          "SELECT disabled FROM admin_accounts WHERE id = ? LIMIT 1",
+        )
+          .bind(result.accountId)
+          .first<{ disabled: number }>(),
+      ]);
       if (revoked) return null;
+      if (account?.disabled === 1) return null;
     }
     return result;
   } catch {
@@ -343,31 +527,62 @@ export async function hasValidAdminSession(request: Request, env: AuthEnv) {
   return Boolean(await getAdminSession(request, env));
 }
 
-export function canSelectDojo(session: AdminSession, dojoId: string | null | undefined) {
+export function canSelectDojo(
+  session: AdminSession,
+  dojoId: string | null | undefined,
+) {
   if (!dojoId) return false;
   if (session.role === "central") return true;
-  return dojoId !== RENSHINKAN_DOJO_ID && session.allowedDojoIds.includes(dojoId);
+  return (
+    dojoId !== RENSHINKAN_DOJO_ID && session.allowedDojoIds.includes(dojoId)
+  );
 }
 
-export function isRenShinKanSuperAdmin(session: AdminSession | null | undefined) {
-  return Boolean(session && session.role === "central" && session.selectedDojoId === RENSHINKAN_DOJO_ID && session.renshinkanVerified);
+export function isRenShinKanSuperAdmin(
+  session: AdminSession | null | undefined,
+) {
+  return Boolean(
+    session &&
+    session.role === "central" &&
+    session.selectedDojoId === RENSHINKAN_DOJO_ID &&
+    session.renshinkanVerified,
+  );
 }
 
-export function effectivePermissionLevel(session: AdminSession): AdminPermissionLevel {
-  return isRenShinKanSuperAdmin(session) ? "renshinkan_super_admin" : "dojo_admin";
+export function effectivePermissionLevel(
+  session: AdminSession,
+): AdminPermissionLevel {
+  return isRenShinKanSuperAdmin(session)
+    ? "renshinkan_super_admin"
+    : "dojo_admin";
 }
 
-export function hasSelectedDojoAccess(session: AdminSession | null | undefined): session is AdminSession {
-  if (!session?.selectedDojoId || !canSelectDojo(session, session.selectedDojoId)) return false;
-  return session.selectedDojoId !== RENSHINKAN_DOJO_ID || isRenShinKanSuperAdmin(session);
+export function hasSelectedDojoAccess(
+  session: AdminSession | null | undefined,
+): session is AdminSession {
+  if (
+    !session?.selectedDojoId ||
+    !canSelectDojo(session, session.selectedDojoId)
+  )
+    return false;
+  return (
+    session.selectedDojoId !== RENSHINKAN_DOJO_ID ||
+    isRenShinKanSuperAdmin(session)
+  );
 }
 
-export async function getAuthorizedAdminSession(request: Request, env: AuthEnv) {
+export async function getAuthorizedAdminSession(
+  request: Request,
+  env: AuthEnv,
+) {
   const session = await getAdminSession(request, env);
   return hasSelectedDojoAccess(session) ? session : null;
 }
 
-export function canAccessDojo(session: AdminSession, dojoId: string | null | undefined) {
+export function canAccessDojo(
+  session: AdminSession,
+  dojoId: string | null | undefined,
+) {
   if (!dojoId || !hasSelectedDojoAccess(session)) return false;
   return isRenShinKanSuperAdmin(session) || dojoId === session.selectedDojoId;
 }
@@ -376,17 +591,41 @@ export function requiresCentralAdmin(session: AdminSession | null) {
   return isRenShinKanSuperAdmin(session);
 }
 
-export async function revokeAdminSession(env: AuthEnv, session: AdminSession, revokedBy: string, reason: string) {
+export async function revokeAdminSession(
+  env: AuthEnv,
+  session: AdminSession,
+  revokedBy: string,
+  reason: string,
+) {
   if (!env.STUDENT_DB) return;
-  await env.STUDENT_DB.prepare(`INSERT INTO revoked_admin_sessions
+  await env.STUDENT_DB.prepare(
+    `INSERT INTO revoked_admin_sessions
     (session_id, expires_at, revoked_at, revoked_by, reason) VALUES (?, ?, ?, ?, ?)
-    ON CONFLICT(session_id) DO UPDATE SET revoked_at = excluded.revoked_at, revoked_by = excluded.revoked_by, reason = excluded.reason`)
-    .bind(session.sessionId, new Date(session.exp * 1000).toISOString(), new Date().toISOString(), revokedBy.slice(0, 120), reason.slice(0, 200)).run();
+    ON CONFLICT(session_id) DO UPDATE SET revoked_at = excluded.revoked_at, revoked_by = excluded.revoked_by, reason = excluded.reason`,
+  )
+    .bind(
+      session.sessionId,
+      new Date(session.exp * 1000).toISOString(),
+      new Date().toISOString(),
+      revokedBy.slice(0, 120),
+      reason.slice(0, 200),
+    )
+    .run();
 }
 
-export async function updateSelectedDojoCookie(env: AuthEnv, session: AdminSession, selectedDojoId: string | null) {
-  await revokeAdminSession(env, session, session.adminName, "dojo_context_changed");
+export async function updateSelectedDojoCookie(
+  env: AuthEnv,
+  session: AdminSession,
+  selectedDojoId: string | null,
+) {
+  await revokeAdminSession(
+    env,
+    session,
+    session.adminName,
+    "dojo_context_changed",
+  );
   return createSessionCookie(env, {
+    accountId: session.accountId,
     adminName: session.adminName,
     role: session.role,
     allowedDojoIds: session.allowedDojoIds,
@@ -395,9 +634,18 @@ export async function updateSelectedDojoCookie(env: AuthEnv, session: AdminSessi
   });
 }
 
-export async function updateRenshinKanVerifiedCookie(env: AuthEnv, session: AdminSession) {
-  await revokeAdminSession(env, session, session.adminName, "privilege_elevated");
+export async function updateRenshinKanVerifiedCookie(
+  env: AuthEnv,
+  session: AdminSession,
+) {
+  await revokeAdminSession(
+    env,
+    session,
+    session.adminName,
+    "privilege_elevated",
+  );
   return createSessionCookie(env, {
+    accountId: session.accountId,
     adminName: session.adminName,
     role: session.role,
     allowedDojoIds: session.allowedDojoIds,

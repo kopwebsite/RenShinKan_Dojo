@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import type { SiteBlock, SiteLocale, SitePage } from "../types/editableContent";
 
 function safeUrl(value: string) { return value.startsWith("/") || /^https:\/\//i.test(value) ? value : ""; }

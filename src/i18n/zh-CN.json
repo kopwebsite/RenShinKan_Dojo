@@ -648,6 +648,23 @@
     "translate": {
       "label": "翻译此新闻通讯",
       "aria": "使用 Google 翻译翻译 {{title}}"
+    },
+    "presentation": {
+      "eyebrow": "演示文稿简报",
+      "instructions": "使用翻页控件或左右方向键。PDF 查看器也提供缩放和打印控件。",
+      "fullScreen": "全屏",
+      "exitFullScreen": "退出全屏",
+      "controls": "演示文稿翻页控件",
+      "previous": "上一页",
+      "page": "页码",
+      "ofTotal": "共 {{total}} 页",
+      "next": "下一页",
+      "frameTitle": "{{title}}，第 {{page}} 页",
+      "unavailableTitle": "网页版演示文稿暂不可用",
+      "unavailableCopy": "道场尚未附上查看所需的 PDF 版本。",
+      "downloadPdf": "下载 PDF",
+      "downloadPowerPoint": "下载原始 PowerPoint",
+      "outline": "演示文稿大纲"
     }
   },
   "workshops": {
@@ -1427,9 +1444,17 @@
     "goTo": "转到第 {{number}} 张照片"
   },
   "date": {
-    "gregorianHelp": "DD/MM/YYYY（公历）",
-    "monthHelp": "MM/YYYY（公历）",
-    "dateTimeHelp": "DD/MM/YYYY HH:mm（公历）",
+    "gregorianHelp": "选择公历日期。",
+    "monthHelp": "选择公历月份和年份。",
+    "dateTimeHelp": "选择公历日期和时间。",
+    "monthLabel": "月份",
+    "yearLabel": "公历年份",
+    "chooseMonth": "选择月份",
+    "chooseYear": "选择年份",
+    "yearPlaceholder": "YYYY",
+    "monthMissing": "请选择月份，或将两个字段都留空。",
+    "yearMissing": "请输入四位公历年份，或将两个字段都留空。",
+    "yearRange": "请输入 {{minimum}} 至 {{maximum}} 之间的公历年份。",
     "invalid": "请输入 DD/MM/YYYY 格式的有效日期。",
     "invalidMonth": "请输入 MM/YYYY 格式的有效月份。",
     "invalidDateTime": "请输入 DD/MM/YYYY HH:mm 格式的有效日期和时间。",

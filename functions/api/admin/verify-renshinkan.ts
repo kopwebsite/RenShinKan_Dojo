@@ -8,6 +8,7 @@ import {
   verifyRenshinKanSecondaryPassword,
 } from "../../_lib/auth";
 import { adminAuditMetadata, auditStatement, requestIdentifier, requireStudentDb, type StudentEnv } from "../../_lib/studentRecords";
+import { clearRateLimit, consumeRateLimit } from "../../_lib/rateLimit";
 
 type Env = StudentEnv & {
   SESSION_SECRET?: string;
@@ -23,6 +24,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return jsonResponse({ error: "Choose RenShinKan Dojo before entering its access password." }, 403);
   }
   try {
+    const sourceAllowed = await consumeRateLimit(request, env, {
+      endpoint: "renshinkan-secondary-ip", limit: 8, windowSeconds: 15 * 60, lockSeconds: 15 * 60,
+    });
+    const accountAllowed = await consumeRateLimit(request, env, {
+      endpoint: "renshinkan-secondary-account", subject: session.accountId, limit: 6, windowSeconds: 15 * 60, lockSeconds: 15 * 60,
+    });
+    if (!sourceAllowed || !accountAllowed) {
+      return jsonResponse({ error: "RenShinKan verification is temporarily unavailable. Wait and try again." }, 429);
+    }
     const body = await request.json<{ password?: unknown }>();
     const password = typeof body.password === "string" && body.password.length <= 256 ? body.password : "";
     const verified = password !== "" && await verifyRenshinKanSecondaryPassword(password, env);
@@ -48,6 +58,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     const verifiedSession = { ...session, renshinkanVerified: true };
+    await Promise.all([
+      clearRateLimit(request, env, "renshinkan-secondary-ip"),
+      clearRateLimit(request, env, "renshinkan-secondary-account", session.accountId),
+    ]);
     await auditStatement(db, {
       actorType: "administrator",
       ...adminAuditMetadata(verifiedSession, request),

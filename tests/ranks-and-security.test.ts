@@ -8,7 +8,14 @@ import {
   isSameOriginRequest,
   recordFailedAdminLoginAttempt,
 } from "../functions/_lib/auth";
-import { currentBangkokMonthKey, isMonthKey, namesLikelyMatch, normalizeInternationalPhone, recentMonthKeys, verifyTurnstile } from "../functions/_lib/studentRecords";
+import {
+  currentBangkokMonthKey,
+  isMonthKey,
+  namesLikelyMatch,
+  normalizeInternationalPhone,
+  recentMonthKeys,
+  verifyTurnstile,
+} from "../functions/_lib/studentRecords";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -38,9 +45,14 @@ describe("official rank progression", () => {
 
 describe("student and administrator security", () => {
   it("uses forgiving name matching only as a secondary check", () => {
-    expect(namesLikelyMatch(" Somchai  Prasert ", "somchai prasert")).toBe(true);
-    expect(namesLikelyMatch("Somchai Prasert", "Somchai Praserd")).toBe(true);
-    expect(namesLikelyMatch("Somchai Prasert", "Nattapong Kittisak")).toBe(false);
+    expect(namesLikelyMatch(" Somchai  Prasert ", "somchai prasert")).toBe(
+      true,
+    );
+    expect(namesLikelyMatch("Somchai Prasert", "Somchai Praserd")).toBe(false);
+    expect(namesLikelyMatch("Somchai", "Somchai Prasert")).toBe(false);
+    expect(namesLikelyMatch("Somchai Prasert", "Nattapong Kittisak")).toBe(
+      false,
+    );
   });
 
   it("creates valid Bangkok contribution month keys and a descending history window", () => {
@@ -53,73 +65,230 @@ describe("student and administrator security", () => {
   });
 
   it("normalizes local and international telephone formats against the selected calling code", () => {
-    expect(normalizeInternationalPhone("+66", "081 234 5678")).toBe("+66812345678");
-    expect(normalizeInternationalPhone("+1", "(206) 915-9115")).toBe("+12069159115");
+    expect(normalizeInternationalPhone("+66", "081 234 5678")).toBe(
+      "+66812345678",
+    );
+    expect(normalizeInternationalPhone("+1", "(206) 915-9115")).toBe(
+      "+12069159115",
+    );
     expect(normalizeInternationalPhone("+39", "+39 06 6982")).toBe("+39066982");
-    expect(() => normalizeInternationalPhone("+66", "+1 206 915 9115")).toThrow("selected +66");
-    expect(() => normalizeInternationalPhone("+66", "call me")).toThrow("digits");
-    expect(() => normalizeInternationalPhone("66", "0812345678")).toThrow("calling code");
+    expect(() => normalizeInternationalPhone("+66", "+1 206 915 9115")).toThrow(
+      "selected +66",
+    );
+    expect(() => normalizeInternationalPhone("+66", "call me")).toThrow(
+      "digits",
+    );
+    expect(() => normalizeInternationalPhone("66", "0812345678")).toThrow(
+      "calling code",
+    );
   });
 
   it("creates signed secure admin sessions and rejects tampering", async () => {
-    const env = { SESSION_SECRET: "test-secret-that-is-not-used-in-production" };
+    const env = {
+      SESSION_SECRET: "test-secret-that-is-not-used-in-production",
+    };
     const cookie = await createSessionCookie(env);
-    expect(cookie).toContain("HttpOnly"); expect(cookie).toContain("Secure"); expect(cookie).toContain("SameSite=Strict");
-    expect(await hasValidAdminSession(new Request("https://example.test/admin", { headers: { Cookie: cookie.split(";")[0] } }), env)).toBe(true);
-    expect(await hasValidAdminSession(new Request("https://example.test/admin", { headers: { Cookie: `${cookie.split(";")[0]}x` } }), env)).toBe(false);
+    expect(cookie).toContain("HttpOnly");
+    expect(cookie).toContain("Secure");
+    expect(cookie).toContain("SameSite=Strict");
+    expect(
+      await hasValidAdminSession(
+        new Request("https://example.test/admin", {
+          headers: { Cookie: cookie.split(";")[0] },
+        }),
+        env,
+      ),
+    ).toBe(true);
+    expect(
+      await hasValidAdminSession(
+        new Request("https://example.test/admin", {
+          headers: { Cookie: `${cookie.split(";")[0]}x` },
+        }),
+        env,
+      ),
+    ).toBe(false);
   });
 
   it("enforces same-origin checks for mutation requests", () => {
-    expect(isSameOriginRequest(new Request("https://example.test/api", { headers: { Origin: "https://example.test" } }))).toBe(true);
-    expect(isSameOriginRequest(new Request("https://example.test/api", { headers: { Origin: "https://attacker.test" } }))).toBe(false);
-    expect(isSameOriginRequest(new Request("https://example.test/api", { headers: { Referer: "https://example.test/admin" } }))).toBe(true);
-    expect(isSameOriginRequest(new Request("https://example.test/api", { headers: { "Sec-Fetch-Site": "cross-site" } }))).toBe(false);
+    expect(
+      isSameOriginRequest(
+        new Request("https://example.test/api", {
+          headers: { Origin: "https://example.test" },
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      isSameOriginRequest(
+        new Request("https://example.test/api", {
+          headers: { Origin: "https://attacker.test" },
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isSameOriginRequest(
+        new Request("https://example.test/api", {
+          headers: { Referer: "https://example.test/admin" },
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      isSameOriginRequest(
+        new Request("https://example.test/api", {
+          headers: { "Sec-Fetch-Site": "cross-site" },
+        }),
+      ),
+    ).toBe(false);
   });
 
   it("validates Turnstile success, action, hostname, expiration, and replay responses", async () => {
     const responses = [
-      { success: true, action: "student-records", hostname: "renshinkandojo.org" },
+      {
+        success: true,
+        action: "student-records",
+        hostname: "renshinkandojo.org",
+      },
       { success: true, action: "other-action", hostname: "renshinkandojo.org" },
-      { success: true, action: "student-records", hostname: "attacker.example" },
+      {
+        success: true,
+        action: "student-records",
+        hostname: "attacker.example",
+      },
       { success: false, "error-codes": ["timeout-or-duplicate"] },
     ];
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify(responses.shift()), { status: 200, headers: { "Content-Type": "application/json" } }));
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify(responses.shift()), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
     vi.stubGlobal("fetch", fetchMock);
-    const request = new Request("https://renshinkandojo.org/api/records/lookup", { headers: { "CF-Connecting-IP": "203.0.113.9" } });
-    const env = { TURNSTILE_SECRET_KEY: "test-secret", SITE_URL: "https://renshinkandojo.org" };
-    expect(await verifyTurnstile(request, env, "valid-token", "student-records")).toBe(true);
-    expect(await verifyTurnstile(request, env, "wrong-action-token", "student-records")).toBe(false);
-    expect(await verifyTurnstile(request, env, "wrong-host-token", "student-records")).toBe(false);
-    expect(await verifyTurnstile(request, env, "expired-or-replayed-token", "student-records")).toBe(false);
+    const request = new Request(
+      "https://renshinkandojo.org/api/records/lookup",
+      { headers: { "CF-Ray": "test-SIN", "CF-Connecting-IP": "203.0.113.9" } },
+    );
+    const env = {
+      TURNSTILE_SECRET_KEY: "test-secret",
+      SITE_URL: "https://renshinkandojo.org",
+    };
+    expect(
+      await verifyTurnstile(request, env, "valid-token", "student-records"),
+    ).toBe(true);
+    expect(
+      await verifyTurnstile(
+        request,
+        env,
+        "wrong-action-token",
+        "student-records",
+      ),
+    ).toBe(false);
+    expect(
+      await verifyTurnstile(
+        request,
+        env,
+        "wrong-host-token",
+        "student-records",
+      ),
+    ).toBe(false);
+    expect(
+      await verifyTurnstile(
+        request,
+        env,
+        "expired-or-replayed-token",
+        "student-records",
+      ),
+    ).toBe(false);
     const submitted = fetchMock.mock.calls[0][1]?.body as URLSearchParams;
     expect(submitted.get("remoteip")).toBe("203.0.113.9");
     expect(submitted.get("idempotency_key")).toMatch(/^[a-f0-9-]{36}$/i);
   });
 
+  it("accepts Cloudflare's passing test key only outside production", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              success: true,
+              hostname: "example.com",
+              metadata: { result_with_testing_key: true },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+      ),
+    );
+    const request = new Request("http://localhost:8788/api/records/lookup");
+    const testEnv = {
+      TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",
+      SITE_URL: "http://localhost:8788",
+    };
+    expect(
+      await verifyTurnstile(
+        request,
+        { ...testEnv, APP_ENV: "local" },
+        "XXXX.DUMMY.TOKEN.XXXX",
+        "student-records",
+      ),
+    ).toBe(true);
+    expect(
+      await verifyTurnstile(
+        request,
+        { ...testEnv, APP_ENV: "production" },
+        "XXXX.DUMMY.TOKEN.XXXX",
+        "student-records",
+      ),
+    ).toBe(false);
+  });
+
   it("rate-limits failed admin passwords without consuming successful attempts", async () => {
-    type Row = { window_started_at: string; attempts: number; locked_until: string | null };
+    type Row = {
+      window_started_at: string;
+      attempts: number;
+      locked_until: string | null;
+    };
     const rows = new Map<string, Row>();
     const db = {
       prepare(query: string) {
+        let bindings: unknown[] = [];
         return {
           bind(...values: unknown[]) {
-            return {
-              async first<T>() { return (rows.get(String(values[0])) || null) as T | null; },
-              async run() {
-                const actor = String(values[0]);
-                if (query.startsWith("DELETE")) rows.delete(actor);
-                else rows.set(actor, { window_started_at: String(values[1]), attempts: Number(values[2]), locked_until: values[3] ? String(values[3]) : null });
-              },
-            };
+            bindings = values;
+            return this;
+          },
+          async first<T>() {
+            return (rows.get(`${bindings[0]}:${bindings[1]}`) ||
+              null) as T | null;
+          },
+          async run() {
+            const actor = `${bindings[0]}:${bindings[1]}`;
+            if (
+              query.includes("DELETE FROM security_rate_limits WHERE endpoint")
+            )
+              rows.delete(actor);
+            else if (query.includes("INSERT INTO security_rate_limits"))
+              rows.set(actor, {
+                window_started_at: String(bindings[2]),
+                attempts: Number(bindings[3]),
+                locked_until: bindings[4] ? String(bindings[4]) : null,
+              });
+            return { success: true };
           },
         };
       },
     };
-    const env = { STUDENT_DB: db };
-    const request = new Request("https://example.test/api/admin/login", { headers: { "CF-Connecting-IP": "203.0.113.10", "User-Agent": "test" } });
+    const env = { STUDENT_DB: db, SESSION_SECRET: "rate-limit-test-secret" };
+    const request = new Request("https://example.test/api/admin/login", {
+      headers: {
+        "CF-Ray": "test-SIN",
+        "CF-Connecting-IP": "203.0.113.10",
+        "User-Agent": "test",
+      },
+    });
 
     expect(await allowAdminLoginAttempt(request, env)).toBe(true);
-    for (let attempt = 1; attempt < 8; attempt += 1) expect(await recordFailedAdminLoginAttempt(request, env)).toBe(true);
+    for (let attempt = 1; attempt < 8; attempt += 1)
+      expect(await recordFailedAdminLoginAttempt(request, env)).toBe(true);
     expect(await allowAdminLoginAttempt(request, env)).toBe(true);
     expect(await recordFailedAdminLoginAttempt(request, env)).toBe(false);
     expect(await allowAdminLoginAttempt(request, env)).toBe(false);

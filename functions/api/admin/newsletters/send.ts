@@ -16,8 +16,8 @@ import type { EditableContent, RecentEvent } from "../../../_lib/content";
 import {
   type StorageEnv,
   readEditableContentFromStorage,
-  writeEditableContentToStorage,
 } from "../../../_lib/storage";
+import { publishEditableContent } from "../../../_lib/publishing";
 import { newsletterPublicationIssues } from "../../../../shared/newsletter";
 import {
   adminAuditMetadata,
@@ -26,8 +26,9 @@ import {
   requireStudentDb,
   type StudentEnv,
 } from "../../../_lib/studentRecords";
+import { newsletterPublishingEnabled } from "../../../_lib/operationalControls";
 
-type Env = StorageEnv & StudentEnv & BrevoEnv & { SESSION_SECRET?: string };
+type Env = StorageEnv & StudentEnv & BrevoEnv & { SESSION_SECRET?: string; NEWSLETTER_PUBLISHING_ENABLED?: string };
 
 type DeliveryRow = {
   id: string;
@@ -68,6 +69,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!requiresCentralAdmin(session)) {
     return jsonResponse({ ok: false, error: "Only the RenShinKan administrator may send newsletters." }, session ? 403 : 401);
   }
+  if (!newsletterPublishingEnabled(env)) return jsonResponse({ ok: false, error: "Newsletter delivery is temporarily paused. The saved draft is unchanged." }, 503);
 
   const missing = missingBrevoEnv(env);
   if (missing.length) return jsonResponse({ ok: false, error: "Subscriber email is not configured." }, 503);
@@ -197,7 +199,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         brevoCampaignId: campaignId,
         error: "Delivery needs verification in Brevo. Do not retry from the website.",
       });
-      await writeEditableContentToStorage(env, blockedContent);
+      await publishEditableContent({
+        env, db, request, session: session!, content: blockedContent,
+        action: "newsletter_delivery_pending_verification", source: "newsletter_editor",
+        note: `Recorded uncertain Brevo delivery state for ${newsletter.title}`,
+      });
       return jsonResponse({
         ok: false,
         duplicateBlocked: true,
@@ -227,14 +233,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     let storageWarning = "";
     try {
-      await writeEditableContentToStorage(env, updateNewsletterDelivery(content, newsletter.id, {
-        status: "sent",
-        sentAt,
-        brevoCampaignId: campaignId,
-        error: null,
-      }));
-    } catch {
-      storageWarning = "Email was sent, but the website status could not be refreshed. Do not send it again.";
+      await publishEditableContent({
+        env, db, request, session: session!,
+        content: updateNewsletterDelivery(content, newsletter.id, {
+          status: "sent", sentAt, brevoCampaignId: campaignId, error: null,
+        }),
+        action: "newsletter_delivery_status_published", source: "newsletter_editor",
+        note: `Published sent status for ${newsletter.title}`,
+      });
+    } catch (error) {
+      storageWarning = `Email was sent, but website status reconciliation is required. Do not send it again. ${error instanceof Error ? error.message : ""}`.trim();
     }
 
     return jsonResponse({

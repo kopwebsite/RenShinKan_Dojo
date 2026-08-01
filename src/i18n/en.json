@@ -648,6 +648,23 @@
     "translate": {
       "label": "Translate this newsletter",
       "aria": "Translate {{title}} with Google Translate"
+    },
+    "presentation": {
+      "eyebrow": "Presentation newsletter",
+      "instructions": "Use the page controls or the left and right arrow keys. The PDF viewer also has its own zoom and print controls.",
+      "fullScreen": "Full screen",
+      "exitFullScreen": "Exit full screen",
+      "controls": "Presentation page controls",
+      "previous": "Previous",
+      "page": "Page",
+      "ofTotal": "of {{total}}",
+      "next": "Next",
+      "frameTitle": "{{title}}, page {{page}}",
+      "unavailableTitle": "The web presentation is unavailable",
+      "unavailableCopy": "The dojo has not attached the required PDF viewer copy.",
+      "downloadPdf": "Download PDF",
+      "downloadPowerPoint": "Download original PowerPoint",
+      "outline": "Presentation outline"
     }
   },
   "workshops": {
@@ -1427,9 +1444,17 @@
     "goTo": "Go to photo {{number}}"
   },
   "date": {
-    "gregorianHelp": "DD/MM/YYYY (Gregorian)",
-    "monthHelp": "MM/YYYY (Gregorian)",
-    "dateTimeHelp": "DD/MM/YYYY HH:mm (Gregorian)",
+    "gregorianHelp": "Choose a Gregorian calendar date.",
+    "monthHelp": "Choose a Gregorian month and year.",
+    "dateTimeHelp": "Choose a Gregorian calendar date and time.",
+    "monthLabel": "Month",
+    "yearLabel": "Gregorian year",
+    "chooseMonth": "Choose month",
+    "chooseYear": "Choose year",
+    "yearPlaceholder": "YYYY",
+    "monthMissing": "Choose a month or leave both fields blank.",
+    "yearMissing": "Enter a four-digit Gregorian year or leave both fields blank.",
+    "yearRange": "Enter a Gregorian year from {{minimum}} to {{maximum}}.",
     "invalid": "Enter a real date in DD/MM/YYYY format.",
     "invalidMonth": "Enter a real month in MM/YYYY format.",
     "invalidDateTime": "Enter a real date and time in DD/MM/YYYY HH:mm format.",

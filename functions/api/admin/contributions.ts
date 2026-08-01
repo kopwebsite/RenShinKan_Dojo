@@ -32,6 +32,10 @@ function clean(value: unknown, max: number) {
   return typeof value === "string" ? value.normalize("NFKC").trim().replace(/\s+/g, " ").slice(0, max + 1) : "";
 }
 
+function escapeLike(value: string) {
+  return value.replace(/[\\%_]/g, "\\$&");
+}
+
 async function ensureCurrentPeriod(db: D1Database, month: string, requestId: string, session: AdminSession, request: Request) {
   const existing = await db.prepare("SELECT month_key FROM contribution_periods WHERE month_key = ? LIMIT 1")
     .bind(month).first<{ month_key: string }>();
@@ -76,9 +80,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const month = isMonthKey(requestedMonth) ? requestedMonth : currentMonth;
   const period = await db.prepare("SELECT month_key FROM contribution_periods WHERE month_key = ? LIMIT 1")
     .bind(month).first<{ month_key: string }>();
-  let roster: ContributionRow[] = [];
+  let rosterSql = "";
+  const rosterBindings: unknown[] = [];
   if (period) {
-    roster = ((await db.prepare(`SELECT
+    rosterSql = `SELECT
         r.student_id,
         r.student_name_snapshot AS student_name,
         r.student_public_id_snapshot AS public_student_id,
@@ -95,10 +100,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       JOIN students s ON s.id = r.student_id AND s.dojo_id = 'dojo-rsk'
       LEFT JOIN monthly_contributions c ON c.student_id = r.student_id AND c.month_key = r.month_key
       WHERE r.month_key = ? AND r.active_at_period_start = 1
-      ORDER BY r.student_name_snapshot COLLATE NOCASE, r.student_public_id_snapshot COLLATE NOCASE`)
-      .bind(month).all<ContributionRow>()).results || []);
+      `;
+    rosterBindings.push(month);
   } else if (month === currentMonth) {
-    roster = ((await db.prepare(`SELECT
+    rosterSql = `SELECT
         s.id AS student_id,
         s.display_name AS student_name,
         s.public_student_id,
@@ -113,29 +118,47 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         NULL AS internal_note
       FROM students s
       WHERE s.active = 1 AND s.profile_status = 'approved' AND s.dojo_id = 'dojo-rsk'
-      ORDER BY s.display_name COLLATE NOCASE, s.public_student_id COLLATE NOCASE`)
-      .all<ContributionRow>()).results || []);
+      `;
+  } else {
+    rosterSql = `SELECT s.id AS student_id, s.display_name AS student_name, s.public_student_id,
+      s.profile_image_url, s.current_belt AS current_rank, NULL AS contribution_id,
+      'no_submission' AS status, NULL AS submitted_at, NULL AS paid_at, NULL AS paid_by,
+      NULL AS status_updated_at, NULL AS internal_note FROM students s WHERE 0`;
   }
-
-  const summary = roster.reduce((counts, row) => {
-    counts.total += 1;
-    if (row.status !== "no_submission") counts.submitted += 1;
-    if (row.status === "awaiting_payment") counts.awaiting += 1;
-    if (row.status === "paid") counts.paid += 1;
-    return counts;
-  }, { total: 0, submitted: 0, awaiting: 0, paid: 0 });
-  const query = clean(url.searchParams.get("query"), 120).toLocaleLowerCase("und");
+  const query = clean(url.searchParams.get("query"), 120);
   const status = clean(url.searchParams.get("status"), 30);
-  const filtered = roster.filter((row) => {
-    if (status && row.status !== status) return false;
-    if (!query) return true;
-    return row.student_name.toLocaleLowerCase("und").includes(query)
-      || row.public_student_id.toLocaleLowerCase("und").includes(query);
-  });
+  const filters: string[] = [];
+  const filterBindings: unknown[] = [];
+  if (status) { filters.push("status = ?"); filterBindings.push(status); }
+  if (query) {
+    const prefix = `${escapeLike(query)}%`;
+    filters.push("(student_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR public_student_id LIKE ? ESCAPE '\\' COLLATE NOCASE)");
+    filterBindings.push(prefix, prefix);
+  }
+  const filteredWhere = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
+  const base = `WITH roster AS (${rosterSql})`;
   const page = Math.max(1, Number.parseInt(url.searchParams.get("page") || "1", 10) || 1);
   const pageSize = 50;
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const [countResult, summaryResult] = await db.batch([
+    db.prepare(`${base} SELECT COUNT(*) AS total FROM roster ${filteredWhere}`).bind(...rosterBindings, ...filterBindings),
+    db.prepare(`${base} SELECT COUNT(*) AS total,
+      SUM(CASE WHEN status <> 'no_submission' THEN 1 ELSE 0 END) AS submitted,
+      SUM(CASE WHEN status = 'awaiting_payment' THEN 1 ELSE 0 END) AS awaiting,
+      SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) AS paid FROM roster`).bind(...rosterBindings),
+  ]);
+  const total = Number((countResult.results?.[0] as { total?: number } | undefined)?.total || 0);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, totalPages);
+  const contributions = ((await db.prepare(`${base} SELECT * FROM roster ${filteredWhere}
+    ORDER BY student_name COLLATE NOCASE, public_student_id COLLATE NOCASE LIMIT ? OFFSET ?`)
+    .bind(...rosterBindings, ...filterBindings, pageSize, (safePage - 1) * pageSize).all<ContributionRow>()).results || []);
+  const summaryRow = (summaryResult.results?.[0] || {}) as Record<string, unknown>;
+  const summary = {
+    total: Number(summaryRow.total || 0),
+    submitted: Number(summaryRow.submitted || 0),
+    awaiting: Number(summaryRow.awaiting || 0),
+    paid: Number(summaryRow.paid || 0),
+  };
   const storedMonths = ((await db.prepare("SELECT month_key FROM contribution_periods ORDER BY month_key DESC LIMIT 36")
     .all<{ month_key: string }>()).results || []).map((row) => row.month_key);
   const months = Array.from(new Set([...recentMonthKeys(12), ...storedMonths])).sort().reverse();
@@ -159,8 +182,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     month,
     currentMonth,
     months,
-    contributions: filtered.slice((safePage - 1) * pageSize, safePage * pageSize),
-    pagination: { page: safePage, pageSize, total: filtered.length, totalPages },
+    contributions,
+    pagination: { page: safePage, pageSize, total, totalPages },
     summary: { ...summary, paidPercentage: summary.total > 0 ? Math.round((summary.paid / summary.total) * 100) : 0 },
     graph,
   }, 200, { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" });

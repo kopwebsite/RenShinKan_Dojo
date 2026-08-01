@@ -7,14 +7,14 @@ import {
 } from "../../_lib/content";
 import {
   type StorageEnv,
-  emptyContent,
   getUploadFiles,
   readEditableContentFromStorage,
   uploadFilesToR2,
-  writeEditableContentToStorage,
 } from "../../_lib/storage";
+import { publishEditableContent } from "../../_lib/publishing";
 import { adminAuditMetadata, auditStatement, requestIdentifier, requireStudentDb, type StudentEnv } from "../../_lib/studentRecords";
 import { syncLegacyGalleryArrays } from "../../../shared/gallery";
+import { uploadsEnabled } from "../../_lib/operationalControls";
 
 type Env = StorageEnv & StudentEnv & {
   SESSION_SECRET?: string;
@@ -23,16 +23,13 @@ type Env = StorageEnv & StudentEnv & {
   BREVO_LIST_ID?: string;
   BREVO_SENDER_EMAIL?: string;
   BREVO_SENDER_NAME?: string;
+  UPLOADS_ENABLED?: string;
 };
 
 const MAX_FILES = 10;
 
 async function readPreviousContent(env: Env) {
-  try {
-    return await readEditableContentFromStorage(env);
-  } catch {
-    return emptyContent();
-  }
+  return readEditableContentFromStorage(env);
 }
 
 function newsletterCandidates(content: EditableContent, previousById: Map<string, RecentEvent>) {
@@ -114,6 +111,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   const files = getUploadFiles(formData);
 
+  if (files.length > 0 && !uploadsEnabled(env)) {
+    return jsonResponse({ ok: false, error: "Uploads are temporarily paused. Remove new files and publish again; existing content is unchanged." }, 503);
+  }
+
   if (files.length > MAX_FILES) {
     return jsonResponse({ ok: false, error: "At most 10 files can be uploaded per publish" }, 400);
   }
@@ -151,26 +152,24 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const newsletterResult = await publishNewsletterCandidates(env, content, candidates);
     content = newsletterResult.content;
 
-    await writeEditableContentToStorage(env, content);
-
     const now = new Date().toISOString();
     const db = requireStudentDb(env);
-    await db.batch([
-      auditStatement(db, { actorType: "administrator", ...adminAuditMetadata(session!, request), action: "public_content_published",
-        entityType: "site_content", entityId: "legacy-editor", previousValues: { lastPublishedAt: previousContent.lastPublishedAt },
-        newValues: { lastPublishedAt: content.lastPublishedAt, uploaded: uploaded.length, newsletterCandidates: candidates.length },
-        source: "admin_content_publish", requestId: requestIdentifier(request), summary: `Published public content; ${uploaded.length} upload(s), ${candidates.length} newsletter candidate(s)`, createdAt: now }),
-      ...candidates.map((event) => auditStatement(db, { actorType: "administrator", ...adminAuditMetadata(session!, request),
+    const published = await publishEditableContent({
+      env, db, request, session: session!, content,
+      action: "public_content_published", source: "admin_content_publish",
+      note: `Published public content; ${uploaded.length} upload(s), ${candidates.length} newsletter candidate(s)`,
+    });
+    if (candidates.length) await db.batch(candidates.map((event) => auditStatement(db, { actorType: "administrator", ...adminAuditMetadata(session!, request),
         action: "newsletter_send_deferred", entityType: "recent_event", entityId: event.id,
         newValues: content.recentEvents.find((item) => item.id === event.id)?.newsletter || null,
-        source: "admin_content_publish", requestId: requestIdentifier(request), summary: `Newsletter email deferred for explicit confirmation: ${event.title}`, createdAt: now })),
-    ]);
+        source: "admin_content_publish", requestId: requestIdentifier(request), summary: `Newsletter email deferred for explicit confirmation: ${event.title}`, createdAt: now })));
 
     return jsonResponse({
       ok: true,
       content,
       uploaded,
       warnings: newsletterResult.warnings,
+      publishOperation: published,
     });
   } catch (error) {
     return jsonResponse(

@@ -648,6 +648,23 @@
     "translate": {
       "label": "このニュースレターを翻訳する",
       "aria": "{{title}} を Google 翻訳で翻訳する"
+    },
+    "presentation": {
+      "eyebrow": "プレゼンテーション形式のニュースレター",
+      "instructions": "ページ操作ボタンまたは左右の矢印キーを使用してください。PDFビューアーにはズームと印刷の操作機能もあります。",
+      "fullScreen": "全画面",
+      "exitFullScreen": "全画面を終了",
+      "controls": "プレゼンテーションのページ操作",
+      "previous": "前へ",
+      "page": "ページ",
+      "ofTotal": "/ {{total}}",
+      "next": "次へ",
+      "frameTitle": "{{title}}、{{page}}ページ",
+      "unavailableTitle": "ウェブ用プレゼンテーションを表示できません",
+      "unavailableCopy": "表示に必要なPDF版が道場から添付されていません。",
+      "downloadPdf": "PDFをダウンロード",
+      "downloadPowerPoint": "元のPowerPointをダウンロード",
+      "outline": "プレゼンテーションの概要"
     }
   },
   "workshops": {
@@ -1427,9 +1444,17 @@
     "goTo": "写真{{number}}へ移動"
   },
   "date": {
-    "gregorianHelp": "DD/MM/YYYY（グレゴリオ暦）",
-    "monthHelp": "MM/YYYY（グレゴリオ暦）",
-    "dateTimeHelp": "DD/MM/YYYY HH:mm（グレゴリオ暦）",
+    "gregorianHelp": "グレゴリオ暦の日付を選択してください。",
+    "monthHelp": "グレゴリオ暦の月と年を選択してください。",
+    "dateTimeHelp": "グレゴリオ暦の日付と時刻を選択してください。",
+    "monthLabel": "月",
+    "yearLabel": "グレゴリオ暦の年",
+    "chooseMonth": "月を選択",
+    "chooseYear": "年を選択",
+    "yearPlaceholder": "YYYY",
+    "monthMissing": "月を選択するか、両方の欄を空欄にしてください。",
+    "yearMissing": "4桁のグレゴリオ暦の年を入力するか、両方の欄を空欄にしてください。",
+    "yearRange": "{{minimum}}年から{{maximum}}年までのグレゴリオ暦の年を入力してください。",
     "invalid": "DD/MM/YYYY 形式で実在する日付を入力してください。",
     "invalidMonth": "MM/YYYY 形式で実在する年月を入力してください。",
     "invalidDateTime": "DD/MM/YYYY HH:mm 形式で実在する日時を入力してください。",

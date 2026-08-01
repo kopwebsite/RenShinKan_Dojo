@@ -13,6 +13,7 @@ export type R2ObjectBody = {
 };
 
 export type R2Bucket = {
+  head?(key: string): Promise<{ key: string } | null>;
   get(key: string): Promise<R2ObjectBody | null>;
   put(
     key: string,
@@ -26,6 +27,11 @@ export type R2Bucket = {
     },
   ): Promise<unknown>;
   delete(key: string | string[]): Promise<void>;
+  list?(options?: { cursor?: string; limit?: number; prefix?: string }): Promise<{
+    objects: Array<{ key: string }>;
+    truncated: boolean;
+    cursor?: string;
+  }>;
 };
 
 export type StorageEnv = {
@@ -47,7 +53,15 @@ export type ValidatedProfileImage = {
   height: number;
 };
 
+export class StorageOperationError extends Error {
+  constructor(public code: "binding_missing" | "write_failed") {
+    super("Media storage is temporarily unavailable. Existing content is unchanged; retry safely with the same draft.");
+    this.name = "StorageOperationError";
+  }
+}
+
 const CONTENT_KEY = "site:editable-content";
+const CONTENT_POINTER_KEY = "site:editable-content:published-version";
 const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_DOCUMENT_FILE_SIZE = 20 * 1024 * 1024;
 const allowedMimeTypes = new Map([
@@ -142,25 +156,57 @@ export async function readEditableContentFromStorage(env: StorageEnv) {
     throw new Error("CONTENT_KV binding is not configured");
   }
 
-  const stored = await env.CONTENT_KV.get(CONTENT_KEY);
+  let pointer: string | null;
+  try {
+    pointer = await env.CONTENT_KV.get(CONTENT_POINTER_KEY);
+  } catch {
+    throw new Error("Content storage is temporarily unavailable. Retry before making changes.");
+  }
+
+  if (pointer) {
+    let payloadKey = "";
+    try {
+      const value = JSON.parse(pointer) as { payloadKey?: unknown };
+      payloadKey = typeof value.payloadKey === "string" ? value.payloadKey : "";
+    } catch {
+      throw new Error("Published content pointer is malformed");
+    }
+    if (!/^site:editable-content:version:\d+:[a-f0-9]{16}$/.test(payloadKey)) throw new Error("Published content pointer is invalid");
+    const version = await env.CONTENT_KV.get(payloadKey).catch(() => {
+      throw new Error("Published content storage is temporarily unavailable. Retry before making changes.");
+    });
+    if (version === null) throw new Error("Published content version is missing");
+    try { return validateEditableContent(JSON.parse(version)); }
+    catch { throw new Error("Published content version is malformed"); }
+  }
+
+  let stored: string | null;
+  try {
+    stored = await env.CONTENT_KV.get(CONTENT_KEY);
+  } catch {
+    throw new Error("Content storage is temporarily unavailable. Retry before making changes.");
+  }
 
   if (!stored) {
     return emptyContent();
   }
 
-  return validateEditableContent(JSON.parse(stored));
+  try { return validateEditableContent(JSON.parse(stored)); }
+  catch { throw new Error("Stored content is malformed"); }
 }
 
-export async function writeEditableContentToStorage(env: StorageEnv, content: EditableContent) {
-  if (!env.CONTENT_KV) {
-    throw new Error("CONTENT_KV binding is not configured");
-  }
+export async function writeEditableContentVersion(env: StorageEnv, payloadKey: string, serializedContent: string, content: EditableContent) {
+  if (!env.CONTENT_KV) throw new Error("CONTENT_KV binding is not configured");
+  if (!/^site:editable-content:version:\d+:[a-f0-9]{16}$/.test(payloadKey)) throw new Error("Content version key is invalid");
+  await env.CONTENT_KV.put(payloadKey, `${serializedContent}\n`, {
+    metadata: { lastPublishedAt: content.lastPublishedAt, version: content.version },
+  });
+}
 
-  await env.CONTENT_KV.put(CONTENT_KEY, `${JSON.stringify(content, null, 2)}\n`, {
-    metadata: {
-      lastPublishedAt: content.lastPublishedAt,
-      version: content.version,
-    },
+export async function activateEditableContentVersion(env: StorageEnv, payloadKey: string, operationId: string) {
+  if (!env.CONTENT_KV) throw new Error("CONTENT_KV binding is not configured");
+  await env.CONTENT_KV.put(CONTENT_POINTER_KEY, JSON.stringify({ payloadKey, operationId }), {
+    metadata: { activatedAt: new Date().toISOString() },
   });
 }
 
@@ -220,6 +266,49 @@ function hasPrefix(bytes: Uint8Array, signature: number[]) {
   return signature.every((byte, index) => bytes[index] === byte);
 }
 
+function littleEndian16(bytes: Uint8Array, offset: number) {
+  return bytes[offset] | (bytes[offset + 1] << 8);
+}
+
+function littleEndian32(bytes: Uint8Array, offset: number) {
+  return (bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24)) >>> 0;
+}
+
+function officeZipEntries(bytes: Uint8Array) {
+  const minimum = Math.max(0, bytes.length - 65_557);
+  let eocd = -1;
+  for (let offset = bytes.length - 22; offset >= minimum; offset -= 1) {
+    if (littleEndian32(bytes, offset) === 0x06054b50) { eocd = offset; break; }
+  }
+  if (eocd < 0) throw new Error("The Office document ZIP directory is missing.");
+  const count = littleEndian16(bytes, eocd + 10);
+  const directorySize = littleEndian32(bytes, eocd + 12);
+  const directoryOffset = littleEndian32(bytes, eocd + 16);
+  if (count < 1 || count > 2_048 || directoryOffset + directorySize > bytes.length) throw new Error("The Office document ZIP directory is invalid.");
+  const decoder = new TextDecoder();
+  const entries = new Set<string>();
+  let totalUncompressed = 0;
+  let offset = directoryOffset;
+  for (let index = 0; index < count; index += 1) {
+    if (offset + 46 > bytes.length || littleEndian32(bytes, offset) !== 0x02014b50) throw new Error("The Office document ZIP directory is malformed.");
+    const uncompressed = littleEndian32(bytes, offset + 24);
+    const nameLength = littleEndian16(bytes, offset + 28);
+    const extraLength = littleEndian16(bytes, offset + 30);
+    const commentLength = littleEndian16(bytes, offset + 32);
+    const end = offset + 46 + nameLength + extraLength + commentLength;
+    if (!nameLength || end > bytes.length) throw new Error("The Office document ZIP entry is malformed.");
+    const name = decoder.decode(bytes.slice(offset + 46, offset + 46 + nameLength)).replace(/\\/g, "/");
+    if (name.startsWith("/") || name.split("/").includes("..") || /(?:^|\/)vbaProject\.bin$|\.(?:exe|dll|js|html?)$/i.test(name)) {
+      throw new Error("The Office document contains a prohibited embedded file.");
+    }
+    totalUncompressed += uncompressed;
+    if (totalUncompressed > 100 * 1024 * 1024) throw new Error("The Office document expands beyond the safe processing limit.");
+    entries.add(name);
+    offset = end;
+  }
+  return entries;
+}
+
 function assertImageSignature(file: File, mimeType: string, bytes: Uint8Array) {
   if (
     mimeType === "image/webp" &&
@@ -250,6 +339,10 @@ function assertDocumentSignature(file: File, mimeType: string, bytes: Uint8Array
       hasPrefix(bytes, [0x50, 0x4b, 0x05, 0x06]) ||
       hasPrefix(bytes, [0x50, 0x4b, 0x07, 0x08]))
   ) {
+    const entries = officeZipEntries(bytes);
+    if (!entries.has("[Content_Types].xml")) throw new Error(`${file.name} is not a valid Office document package`);
+    if (mimeType.includes("wordprocessingml") && !entries.has("word/document.xml")) throw new Error(`${file.name} is not a valid Word document`);
+    if (mimeType.includes("presentationml") && !entries.has("ppt/presentation.xml")) throw new Error(`${file.name} is not a valid PowerPoint presentation`);
     return;
   }
 
@@ -282,7 +375,7 @@ function fileSizeLabelFor(mimeType: string) {
 
 export async function uploadFilesToR2(env: StorageEnv, files: File[]) {
   if (!env.MEDIA_BUCKET && files.length > 0) {
-    throw new Error("MEDIA_BUCKET binding is not configured");
+    throw new StorageOperationError("binding_missing");
   }
 
   const now = new Date();
@@ -292,51 +385,68 @@ export async function uploadFilesToR2(env: StorageEnv, files: File[]) {
   const fallbackUrls: string[] = [];
   const uploaded: UploadedMedia[] = [];
 
-  for (const file of files) {
-    const mimeType = mimeTypeForFile(file);
+  try {
+    for (const file of files) {
+      const mimeType = mimeTypeForFile(file);
 
-    if (!allowedMimeTypes.has(mimeType)) {
-      throw new Error(`Unsupported file type: ${file.type || extensionFor(file.name) || "unknown"}`);
-    }
+      if (!allowedMimeTypes.has(mimeType)) {
+        throw new Error(`Unsupported file type: ${file.type || extensionFor(file.name) || "unknown"}`);
+      }
 
-    if (file.size > maxFileSizeFor(mimeType)) {
-      throw new Error(`${file.name} is larger than ${fileSizeLabelFor(mimeType)}`);
-    }
+      if (file.size > maxFileSizeFor(mimeType)) {
+        throw new Error(`${file.name} is larger than ${fileSizeLabelFor(mimeType)}`);
+      }
 
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    assertFileSignature(file, mimeType, bytes);
-    const digest = await crypto.subtle.digest("SHA-256", bytes);
-    const sha256 = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      assertFileSignature(file, mimeType, bytes);
+      const digest = await crypto.subtle.digest("SHA-256", bytes);
+      const sha256 = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 
-    const uploadId = extractUploadId(file.name);
-    const safeName = sanitizeFileName(file.name, mimeType);
-    const key = `admin/${year}/${month}/${safeName}`;
-    const publicUrl = `/uploads/${key}`;
+      const uploadId = extractUploadId(file.name);
+      const safeName = sanitizeFileName(file.name, mimeType);
+      const key = `admin/${year}/${month}/${safeName}`;
+      const publicUrl = `/uploads/${key}`;
 
-    await env.MEDIA_BUCKET!.put(key, bytes, {
-      httpMetadata: {
+      try {
+        await env.MEDIA_BUCKET!.put(key, bytes, {
+          httpMetadata: {
+            contentType: mimeType,
+            cacheControl: "public, max-age=31536000, immutable",
+          },
+          customMetadata: {
+            uploadedAt: now.toISOString(),
+            sha256,
+            malwareScan: "not-configured",
+          },
+        });
+      } catch {
+        throw new StorageOperationError("write_failed");
+      }
+
+      if (uploadId) {
+        uploadUrlByPendingId.set(uploadId, publicUrl);
+      }
+
+      fallbackUrls.push(publicUrl);
+      uploaded.push({
+        key,
+        url: publicUrl,
         contentType: mimeType,
-        cacheControl: "public, max-age=31536000, immutable",
-      },
-      customMetadata: {
-        originalName: file.name.slice(0, 240),
-        uploadedAt: now.toISOString(),
+        size: file.size,
         sha256,
-      },
-    });
-
-    if (uploadId) {
-      uploadUrlByPendingId.set(uploadId, publicUrl);
+      });
     }
-
-    fallbackUrls.push(publicUrl);
-    uploaded.push({
-      key,
-      url: publicUrl,
-      contentType: mimeType,
-      size: file.size,
-      sha256,
-    });
+  } catch (error) {
+    const keys = uploaded.map((item) => item.key);
+    if (keys.length && env.MEDIA_BUCKET) {
+      try {
+        await env.MEDIA_BUCKET.delete(keys);
+      } catch {
+        // The read-only consistency audit will report any object that survives
+        // a failed cleanup. Never hide the original upload failure.
+      }
+    }
+    throw error;
   }
 
   return { uploadUrlByPendingId, fallbackUrls, uploaded };

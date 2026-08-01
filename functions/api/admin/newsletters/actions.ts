@@ -7,8 +7,8 @@ import {
 import {
   type StorageEnv,
   readEditableContentFromStorage,
-  writeEditableContentToStorage,
 } from "../../../_lib/storage";
+import { publishEditableContent } from "../../../_lib/publishing";
 import {
   adminAuditMetadata,
   auditStatement,
@@ -37,12 +37,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return jsonResponse({ ok: false, error: "Only newsletters already in Trash may be permanently deleted." }, 409);
     }
     const now = new Date().toISOString();
-    await writeEditableContentToStorage(env, {
+    const next = {
       ...content,
       recentEvents: content.recentEvents.filter((event) => event.id !== newsletter.id),
       lastPublishedAt: now,
-    });
+    };
     const db = requireStudentDb(env);
+    const publishOperation = await publishEditableContent({
+      env, db, request, session: session!, content: next,
+      action: "newsletter_permanently_deleted", source: "newsletter_library",
+      note: `Permanently deleted trashed newsletter: ${newsletter.title || "Untitled draft"}`,
+    });
     await auditStatement(db, {
       actorType: "administrator",
       ...adminAuditMetadata(session!, request),
@@ -55,7 +60,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       summary: `Permanently deleted trashed newsletter: ${newsletter.title || "Untitled draft"}`,
       createdAt: now,
     }).run();
-    return jsonResponse({ ok: true });
+    return jsonResponse({ ok: true, publishOperation });
   } catch (error) {
     return jsonResponse({ ok: false, error: error instanceof Error ? error.message : "Newsletter action failed." }, 500);
   }

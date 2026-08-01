@@ -39,6 +39,10 @@ function cleanFeeConfig(value: unknown) {
   return result;
 }
 
+function escapeLike(value: string) {
+  return value.replace(/[\\%_]/g, "\\$&");
+}
+
 function replayResponse(value: string | null | undefined) {
   if (!value) return null;
   try { return JSON.parse(value) as Record<string, unknown>; } catch { return null; }
@@ -52,7 +56,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const cycles = (await db.prepare(`SELECT id, name, title, status, lifecycle_status, rank_category, examination_type,
     application_opens_at, application_closes_at, examination_at, venue, instructions,
     rank_fee_config_json, annual_fee_config_json, created_at, closed_at
-    FROM examination_cycles ORDER BY created_at DESC`).all<Cycle>()).results || [];
+    FROM examination_cycles ORDER BY created_at DESC LIMIT 100`).all<Cycle>()).results || [];
   const requestedCycleId = cleanText(url.searchParams.get("cycleId"), 100);
   const recordsOnly = url.searchParams.get("recordsOnly") === "1";
   const selectedCycle = cycles.find((cycle) => cycle.id === requestedCycleId)
@@ -64,9 +68,24 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     return jsonResponse({ cycles: [], selectedCycle: null, students: [], pagination: { page: 1, pageSize: 50, total: 0, totalPages: 1 }, summary: { total: 0, not_signed_up: 0, unpaid: 0, paid: 0 } }, 200, { "Cache-Control": "no-store" });
   }
 
-  let roster: RosterRow[] = [];
+  const query = cleanText(url.searchParams.get("query"), 120);
+  const status = cleanText(url.searchParams.get("status"), 30);
+  const page = Math.max(1, Number.parseInt(url.searchParams.get("page") || "1", 10) || 1);
+  const pageSize = 50;
+  const conditions: string[] = [];
+  const filterBindings: unknown[] = [];
+  if (recordsOnly) conditions.push("application_id IS NOT NULL");
+  if (status) { conditions.push("status = ?"); filterBindings.push(status); }
+  if (query) {
+    const prefix = `${escapeLike(query)}%`;
+    conditions.push("(student_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR public_student_id LIKE ? ESCAPE '\\' COLLATE NOCASE)");
+    filterBindings.push(prefix, prefix);
+  }
+
+  let rosterSql = "";
+  const rosterBindings: unknown[] = [selectedCycle.id];
   if (selectedCycle.status === "active") {
-    roster = ((await db.prepare(`SELECT
+    rosterSql = `SELECT
         ecs.id AS status_id, s.id AS student_id,
         COALESCE(ecs.student_name_snapshot, s.display_name) AS student_name,
         COALESCE(ecs.student_public_id_snapshot, s.public_student_id) AS public_student_id,
@@ -78,11 +97,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         s.profile_image_url, s.dojo_id
       FROM students s
       LEFT JOIN exam_cycle_student_status ecs ON ecs.student_id = s.id AND ecs.cycle_id = ?
-      WHERE s.active = 1 AND s.profile_status = 'approved' ${isRenShinKanSuperAdmin(session) ? "" : "AND s.dojo_id = ?"}
-      ORDER BY s.display_name COLLATE NOCASE, s.public_student_id COLLATE NOCASE`)
-      .bind(selectedCycle.id, ...(isRenShinKanSuperAdmin(session) ? [] : [session.selectedDojoId || "__none__"])).all<RosterRow>()).results || []);
+      WHERE s.active = 1 AND s.profile_status = 'approved' ${isRenShinKanSuperAdmin(session) ? "" : "AND s.dojo_id = ?"}`;
+    if (!isRenShinKanSuperAdmin(session)) rosterBindings.push(session.selectedDojoId || "__none__");
   } else {
-    roster = ((await db.prepare(`SELECT
+    rosterSql = `SELECT
         ecs.id AS status_id, ecs.student_id,
         ecs.student_name_snapshot AS student_name,
         ecs.student_public_id_snapshot AS public_student_id,
@@ -94,34 +112,38 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         s.profile_image_url, s.dojo_id
       FROM exam_cycle_student_status ecs
       LEFT JOIN students s ON s.id = ecs.student_id
-      WHERE ecs.cycle_id = ? ${isRenShinKanSuperAdmin(session) ? "" : "AND s.dojo_id = ?"}
-      ORDER BY ecs.student_name_snapshot COLLATE NOCASE, ecs.student_public_id_snapshot COLLATE NOCASE`)
-      .bind(selectedCycle.id, ...(isRenShinKanSuperAdmin(session) ? [] : [session.selectedDojoId || "__none__"])).all<RosterRow>()).results || []);
+      WHERE ecs.cycle_id = ? ${isRenShinKanSuperAdmin(session) ? "" : "AND s.dojo_id = ?"}`;
+    if (!isRenShinKanSuperAdmin(session)) rosterBindings.push(session.selectedDojoId || "__none__");
   }
-
-  const scopedRoster = recordsOnly ? roster.filter((row) => Boolean(row.application_id)) : roster;
-  const summary = scopedRoster.reduce((counts, row) => {
-    counts.total += 1;
-    counts[row.status] += 1;
-    return counts;
-  }, { total: 0, not_signed_up: 0, unpaid: 0, paid: 0 });
-  const query = cleanText(url.searchParams.get("query"), 120).toLocaleLowerCase("und");
-  const status = cleanText(url.searchParams.get("status"), 30);
-  const filtered = scopedRoster.filter((row) => {
-    if (status && row.status !== status) return false;
-    if (!query) return true;
-    return row.student_name.toLocaleLowerCase("und").includes(query)
-      || row.public_student_id.toLocaleLowerCase("und").includes(query);
-  });
-  const page = Math.max(1, Number.parseInt(url.searchParams.get("page") || "1", 10) || 1);
-  const pageSize = 50;
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const base = `WITH roster AS (${rosterSql})`;
+  const filteredWhere = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const summaryWhere = recordsOnly ? "WHERE application_id IS NOT NULL" : "";
+  const [countResult, summaryResult] = await db.batch([
+    db.prepare(`${base} SELECT COUNT(*) AS total FROM roster ${filteredWhere}`).bind(...rosterBindings, ...filterBindings),
+    db.prepare(`${base} SELECT COUNT(*) AS total,
+      SUM(CASE WHEN status = 'not_signed_up' THEN 1 ELSE 0 END) AS not_signed_up,
+      SUM(CASE WHEN status = 'unpaid' THEN 1 ELSE 0 END) AS unpaid,
+      SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) AS paid
+      FROM roster ${summaryWhere}`).bind(...rosterBindings),
+  ]);
+  const total = Number((countResult.results?.[0] as { total?: number } | undefined)?.total || 0);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, totalPages);
+  const students = ((await db.prepare(`${base} SELECT * FROM roster ${filteredWhere}
+    ORDER BY student_name COLLATE NOCASE, public_student_id COLLATE NOCASE LIMIT ? OFFSET ?`)
+    .bind(...rosterBindings, ...filterBindings, pageSize, (safePage - 1) * pageSize).all<RosterRow>()).results || []);
+  const summaryRow = (summaryResult.results?.[0] || {}) as Record<string, unknown>;
+  const summary = {
+    total: Number(summaryRow.total || 0),
+    not_signed_up: Number(summaryRow.not_signed_up || 0),
+    unpaid: Number(summaryRow.unpaid || 0),
+    paid: Number(summaryRow.paid || 0),
+  };
   return jsonResponse({
     cycles,
     selectedCycle,
-    students: filtered.slice((safePage - 1) * pageSize, safePage * pageSize),
-    pagination: { page: safePage, pageSize, total: filtered.length, totalPages },
+    students,
+    pagination: { page: safePage, pageSize, total, totalPages },
     summary,
   }, 200, { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" });
 };

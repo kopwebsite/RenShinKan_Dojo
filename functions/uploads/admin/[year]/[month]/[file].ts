@@ -62,6 +62,11 @@ async function getMediaResponse(env: Env, params: Params, includeBody: boolean) 
   if (!headers.has("Cache-Control")) {
     headers.set("Cache-Control", "public, max-age=31536000, immutable");
   }
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("Content-Security-Policy", "default-src 'none'; sandbox");
+  if (/\.(?:pdf|docx|pptx?)$/i.test(file)) {
+    headers.set("Content-Disposition", `attachment; filename="${file.replace(/[^a-z0-9_.-]/gi, "_")}"`);
+  }
 
   return new Response(includeBody ? object.body : null, { headers });
 }

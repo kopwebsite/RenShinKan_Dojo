@@ -1,5 +1,5 @@
 import { ArrowRight, ExternalLink, HandCoins, MapPin, MessageCircle } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { ClassStructureLegend } from "../components/ClassStructureLegend";
 import { DojoJourney } from "../components/DojoJourney";
 import { FacilityGrid } from "../components/FacilityGrid";
@@ -155,7 +155,7 @@ export function DojoPageSections() {
 
         <div className="photo-journal__mat">
           <p className="vertical-label">{t("home.photos.archiveTitle")}</p>
-          <EditorialGallery albums={content.galleryAlbums["on-the-mat"]} />
+          <EditorialGallery albums={content.galleryAlbums["on-the-mat"]} incremental />
         </div>
       </MotionSection>
 

@@ -84,7 +84,7 @@ describe("student passport payment alerts", () => {
     expect(server).toContain("LEFT JOIN payment_request_items pri ON pri.payment_reference_id = p.id");
     expect(server).toContain("COALESCE(pri.payment_request_id, p.id)");
     expect(server).toContain("proof_owner_student_id");
-    expect(server).toContain("!entry.proof_owner_student_id || entry.proof_owner_student_id === student.id");
+    expect(server.replace(/\s+/g, " ")).toContain("!entry.proof_owner_student_id || entry.proof_owner_student_id === student.id");
   });
 });
 

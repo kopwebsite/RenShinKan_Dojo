@@ -12,8 +12,9 @@ import {
   type StudentEnv,
 } from "../../../../_lib/studentRecords";
 import { datedProfileKey, type R2Bucket } from "../../../../_lib/storage";
+import { uploadsEnabled } from "../../../../_lib/operationalControls";
 
-type Env = StudentEnv & { SESSION_SECRET?: string; MEDIA_BUCKET?: R2Bucket };
+type Env = StudentEnv & { SESSION_SECRET?: string; MEDIA_BUCKET?: R2Bucket; UPLOADS_ENABLED?: string };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
@@ -60,6 +61,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
 
     let approvedImageUrl = existing.profile_image_url;
     if (existing.pending_profile_image_key) {
+      if (!uploadsEnabled(env)) return jsonResponse({ error: "Profile image processing is temporarily paused. The pending request is unchanged." }, 503);
       if (!env.MEDIA_BUCKET) return jsonResponse({ error: "The submitted profile picture is unavailable." }, 409);
       const pendingObject = await env.MEDIA_BUCKET.get(existing.pending_profile_image_key);
       if (!pendingObject) return jsonResponse({ error: "The submitted profile picture is unavailable." }, 409);

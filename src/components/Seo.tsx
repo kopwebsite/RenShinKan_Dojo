@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 import { classSchedule, googleMapsUrl, siteInfo } from "../data/siteMeta";
 import { htmlLangMap, useAdminTranslation, useTranslation, type Language, type TranslationKey } from "../i18n";
 

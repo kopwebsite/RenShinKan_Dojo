@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 import { useEditableContent } from "../lib/content";
 import { useTranslation } from "../i18n";
 import { ManagedSitePage } from "./ManagedSitePage";

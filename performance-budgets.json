@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "measuredProfile": "sanitized-capacity-v1, mobile 390x844, 4x CPU, 1.6Mbps down, 150ms RTT",
+  "build": {
+    "publicInitialJavascriptGzipKiB": 170,
+    "adminDashboardJavascriptGzipKiB": 170,
+    "adminWebsiteInitialJavascriptGzipKiB": 190,
+    "largestRouteChunkGzipKiB": 135,
+    "initialCssGzipKiB": 55,
+    "responsiveImage640KiB": 210
+  },
+  "browser": {
+    "public-home": { "lcpMs": 3500, "cls": 0.1, "maxInteractionMs": 200, "imageBytes": 1700000 },
+    "gallery": { "lcpMs": 6500, "cls": 0.1, "maxInteractionMs": 200, "imageBytes": 1200000 },
+    "admin-dashboard": { "lcpMs": 3500, "cls": 0.1, "maxInteractionMs": 200, "javascriptBytes": 230000 }
+  },
+  "apiP95Ms": {
+    "public-content-api": 150,
+    "public-downloads-api": 100,
+    "admin-dashboard-api": 120,
+    "admin-students-api": 120,
+    "admin-student-workspace-api": 150,
+    "admin-examinations-api": 180,
+    "admin-monthly-payments-api": 200,
+    "admin-aat-payments-api": 180,
+    "admin-payment-proofs-api": 180,
+    "admin-gallery-manager-api": 180,
+    "admin-download-manager-api": 120,
+    "admin-audit-api": 160
+  }
+}

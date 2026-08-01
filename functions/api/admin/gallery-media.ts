@@ -1,5 +1,5 @@
 import { getAuthorizedAdminSession, isSameOriginRequest, jsonResponse, requiresCentralAdmin } from "../../_lib/auth";
-import { getUploadFiles, uploadFilesToR2, type StorageEnv } from "../../_lib/storage";
+import { getUploadFiles, StorageOperationError, uploadFilesToR2, type StorageEnv } from "../../_lib/storage";
 import {
   adminAuditMetadata,
   auditStatement,
@@ -7,8 +7,9 @@ import {
   requireStudentDb,
   type StudentEnv,
 } from "../../_lib/studentRecords";
+import { uploadsEnabled } from "../../_lib/operationalControls";
 
-type Env = StudentEnv & StorageEnv & { SESSION_SECRET?: string };
+type Env = StudentEnv & StorageEnv & { SESSION_SECRET?: string; UPLOADS_ENABLED?: string };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
@@ -16,6 +17,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!requiresCentralAdmin(session)) {
     return jsonResponse({ error: "Only the RenShinKan administrator may upload gallery media." }, session ? 403 : 401);
   }
+  if (!uploadsEnabled(env)) return jsonResponse({ error: "Gallery uploads are temporarily paused. Existing galleries are unchanged." }, 503);
 
   try {
     const files = getUploadFiles(await request.formData());
@@ -60,6 +62,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       },
     }, 201, { "Cache-Control": "no-store" });
   } catch (error) {
-    return jsonResponse({ error: error instanceof Error ? error.message : "The gallery image could not be uploaded." }, 400);
+    const unavailable = error instanceof StorageOperationError;
+    return jsonResponse({ error: unavailable ? error.message : error instanceof Error ? error.message : "The gallery image could not be uploaded." }, unavailable ? 503 : 400);
   }
 };

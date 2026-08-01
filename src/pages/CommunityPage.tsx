@@ -25,7 +25,7 @@ import {
 
 export function CommunityPage() {
   const { t } = useTranslation();
-  const { content } = useEditableContent();
+  const { content, loading } = useEditableContent();
   const localizedPcfPhotos = pcfDojoPhotos.map((photo, index) =>
     translateTitleCaption(t, photo, pcfPhotoKeys[index]),
   );
@@ -42,20 +42,35 @@ export function CommunityPage() {
   return (
     <>
       {/* Past Events */}
-      <MotionSection id="past-events" className="container-shell community-past scroll-mt-28">
+      <MotionSection
+        id="past-events"
+        className="container-shell community-past scroll-mt-28"
+      >
         <div className="section-masthead">
           <p className="eyebrow">{t("community.past.eyebrow")}</p>
-          <h2 className="section-title">{t("community.past.title")}</h2>
-          <p className="section-copy">
-            {t("community.past.copy")}
-          </p>
+          <h1 className="section-title">{t("community.past.title")}</h1>
+          <p className="section-copy">{t("community.past.copy")}</p>
         </div>
 
-        <HistoricalTimelineGallery albums={content.galleryAlbums.history} />
+        <div className="history-gallery-slot" aria-busy={loading}>
+          {loading ? (
+            <div className="history-gallery-placeholder" role="status">
+              Loading gallery…
+            </div>
+          ) : (
+            <HistoricalTimelineGallery
+              albums={content.galleryAlbums.history}
+              incremental
+            />
+          )}
+        </div>
       </MotionSection>
 
       {/* Peace Culture Foundation */}
-      <MotionSection id="peace-culture" className="container-shell foundation-story scroll-mt-28">
+      <MotionSection
+        id="peace-culture"
+        className="container-shell foundation-story scroll-mt-28"
+      >
         <div className="foundation-diptych">
           <article className="foundation-manifesto">
             <div className="foundation-manifesto__marks">
@@ -73,15 +88,9 @@ export function CommunityPage() {
               </div>
             </div>
             <p className="eyebrow">{t("community.foundation.eyebrow")}</p>
-            <h2>
-              {t("community.foundation.title")}
-            </h2>
-            <p>
-              {t("community.foundation.copy")}
-            </p>
-            <p>
-              {t("data.community.foundation.aikidoConnection")}
-            </p>
+            <h2>{t("community.foundation.title")}</h2>
+            <p>{t("community.foundation.copy")}</p>
+            <p>{t("data.community.foundation.aikidoConnection")}</p>
             <div className="editorial-actions">
               <a
                 href={peaceCultureFoundation.homepageUrl}
@@ -108,13 +117,11 @@ export function CommunityPage() {
             <div className="foundation-safeguard__icon">
               <ShieldCheck size={26} aria-hidden="true" />
             </div>
-            <p className="eyebrow">{t("community.foundation.groomingEyebrow")}</p>
-            <h2>
-              {t("community.foundation.groomingTitle")}
-            </h2>
-            <p>
-              {t("data.community.foundation.groomingPrevention")}
+            <p className="eyebrow">
+              {t("community.foundation.groomingEyebrow")}
             </p>
+            <h2>{t("community.foundation.groomingTitle")}</h2>
+            <p>{t("data.community.foundation.groomingPrevention")}</p>
             <ul>
               {[
                 t("data.community.foundation.pillars.relationships"),
@@ -139,9 +146,7 @@ export function CommunityPage() {
 
         {/* PCF Photo Gallery */}
         <div className="foundation-archive">
-          <p className="folio-mark">
-            {t("community.foundation.photoEyebrow")}
-          </p>
+          <p className="folio-mark">{t("community.foundation.photoEyebrow")}</p>
           <div className="foundation-archive__grid">
             {localizedPcfPhotos.map((photo) => {
               if ((photo as typeof photo & { featured?: boolean }).featured) {
@@ -159,21 +164,22 @@ export function CommunityPage() {
                         sizes="(max-width: 639px) 100vw, 288px"
                       />
                       <figcaption>
-                        <p className="eyebrow">{t("community.foundation.founder")}</p>
+                        <p className="eyebrow">
+                          {t("community.foundation.founder")}
+                        </p>
                         <h3 className="mt-3 text-3xl leading-tight text-ink sm:text-4xl">
                           {photo.title}
                         </h3>
-                        <p className="mt-4 leading-7 text-charcoal/75">{photo.caption}</p>
+                        <p className="mt-4 leading-7 text-charcoal/75">
+                          {photo.caption}
+                        </p>
                       </figcaption>
                     </div>
                   </figure>
                 );
               }
               return (
-                <figure
-                  key={photo.src}
-                  className="foundation-archive__photo"
-                >
+                <figure key={photo.src} className="foundation-archive__photo">
                   <ResponsiveImage
                     src={photo.src}
                     alt={photo.alt}
@@ -221,7 +227,9 @@ export function CommunityPage() {
                 />
               </div>
               <div className="absolute bottom-0 left-0 right-0 p-6 text-paper sm:p-8">
-                <p className="eyebrow text-paper/70">{t("community.cmu.heroEyebrow")}</p>
+                <p className="eyebrow text-paper/70">
+                  {t("community.cmu.heroEyebrow")}
+                </p>
                 <h2 className="mt-3 max-w-2xl text-3xl leading-tight sm:text-5xl">
                   {t("community.cmu.heroTitle")}
                 </h2>
@@ -232,7 +240,11 @@ export function CommunityPage() {
             </div>
             <div className="cmu-study__facts">
               <div>
-                <CalendarDays className="text-vermilion" size={22} aria-hidden="true" />
+                <CalendarDays
+                  className="text-vermilion"
+                  size={22}
+                  aria-hidden="true"
+                />
                 <p className="mt-3 text-xs font-bold uppercase tracking-[0.18em] text-charcoal/55">
                   {t("community.cmu.publicDays")}
                 </p>
@@ -241,7 +253,11 @@ export function CommunityPage() {
                 </p>
               </div>
               <div>
-                <UsersRound className="text-bamboo" size={22} aria-hidden="true" />
+                <UsersRound
+                  className="text-bamboo"
+                  size={22}
+                  aria-hidden="true"
+                />
                 <p className="mt-3 text-xs font-bold uppercase tracking-[0.18em] text-charcoal/55">
                   {t("community.cmu.community")}
                 </p>
@@ -250,7 +266,11 @@ export function CommunityPage() {
                 </p>
               </div>
               <div>
-                <GraduationCap className="text-wood" size={22} aria-hidden="true" />
+                <GraduationCap
+                  className="text-wood"
+                  size={22}
+                  aria-hidden="true"
+                />
                 <p className="mt-3 text-xs font-bold uppercase tracking-[0.18em] text-charcoal/55">
                   {t("community.cmu.roots")}
                 </p>
@@ -266,12 +286,8 @@ export function CommunityPage() {
             <h2 id="cmu-aikido-heading" className="section-title">
               {t("community.cmu.title")}
             </h2>
-            <p className="section-copy">
-              {t("community.cmu.copy1")}
-            </p>
-            <p className="mt-4 text-charcoal/78">
-              {t("community.cmu.copy2")}
-            </p>
+            <p className="section-copy">{t("community.cmu.copy1")}</p>
+            <p className="mt-4 text-charcoal/78">{t("community.cmu.copy2")}</p>
 
             <div className="cmu-practice-note">
               <div className="flex items-start gap-4">
@@ -279,9 +295,12 @@ export function CommunityPage() {
                   <CalendarDays size={22} aria-hidden="true" />
                 </div>
                 <div>
-                  <h3 className="text-2xl text-ink">{t("community.cmu.publicPractice")}</h3>
+                  <h3 className="text-2xl text-ink">
+                    {t("community.cmu.publicPractice")}
+                  </h3>
                   <p className="mt-2 text-sm font-bold text-charcoal">
-                    {t("data.community.cmu.practice.days")} - {t("data.community.cmu.practice.time")}
+                    {t("data.community.cmu.practice.days")} -{" "}
+                    {t("data.community.cmu.practice.time")}
                   </p>
                   <p className="mt-3 text-sm text-charcoal/75">
                     {t("data.community.cmu.practice.location")}
@@ -294,7 +313,11 @@ export function CommunityPage() {
             </div>
 
             <div className="mt-7 flex items-start gap-3 text-sm text-charcoal/75">
-              <MapPin className="mt-1 shrink-0 text-bamboo" size={20} aria-hidden="true" />
+              <MapPin
+                className="mt-1 shrink-0 text-bamboo"
+                size={20}
+                aria-hidden="true"
+              />
               <p>{t("data.community.cmu.address")}</p>
             </div>
 
@@ -339,7 +362,6 @@ export function CommunityPage() {
           ))}
         </div>
       </MotionSection>
-
     </>
   );
 }

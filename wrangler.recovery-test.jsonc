@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "renshinkan-d1-recovery-test",
+  "compatibility_date": "2026-07-15",
+  "d1_databases": [
+    {
+      "binding": "RECOVERY_DB",
+      "database_name": "renshinkan-recovery-test-local-only",
+      "database_id": "00000000-0000-4000-8000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

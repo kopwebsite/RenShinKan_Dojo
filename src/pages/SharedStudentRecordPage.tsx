@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router";
 import QRCode from "qrcode";
 import { ArrowLeft, Copy, Download, Printer, Share2 } from "lucide-react";
 import { StudentRecordCard } from "../components/StudentRecordCard";

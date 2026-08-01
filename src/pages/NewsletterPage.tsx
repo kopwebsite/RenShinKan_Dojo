@@ -3,17 +3,18 @@ import {
   ArrowRight,
   Clock3,
   Languages,
+  Download,
+  Maximize2,
   RotateCcw,
   Search,
 } from "lucide-react";
-import { useEffect, useMemo } from "react";
-import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, Navigate, useParams, useSearchParams } from "react-router";
 import {
   NEWSLETTER_CATEGORIES,
   newsletterCover,
   newsletterReadingMinutes,
   relatedNewsletterRecommendations,
-  sortNewslettersNewest,
 } from "../../shared/newsletter";
 import { EventBodyRenderer } from "../components/EventBodyRenderer";
 import { NewsletterDocumentRenderer } from "../components/NewsletterDocumentRenderer";
@@ -21,10 +22,10 @@ import { NewsletterSignup } from "../components/NewsletterSignup";
 import { MotionSection } from "../components/MotionSection";
 import { ResponsiveImage } from "../components/ResponsiveImage";
 import { useTranslation, type Language } from "../i18n";
-import { getPublishedRecentEvents, useEditableContent } from "../lib/content";
 import type { RecentEvent } from "../types/editableContent";
 import { assetPath } from "../utils/assetPath";
 import { formatGregorianDate } from "../../shared/date";
+import "../newsletter.css";
 
 const SITE_URL = (import.meta.env.VITE_SITE_URL || "https://renshinkandojo.org").replace(/\/+$/, "");
 const FALLBACK_COVER = assetPath("/dojo-photos/aikido-hero-new.webp");
@@ -36,6 +37,40 @@ function formatDate(value: string, _language: Language) {
 
 function coverFor(newsletter: RecentEvent) {
   return newsletterCover(newsletter);
+}
+
+function PresentationNewsletter({ article }: { article: RecentEvent }) {
+  const { t } = useTranslation();
+  const [page, setPage] = useState(1);
+  const [fullScreen, setFullScreen] = useState(false);
+  const viewerRef = useRef<HTMLElement>(null);
+  const pdf = article.media?.find((item) => item.id === article.presentation?.pdfMediaId && item.type === "document" && item.documentKind === "pdf");
+  const original = article.media?.find((item) => item.id === article.presentation?.originalMediaId && item.type === "document" && item.documentKind === "ppt");
+  const viewerTitle = article.presentation?.viewerTitle || article.title;
+  const slideCount = Math.max(1, Math.min(999, article.presentation?.slideCount || 1));
+  const pdfSrc = pdf ? `${pdf.src.split("#")[0]}#page=${page}&view=FitH` : "";
+  const changePage = (next: number) => setPage(Math.max(1, Math.min(slideCount, Math.round(next) || 1)));
+  useEffect(() => {
+    const update = () => setFullScreen(document.fullscreenElement === viewerRef.current);
+    document.addEventListener("fullscreenchange", update);
+    return () => document.removeEventListener("fullscreenchange", update);
+  }, []);
+  const toggleFullScreen = async () => {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await viewerRef.current?.requestFullscreen();
+  };
+
+  return <section ref={viewerRef} className="journal-presentation" aria-labelledby="journal-presentation-title" tabIndex={0} onKeyDown={(event) => {
+    if (event.target instanceof HTMLInputElement) return;
+    if (event.key === "ArrowLeft" || event.key === "PageUp") { event.preventDefault(); changePage(page - 1); }
+    if (event.key === "ArrowRight" || event.key === "PageDown") { event.preventDefault(); changePage(page + 1); }
+  }}>
+    <header><div><p className="eyebrow">{t("newsletter.presentation.eyebrow")}</p><h2 id="journal-presentation-title">{viewerTitle}</h2><p>{t("newsletter.presentation.instructions")}</p></div><button type="button" onClick={() => void toggleFullScreen()}><Maximize2 size={16} aria-hidden="true" /> {t(fullScreen ? "newsletter.presentation.exitFullScreen" : "newsletter.presentation.fullScreen")}</button></header>
+    <div className="journal-presentation__controls" aria-label={t("newsletter.presentation.controls")}><button type="button" disabled={page <= 1} onClick={() => changePage(page - 1)}><ArrowLeft size={16} aria-hidden="true" /> {t("newsletter.presentation.previous")}</button><label>{t("newsletter.presentation.page")} <input type="number" min="1" max={slideCount} inputMode="numeric" value={page} onChange={(event) => changePage(Number(event.target.value))} /> <span aria-live="polite">{t("newsletter.presentation.ofTotal", { total: slideCount })}</span></label><button type="button" disabled={page >= slideCount} onClick={() => changePage(page + 1)}>{t("newsletter.presentation.next")} <ArrowRight size={16} aria-hidden="true" /></button></div>
+    {pdf ? <iframe key={page} src={pdfSrc} title={t("newsletter.presentation.frameTitle", { title: viewerTitle, page })} /> : <div className="journal-presentation__fallback"><h3>{t("newsletter.presentation.unavailableTitle")}</h3><p>{t("newsletter.presentation.unavailableCopy")}</p></div>}
+    <footer>{pdf ? <a href={pdf.src} download><Download size={16} aria-hidden="true" /> {t("newsletter.presentation.downloadPdf")}</a> : null}{original ? <a href={original.src} download><Download size={16} aria-hidden="true" /> {t("newsletter.presentation.downloadPowerPoint")}</a> : null}</footer>
+    {article.presentation?.outline?.length ? <details><summary>{t("newsletter.presentation.outline")}</summary><ol>{article.presentation.outline.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ol></details> : null}
+  </section>;
 }
 
 function NewsletterCard({
@@ -200,10 +235,10 @@ function NewsletterArticle({
           </figure>
         ) : null}
         <div className="container-shell journal-entry__body">
-          {article.bodyContent
+          {(article.newsletterFormat ?? "article") === "presentation" ? <PresentationNewsletter article={article} /> : article.bodyContent
             ? <NewsletterDocumentRenderer document={article.bodyContent} />
             : <EventBodyRenderer body={article.body} media={media} fallbackTitle={article.title} />}
-          {article.bodyContent && media.length
+          {(article.newsletterFormat ?? "article") !== "presentation" && article.bodyContent && media.length
             ? <EventBodyRenderer body="" media={media} fallbackTitle={article.title} className="journal-entry__attachments" />
             : null}
         </div>
@@ -234,18 +269,52 @@ export function NewsletterPage() {
   const { language, t } = useTranslation();
   const { slug } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { content, loading } = useEditableContent();
-  const updates = useMemo(() => getPublishedRecentEvents(content), [content]);
-  const article = slug
-    ? updates.find((item) => item.slug === slug || item.slugHistory?.includes(slug))
-    : undefined;
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [article, setArticle] = useState<RecentEvent | undefined>();
+  const [updates, setUpdates] = useState<RecentEvent[]>([]);
+  const [archive, setArchive] = useState<{
+    newsletters: RecentEvent[];
+    featured: RecentEvent | null;
+    categories: string[];
+    years: string[];
+    pagination: { page: number; pageSize: number; total: number; totalPages: number };
+  }>({ newsletters: [], featured: null, categories: [], years: [], pagination: { page: 1, pageSize: PAGE_SIZE, total: 0, totalPages: 1 } });
+  const searchKey = searchParams.toString();
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setLoading(true);
+      setError("");
+      if (slug) setArticle(undefined);
+      const endpoint = slug ? `/api/newsletters?slug=${encodeURIComponent(slug)}` : `/api/newsletters${searchKey ? `?${searchKey}` : ""}`;
+      fetch(endpoint, { signal: controller.signal })
+        .then(async (response) => {
+          const body = await response.json() as Record<string, unknown> & { error?: string };
+          if (!response.ok) throw new Error(body.error || "Newsletters could not be loaded.");
+          if (slug) {
+            setArticle(body.article as RecentEvent);
+            setUpdates((body.updates as RecentEvent[]) || []);
+          } else {
+            setArchive(body as typeof archive);
+          }
+        })
+        .catch((reason) => {
+          if ((reason as Error).name !== "AbortError") setError(reason instanceof Error ? reason.message : "Newsletters could not be loaded.");
+        })
+        .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    }, slug ? 0 : 250);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [searchKey, slug]);
 
   if (slug) {
+    if (loading) return <section className="container-shell journal-empty-page" role="status"><p>Loading newsletter…</p></section>;
     if (!article) {
       return (
         <section className="container-shell journal-empty-page">
           <p className="eyebrow">{t("newsletter.article.missingEyebrow")}</p>
-          <h1>{t("newsletter.article.missingTitle")}</h1>
+          <h1>{error || t("newsletter.article.missingTitle")}</h1>
           <Link to="/newsletter" className="text-link"><ArrowLeft size={16} /> {t("newsletter.article.returnArchive")}</Link>
         </section>
       );
@@ -257,21 +326,12 @@ export function NewsletterPage() {
   const query = searchParams.get("q") || "";
   const category = searchParams.get("category") || "";
   const year = searchParams.get("year") || "";
-  const requestedPage = Math.max(1, Number(searchParams.get("page") || "1") || 1);
-  const featured = [...updates].sort((left, right) => Number(right.featured) - Number(left.featured) || Date.parse(right.date) - Date.parse(left.date))[0];
-  const categories = NEWSLETTER_CATEGORIES.filter((item) => updates.some((update) => update.category === item));
-  const years = [...new Set(updates.map((update) => update.date.slice(0, 4)).filter((item) => /^\d{4}$/.test(item)))].sort().reverse();
-  const normalizedQuery = query.trim().toLocaleLowerCase(language);
-  const filtered = sortNewslettersNewest(updates.filter((item) => {
-    const matchesQuery = !normalizedQuery || [item.title, item.summary, item.body, ...(item.tags ?? [])]
-      .join(" ")
-      .toLocaleLowerCase(language)
-      .includes(normalizedQuery);
-    return matchesQuery && (!category || item.category === category) && (!year || item.date.startsWith(year));
-  }));
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const page = Math.min(requestedPage, pageCount);
-  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const featured = archive.featured || undefined;
+  const categories = NEWSLETTER_CATEGORIES.filter((item) => archive.categories.includes(item));
+  const years = archive.years;
+  const pageCount = archive.pagination.totalPages;
+  const page = archive.pagination.page;
+  const pageItems = archive.newsletters;
   const setFilter = (key: string, value: string) => {
     const next = new URLSearchParams(searchParams);
     if (value) next.set(key, value);
@@ -286,8 +346,8 @@ export function NewsletterPage() {
     const queryString = next.toString();
     return `/newsletter${queryString ? `?${queryString}` : ""}`;
   };
-  const resultStart = filtered.length ? (page - 1) * PAGE_SIZE + 1 : 0;
-  const resultEnd = Math.min(page * PAGE_SIZE, filtered.length);
+  const resultStart = archive.pagination.total ? (page - 1) * PAGE_SIZE + 1 : 0;
+  const resultEnd = Math.min(page * PAGE_SIZE, archive.pagination.total);
 
   return (
     <>
@@ -372,12 +432,12 @@ export function NewsletterPage() {
               <h2>All newsletters</h2>
             </div>
             <p role="status" aria-live="polite">
-              {filtered.length ? `Showing ${resultStart}–${resultEnd} of ${filtered.length} newsletters.` : "No newsletters match these filters."}
+              {archive.pagination.total ? `Showing ${resultStart}–${resultEnd} of ${archive.pagination.total} newsletters.` : loading ? "Loading newsletters…" : "No newsletters match these filters."}
             </p>
           </div>
           {pageItems.length ? (
             <div className="journal-grid">
-              {pageItems.map((item, index) => <NewsletterCard key={item.id} newsletter={item} language={language} eager={index < 3} />)}
+              {pageItems.map((item) => <NewsletterCard key={item.id} newsletter={item} language={language} />)}
             </div>
           ) : (
             <div className="journal-empty journal-empty--archive">

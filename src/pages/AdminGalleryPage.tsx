@@ -27,7 +27,7 @@ import {
   type ChangeEvent,
   type DragEvent,
 } from "react";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Link, Navigate, useParams } from "react-router";
 import {
   GALLERY_IDS,
   galleryCover,
@@ -162,7 +162,7 @@ export function AdminGalleryPage() {
   useEffect(() => {
     if (!galleryId || session.admin?.permissionLevel !== "renshinkan_super_admin") return;
     setSaveState("loading");
-    adminApi<GalleryResponse>("/api/admin/galleries")
+    adminApi<GalleryResponse>(`/api/admin/galleries?galleryId=${encodeURIComponent(galleryId)}`)
       .then((result) => {
         setAlbums(result.albums);
         setPublished(result.publishedAlbums);
@@ -283,7 +283,7 @@ export function AdminGalleryPage() {
     try {
       const result = await adminApi<{ albums: GalleryAlbums; updatedAt: string }>("/api/admin/galleries", {
         method: "PUT",
-        body: JSON.stringify({ albums, expectedUpdatedAt: draftUpdatedAt }),
+        body: JSON.stringify({ albums, galleryId, expectedUpdatedAt: draftUpdatedAt }),
       });
       setAlbums(result.albums);
       setSavedSnapshot(JSON.stringify(result.albums));
@@ -309,7 +309,7 @@ export function AdminGalleryPage() {
     try {
       const result = await adminApi<{ albums: GalleryAlbums; publishedAt: string; updatedAt: string }>("/api/admin/galleries", {
         method: "POST",
-        body: JSON.stringify({ action: "publish", confirmed: true, expectedUpdatedAt: expected }),
+        body: JSON.stringify({ action: "publish", confirmed: true, galleryId, expectedUpdatedAt: expected }),
       });
       setAlbums(result.albums);
       setPublished(result.albums);

@@ -6,6 +6,8 @@ import type {
   NewsletterEmailSettings,
   NewsletterEventDetails,
   NewsletterLifecycleStatus,
+  NewsletterFormat,
+  NewsletterPresentation,
 } from "../../shared/newsletter";
 
 export type NewsletterStatus = "not_sent" | "pending" | "sent" | "failed";
@@ -57,6 +59,8 @@ export type RecentEvent = {
   category?: NewsletterCategory;
   tags?: string[];
   lifecycleStatus?: NewsletterLifecycleStatus;
+  newsletterFormat?: NewsletterFormat;
+  presentation?: NewsletterPresentation;
   archivedAt?: string | null;
   trashedAt?: string | null;
   featured?: boolean;

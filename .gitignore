@@ -13,6 +13,7 @@ public/uploads/generated/
 .env.*
 !.env.example
 .dev.vars*
+!.dev.vars.example
 
 # Local tool output and scratch files
 .claude/
@@ -21,7 +22,27 @@ public/uploads/generated/
 .logs/
 logs/
 screenshots/
+tmp/
+test-results/
+playwright-report/
+blob-report/
+.cache/
+.nyc_output/
+*.sqlite
+*.sqlite3
+*.db
+*.db-wal
+*.db-shm
+local-uploads/
+uploads-temp/
+release-archives/
+.release-backups/
+*.pem
+*.key
+*.p12
+*.pfx
 .wrangler/
+.perf/
 Dojo pictures/
 New Photos/
 *_result.txt

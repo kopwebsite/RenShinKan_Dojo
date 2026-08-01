@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   newsletterCover,
+  newsletterPublicationIssues,
   publicNewsletter,
   relatedNewsletterRecommendations,
   sortNewslettersNewest,
@@ -134,6 +135,37 @@ describe("newsletter migration and backward compatibility", () => {
       published: false,
       lifecycleStatus: "active",
     });
+  });
+
+  it("defaults legacy newsletters to articles and validates presentation source and PDF references", () => {
+    const legacy = validateEditableContent(contentWith([legacyEvent()])).recentEvents[0];
+    expect(legacy.newsletterFormat).toBe("article");
+    expect(legacy.presentation).toEqual({ originalMediaId: null, pdfMediaId: null, viewerTitle: legacy.title, slideCount: null, outline: [] });
+
+    const presentation = validateEditableContent(contentWith([legacyEvent({
+      newsletterFormat: "presentation",
+      body: "",
+      presentation: { originalMediaId: "slides-source", pdfMediaId: "slides-pdf", viewerTitle: "Summer slides", slideCount: 8, outline: ["Welcome"] },
+      media: [
+        { id: "slides-source", src: "/media/slides.pptx", alt: "", type: "document", documentKind: "ppt", title: "Source" },
+        { id: "slides-pdf", src: "/media/slides.pdf", alt: "", type: "document", documentKind: "pdf", title: "PDF" },
+      ],
+    })])).recentEvents[0];
+    expect(presentation.presentation?.originalMediaId).toBe("slides-source");
+    expect(presentation.presentation?.pdfMediaId).toBe("slides-pdf");
+    expect(presentation.presentation?.slideCount).toBe(8);
+    expect(newsletterPublicationIssues(presentation)).toEqual([]);
+
+    expect(newsletterPublicationIssues({
+      ...presentation,
+      media: [
+        { id: "slides-source", src: "/media/not-a-powerpoint.pdf", type: "document", documentKind: "pdf" },
+        { id: "slides-pdf", src: "/media/not-a-pdf.pptx", type: "document", documentKind: "ppt" },
+      ],
+    })).toEqual(expect.arrayContaining([
+      "Upload the original PowerPoint presentation.",
+      "Upload the PDF presentation for the website viewer.",
+    ]));
   });
 
   it("accepts only structured allowlisted content and safe links", () => {
@@ -300,8 +332,8 @@ describe("publishing, delivery, privacy, and interface safety contracts", () => 
       "Newsletters and updates",
       "What are you creating?",
       "Basic information",
-      "Write the newsletter",
-      "Images and attachments",
+      "Choose format",
+      "Create content",
       "Choose where it appears",
       "Review and publish",
       "Unsaved changes",
@@ -314,6 +346,13 @@ describe("publishing, delivery, privacy, and interface safety contracts", () => 
     expect(admin).toContain("LOCAL_BACKUP_PREFIX");
     expect(admin).toContain("beforeunload");
     expect(admin).toContain("focusableSelector");
+    expect(admin).toContain("Presentation newsletter");
+    expect(admin).toContain("Original PowerPoint");
+    expect(admin).toContain("Number of slides");
+    const publicViewer = file("src/pages/NewsletterPage.tsx");
+    expect(publicViewer).toContain("PresentationNewsletter");
+    expect(publicViewer).toContain("newsletter.presentation.ofTotal");
+    expect(publicViewer).toContain("newsletter.presentation.exitFullScreen");
     expect(file("src/pages/AdminPage.tsx")).toContain("<AdminNewsletterManager");
   });
 

@@ -1,0 +1,91 @@
+name: Production D1 encrypted backup
+
+on:
+  schedule:
+    # 01:30 Asia/Bangkok every day. The job remains skipped until the owner
+    # explicitly sets repository variable ENABLE_PRODUCTION_BACKUPS=true.
+    - cron: "30 18 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-d1-backup
+  cancel-in-progress: false
+
+jobs:
+  encrypted-export:
+    if: ${{ vars.ENABLE_PRODUCTION_BACKUPS == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production-backup
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      D1_BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.D1_BACKUP_ENCRYPTION_PASSWORD }}
+      D1_BACKUP_BUCKET: ${{ vars.D1_BACKUP_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Validate required protected configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${CLOUDFLARE_API_TOKEN:?missing protected Cloudflare API token}"
+          : "${CLOUDFLARE_ACCOUNT_ID:?missing protected Cloudflare account ID}"
+          : "${D1_BACKUP_ENCRYPTION_PASSWORD:?missing backup encryption password}"
+          : "${D1_BACKUP_BUCKET:?missing private backup bucket variable}"
+      - name: Export, encrypt, and verify production backup
+        id: backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          backup_stamp="$(date -u +'%Y%m%dT%H%M%SZ')"
+          backup_dir="${RUNNER_TEMP}/renshinkan-backup"
+          mkdir -p "${backup_dir}"
+          raw_file="${backup_dir}/production-${backup_stamp}.sql"
+          compressed_file="${raw_file}.gz"
+          encrypted_file="${compressed_file}.enc"
+          manifest_file="${encrypted_file}.manifest"
+
+          npx wrangler d1 export renshinkan-student-records \
+            --remote --env production --skip-confirmation --output "${raw_file}"
+          test -s "${raw_file}"
+          grep -q "CREATE TABLE" "${raw_file}"
+          gzip -n "${raw_file}"
+          openssl enc -aes-256-cbc -pbkdf2 -salt \
+            -in "${compressed_file}" -out "${encrypted_file}" \
+            -pass env:D1_BACKUP_ENCRYPTION_PASSWORD
+          openssl enc -d -aes-256-cbc -pbkdf2 \
+            -in "${encrypted_file}" -pass env:D1_BACKUP_ENCRYPTION_PASSWORD | gzip -t
+          rm -f -- "${compressed_file}"
+
+          encrypted_sha256="$(sha256sum "${encrypted_file}" | cut -d' ' -f1)"
+          printf 'environment=production\ncreated_at=%s\nsource_ref=%s\nsha256=%s\nformat=sql.gz.aes-256-cbc-pbkdf2\n' \
+            "${backup_stamp}" "${GITHUB_SHA}" "${encrypted_sha256}" > "${manifest_file}"
+          object_prefix="production/daily/${backup_stamp:0:4}/${backup_stamp:4:2}"
+          object_name="$(basename "${encrypted_file}")"
+          manifest_name="$(basename "${manifest_file}")"
+          echo "encrypted_file=${encrypted_file}" >> "${GITHUB_OUTPUT}"
+          echo "manifest_file=${manifest_file}" >> "${GITHUB_OUTPUT}"
+          echo "object_key=${object_prefix}/${object_name}" >> "${GITHUB_OUTPUT}"
+          echo "manifest_key=${object_prefix}/${manifest_name}" >> "${GITHUB_OUTPUT}"
+      - name: Store encrypted generation in private R2
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler r2 object put \
+            "${D1_BACKUP_BUCKET}/${{ steps.backup.outputs.object_key }}" \
+            --remote --file "${{ steps.backup.outputs.encrypted_file }}" \
+            --content-type application/octet-stream
+          npx wrangler r2 object put \
+            "${D1_BACKUP_BUCKET}/${{ steps.backup.outputs.manifest_key }}" \
+            --remote --file "${{ steps.backup.outputs.manifest_file }}" \
+            --content-type text/plain

@@ -1,15 +1,13 @@
 import { getAuthorizedAdminSession, isSameOriginRequest, jsonResponse, requiresCentralAdmin } from "../../_lib/auth";
 import { validateEditableContent, type EditableContent } from "../../_lib/content";
-import { readEditableContentFromStorage, writeEditableContentToStorage, type StorageEnv } from "../../_lib/storage";
+import { readEditableContentFromStorage, type StorageEnv } from "../../_lib/storage";
+import { publishEditableContent } from "../../_lib/publishing";
 import { adminAuditMetadata, auditStatement, requestIdentifier, requireStudentDb, type StudentEnv } from "../../_lib/studentRecords";
 
 type Env = StudentEnv & StorageEnv & { SESSION_SECRET?: string };
 
 async function currentOrEmpty(env: Env) {
-  try { return await readEditableContentFromStorage(env); }
-  catch {
-    return validateEditableContent({ version: 1, lastPublishedAt: null, recentEvents: [], examAnnouncement: null, paymentQr: { src: "/images/promptpay-qr.png", alt: "PromptPay QR code for RenShinKan Dojo" }, historyMedia: [], onTheMatMedia: [], passedTestStudents: [], sitePages: [], siteSettings: {} });
-  }
+  return readEditableContentFromStorage(env);
 }
 
 function mergeSiteContent(base: EditableContent, input: unknown) {
@@ -82,29 +80,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const now = new Date().toISOString();
     content = validateEditableContent({ ...content, lastPublishedAt: now,
       sitePages: content.sitePages.map((page) => page.status === "published" ? { ...page, publishedAt: now, publishedBy: session!.adminName } : page) });
-    await writeEditableContentToStorage(env, content);
-    const numberRow = await db.prepare("SELECT COALESCE(MAX(revision_number), 0) + 1 AS next_number FROM site_revisions").first<{ next_number: number }>();
-    const revisionId = crypto.randomUUID();
     const note = typeof body.note === "string" ? body.note.trim().slice(0, 500) : "";
-    await db.batch([
-      db.prepare(`INSERT INTO site_revisions
-        (id, revision_number, content_json, published_by, published_at, source_revision_id, note)
-        VALUES (?, ?, ?, ?, ?, ?, ?)`)
-        .bind(revisionId, Number(numberRow?.next_number || 1), JSON.stringify(content), session!.adminName, now, sourceRevisionId, note),
-      db.prepare(`INSERT INTO site_content_drafts (id, content_json, updated_by, updated_at)
-        VALUES ('current', ?, ?, ?) ON CONFLICT(id) DO UPDATE SET content_json = excluded.content_json,
-        updated_by = excluded.updated_by, updated_at = excluded.updated_at`).bind(JSON.stringify(content), session!.adminName, now),
-      auditStatement(db, {
-        actorType: "administrator", ...adminAuditMetadata(session!, request),
-        action: sourceRevisionId ? "site_revision_rolled_back" : "site_content_published",
-        entityType: "site_revision", entityId: revisionId,
-        previousValues: sourceRevisionId ? { sourceRevisionId } : null,
-        newValues: { revisionNumber: Number(numberRow?.next_number || 1), pageCount: content.sitePages.length },
-        source: "admin_site_editor", requestId: requestIdentifier(request),
-        summary: sourceRevisionId ? `Published rollback of revision ${sourceRevisionId}` : "Published website content", createdAt: now,
-      }),
-    ]);
-    return jsonResponse({ ok: true, revisionId, revisionNumber: Number(numberRow?.next_number || 1), publishedAt: now, content }, 200, { "Cache-Control": "no-store" });
+    const published = await publishEditableContent({
+      env, db, request, session: session!, content,
+      action: sourceRevisionId ? "site_revision_rolled_back" : "site_content_published",
+      source: "admin_site_editor", sourceRevisionId,
+      note: note || (sourceRevisionId ? `Published rollback of revision ${sourceRevisionId}` : "Published website content"),
+    });
+    return jsonResponse({ ok: true, ...published, publishedAt: now, content }, 200, { "Cache-Control": "no-store" });
   } catch (error) {
     return jsonResponse({ error: error instanceof Error ? error.message : "The website could not be published." }, 400);
   }

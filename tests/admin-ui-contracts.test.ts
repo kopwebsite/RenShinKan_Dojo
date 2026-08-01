@@ -13,6 +13,7 @@ describe("unified administration UI contracts", () => {
 
     expect(app).toContain("<AdminShell>");
     expect(app).toContain('path="/admin" element={<AdminDashboardPage />}');
+    expect(app).toContain('path="/admin/dashboard" element={<AdminDashboardPage />}');
     expect(app).toContain('path="/admin/website" element={<AdminPage />}');
     expect(app).toContain('path="/admin/profile-requests" element={<AdminStudentsPage mode="profileRequests" />}');
     expect(app).toContain('path="/admin/examination-records" element={<AdminWorkflowPage kind="examination-records" />}');
@@ -28,6 +29,9 @@ describe("unified administration UI contracts", () => {
     const passport = file("src/components/studentPassport/DigitalPassport.tsx");
 
     expect(students).toContain("admin-student-workspace__tabs");
+    expect(students).toContain('role="tablist"');
+    expect(students).toContain("admin-payment-history");
+    expect(students).toContain("No payment records yet");
     expect(students).toContain("Review and record examination");
     expect(students).toContain("window.confirm");
     expect(students).toContain("<th>Student</th><th>Student ID</th><th>Rank</th><th>Status</th><th>Training hours</th><th>Action</th>");

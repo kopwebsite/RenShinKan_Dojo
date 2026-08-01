@@ -60,7 +60,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
     FROM students s WHERE s.id = ?`).bind(id).first<Record<string, unknown>>();
   if (!student) return jsonResponse({ error: "Student not found" }, 404);
   if (student.pending_profile_image_key) student.pending_profile_image_url = `/api/admin/students/${encodeURIComponent(id)}/pending-image`;
-  const [exams, hours, applications, hourRequests] = await db.batch([
+  const [exams, hours, applications, hourRequests, payments, paymentProofs] = await db.batch([
     db.prepare(`SELECT id, examination_date, belt_awarded, belt_color, rank, examiner, public_notes, internal_notes,
       COALESCE(rank_before, '') AS rank_before,
       COALESCE(rank_attempted, rank, belt_awarded, '') AS rank_attempted,
@@ -85,6 +85,25 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
       FROM examination_applications ea JOIN examination_cycles ec ON ec.id = ea.cycle_id
       WHERE ea.student_id = ? ORDER BY ea.submitted_at DESC`).bind(id),
     db.prepare("SELECT * FROM training_hour_requests WHERE student_id = ? ORDER BY submitted_at DESC").bind(id),
+    db.prepare(`SELECT DISTINCT p.id, p.payment_type, p.amount, p.currency, p.payment_date, p.status,
+      p.reference, p.notes, p.created_at, p.updated_at, pri.period_key,
+      pp.id AS proof_id, pp.status AS proof_status, pp.content_type AS proof_content_type,
+      pp.original_filename AS proof_filename, pp.submitted_at AS proof_submitted_at
+      FROM payments p
+      LEFT JOIN payment_request_items pri ON pri.payment_reference_id = p.id AND pri.student_id = p.student_id
+      LEFT JOIN payment_proofs pp ON pp.student_id = p.student_id AND
+        (pp.payment_reference_id = p.id OR pp.payment_reference_id = pri.payment_request_id)
+      WHERE p.student_id = ? ORDER BY COALESCE(p.payment_date, p.created_at) DESC, p.id`).bind(id),
+    db.prepare(`SELECT DISTINCT pp.id, pp.payment_type, pp.payment_reference_id, pp.status,
+      pp.content_type, pp.original_filename, pp.file_size, pp.submitted_at, pp.reviewed_at,
+      COALESCE(mc.month_key, pri.period_key, substr(pp.created_at, 1, 7)) AS period_key
+      FROM payment_proofs pp
+      LEFT JOIN monthly_contributions mc ON pp.payment_type = 'renshinkan_monthly'
+        AND (mc.payment_group_id = pp.payment_reference_id OR mc.id = pp.payment_reference_id)
+      LEFT JOIN payment_request_items pri ON pri.payment_request_id = pp.payment_reference_id
+        AND pri.student_id = pp.student_id
+      WHERE pp.student_id = ?
+      ORDER BY COALESCE(pp.submitted_at, pp.created_at) DESC`).bind(id),
   ]);
   const applicationRows = (applications.results || []).map((value) => {
     const row = value as Record<string, unknown>;
@@ -94,7 +113,15 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
     delete row.history_json;
     return row;
   });
-  return jsonResponse({ student, examinations: exams.results || [], trainingHours: hours.results || [], applications: applicationRows, hourRequests: hourRequests.results || [] }, 200, { "Cache-Control": "no-store" });
+  return jsonResponse({
+    student,
+    examinations: exams.results || [],
+    trainingHours: hours.results || [],
+    applications: applicationRows,
+    hourRequests: hourRequests.results || [],
+    payments: payments.results || [],
+    paymentProofs: paymentProofs.results || [],
+  }, 200, { "Cache-Control": "no-store" });
 };
 
 export const onRequestPut: PagesFunction<Env> = async ({ request, env, params }) => {

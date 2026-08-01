@@ -31,6 +31,31 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     conditions.push("(s.display_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR s.public_student_id LIKE ? ESCAPE '\\' COLLATE NOCASE OR COALESCE(s.aat_number, '') LIKE ? ESCAPE '\\' COLLATE NOCASE)");
     bindings.push(term, term, term);
   }
+  const today = new Date().toISOString().slice(0, 10);
+  const dueDateSql = `CASE WHEN strftime('%m-%d', s.aat_last_paid_date) = '02-29'
+    THEN date(s.aat_last_paid_date, '+1 year', 'start of month', '-1 day')
+    ELSE date(s.aat_last_paid_date, '+1 year') END`;
+  const stateSql = `CASE
+    WHEN s.aat_last_paid_date IS NULL OR s.aat_last_paid_date = '' THEN CASE WHEN COALESCE(TRIM(s.aat_number), '') = '' THEN 'new' ELSE 'unpaid' END
+    WHEN ${dueDateSql} < ? THEN 'expired'
+    WHEN ${dueDateSql} <= date(?, '+45 days') THEN 'expiring'
+    ELSE 'current' END`;
+  const statusFilter = clean(url.searchParams.get("status"), 30);
+  if (statusFilter === "pending_payment") {
+    conditions.push(`EXISTS(SELECT 1 FROM payments pending WHERE pending.student_id = s.id
+      AND pending.payment_type = 'aat_annual' AND pending.status = 'awaiting_payment')`);
+  } else if (["payment_required", "new", "unpaid", "expired", "expiring", "current"].includes(statusFilter)) {
+    if (statusFilter === "payment_required") conditions.push(`(${stateSql}) IN ('new', 'unpaid')`);
+    else if (statusFilter === "new" || statusFilter === "unpaid") conditions.push(`(${stateSql}) IN ('new', 'unpaid')`);
+    else conditions.push(`(${stateSql}) = ?`);
+    bindings.push(today, today);
+    if (!["payment_required", "new", "unpaid"].includes(statusFilter)) bindings.push(statusFilter);
+  }
+  const whereSql = conditions.join(" AND ");
+  const total = Number((await db.prepare(`SELECT COUNT(*) AS total FROM students s WHERE ${whereSql}`)
+    .bind(...bindings).first<{ total: number }>())?.total || 0);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(page, totalPages);
   const rows = (await db.prepare(`SELECT s.id, s.display_name, s.public_student_id, s.current_belt, s.profile_image_url,
       s.dojo_id, d.official_name AS dojo_name, s.aat_number, s.aat_last_paid_date, s.aat_notes,
       EXISTS(SELECT 1 FROM payments pending WHERE pending.student_id = s.id
@@ -42,23 +67,17 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
        FROM aat_membership_payments ap LEFT JOIN payments ledger ON ledger.id = ap.id
        WHERE ap.student_id = s.id ORDER BY ap.payment_date DESC) AS history_json
     FROM students s JOIN dojos d ON d.id = s.dojo_id
-    WHERE ${conditions.join(" AND ")} ORDER BY s.display_name COLLATE NOCASE`).bind(...bindings).all<Record<string, unknown>>()).results || [];
-  const statusFilter = clean(url.searchParams.get("status"), 30);
+    WHERE ${whereSql} ORDER BY s.display_name COLLATE NOCASE, s.public_student_id COLLATE NOCASE
+    LIMIT ? OFFSET ?`).bind(...bindings, pageSize, (safePage - 1) * pageSize).all<Record<string, unknown>>()).results || [];
   const mapped = rows.map((row) => {
     const membership = aatMembershipStatus(String(row.aat_number || ""), String(row.aat_last_paid_date || ""));
     let history: unknown[] = [];
     try { history = JSON.parse(String(row.history_json || "[]")); } catch { history = []; }
     return { ...row, aatDisplay: row.aat_number || "NEW", membership, history, history_json: undefined };
-  }).filter((row) => !statusFilter
-    || (statusFilter === "pending_payment"
-      ? Number(row.payment_awaiting_review) === 1
-      : statusFilter === "payment_required" || statusFilter === "new" || statusFilter === "unpaid"
-        ? row.membership.state === "new" || row.membership.state === "unpaid"
-        : row.membership.state === statusFilter));
-  const total = mapped.length;
+  });
   return jsonResponse({
-    memberships: mapped.slice((page - 1) * pageSize, page * pageSize),
-    pagination: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) },
+    memberships: mapped,
+    pagination: { page: safePage, pageSize, total, totalPages },
   }, 200, { "Cache-Control": "no-store" });
 };
 

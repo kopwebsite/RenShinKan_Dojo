@@ -1,13 +1,5 @@
-import { CalendarDays } from "lucide-react";
 import { useEffect, useId, useRef, useState, type InputHTMLAttributes } from "react";
-import {
-  canonicalDateTimeToDisplay,
-  canonicalDateToDisplay,
-  displayDateTimeToCanonical,
-  displayDateToCanonical,
-  displayMonthToCanonical,
-  formatGregorianMonth,
-} from "../../shared/date";
+import { isMonthKey } from "../../shared/date";
 import { useAdminTranslation, useTranslation } from "../i18n";
 
 type BaseProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "value" | "onChange"> & {
@@ -22,140 +14,146 @@ function useDateCopy(admin: boolean) {
   return admin ? adminTranslation.t : publicTranslation.t;
 }
 
-function useDraft(value: string, toDisplay: (value: string) => string) {
-  const [draft, setDraft] = useState(() => toDisplay(value));
-  const locallyEmittedValue = useRef(value);
-  useEffect(() => {
-    if (value !== locallyEmittedValue.current) setDraft(toDisplay(value));
-    locallyEmittedValue.current = value;
-  }, [toDisplay, value]);
-  return [draft, setDraft, locallyEmittedValue] as const;
+function describedBy(input: string | undefined, helperId: string) {
+  return [input, helperId].filter(Boolean).join(" ");
 }
 
-function canonicalMonthToDisplay(value: string) {
-  return formatGregorianMonth(value, "");
-}
-
-function describedBy(input: string | undefined, helperId: string, errorId: string, invalid: boolean) {
-  return [input, helperId, invalid ? errorId : ""].filter(Boolean).join(" ");
-}
-
+/**
+ * Browser-native date fields keep the submitted value canonical (YYYY-MM-DD)
+ * while providing a keyboard and touch accessible calendar. Setting an
+ * explicit Gregorian locale prevents the Thai Buddhist year from appearing in
+ * the picker even when the surrounding page is Thai.
+ */
 export function GregorianDateInput({ value, onChange, admin = false, "aria-describedby": ariaDescribedBy, ...props }: BaseProps) {
   const t = useDateCopy(admin);
   const helperId = useId();
-  const errorId = useId();
-  const [draft, setDraft, locallyEmittedValue] = useDraft(value, canonicalDateToDisplay);
-  const invalid = Boolean(draft && !displayDateToCanonical(draft));
-  const pickerRef = useRef<HTMLInputElement>(null);
-
   return <>
-    <span className="gregorian-date-control">
-      <input
-        {...props}
-        type="text"
-        inputMode="numeric"
-        autoComplete={props.autoComplete || "off"}
-        placeholder="DD/MM/YYYY"
-        pattern="\d{2}/\d{2}/\d{4}"
-        value={draft}
-        aria-invalid={invalid || undefined}
-        aria-describedby={describedBy(ariaDescribedBy, helperId, errorId, invalid)}
-        onChange={(event) => {
-          const next = event.target.value.replace(/[^\d/]/g, "").slice(0, 10);
-          setDraft(next);
-          const canonical = displayDateToCanonical(next);
-          locallyEmittedValue.current = canonical || "";
-          onChange(canonical || "");
-        }}
-      />
-      <button type="button" aria-label={t("date.openCalendar")} onClick={() => {
-        const picker = pickerRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
-        if (picker?.showPicker) picker.showPicker(); else picker?.click();
-      }}><CalendarDays aria-hidden="true" /></button>
-      <input ref={pickerRef} className="gregorian-native-picker" type="date" value={value} tabIndex={-1} aria-hidden="true"
-        onChange={(event) => onChange(event.target.value)} />
-    </span>
+    <input
+      {...props}
+      type="date"
+      lang="en-GB-u-ca-gregory-nu-latn"
+      value={value}
+      aria-describedby={describedBy(ariaDescribedBy, helperId)}
+      onChange={(event) => onChange(event.target.value)}
+    />
     <small id={helperId} className="gregorian-date-help">{t("date.gregorianHelp")}</small>
-    {invalid ? <small id={errorId} className="form-error gregorian-date-error">{t("date.invalid")}</small> : null}
   </>;
 }
 
-export function GregorianMonthInput({ value, onChange, admin = false, "aria-describedby": ariaDescribedBy, ...props }: BaseProps) {
+const GREGORIAN_MONTHS = Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, "0"));
+
+export function GregorianMonthInput({
+  value,
+  onChange,
+  admin = false,
+  "aria-describedby": ariaDescribedBy,
+  id,
+  name,
+  required,
+  disabled,
+  autoFocus,
+  ...props
+}: BaseProps) {
   const t = useDateCopy(admin);
   const helperId = useId();
+  const controlId = useId();
+  const validValue = isMonthKey(value) ? value : "";
+  const [canonicalYear = "", canonicalMonth = ""] = validValue.split("-");
+  const [draftYear, setDraftYear] = useState(canonicalYear);
+  const [draftMonth, setDraftMonth] = useState(canonicalMonth);
+  const currentYear = new Date().getFullYear();
+  const maximumYear = currentYear + 10;
+  const monthLabelId = useId();
+  const yearLabelId = useId();
   const errorId = useId();
-  const [draft, setDraft, locallyEmittedValue] = useDraft(value, canonicalMonthToDisplay);
-  const invalid = Boolean(draft && !displayMonthToCanonical(draft));
-  const pickerRef = useRef<HTMLInputElement>(null);
+  const lastEmittedValue = useRef<string | null>(null);
+  const validDraftYear = /^\d{4}$/.test(draftYear) && Number(draftYear) >= 1900 && Number(draftYear) <= maximumYear;
+  const validationMessage = draftMonth && !draftYear
+    ? t("date.yearMissing")
+    : draftYear && !draftMonth
+      ? t("date.monthMissing")
+      : draftYear && !validDraftYear
+        ? t("date.yearRange", { minimum: 1900, maximum: maximumYear })
+        : "";
+  useEffect(() => {
+    if (lastEmittedValue.current === validValue) {
+      lastEmittedValue.current = null;
+      return;
+    }
+    setDraftYear(canonicalYear);
+    setDraftMonth(canonicalMonth);
+  }, [canonicalMonth, canonicalYear, validValue]);
+  const changePart = (nextYear: string, nextMonth: string) => {
+    const yearNumber = Number(nextYear);
+    const validYear = /^\d{4}$/.test(nextYear) && yearNumber >= 1900 && yearNumber <= maximumYear;
+    const nextValue = validYear && nextMonth ? `${nextYear}-${nextMonth}` : "";
+    lastEmittedValue.current = nextValue;
+    onChange(nextValue);
+  };
 
   return <>
-    <span className="gregorian-date-control">
-      <input
-        {...props}
-        type="text"
-        inputMode="numeric"
-        autoComplete={props.autoComplete || "off"}
-        placeholder="MM/YYYY"
-        pattern="\d{2}/\d{4}"
-        value={draft}
-        aria-invalid={invalid || undefined}
-        aria-describedby={describedBy(ariaDescribedBy, helperId, errorId, invalid)}
-        onChange={(event) => {
-          const next = event.target.value.replace(/[^\d/]/g, "").slice(0, 7);
-          setDraft(next);
-          const canonical = displayMonthToCanonical(next);
-          locallyEmittedValue.current = canonical || "";
-          onChange(canonical || "");
-        }}
-      />
-      <button type="button" aria-label={t("date.openMonthPicker")} onClick={() => {
-        const picker = pickerRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
-        if (picker?.showPicker) picker.showPicker(); else picker?.click();
-      }}><CalendarDays aria-hidden="true" /></button>
-      <input ref={pickerRef} className="gregorian-native-picker" type="month" value={value} tabIndex={-1} aria-hidden="true"
-        onChange={(event) => onChange(event.target.value)} />
+    <span
+      className={`gregorian-month-control${props.className ? ` ${props.className}` : ""}`}
+      role="group"
+      aria-describedby={[ariaDescribedBy, helperId, validationMessage ? errorId : ""].filter(Boolean).join(" ")}
+    >
+      <span className="gregorian-month-part">
+        <span id={monthLabelId}>{t("date.monthLabel")}</span>
+        <select
+          id={id || `${controlId}-month`}
+          value={draftMonth}
+          required={required}
+          disabled={disabled}
+          autoFocus={autoFocus}
+          aria-labelledby={monthLabelId}
+          aria-invalid={Boolean(draftYear && !draftMonth) || undefined}
+          onChange={(event) => { setDraftMonth(event.target.value); changePart(draftYear, event.target.value); }}
+        >
+          <option value="">{t("date.chooseMonth")}</option>
+          {GREGORIAN_MONTHS.map((item) => <option key={item} value={item}>{item}</option>)}
+        </select>
+      </span>
+      <span className="gregorian-month-part">
+        <span id={yearLabelId}>{t("date.yearLabel")}</span>
+        <input
+          id={`${controlId}-year`}
+          type="number"
+          inputMode="numeric"
+          min={1900}
+          max={maximumYear}
+          step={1}
+          placeholder={t("date.yearPlaceholder")}
+          value={draftYear}
+          required={required}
+          disabled={disabled}
+          aria-labelledby={yearLabelId}
+          aria-invalid={Boolean(draftYear && !validDraftYear) || undefined}
+          onChange={(event) => {
+            const nextYear = event.target.value.replace(/\D/g, "").slice(0, 4);
+            setDraftYear(nextYear);
+            changePart(nextYear, draftMonth);
+          }}
+        />
+      </span>
+      {name ? <input type="hidden" name={name} value={validValue} /> : null}
     </span>
     <small id={helperId} className="gregorian-date-help">{t("date.monthHelp")}</small>
-    {invalid ? <small id={errorId} className="form-error gregorian-date-error">{t("date.invalidMonth")}</small> : null}
+    {validationMessage ? <small id={errorId} className="gregorian-date-error" role="alert">{validationMessage}</small> : null}
   </>;
 }
 
 export function GregorianDateTimeInput({ value, onChange, admin = false, "aria-describedby": ariaDescribedBy, ...props }: BaseProps) {
   const t = useDateCopy(admin);
   const helperId = useId();
-  const errorId = useId();
-  const [draft, setDraft, locallyEmittedValue] = useDraft(value, canonicalDateTimeToDisplay);
-  const invalid = Boolean(draft && !displayDateTimeToCanonical(draft));
-  const pickerRef = useRef<HTMLInputElement>(null);
-
   return <>
-    <span className="gregorian-date-control">
-      <input
-        {...props}
-        type="text"
-        inputMode="numeric"
-        autoComplete={props.autoComplete || "off"}
-        placeholder="DD/MM/YYYY HH:mm"
-        pattern="\d{2}/\d{2}/\d{4} \d{2}:\d{2}"
-        value={draft}
-        aria-invalid={invalid || undefined}
-        aria-describedby={describedBy(ariaDescribedBy, helperId, errorId, invalid)}
-        onChange={(event) => {
-          const next = event.target.value.replace(/[^\d/ :]/g, "").slice(0, 16);
-          setDraft(next);
-          const canonical = displayDateTimeToCanonical(next);
-          locallyEmittedValue.current = canonical || "";
-          onChange(canonical || "");
-        }}
-      />
-      <button type="button" aria-label={t("date.openDateTimePicker")} onClick={() => {
-        const picker = pickerRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
-        if (picker?.showPicker) picker.showPicker(); else picker?.click();
-      }}><CalendarDays aria-hidden="true" /></button>
-      <input ref={pickerRef} className="gregorian-native-picker" type="datetime-local" value={value} tabIndex={-1} aria-hidden="true"
-        onChange={(event) => onChange(event.target.value)} />
-    </span>
+    <input
+      {...props}
+      type="datetime-local"
+      lang="en-GB-u-ca-gregory-nu-latn"
+      value={value}
+      aria-describedby={describedBy(ariaDescribedBy, helperId)}
+      onChange={(event) => onChange(event.target.value)}
+    />
     <small id={helperId} className="gregorian-date-help">{t("date.dateTimeHelp")}</small>
-    {invalid ? <small id={errorId} className="form-error gregorian-date-error">{t("date.invalidDateTime")}</small> : null}
   </>;
 }

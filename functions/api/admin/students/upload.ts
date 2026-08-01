@@ -1,8 +1,9 @@
 import { getAuthorizedAdminSession, isSameOriginRequest, jsonResponse, requiresCentralAdmin } from "../../../_lib/auth";
 import { datedProfileKey, validateProfileWebp, type R2Bucket } from "../../../_lib/storage";
 import { requireStudentDb, type StudentEnv } from "../../../_lib/studentRecords";
+import { uploadsEnabled } from "../../../_lib/operationalControls";
 
-type Env = StudentEnv & { SESSION_SECRET?: string; MEDIA_BUCKET?: R2Bucket };
+type Env = StudentEnv & { SESSION_SECRET?: string; MEDIA_BUCKET?: R2Bucket; UPLOADS_ENABLED?: string };
 
 function uploadedProfileKey(value: unknown) {
   return typeof value === "string"
@@ -14,6 +15,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
   const session = await getAuthorizedAdminSession(request, env);
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
+  if (!uploadsEnabled(env)) return jsonResponse({ error: "Profile image uploads are temporarily paused. Existing images are unchanged." }, 503);
   if (!env.MEDIA_BUCKET) return jsonResponse({ error: "Profile image storage is not configured." }, 503);
   try {
     const form = await request.formData();

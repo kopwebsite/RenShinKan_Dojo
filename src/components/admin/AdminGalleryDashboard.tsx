@@ -1,12 +1,11 @@
 import { ExternalLink, Images, Settings2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import {
   GALLERY_IDS,
-  galleryCover,
-  galleryPhotoCount,
   type GalleryAlbums,
   type GalleryId,
+  type GalleryPhoto,
 } from "../../../shared/gallery";
 import { adminApi, formatAdminDate } from "./adminApi";
 
@@ -17,8 +16,7 @@ const DEFINITIONS: Record<GalleryId, { name: string; page: string; route: string
 };
 
 type Response = {
-  albums: GalleryAlbums;
-  publishedAlbums: GalleryAlbums;
+  summaries: Record<GalleryId, { albumCount: number; photoCount: number; previews: GalleryPhoto[]; changed: boolean }>;
   lastPublishedAt: string | null;
   draftMeta: { updatedAt: string; updatedBy: string } | null;
 };
@@ -27,13 +25,11 @@ export function AdminGalleryDashboard({ fallback }: { fallback: GalleryAlbums })
   const [data, setData] = useState<Response | null>(null);
   useEffect(() => {
     let ignore = false;
-    adminApi<Response>("/api/admin/galleries")
+    adminApi<Response>("/api/admin/galleries?summary=1")
       .then((response) => { if (!ignore) setData(response); })
       .catch(() => undefined);
     return () => { ignore = true; };
   }, []);
-  const albums = data?.albums || fallback;
-  const publishedAlbums = data?.publishedAlbums || fallback;
   const updatedAt = data?.draftMeta?.updatedAt || data?.lastPublishedAt;
 
   return (
@@ -48,31 +44,31 @@ export function AdminGalleryDashboard({ fallback }: { fallback: GalleryAlbums })
       <div className="admin-gallery-dashboard__grid">
         {GALLERY_IDS.map((galleryId) => {
           const definition = DEFINITIONS[galleryId];
-          const entries = albums[galleryId];
-          const previews = entries.flatMap((album) => {
-            const cover = galleryCover(album);
-            const photos = album.photos.filter((photo) => !photo.trashedAt);
-            return cover ? [cover, ...photos.filter((photo) => photo.id !== cover.id)] : photos;
-          }).slice(0, 3);
-          const changed = JSON.stringify(entries) !== JSON.stringify(publishedAlbums[galleryId]);
+          const fallbackEntries = fallback[galleryId];
+          const summary = data?.summaries[galleryId] || {
+            albumCount: fallbackEntries.length,
+            photoCount: fallbackEntries.reduce((sum, album) => sum + album.photos.filter((photo) => !photo.trashedAt).length, 0),
+            previews: fallbackEntries.flatMap((album) => album.photos.filter((photo) => !photo.trashedAt)).slice(0, 3),
+            changed: false,
+          };
           return (
             <article key={galleryId} className="admin-gallery-card">
               <div className="admin-gallery-card__preview" aria-hidden="true">
-                {previews.map((photo) => (
+                {summary.previews.map((photo) => (
                   <img key={photo.id} src={photo.thumbnailSrc || photo.src} alt="" loading="lazy" style={{ objectPosition: photo.objectPosition }} />
                 ))}
-                {previews.length === 0 ? <span><Images size={28} /> No photos</span> : null}
+                {summary.previews.length === 0 ? <span><Images size={28} /> No photos</span> : null}
               </div>
               <div className="admin-gallery-card__body">
                 <div className="admin-gallery-card__status">
-                  <span className={changed ? "is-draft" : "is-published"}>{changed ? "Draft changes" : "Published"}</span>
+                  <span className={summary.changed ? "is-draft" : "is-published"}>{summary.changed ? "Draft changes" : "Published"}</span>
                   <small>{definition.presentation}</small>
                 </div>
                 <h3>{definition.name}</h3>
                 <p>{definition.page}</p>
                 <dl>
-                  <div><dt>Albums</dt><dd>{entries.length}</dd></div>
-                  <div><dt>Photos</dt><dd>{galleryPhotoCount(entries)}</dd></div>
+                  <div><dt>Albums</dt><dd>{summary.albumCount}</dd></div>
+                  <div><dt>Photos</dt><dd>{summary.photoCount}</dd></div>
                   <div><dt>Updated</dt><dd>{updatedAt ? formatAdminDate(updatedAt) : "Not available"}</dd></div>
                 </dl>
                 <div className="admin-gallery-card__actions">

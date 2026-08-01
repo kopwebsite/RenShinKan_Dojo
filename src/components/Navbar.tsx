@@ -1,6 +1,6 @@
 import { ChevronDown, IdCard } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { siteInfo } from "../data/siteMeta";
 import { languageOptions, useTranslation, type Language, type TranslationKey } from "../i18n";
 import { BrushCircleLogo } from "./BrushCircleLogo";

@@ -1,35 +1,88 @@
 "$schema" = "./node_modules/wrangler/config-schema.json"
 name = "renshinkan-dojo"
 pages_build_output_dir = "./dist"
-compatibility_date = "2026-07-01"
+compatibility_date = "2026-07-15"
 
 [vars]
-SITE_URL = "https://renshinkandojo.org"
-ALLOWED_ORIGIN = "https://renshinkandojo.org"
-VITE_SITE_URL = "https://renshinkandojo.org"
-VITE_TURNSTILE_SITE_KEY = "0x4AAAAAADcmYAchez5JIG6l"
+APP_ENV = "local"
+BUILD_ID = "local-development"
+SITE_URL = "http://localhost:8788"
+ALLOWED_ORIGIN = "http://localhost:8788"
+VITE_SITE_URL = "http://localhost:8788"
+VITE_TURNSTILE_SITE_KEY = "1x00000000000000000000AA"
 # Explicit financial configuration consumed by the API and then returned to
 # the contribution UI. No payment amount is embedded in application logic.
 RENSHINKAN_MONTHLY_CONTRIBUTION_AMOUNT = "1800"
 AAT_ANNUAL_CONTRIBUTION_AMOUNT = "1200"
+UPLOADS_ENABLED = "true"
+NEWSLETTER_PUBLISHING_ENABLED = "true"
 
 [[kv_namespaces]]
 binding = "CONTENT_KV"
-# KV namespace: renshinkan-content
-# Production and preview currently point at the same namespace. To separate
-# them later, run `npx wrangler kv namespace create CONTENT_KV --preview`
-# and replace preview_id with the new id it prints.
-id = "6ab67d96ab894636bd7b7ef2fa97b7e2"
-preview_id = "6ab67d96ab894636bd7b7ef2fa97b7e2"
+# Local bindings are emulated by Wrangler and never target remote resources.
+id = "00000000000000000000000000000000"
 
 [[r2_buckets]]
 binding = "MEDIA_BUCKET"
-bucket_name = "renshinkan-dojo-media"
-preview_bucket_name = "renshinkan-dojo-media-preview"
+bucket_name = "renshinkan-dojo-media-local"
 
 [[d1_databases]]
 binding = "STUDENT_DB"
+database_name = "renshinkan-student-records-local"
+database_id = "00000000-0000-4000-8000-000000000000"
+migrations_dir = "migrations"
+
+# Pages environments are non-inheritable. Every variable and binding is
+# intentionally repeated. Placeholder resource IDs block release until the
+# preview resources have been created and the release validation is run.
+[env.preview.vars]
+APP_ENV = "preview"
+BUILD_ID = "rsk-20260801-001"
+SITE_URL = "https://release-preview.renshinkan-dojo-release-preview.pages.dev"
+ALLOWED_ORIGIN = "https://release-preview.renshinkan-dojo-release-preview.pages.dev"
+VITE_SITE_URL = "https://release-preview.renshinkan-dojo-release-preview.pages.dev"
+VITE_TURNSTILE_SITE_KEY = "1x00000000000000000000AA"
+RENSHINKAN_MONTHLY_CONTRIBUTION_AMOUNT = "1800"
+AAT_ANNUAL_CONTRIBUTION_AMOUNT = "1200"
+UPLOADS_ENABLED = "true"
+NEWSLETTER_PUBLISHING_ENABLED = "true"
+
+[[env.preview.kv_namespaces]]
+binding = "CONTENT_KV"
+id = "55a61dbde66c48729ebc9495b112fe4e"
+
+[[env.preview.r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "renshinkan-dojo-media-preview"
+
+[[env.preview.d1_databases]]
+binding = "STUDENT_DB"
+database_name = "renshinkan-student-records-release-preview"
+database_id = "dbb092ac-d521-4635-91fe-a3e7eb78fb6a"
+migrations_dir = "migrations"
+
+[env.production.vars]
+APP_ENV = "production"
+BUILD_ID = "rsk-20260801-001"
+SITE_URL = "https://renshinkandojo.org"
+ALLOWED_ORIGIN = "https://renshinkandojo.org"
+VITE_SITE_URL = "https://renshinkandojo.org"
+VITE_TURNSTILE_SITE_KEY = "0x4AAAAAADcmYAchez5JIG6l"
+RENSHINKAN_MONTHLY_CONTRIBUTION_AMOUNT = "1800"
+AAT_ANNUAL_CONTRIBUTION_AMOUNT = "1200"
+UPLOADS_ENABLED = "true"
+NEWSLETTER_PUBLISHING_ENABLED = "true"
+
+[[env.production.kv_namespaces]]
+binding = "CONTENT_KV"
+id = "6ab67d96ab894636bd7b7ef2fa97b7e2"
+
+[[env.production.r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "renshinkan-dojo-media"
+
+[[env.production.d1_databases]]
+binding = "STUDENT_DB"
 database_name = "renshinkan-student-records"
 database_id = "dbba70a8-1776-44ba-b455-f2576b3518bf"
-preview_database_id = "dbba70a8-1776-44ba-b455-f2576b3518bf"
 migrations_dir = "migrations"

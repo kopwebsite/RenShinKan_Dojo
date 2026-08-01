@@ -1,0 +1,3 @@
+# Retired one-way SHA-256 verifier from the pre-server-auth implementation.
+# The raw password was never tracked; rewriting shared history would be unsafe.
+7b2e4051c8e9c1cf0b109e359bac9463a83a36c7:src/pages/AdminPage.tsx:generic-api-key:27

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { LoaderCircle, Save } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { AdminCheckingSession, AdminDojoSelector, AdminLoginFields, AdminRenshinKanVerification } from "../components/admin/AdminAccess";
 import { adminApi } from "../components/admin/adminApi";
 import { useAdminSession } from "../components/admin/useAdminSession";

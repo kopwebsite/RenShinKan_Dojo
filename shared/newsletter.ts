@@ -10,6 +10,14 @@ export const NEWSLETTER_CATEGORIES = [
 export type NewsletterCategory = typeof NEWSLETTER_CATEGORIES[number];
 export type NewsletterContentType = "newsletter" | "event";
 export type NewsletterLifecycleStatus = "active" | "archived" | "trash";
+export type NewsletterFormat = "article" | "presentation";
+export type NewsletterPresentation = {
+  originalMediaId: string | null;
+  pdfMediaId: string | null;
+  viewerTitle: string;
+  slideCount: number | null;
+  outline: string[];
+};
 
 export type NewsletterDocumentMark = {
   type: "bold" | "italic" | "link";
@@ -67,6 +75,8 @@ export type NewsletterLike = {
   category?: NewsletterCategory;
   tags?: string[];
   lifecycleStatus?: NewsletterLifecycleStatus;
+  newsletterFormat?: NewsletterFormat;
+  presentation?: NewsletterPresentation;
   relatedNewsletterIds?: string[];
   featured?: boolean;
   media?: Array<{
@@ -77,6 +87,7 @@ export type NewsletterLike = {
     fileName?: string;
     alt?: string;
     objectPosition?: string;
+    documentKind?: "pdf" | "docx" | "ppt";
   }>;
   image?: {
     id: string;
@@ -86,6 +97,7 @@ export type NewsletterLike = {
     fileName?: string;
     alt?: string;
     objectPosition?: string;
+    documentKind?: "pdf" | "docx" | "ppt";
   };
   coverImageId?: string | null;
   createdAt: string;
@@ -218,7 +230,14 @@ export function newsletterPublicationIssues(
   if (!newsletter.category) issues.push("Choose a category.");
   if (!newsletter.slug.trim()) issues.push("Create a web address.");
   if (!newsletter.date.trim()) issues.push("Choose a publication or event date.");
-  if (!newsletter.body.trim() && !collectNewsletterDocumentText(newsletter.bodyContent ?? { type: "doc" }).trim()) {
+  if (newsletter.newsletterFormat === "presentation") {
+    const media = newsletter.media ?? [];
+    const original = media.find((item) => item.id === newsletter.presentation?.originalMediaId);
+    const pdf = media.find((item) => item.id === newsletter.presentation?.pdfMediaId);
+    if (!original || original.type !== "document" || original.documentKind !== "ppt") issues.push("Upload the original PowerPoint presentation.");
+    if (!pdf || pdf.type !== "document" || pdf.documentKind !== "pdf") issues.push("Upload the PDF presentation for the website viewer.");
+    if (!newsletter.presentation?.slideCount || newsletter.presentation.slideCount < 1) issues.push("Enter the total number of slides.");
+  } else if (!newsletter.body.trim() && !collectNewsletterDocumentText(newsletter.bodyContent ?? { type: "doc" }).trim()) {
     issues.push("Write the newsletter.");
   }
   if (newsletter.contentType === "event" && newsletter.eventDetails && !newsletter.eventDetails.startAt && !newsletter.date) {

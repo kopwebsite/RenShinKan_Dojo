@@ -1,16 +1,30 @@
 import { jsonResponse } from "../_lib/auth";
 import { type StorageEnv, readEditableContentFromStorage } from "../_lib/storage";
-import type { D1Database } from "../_lib/studentRecords";
+import { requestIdentifier, type D1Database } from "../_lib/studentRecords";
 import { formatGregorianDateTime } from "../../shared/date";
 
 type Env = StorageEnv & { STUDENT_DB?: D1Database };
+
+function publicProjection(content: Awaited<ReturnType<typeof readEditableContentFromStorage>>) {
+  const recentEvents = [...content.recentEvents]
+    .filter((event) => event.published && event.lifecycleStatus !== "archived" && event.lifecycleStatus !== "trash" && !event.trashedAt)
+    .sort((left, right) => Date.parse(right.date) - Date.parse(left.date))
+    .slice(0, 3)
+    .map((event) => ({ ...event, body: "", bodyContent: undefined, media: (event.media || []).slice(0, 1) }));
+  const galleryAlbums = Object.fromEntries(Object.entries(content.galleryAlbums).map(([galleryId, albums]) => [
+    galleryId,
+    albums.slice(0, 4).map((album) => ({ ...album, photos: album.photos.filter((photo) => !photo.trashedAt).slice(0, 12) })),
+  ])) as typeof content.galleryAlbums;
+  return { ...content, recentEvents, galleryAlbums };
+}
 
 function activeExamAnnouncement(value: string, venue: string) {
   const formatted = formatGregorianDateTime(value, value);
   return `Next belt examination: ${formatted}${venue ? ` at ${venue}` : ""}`;
 }
 
-export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
+export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
+  const requestId = requestIdentifier(request);
   if (!env.CONTENT_KV) {
     return jsonResponse(
       { ok: false, error: "Cloudflare CONTENT_KV binding is not configured" },
@@ -37,11 +51,18 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
         };
       }
     }
-    return jsonResponse(content, 200, { "Cache-Control": "no-store" });
+    return jsonResponse(publicProjection(content), 200, {
+      "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+      Vary: "Accept-Encoding",
+    });
   } catch (error) {
+    console.error("Public content read failed", {
+      requestId,
+      category: error instanceof SyntaxError ? "malformed_content" : "storage_unavailable",
+    });
     return jsonResponse(
-      { ok: false, error: error instanceof Error ? error.message : "Content is unavailable" },
-      500,
+      { ok: false, error: "Public content is temporarily unavailable. Please retry.", requestId },
+      503,
       { "Cache-Control": "no-store" },
     );
   }

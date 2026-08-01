@@ -1,5 +1,6 @@
 import { getAuthorizedAdminSession, isRenShinKanSuperAdmin, isSameOriginRequest, jsonResponse } from "../../_lib/auth";
-import { uploadFilesToR2, type R2Bucket } from "../../_lib/storage";
+import { StorageOperationError, uploadFilesToR2, type R2Bucket } from "../../_lib/storage";
+import { consumeRateLimit } from "../../_lib/rateLimit";
 import {
   adminAuditMetadata,
   auditStatement,
@@ -7,8 +8,9 @@ import {
   requireStudentDb,
   type StudentEnv,
 } from "../../_lib/studentRecords";
+import { uploadsEnabled } from "../../_lib/operationalControls";
 
-type Env = StudentEnv & { MEDIA_BUCKET?: R2Bucket };
+type Env = StudentEnv & { MEDIA_BUCKET?: R2Bucket; UPLOADS_ENABLED?: string };
 const MAX_PDF_BYTES = 20 * 1024 * 1024;
 
 function clean(value: unknown, max: number) {
@@ -28,15 +30,31 @@ async function authorized(request: Request, env: Env) {
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const session = await authorized(request, env);
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
-  const rows = await requireStudentDb(env).prepare(`SELECT * FROM download_assets
-    ORDER BY sort_order ASC, updated_at DESC, id ASC`).all();
-  return jsonResponse({ downloads: rows.results || [] }, 200, { "Cache-Control": "no-store" });
+  const url = new URL(request.url);
+  const page = Math.max(1, Number.parseInt(url.searchParams.get("page") || "1", 10) || 1);
+  const pageSize = 50;
+  const db = requireStudentDb(env);
+  const total = Number((await db.prepare("SELECT COUNT(*) AS total FROM download_assets")
+    .first<{ total: number }>())?.total || 0);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const rows = await db.prepare(`SELECT * FROM download_assets
+    ORDER BY sort_order ASC, updated_at DESC, id ASC LIMIT ? OFFSET ?`)
+    .bind(pageSize, (safePage - 1) * pageSize).all();
+  return jsonResponse({
+    downloads: rows.results || [],
+    pagination: { page: safePage, pageSize, total, totalPages },
+  }, 200, { "Cache-Control": "no-store" });
 };
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
   const session = await authorized(request, env);
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
+  if (!uploadsEnabled(env)) return jsonResponse({ error: "Download uploads are temporarily paused. Existing downloads are unchanged." }, 503);
+  if (!(await consumeRateLimit(request, env, { endpoint: "admin-download-upload", subject: session.accountId, limit: 20, windowSeconds: 15 * 60, lockSeconds: 5 * 60 }))) {
+    return jsonResponse({ error: "Uploads are temporarily rate limited. Wait and try again." }, 429);
+  }
   try {
     const form = await request.formData();
     const file = form.get("file");
@@ -77,6 +95,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     ]);
     return jsonResponse({ ok: true, id }, 201, { "Cache-Control": "no-store" });
   } catch (error) {
+    if (error instanceof StorageOperationError) return jsonResponse({ error: error.message }, 503);
     const message = error instanceof Error ? error.message : "The PDF could not be uploaded.";
     return jsonResponse({ error: message.includes("UNIQUE") ? "That download slug is already in use." : message }, message.includes("UNIQUE") ? 409 : 400);
   }
@@ -86,6 +105,10 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
   const session = await authorized(request, env);
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
+  if (!uploadsEnabled(env)) return jsonResponse({ error: "Download uploads are temporarily paused. Existing downloads are unchanged." }, 503);
+  if (!(await consumeRateLimit(request, env, { endpoint: "admin-download-upload", subject: session.accountId, limit: 20, windowSeconds: 15 * 60, lockSeconds: 5 * 60 }))) {
+    return jsonResponse({ error: "Uploads are temporarily rate limited. Wait and try again." }, 429);
+  }
   try {
     const form = await request.formData();
     const id = clean(form.get("id"), 80);
@@ -123,6 +146,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
     ]);
     return jsonResponse({ ok: true }, 200, { "Cache-Control": "no-store" });
   } catch (error) {
+    if (error instanceof StorageOperationError) return jsonResponse({ error: error.message }, 503);
     return jsonResponse({ error: error instanceof Error ? error.message : "The replacement PDF could not be uploaded." }, 400);
   }
 };

@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "activationStatus": "planned_not_active",
+  "externalNotificationConfirmed": false,
+  "evaluationWindowTimezone": "UTC",
+  "policies": [
+    {
+      "name": "worker_5xx",
+      "severity": "critical",
+      "threshold": 3,
+      "windowMinutes": 5,
+      "source": "workers_logs"
+    },
+    {
+      "name": "admin_auth_failures",
+      "severity": "high",
+      "threshold": 10,
+      "windowMinutes": 15,
+      "source": "workers_logs"
+    },
+    {
+      "name": "student_verification_failures",
+      "severity": "medium",
+      "threshold": 20,
+      "windowMinutes": 15,
+      "source": "workers_logs"
+    },
+    {
+      "name": "binding_failures",
+      "severity": "high",
+      "threshold": 2,
+      "windowMinutes": 10,
+      "source": "workers_logs"
+    },
+    {
+      "name": "publishing_stuck",
+      "severity": "high",
+      "threshold": 1,
+      "ageMinutes": 15,
+      "source": "admin_diagnostics"
+    },
+    {
+      "name": "upload_failures",
+      "severity": "high",
+      "threshold": 3,
+      "windowMinutes": 15,
+      "source": "workers_logs"
+    },
+    {
+      "name": "abnormal_traffic",
+      "severity": "medium",
+      "baselineMultiplier": 3,
+      "minimumRequests": 200,
+      "windowMinutes": 10,
+      "source": "cloudflare_traffic_analytics"
+    },
+    {
+      "name": "migration_or_binding_mismatch",
+      "severity": "critical",
+      "threshold": 1,
+      "source": "public_health"
+    },
+    {
+      "name": "deployment_failure",
+      "severity": "critical",
+      "threshold": 1,
+      "source": "authorized_release_workflow"
+    }
+  ]
+}

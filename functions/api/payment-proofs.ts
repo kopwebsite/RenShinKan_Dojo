@@ -2,8 +2,10 @@ import { isSameOriginRequest, jsonResponse } from "../_lib/auth";
 import { validatePaymentProofFile } from "../_lib/paymentProofs";
 import { auditStatement, requestIdentifier, requireStudentDb, sha256Hex, type StudentEnv } from "../_lib/studentRecords";
 import type { R2Bucket } from "../_lib/storage";
+import { consumeRateLimit } from "../_lib/rateLimit";
+import { uploadsEnabled } from "../_lib/operationalControls";
 
-type Env = StudentEnv & { MEDIA_BUCKET?: R2Bucket };
+type Env = StudentEnv & { MEDIA_BUCKET?: R2Bucket; UPLOADS_ENABLED?: string };
 
 function isFile(value: FormDataEntryValue | null): value is File {
   return typeof value === "object" && value !== null && "arrayBuffer" in value && "size" in value && "type" in value;
@@ -11,6 +13,7 @@ function isFile(value: FormDataEntryValue | null): value is File {
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
+  if (!uploadsEnabled(env)) return jsonResponse({ error: "Payment-proof uploads are temporarily paused. Your existing payment record is unchanged." }, 503);
   if (!env.MEDIA_BUCKET) return jsonResponse({ error: "Payment-proof storage is unavailable." }, 503);
   const db = requireStudentDb(env);
   const requestId = requestIdentifier(request);
@@ -21,6 +24,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const uploadToken = String(form.get("uploadToken") || "").trim();
     const file = form.get("file");
     if (!proofId || !uploadToken || !isFile(file)) return jsonResponse({ error: "Choose a payslip image to upload." }, 400);
+    if (!(await consumeRateLimit(request, env, { endpoint: "payment-proof-upload", subject: proofId, limit: 8, windowSeconds: 15 * 60, lockSeconds: 10 * 60 }))) {
+      return jsonResponse({ error: "This upload is temporarily unavailable. Wait and try again." }, 429);
+    }
     const tokenHash = await sha256Hex(uploadToken);
     const proof = await db.prepare(`SELECT id, student_id, payment_type, status, object_key, upload_token_expires_at
       FROM payment_proofs WHERE id = ? AND upload_token_hash = ? LIMIT 1`).bind(proofId, tokenHash)

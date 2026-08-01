@@ -15,12 +15,13 @@ import {
   getUploadFiles,
   readEditableContentFromStorage,
   uploadFilesToR2,
-  writeEditableContentToStorage,
 } from "../../../_lib/storage";
+import { publishEditableContent } from "../../../_lib/publishing";
 import { newsletterPublicationIssues } from "../../../../shared/newsletter";
 import { requireStudentDb, type StudentEnv } from "../../../_lib/studentRecords";
+import { uploadsEnabled } from "../../../_lib/operationalControls";
 
-type Env = StorageEnv & StudentEnv & { SESSION_SECRET?: string };
+type Env = StorageEnv & StudentEnv & { SESSION_SECRET?: string; UPLOADS_ENABLED?: string };
 
 const MAX_FILES = 10;
 const MAX_EVENT_BYTES = 900_000;
@@ -126,14 +127,19 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (issues.length) return jsonResponse({ ok: false, error: "Complete the required publishing details.", issues }, 400);
     }
 
+    if (files.length > 0 && !uploadsEnabled(env)) return jsonResponse({ ok: false, error: "Newsletter media uploads are temporarily paused. Remove new files and save the draft again." }, 503);
     const { uploadUrlByPendingId, fallbackUrls, uploaded } = await uploadFilesToR2(env, files);
     next = replacePendingMediaUrls(next, uploadUrlByPendingId, fallbackUrls);
     event = next.recentEvents.find((item) => item.id === id)!;
-    await writeEditableContentToStorage(env, next);
+    const db = requireStudentDb(env);
+    const publishOperation = await publishEditableContent({
+      env, db, request, session: session!, content: next,
+      action: "newsletter_saved", source: "newsletter_editor",
+      note: `${event.published ? "Published" : "Saved"} newsletter ${event.title || "Untitled draft"}`,
+    });
 
     let warning = "";
     try {
-      const db = requireStudentDb(env);
       const revisionId = `newsletter-revision-${crypto.randomUUID()}`;
       await db.batch([
         db.prepare(`INSERT INTO newsletter_revisions
@@ -150,7 +156,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       warning = "The draft was saved, but its recovery-history snapshot could not be recorded.";
     }
 
-    return jsonResponse({ ok: true, event, uploaded, savedAt: now, warning: warning || undefined });
+    return jsonResponse({ ok: true, event, uploaded, savedAt: now, publishOperation, warning: warning || undefined });
   } catch (error) {
     return jsonResponse({ ok: false, error: error instanceof Error ? error.message : "Newsletter could not be saved." }, 500);
   }

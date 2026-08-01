@@ -59,7 +59,12 @@ export const emptyEditableContent: EditableContent = {
   },
   sitePages: [],
   siteSettings: {
-    translations: Object.fromEntries(SITE_LOCALES.map((locale) => [locale, { footerText: "", notice: "", navigation: {} }])) as SiteSettings["translations"],
+    translations: Object.fromEntries(
+      SITE_LOCALES.map((locale) => [
+        locale,
+        { footerText: "", notice: "", navigation: {} },
+      ]),
+    ) as SiteSettings["translations"],
   },
 };
 
@@ -78,10 +83,14 @@ function asOptionalString(value: unknown) {
 }
 
 function asOptionalNumber(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
 }
 
-function normalizeBodyMediaPlacement(value: unknown): BodyMediaPlacement | undefined {
+function normalizeBodyMediaPlacement(
+  value: unknown,
+): BodyMediaPlacement | undefined {
   if (!isRecord(value)) {
     return undefined;
   }
@@ -97,14 +106,20 @@ function normalizeBodyMediaPlacement(value: unknown): BodyMediaPlacement | undef
 }
 
 function normalizeNewsletterStatus(value: unknown): NewsletterStatus {
-  return value === "pending" || value === "sent" || value === "failed" ? value : "not_sent";
+  return value === "pending" || value === "sent" || value === "failed"
+    ? value
+    : "not_sent";
 }
 
 function normalizeDocumentKind(value: unknown): DocumentMediaKind | undefined {
-  return value === "pdf" || value === "docx" || value === "ppt" ? value : undefined;
+  return value === "pdf" || value === "docx" || value === "ppt"
+    ? value
+    : undefined;
 }
 
-function normalizeDocumentDisplayMode(value: unknown): DocumentDisplayMode | undefined {
+function normalizeDocumentDisplayMode(
+  value: unknown,
+): DocumentDisplayMode | undefined {
   return value === "inline" || value === "link" ? value : undefined;
 }
 
@@ -115,7 +130,8 @@ function normalizeMediaItem(value: unknown): MediaItem | null {
 
   const id = asString(value.id);
   const src = asString(value.src);
-  const type = value.type === "video" || value.type === "document" ? value.type : "image";
+  const type =
+    value.type === "video" || value.type === "document" ? value.type : "image";
 
   if (!id || !src) {
     return null;
@@ -125,7 +141,8 @@ function normalizeMediaItem(value: unknown): MediaItem | null {
     return null;
   }
 
-  const documentKind = type === "document" ? normalizeDocumentKind(value.documentKind) : undefined;
+  const documentKind =
+    type === "document" ? normalizeDocumentKind(value.documentKind) : undefined;
 
   if (type === "document" && !documentKind) {
     return null;
@@ -141,9 +158,14 @@ function normalizeMediaItem(value: unknown): MediaItem | null {
     type,
     title: asOptionalString(value.title),
     documentKind,
-    displayMode: type === "document" ? normalizeDocumentDisplayMode(value.displayMode) : undefined,
-    fileName: type === "document" ? asOptionalString(value.fileName) : undefined,
-    fileSize: type === "document" ? asOptionalNumber(value.fileSize) : undefined,
+    displayMode:
+      type === "document"
+        ? normalizeDocumentDisplayMode(value.displayMode)
+        : undefined,
+    fileName:
+      type === "document" ? asOptionalString(value.fileName) : undefined,
+    fileSize:
+      type === "document" ? asOptionalNumber(value.fileSize) : undefined,
     objectPosition: asOptionalString(value.objectPosition),
     width: asOptionalNumber(value.width),
     height: asOptionalNumber(value.height),
@@ -153,7 +175,9 @@ function normalizeMediaItem(value: unknown): MediaItem | null {
 
 function normalizeMediaList(value: unknown): MediaItem[] {
   return Array.isArray(value)
-    ? value.map(normalizeMediaItem).filter((item): item is MediaItem => Boolean(item))
+    ? value
+        .map(normalizeMediaItem)
+        .filter((item): item is MediaItem => Boolean(item))
     : [];
 }
 
@@ -174,32 +198,51 @@ function normalizeRecentEvent(value: unknown): RecentEvent | null {
   const newsletter = isRecord(value.newsletter)
     ? {
         status: normalizeNewsletterStatus(value.newsletter.status),
-        sentAt: typeof value.newsletter.sentAt === "string" ? value.newsletter.sentAt : null,
+        sentAt:
+          typeof value.newsletter.sentAt === "string"
+            ? value.newsletter.sentAt
+            : null,
         brevoCampaignId:
-          typeof value.newsletter.brevoCampaignId === "string" || typeof value.newsletter.brevoCampaignId === "number"
+          typeof value.newsletter.brevoCampaignId === "string" ||
+          typeof value.newsletter.brevoCampaignId === "number"
             ? value.newsletter.brevoCampaignId
             : null,
-        error: typeof value.newsletter.error === "string" ? value.newsletter.error : null,
+        error:
+          typeof value.newsletter.error === "string"
+            ? value.newsletter.error
+            : null,
       }
-    : { status: "not_sent" as const, sentAt: null, brevoCampaignId: null, error: null };
+    : {
+        status: "not_sent" as const,
+        sentAt: null,
+        brevoCampaignId: null,
+        error: null,
+      };
   const image = normalizeMediaItem(value.image);
   const media = normalizeMediaList(value.media);
-  const category = NEWSLETTER_CATEGORIES.includes(value.category as NewsletterCategory)
-    ? value.category as NewsletterCategory
+  const category = NEWSLETTER_CATEGORIES.includes(
+    value.category as NewsletterCategory,
+  )
+    ? (value.category as NewsletterCategory)
     : inferNewsletterCategory(title);
-  const contentType: NewsletterContentType = value.contentType === "event" || value.contentType === "newsletter"
-    ? value.contentType
-    : value.showInCommunityCalendar === true
-      ? "event"
-      : "newsletter";
+  const contentType: NewsletterContentType =
+    value.contentType === "event" || value.contentType === "newsletter"
+      ? value.contentType
+      : value.showInCommunityCalendar === true
+        ? "event"
+        : "newsletter";
   const lifecycleStatus: NewsletterLifecycleStatus =
-    value.lifecycleStatus === "archived" || value.lifecycleStatus === "trash" ? value.lifecycleStatus : "active";
+    value.lifecycleStatus === "archived" || value.lifecycleStatus === "trash"
+      ? value.lifecycleStatus
+      : "active";
   const explicitCoverId = asOptionalString(value.coverImageId);
-  const coverImageId = explicitCoverId && media.some((item) => item.id === explicitCoverId && item.type === "image")
-    ? explicitCoverId
-    : image?.type === "image" && !isDocumentDerivedImage(image)
-      ? image.id
-      : null;
+  const coverImageId =
+    explicitCoverId &&
+    media.some((item) => item.id === explicitCoverId && item.type === "image")
+      ? explicitCoverId
+      : image?.type === "image" && !isDocumentDerivedImage(image)
+        ? image.id
+        : null;
   const emailValue = isRecord(value.emailSettings) ? value.emailSettings : {};
   const emailSettings: NewsletterEmailSettings = {
     subject: asString(emailValue.subject) || title,
@@ -221,27 +264,36 @@ function normalizeRecentEvent(value: unknown): RecentEvent | null {
     date,
     summary,
     body,
-    bodyContent: isRecord(value.bodyContent) && value.bodyContent.type === "doc"
-      ? value.bodyContent as NewsletterDocument
-      : undefined,
+    bodyContent:
+      isRecord(value.bodyContent) && value.bodyContent.type === "doc"
+        ? (value.bodyContent as NewsletterDocument)
+        : undefined,
     slug,
     slugHistory: Array.isArray(value.slugHistory)
-      ? value.slugHistory.filter((entry): entry is string => typeof entry === "string")
+      ? value.slugHistory.filter(
+          (entry): entry is string => typeof entry === "string",
+        )
       : [],
     published: value.published === true,
-    websitePublishRequested: value.websitePublishRequested === true || value.published === true,
-    publishedAt: typeof value.publishedAt === "string" ? value.publishedAt : null,
+    websitePublishRequested:
+      value.websitePublishRequested === true || value.published === true,
+    publishedAt:
+      typeof value.publishedAt === "string" ? value.publishedAt : null,
     publishAt: typeof value.publishAt === "string" ? value.publishAt : null,
     contentType,
     category,
-    tags: Array.isArray(value.tags) ? value.tags.filter((tag): tag is string => typeof tag === "string") : [],
+    tags: Array.isArray(value.tags)
+      ? value.tags.filter((tag): tag is string => typeof tag === "string")
+      : [],
     lifecycleStatus,
     archivedAt: typeof value.archivedAt === "string" ? value.archivedAt : null,
     trashedAt: typeof value.trashedAt === "string" ? value.trashedAt : null,
     featured: value.featured === true,
     coverImageId,
     relatedNewsletterIds: Array.isArray(value.relatedNewsletterIds)
-      ? value.relatedNewsletterIds.filter((entry): entry is string => typeof entry === "string").slice(0, 3)
+      ? value.relatedNewsletterIds
+          .filter((entry): entry is string => typeof entry === "string")
+          .slice(0, 3)
       : [],
     emailSettings,
     eventDetails,
@@ -251,12 +303,25 @@ function normalizeRecentEvent(value: unknown): RecentEvent | null {
     showInCommunityCalendar: value.showInCommunityCalendar === true,
     calendar: isRecord(value.calendar)
       ? {
-          status: value.calendar.status === "published" || value.calendar.status === "failed" ? value.calendar.status : "not_added",
-          publishedAt: typeof value.calendar.publishedAt === "string" ? value.calendar.publishedAt : null,
-          error: typeof value.calendar.error === "string" ? value.calendar.error : null,
+          status:
+            value.calendar.status === "published" ||
+            value.calendar.status === "failed"
+              ? value.calendar.status
+              : "not_added",
+          publishedAt:
+            typeof value.calendar.publishedAt === "string"
+              ? value.calendar.publishedAt
+              : null,
+          error:
+            typeof value.calendar.error === "string"
+              ? value.calendar.error
+              : null,
         }
       : {
-          status: value.published === true && value.showInCommunityCalendar === true ? "published" : "not_added",
+          status:
+            value.published === true && value.showInCommunityCalendar === true
+              ? "published"
+              : "not_added",
           publishedAt: null,
           error: null,
         },
@@ -319,49 +384,153 @@ function normalizePassedTestStudent(value: unknown): PassedTestStudent | null {
   };
 }
 
-function localizedRecord<T>(value: unknown, normalize: (entry: RecordValue) => T, fallback: () => T) {
+function localizedRecord<T>(
+  value: unknown,
+  normalize: (entry: RecordValue) => T,
+  fallback: () => T,
+) {
   const record = isRecord(value) ? value : {};
-  return Object.fromEntries(SITE_LOCALES.map((locale) => [locale, isRecord(record[locale]) ? normalize(record[locale] as RecordValue) : fallback()])) as Record<SiteLocale, T>;
+  return Object.fromEntries(
+    SITE_LOCALES.map((locale) => [
+      locale,
+      isRecord(record[locale])
+        ? normalize(record[locale] as RecordValue)
+        : fallback(),
+    ]),
+  ) as Record<SiteLocale, T>;
 }
 
 function normalizeSiteBlock(value: unknown): SiteBlock | null {
-  if (!isRecord(value) || typeof value.id !== "string" || typeof value.type !== "string") return null;
-  const validTypes = ["hero", "richText", "image", "imageText", "gallery", "schedule", "instructorCard", "cta", "contact", "announcement", "divider", "video", "faq"];
+  if (
+    !isRecord(value) ||
+    typeof value.id !== "string" ||
+    typeof value.type !== "string"
+  )
+    return null;
+  const validTypes = [
+    "hero",
+    "richText",
+    "image",
+    "imageText",
+    "gallery",
+    "schedule",
+    "instructorCard",
+    "cta",
+    "contact",
+    "announcement",
+    "divider",
+    "video",
+    "faq",
+  ];
   if (!validTypes.includes(value.type)) return null;
-  const translations = localizedRecord<SiteBlockTranslation>(value.translations, (entry) => ({
-    title: asString(entry.title), text: asString(entry.text), buttonLabel: asString(entry.buttonLabel),
-    buttonUrl: asString(entry.buttonUrl), imageUrl: asString(entry.imageUrl), imageAlt: asString(entry.imageAlt),
-  }), () => ({ title: "", text: "", buttonLabel: "", buttonUrl: "", imageUrl: "", imageAlt: "" }));
+  const translations = localizedRecord<SiteBlockTranslation>(
+    value.translations,
+    (entry) => ({
+      title: asString(entry.title),
+      text: asString(entry.text),
+      buttonLabel: asString(entry.buttonLabel),
+      buttonUrl: asString(entry.buttonUrl),
+      imageUrl: asString(entry.imageUrl),
+      imageAlt: asString(entry.imageAlt),
+    }),
+    () => ({
+      title: "",
+      text: "",
+      buttonLabel: "",
+      buttonUrl: "",
+      imageUrl: "",
+      imageAlt: "",
+    }),
+  );
   return {
-    id: value.id, type: value.type as SiteBlock["type"], visible: value.visible !== false,
-    align: value.align === "center" || value.align === "right" ? value.align : "left",
-    textColor: value.textColor === "paper" || value.textColor === "bamboo" || value.textColor === "vermillion" ? value.textColor : "ink",
-    background: value.background === "paper" || value.background === "mist" || value.background === "ink" || value.background === "bamboo" ? value.background : "transparent",
+    id: value.id,
+    type: value.type as SiteBlock["type"],
+    visible: value.visible !== false,
+    align:
+      value.align === "center" || value.align === "right"
+        ? value.align
+        : "left",
+    textColor:
+      value.textColor === "paper" ||
+      value.textColor === "bamboo" ||
+      value.textColor === "vermillion"
+        ? value.textColor
+        : "ink",
+    background:
+      value.background === "paper" ||
+      value.background === "mist" ||
+      value.background === "ink" ||
+      value.background === "bamboo"
+        ? value.background
+        : "transparent",
     font: value.font === "serif" ? "serif" : "sans",
-    fontSize: value.fontSize === "small" || value.fontSize === "large" ? value.fontSize : "normal",
-    spacing: value.spacing === "compact" || value.spacing === "spacious" ? value.spacing : "normal",
-    imagePlacement: value.imagePlacement === "right" || value.imagePlacement === "above" ? value.imagePlacement : "left",
+    fontSize:
+      value.fontSize === "small" || value.fontSize === "large"
+        ? value.fontSize
+        : "normal",
+    spacing:
+      value.spacing === "compact" || value.spacing === "spacious"
+        ? value.spacing
+        : "normal",
+    imagePlacement:
+      value.imagePlacement === "right" || value.imagePlacement === "above"
+        ? value.imagePlacement
+        : "left",
     translations,
   };
 }
 
 function normalizeSitePage(value: unknown): SitePage | null {
-  if (!isRecord(value) || typeof value.id !== "string" || typeof value.route !== "string") return null;
+  if (
+    !isRecord(value) ||
+    typeof value.id !== "string" ||
+    typeof value.route !== "string"
+  )
+    return null;
   return {
-    id: value.id, route: value.route, status: value.status === "published" ? "published" : "draft",
-    translations: localizedRecord(value.translations, (entry) => ({ title: asString(entry.title), seoTitle: asString(entry.seoTitle), seoDescription: asString(entry.seoDescription) }), () => ({ title: "", seoTitle: "", seoDescription: "" })),
-    blocks: Array.isArray(value.blocks) ? value.blocks.map(normalizeSiteBlock).filter((block): block is SiteBlock => Boolean(block)) : [],
-    publishedAt: typeof value.publishedAt === "string" ? value.publishedAt : null,
-    publishedBy: typeof value.publishedBy === "string" ? value.publishedBy : null,
+    id: value.id,
+    route: value.route,
+    status: value.status === "published" ? "published" : "draft",
+    translations: localizedRecord(
+      value.translations,
+      (entry) => ({
+        title: asString(entry.title),
+        seoTitle: asString(entry.seoTitle),
+        seoDescription: asString(entry.seoDescription),
+      }),
+      () => ({ title: "", seoTitle: "", seoDescription: "" }),
+    ),
+    blocks: Array.isArray(value.blocks)
+      ? value.blocks
+          .map(normalizeSiteBlock)
+          .filter((block): block is SiteBlock => Boolean(block))
+      : [],
+    publishedAt:
+      typeof value.publishedAt === "string" ? value.publishedAt : null,
+    publishedBy:
+      typeof value.publishedBy === "string" ? value.publishedBy : null,
   };
 }
 
 function normalizeSiteSettings(value: unknown): SiteSettings {
   const record = isRecord(value) ? value : {};
-  return { translations: localizedRecord(record.translations, (entry) => ({
-    footerText: asString(entry.footerText), notice: asString(entry.notice),
-    navigation: isRecord(entry.navigation) ? Object.fromEntries(Object.entries(entry.navigation).filter((item): item is [string, string] => typeof item[1] === "string")) : {},
-  }), () => ({ footerText: "", notice: "", navigation: {} })) };
+  return {
+    translations: localizedRecord(
+      record.translations,
+      (entry) => ({
+        footerText: asString(entry.footerText),
+        notice: asString(entry.notice),
+        navigation: isRecord(entry.navigation)
+          ? Object.fromEntries(
+              Object.entries(entry.navigation).filter(
+                (item): item is [string, string] => typeof item[1] === "string",
+              ),
+            )
+          : {},
+      }),
+      () => ({ footerText: "", notice: "", navigation: {} }),
+    ),
+  };
 }
 
 export function normalizeEditableContent(value: unknown): EditableContent {
@@ -381,15 +550,25 @@ export function normalizeEditableContent(value: unknown): EditableContent {
 
   return {
     version: typeof value.version === "number" ? value.version : 1,
-    lastPublishedAt: typeof value.lastPublishedAt === "string" ? value.lastPublishedAt : null,
+    lastPublishedAt:
+      typeof value.lastPublishedAt === "string" ? value.lastPublishedAt : null,
     recentEvents: Array.isArray(value.recentEvents)
-      ? value.recentEvents.map(normalizeRecentEvent).filter((event): event is RecentEvent => Boolean(event))
+      ? value.recentEvents
+          .map(normalizeRecentEvent)
+          .filter((event): event is RecentEvent => Boolean(event))
       : [],
     examAnnouncement: normalizeExamAnnouncement(value.examAnnouncement),
     paymentQr: normalizePaymentQr(value.paymentQr),
     ...normalizedLegacy,
-    galleryAlbums: migrateLegacyGalleries({ ...normalizedLegacy, galleryAlbums: value.galleryAlbums }),
-    sitePages: Array.isArray(value.sitePages) ? value.sitePages.map(normalizeSitePage).filter((page): page is SitePage => Boolean(page)) : [],
+    galleryAlbums: migrateLegacyGalleries({
+      ...normalizedLegacy,
+      galleryAlbums: value.galleryAlbums,
+    }),
+    sitePages: Array.isArray(value.sitePages)
+      ? value.sitePages
+          .map(normalizeSitePage)
+          .filter((page): page is SitePage => Boolean(page))
+      : [],
     siteSettings: normalizeSiteSettings(value.siteSettings),
   };
 }
@@ -419,9 +598,18 @@ let sharedContentRequest: Promise<EditableContent> | null = null;
 
 async function fetchFirstEditableContent() {
   const staticContentUrl = assetPath("/content/editableContent.json");
-  const urls = isViteLocalHost() ? [staticContentUrl] : ["/api/content", staticContentUrl];
+  const urls = isViteLocalHost()
+    ? [staticContentUrl]
+    : ["/api/content", staticContentUrl];
 
   for (const url of urls) {
+    if (
+      typeof document !== "undefined" &&
+      document.visibilityState === "hidden"
+    ) {
+      break;
+    }
+
     try {
       const content = await fetchEditableContent(url);
 
@@ -429,6 +617,12 @@ async function fetchFirstEditableContent() {
         return content;
       }
     } catch {
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState === "hidden"
+      ) {
+        break;
+      }
       // Try the next source. Vite dev does not run Cloudflare Pages Functions.
     }
   }
@@ -463,8 +657,13 @@ export function useEditableContent() {
   return { content, loading };
 }
 
-export function getPublishedRecentEvents(content: EditableContent, limit?: number) {
-  const events = sortNewslettersNewest(content.recentEvents.filter((event) => publicNewsletter(event)));
+export function getPublishedRecentEvents(
+  content: EditableContent,
+  limit?: number,
+) {
+  const events = sortNewslettersNewest(
+    content.recentEvents.filter((event) => publicNewsletter(event)),
+  );
 
   return typeof limit === "number" ? events.slice(0, limit) : events;
 }

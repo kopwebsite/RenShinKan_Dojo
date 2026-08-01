@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { MotionSection } from "../components/MotionSection";
 import { ResponsiveImage } from "../components/ResponsiveImage";
 import { WorkshopCards } from "../components/WorkshopCards";

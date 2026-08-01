@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowRight } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { BrushCircleLogo } from "../components/BrushCircleLogo";
 import { LatestDojoNewsletters } from "../components/LatestDojoNewsletters";
 import { ResponsiveImage } from "../components/ResponsiveImage";

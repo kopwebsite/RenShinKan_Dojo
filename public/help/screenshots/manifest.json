@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "reviewDate": "2026-07-31",
+  "buildId": "c65cfd0a9a42",
+  "dataPolicy": "Public pages, empty forms, and non-personal demonstration state only. No production student, payment, or administrator data.",
+  "items": [
+    {
+      "file": "public-home-en-desktop-v2026-07.webp",
+      "topicId": "public-start",
+      "route": "/",
+      "locale": "en",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "testedAt": "2026-07-31",
+      "buildId": "c65cfd0a9a42",
+      "alt": "RenShinKan home page with the main navigation and language control visible"
+    },
+    {
+      "file": "student-records-en-mobile-v2026-07.webp",
+      "topicId": "public-profile",
+      "route": "/student-records",
+      "locale": "en",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "testedAt": "2026-07-31",
+      "buildId": "c65cfd0a9a42",
+      "alt": "Student Record lookup form on a mobile-width screen using demonstration fields only"
+    },
+    {
+      "file": "newsletter-en-desktop-v2026-07.webp",
+      "topicId": "public-news",
+      "route": "/newsletter",
+      "locale": "en",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "testedAt": "2026-07-31",
+      "buildId": "c65cfd0a9a42",
+      "alt": "Published News page with newsletter cards and page controls"
+    },
+    {
+      "file": "downloads-en-desktop-v2026-07.webp",
+      "topicId": "public-resources",
+      "route": "/downloads",
+      "locale": "en",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "testedAt": "2026-07-31",
+      "buildId": "c65cfd0a9a42",
+      "alt": "Downloads page showing demonstration document cards"
+    },
+    {
+      "file": "admin-login-en-desktop-v2026-07.webp",
+      "topicId": "admin-access",
+      "route": "/admin",
+      "locale": "en",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "testedAt": "2026-07-31",
+      "buildId": "c65cfd0a9a42",
+      "alt": "Administrator sign-in page with empty demonstration fields"
+    },
+    {
+      "file": "admin-login-th-desktop-v2026-07.webp",
+      "topicId": "admin-access",
+      "route": "/admin",
+      "locale": "th",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "testedAt": "2026-07-31",
+      "buildId": "c65cfd0a9a42",
+      "alt": "หน้าลงชื่อเข้าใช้ผู้ดูแลภาษาไทยที่ช่องตัวอย่างว่างอยู่"
+    }
+  ]
+}

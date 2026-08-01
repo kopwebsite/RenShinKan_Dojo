@@ -22,6 +22,8 @@ public/uploads/generated/
 .logs/
 logs/
 screenshots/
+!public/help/screenshots/
+!public/help/screenshots/**
 tmp/
 test-results/
 playwright-report/

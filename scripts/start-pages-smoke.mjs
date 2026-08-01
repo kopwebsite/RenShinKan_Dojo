@@ -17,6 +17,7 @@ const credentialPath = "tmp/pages-smoke-credentials.json";
 rmSync(state, { recursive: true, force: true });
 rmSync(fixtureDirectory, { recursive: true, force: true });
 mkdirSync(state, { recursive: true });
+mkdirSync("tmp", { recursive: true });
 const password = randomBytes(24).toString("base64url");
 const sessionSecret = randomBytes(48).toString("base64url");
 const studentPepper = randomBytes(48).toString("base64url");

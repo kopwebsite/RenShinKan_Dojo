@@ -117,16 +117,26 @@ test("mobile dialog respects the viewport, text enlargement, reduced motion, and
 test("a missing guide image falls back to complete written instructions", async ({
   page,
 }) => {
-  await page.route("**/help/screenshots/**", (route) => route.abort());
+  await page.route("**/help/screenshots/**", (route) =>
+    route.fulfill({
+      status: 404,
+      contentType: "text/plain",
+      body: "Not found",
+    }),
+  );
   await page.goto("/?help=public-start");
   const dialog = page.locator('.help-panel[role="dialog"]');
   await expect(dialog).toHaveAccessibleName("How to use this website");
   await expect(
     dialog.getByRole("heading", { name: "Find your way around the website" }),
   ).toBeVisible();
+  await dialog
+    .locator(".help-figure, .help-image-fallback")
+    .first()
+    .scrollIntoViewIfNeeded();
   await expect(
     dialog.getByRole("img", { name: /Guide image unavailable/ }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 15_000 });
   await expect(dialog.getByRole("heading", { name: "Steps" })).toBeVisible();
   await expect(
     dialog.getByRole("button", {

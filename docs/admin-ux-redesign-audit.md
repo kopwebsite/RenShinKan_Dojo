@@ -39,7 +39,7 @@ reference pack is treated as interaction guidance, not as a visual template.
 - `/student-records` — choose Find my record, Create a profile, or Apply for an
   exam.
 - `/records` — redirects to `/student-records`.
-- `/records/share/:token` — approved public student record.
+- `/records/share/:token` — usable pending or approved public student record.
 - `/support` — contribution and payment-proof workflows.
 - Public content routes remain `/`, `/aikido`, `/classes`, `/community`,
   `/contact`, `/instructors`, `/newsletter`, `/newsletter/:slug`,
@@ -52,8 +52,9 @@ reference pack is treated as interaction guidance, not as a visual template.
 - Authenticates with the central administrator secret.
 - Starts without a selected dojo.
 - May select any active dojo.
-- Selecting `dojo-rsk` requires the second RenShinKan verification secret.
-- Only a central session at `dojo-rsk` with successful secondary verification
+- Selecting `dojo-rsk` with an authenticated central account immediately
+  establishes the RenShinKan context.
+- Only a central session whose server-validated selection is `dojo-rsk`
   becomes `renshinkan_super_admin`.
 - Super-admin scope may cross dojos only where an endpoint explicitly permits
   it. Website content, publishing, dojo configuration, RenShinKan monthly
@@ -75,7 +76,6 @@ reference pack is treated as interaction guidance, not as a visual template.
 - `allowedDojoIds`
 - `selectedDojoId`
 - `permissionLevel`
-- `renshinkanVerified`
 - signed Secure/HttpOnly/SameSite session cookie
 - server-side session revocation and rotation
 - same-origin checks on mutations
@@ -85,8 +85,7 @@ reference pack is treated as interaction guidance, not as a visual template.
 
 ### Authentication and dojo context
 
-- `/api/admin/login`, `/logout`, `/session`, `/select-dojo`, `/switch-dojo`,
-  `/verify-renshinkan`
+- `/api/admin/login`, `/logout`, `/session`, `/select-dojo`, `/switch-dojo`
 
 ### Dashboard, records, and audit
 
@@ -122,8 +121,8 @@ reference pack is treated as interaction guidance, not as a visual template.
 
 ## Existing workflows and data dependencies
 
-- Administrator sign-in, dojo selection, optional RenShinKan verification,
-  context switching, and sign-out.
+- Administrator sign-in, server-authorized dojo selection, context switching,
+  and sign-out.
 - Search/filter/paginate student records; add, edit, archive, restore, or
   permanently delete where authorized.
 - Bulk profile decisions, training-hour changes, promotions, examination
@@ -144,7 +143,7 @@ reference pack is treated as interaction guidance, not as a visual template.
 ## Features that must not be lost
 
 - Six-dojo data model and server-enforced dojo isolation.
-- RenShinKan secondary verification.
+- Primary administrator authentication and server-enforced RenShinKan scope.
 - All current student, examination, contribution, payment-proof, media,
   revision, translation, and audit data.
 - Existing URLs, shared-record tokens, Approval Center query links, and useful

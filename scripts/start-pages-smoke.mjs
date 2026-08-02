@@ -156,8 +156,6 @@ const server = spawn(
     "--binding",
     `ADMIN_PASSWORD_HASH=${passwordHash}`,
     "--binding",
-    `RSK_ADMIN_SECONDARY_PASSWORD_HASH=${passwordHash}`,
-    "--binding",
     "TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA",
     "--binding",
     "PERFORMANCE_DIAGNOSTICS=true",

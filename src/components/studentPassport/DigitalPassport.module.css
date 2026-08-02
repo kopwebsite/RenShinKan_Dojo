@@ -302,6 +302,7 @@
 .seal svg { width: 1.35rem; height: 1.35rem; }
 .seal span, .seal small { font-size: .5rem; font-weight: 900; letter-spacing: .13em; }
 .seal strong { font-family: "Cormorant Garamond", serif; font-size: 1.05rem; letter-spacing: .05em; }
+.sealPending { color: #8a591a; background: rgba(255, 240, 200, .28); }
 
 .hoursHero { display: grid; grid-template-columns: auto 1fr; align-items: center; padding: 1.2rem; color: #f5e4c7; background: var(--passport-burgundy); border: 3px double rgba(255, 239, 208, .55); }
 .hoursHero svg { grid-row: 1 / 3; width: 2.4rem; height: 2.4rem; margin-right: .9rem; }

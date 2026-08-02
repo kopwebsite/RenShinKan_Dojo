@@ -43,9 +43,13 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
     if (!sourceType) return jsonResponse({ error: "Choose where the training hours came from." }, 400);
     if (sourceType === "other" && !sourceDetails) return jsonResponse({ error: "Describe the other training source." }, 400);
     if (organization.length > 160 || sourceDetails.length > 240 || notes.length > 1000) return jsonResponse({ error: "One of the training details is too long." }, 400);
-    const student = await db.prepare(`SELECT id FROM students
-      WHERE UPPER(public_student_id) = ? AND active = 1 AND public_visible = 1 AND profile_status = 'approved' LIMIT 1`)
-      .bind(publicStudentId).first<{ id: string }>();
+    const student = await db.prepare(`SELECT s.id FROM students s
+      WHERE (UPPER(s.public_student_id) = ? OR EXISTS (
+        SELECT 1 FROM student_id_aliases a WHERE a.student_id = s.id
+        AND UPPER(a.alias_public_student_id) = ?
+      )) AND s.active = 1 AND s.public_visible = 1
+      AND s.profile_status IN ('pending_admin_approval', 'approved') LIMIT 1`)
+      .bind(publicStudentId, publicStudentId).first<{ id: string }>();
     if (!student) return jsonResponse({ error: "The verified student session is unavailable. Look up the record again." }, 403);
     const session = await validStudentAccessSession(db, student.id, accessToken);
     if (!session) return jsonResponse({ error: "Your secure record session expired. Look up the record again before submitting hours." }, 403);

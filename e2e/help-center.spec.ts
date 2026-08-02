@@ -130,14 +130,12 @@ test("a missing guide image falls back to complete written instructions", async 
   await expect(
     dialog.getByRole("heading", { name: "Find your way around the website" }),
   ).toBeVisible();
-  await dialog
-    .locator(".help-figure, .help-image-fallback")
-    .first()
-    .scrollIntoViewIfNeeded();
+  const stepsHeading = dialog.getByRole("heading", { name: "Steps" });
+  await stepsHeading.scrollIntoViewIfNeeded();
   await expect(
     dialog.getByRole("img", { name: /Guide image unavailable/ }),
   ).toBeVisible({ timeout: 15_000 });
-  await expect(dialog.getByRole("heading", { name: "Steps" })).toBeVisible();
+  await expect(stepsHeading).toBeVisible();
   await expect(
     dialog.getByRole("button", {
       name: /Look up or update your student profile/,

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Eye, History, ImagePlus, LoaderCircle, Plus, Save, Send, Trash2 } from "lucide-react";
-import { AdminCheckingSession, AdminDojoSelector, AdminLoginFields, AdminRenshinKanVerification } from "../components/admin/AdminAccess";
+import { AdminCheckingSession, AdminDojoSelector, AdminLoginFields } from "../components/admin/AdminAccess";
 import { adminApi } from "../components/admin/adminApi";
 import { ManagedSitePage } from "../components/ManagedSitePage";
 import { useAdminSession } from "../components/admin/useAdminSession";
@@ -37,8 +37,7 @@ export function AdminSiteEditorPage() {
   if (!session.checked) return <AdminCheckingSession />;
   if (!session.admin) return <main className="admin-gate"><form onSubmit={session.login}><AdminLoginFields name={session.name} password={session.password} error={session.error} busy={session.busy} setName={session.setName} setPassword={session.setPassword} /></form></main>;
   if (!session.admin.selectedDojoId) return <AdminDojoSelector dojos={session.dojos} admin={session.admin} busyId={session.selecting} error={session.error} onSelect={(id) => void session.selectDojo(id)} />;
-  if (session.admin.renshinkanVerificationRequired) return <AdminRenshinKanVerification password={session.secondaryPassword} error={session.error} busy={session.verifying} setPassword={session.setSecondaryPassword} onSubmit={session.verifyRenshinKan} onCancel={() => void session.switchDojo()} />;
-  if (session.admin.permissionLevel !== "renshinkan_super_admin") return <main className="container-shell py-16"><h1>Access restricted</h1><p>Only the verified RenShinKan administrator may edit the public website.</p><a className="btn-secondary mt-5" href="/admin">Back to administration</a></main>;
+  if (session.admin.permissionLevel !== "renshinkan_super_admin") return <main className="container-shell py-16"><h1>Access restricted</h1><p>Only the RenShinKan central administrator may edit the public website.</p><a className="btn-secondary mt-5" href="/admin">Back to administration</a></main>;
   const selected = session.dojos.find((dojo) => dojo.id === session.admin?.selectedDojoId);
   return <section className="container-shell py-10 student-admin"><header className="student-admin__header"><div>{selected?.logo_url ? <img className="admin-selected-dojo-logo" src={selected.logo_url} alt="" /> : null}<p className="eyebrow">{selected?.official_name} / ADMIN</p><h1>Site pages</h1><p>Edit multilingual blocks using approved layout, color, type, and spacing choices. Scripts and arbitrary HTML are not accepted.</p></div><div className="admin-header-actions"><button className="btn-primary" disabled={dirty || Boolean(busy)} onClick={() => void publish()}><Send size={16} /> Review &amp; publish</button></div></header>
     {error ? <p className="form-error" role="alert">{error}</p> : null}{notice ? <p className="admin-notice" role="status">{notice}</p> : null}

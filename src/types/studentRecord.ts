@@ -85,7 +85,8 @@ export type PassportPaymentAlert = {
 export type PublicStudentRecord = {
   displayName: string; englishName: string; thaiName: string | null; studentId: string; currentBelt: string; beltColor: string;
   totalVerifiedTrainingHours: number; examinations: PublicExamination[]; dojoName: string;
-  lastUpdated: string | null; profileImage: string | null; verified: boolean;
+  lastUpdated: string | null; profileImage: string | null;
+  profileStatus: "pending_admin_approval" | "approved"; verified: boolean;
 };
 
 export type StudentPassportRecord = PublicStudentRecord & {

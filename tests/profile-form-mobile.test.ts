@@ -15,7 +15,7 @@ describe("student profile form on desktop and mobile", () => {
   it("uses a month-and-year start picker and stores a readable approximate value", () => {
     expect(page).toContain("GregorianMonthInput");
     expect(compact(page)).toContain(
-      "Choose a month and year if you remember. An approximate answer is fine.",
+      "Choose a month and Gregorian year if you remember. An approximate answer is fine.",
     );
     expect(page).toContain("Optional");
     expect(page).toContain("formatGregorianMonth");
@@ -35,8 +35,11 @@ describe("student profile form on desktop and mobile", () => {
   });
 
   it("keeps the optional AAT status full-width and stacks controls on small screens", () => {
-    expect(page).toContain("I currently have an AAT annual membership");
-    expect(page).toContain("No membership yet is okay.");
+    expect(page).toContain("I already have a current AAT membership");
+    expect(page).toContain("No membership yet?");
+    expect(page).toContain(
+      "You can finish the AAT application after creating your profile.",
+    );
     expect(page).toContain("Self-reported until an administrator confirms it.");
     expect(compact(css)).toContain(
       ".student-aat-payment-date, .student-aat-note { grid-column: 1 / -1; }",

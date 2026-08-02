@@ -183,7 +183,12 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, params })
     if (image === undefined) return jsonResponse({ error: "The profile image location is invalid." }, 400);
     if (studentId !== existing.public_student_id && !isValidStudentId(studentId)) return jsonResponse({ error: "Student ID must use a format such as RSK-2601." }, 400);
     if (studentId !== existing.public_student_id) {
-      const duplicate = await db.prepare("SELECT id FROM students WHERE UPPER(public_student_id) = ? AND id <> ? LIMIT 1").bind(studentId, id).first();
+      const duplicate = await db.prepare(`SELECT id FROM students
+        WHERE UPPER(public_student_id) = ? AND id <> ?
+        UNION ALL
+        SELECT student_id AS id FROM student_id_aliases
+        WHERE UPPER(alias_public_student_id) = ? AND student_id <> ?
+        LIMIT 1`).bind(studentId, id, studentId, id).first();
       if (duplicate) return jsonResponse({ error: "That Student ID is already in use." }, 409);
     }
 
@@ -201,7 +206,13 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, params })
       dojoId: dojo.id, dojoName, aatNumber, aatLastPaidDate, aatNotes, adminNotes, practiceDuration, totalHours: currentTrainingHours,
     };
 
-    const statements = [db.prepare(`UPDATE students SET public_student_id = ?, name_verification_hash = ?,
+    const statements = [];
+    if (studentId !== existing.public_student_id) {
+      statements.push(db.prepare(`DELETE FROM student_id_aliases
+        WHERE student_id = ? AND UPPER(alias_public_student_id) = ?`)
+        .bind(id, studentId));
+    }
+    statements.push(db.prepare(`UPDATE students SET public_student_id = ?, name_verification_hash = ?,
       display_name = ?, english_name = ?, thai_name = ?, account_created_date = ?, dojo_joined_date = ?,
       current_belt = ?, belt_color = ?, profile_image_url = ?, profile_image_consent = ?,
       guardian_consent = ?, public_visible = ?, active = ?, share_fields = ?, dojo_id = ?, dojo_name = ?, aat_number = ?, aat_last_paid_date = ?, aat_notes = ?, admin_notes = ?,
@@ -209,7 +220,13 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, params })
       .bind(studentId, nameHash, name, name, thaiName, accountCreatedDate, dojoJoinedDate,
         currentBelt, rankColor(currentBelt, existing.belt_color), image,
         next.profileImageConsent, next.guardianConsent, next.publicVisible, next.active, shareFields, dojo.id, dojoName, aatNumber, aatLastPaidDate, aatNotes, adminNotes,
-        practiceDuration, currentTrainingHours - recordedHours, now, id)];
+        practiceDuration, currentTrainingHours - recordedHours, now, id));
+    if (studentId !== existing.public_student_id) {
+      statements.push(db.prepare(`INSERT OR IGNORE INTO student_id_aliases
+        (alias_public_student_id, student_id, created_at, created_by, reason)
+        VALUES (?, ?, ?, ?, 'administrator_correction')`)
+        .bind(existing.public_student_id, id, now, session.adminName));
+    }
     if (dojo.id !== existing.dojo_id) {
       statements.push(db.prepare(`INSERT INTO student_dojo_history
         (id, student_id, previous_dojo_id, new_dojo_id, changed_by, reason, changed_at)

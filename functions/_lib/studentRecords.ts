@@ -203,58 +203,6 @@ export async function studentNameVerificationHash(
   return hmacHex(secret, `name:${normalizeVerifiedName(name)}`);
 }
 
-export function normalizeStudentAccessCode(value: string) {
-  return value
-    .normalize("NFKC")
-    .toLocaleUpperCase("en-US")
-    .replace(/[^A-Z0-9]/g, "");
-}
-
-export async function studentAccessCodeHash(
-  env: StudentEnv,
-  studentId: string,
-  code: string,
-) {
-  const normalized = normalizeStudentAccessCode(code);
-  if (!/^[A-Z2-9]{12,20}$/.test(normalized))
-    throw new Error("Student access code is invalid");
-  return hmacHex(
-    studentSecret(env),
-    `student-access:${studentId}:${normalized}`,
-  );
-}
-
-export function generateStudentAccessCode() {
-  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-  const output: string[] = [];
-  while (output.length < 15) {
-    const values = crypto.getRandomValues(new Uint8Array(20));
-    for (const value of values) {
-      if (value >= 224 || output.length >= 15) continue;
-      output.push(alphabet[value % alphabet.length]);
-    }
-  }
-  return `${output.slice(0, 5).join("")}-${output.slice(5, 10).join("")}-${output.slice(10).join("")}`;
-}
-
-export async function verifyStudentAccessCode(
-  env: StudentEnv,
-  studentId: string,
-  code: string,
-  expectedHash: string,
-) {
-  try {
-    const actual = await studentAccessCodeHash(env, studentId, code);
-    if (actual.length !== expectedHash.length) return false;
-    let difference = 0;
-    for (let index = 0; index < actual.length; index += 1)
-      difference |= actual.charCodeAt(index) ^ expectedHash.charCodeAt(index);
-    return difference === 0;
-  } catch {
-    return false;
-  }
-}
-
 export function normalizeStudentId(value: string) {
   return value.normalize("NFKC").trim().toLocaleUpperCase("en-US");
 }
@@ -672,7 +620,11 @@ export async function publicStudentRecord(db: D1Database, student: StudentRow) {
     profileImage: student.profile_image_consent
       ? student.profile_image_url
       : null,
-    verified: true,
+    profileStatus:
+      student.profile_status === "approved"
+        ? ("approved" as const)
+        : ("pending_admin_approval" as const),
+    verified: student.profile_status === "approved",
   };
 }
 
@@ -1113,14 +1065,14 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
               ? "A payslip has been submitted and is waiting for review."
               : "A payslip has not been uploaded yet.",
     }));
-  const profileRequest = student.profile_reviewed_at
+  const profileRequest = student.created_at
     ? [
         {
           id: `profile:${student.id}`,
           type: "profile_information" as const,
           title: "Student profile request",
           previousValue: null,
-          requestedValue: "Create an approved student profile",
+          requestedValue: "Create a usable student profile",
           submittedAt: student.created_at,
           decisionAt: student.profile_reviewed_at || null,
           studentVisibleNote: student.profile_student_visible_note || null,
@@ -1129,7 +1081,9 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
           documentStatus: null,
           period: null,
           explanation:
-            "Your student profile is approved and available in this passport.",
+            student.profile_status === "approved"
+              ? "Your student profile is approved and available in this passport."
+              : "Your profile is usable now and is pending administrator review.",
         },
       ]
     : [];
@@ -1273,7 +1227,7 @@ export function genericLookupFailure(status = 404) {
   return jsonResponse(
     {
       error:
-        "We could not find a matching student record. Please check the details and try again.",
+        "Check the name and Student ID and try again.",
     },
     status,
     { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" },

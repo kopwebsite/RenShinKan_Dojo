@@ -22,7 +22,6 @@ if (process.argv.includes("--no-diagnostics")) entries.PERFORMANCE_DIAGNOSTICS =
 const bindingNames = [
   "ADMIN_PASSWORD_HASH",
   "DOJO_ADMIN_PASSWORD_HASHES",
-  "RSK_ADMIN_SECONDARY_PASSWORD_HASH",
   "SESSION_SECRET",
   "STUDENT_LOOKUP_PEPPER",
   "SITE_URL",

@@ -9,6 +9,158 @@
   width: 100%;
 }
 
+/* Student profile creation: compact, grouped, and keyboard-friendly. */
+.student-profile-form {
+  width: min(64rem, 100%);
+  background: linear-gradient(180deg, #fffdf8, hsl(var(--color-paper) / 0.76));
+}
+.profile-form-sections {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+.profile-form-section {
+  min-width: 0;
+  margin: 1rem 0 0;
+  padding: clamp(1rem, 3vw, 1.4rem);
+  border: 1px solid hsl(var(--color-ink) / 0.16);
+  border-radius: 0.7rem;
+  background: hsl(var(--color-paper) / 0.56);
+}
+.profile-form-section > legend {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  max-width: calc(100% - 1rem);
+  padding: 0 0.45rem;
+}
+.profile-form-section > legend > span {
+  display: grid;
+  flex: 0 0 2rem;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  color: white;
+  border-radius: 50%;
+  background: hsl(var(--color-vermilion));
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+.profile-form-section > legend > div {
+  display: grid;
+  gap: 0.12rem;
+  text-align: left;
+}
+.profile-form-section > legend strong { font-size: 0.9rem; }
+.profile-form-section > legend small {
+  color: hsl(var(--color-charcoal) / 0.72);
+  font-size: 0.76rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.profile-form-section .student-form-grid { margin-top: 0.45rem; }
+.student-profile-form :is(input, select, button, .student-photo-field):focus-visible,
+.profile-created :is(input, button, a):focus-visible {
+  outline: 3px solid hsl(var(--color-vermilion) / 0.42);
+  outline-offset: 2px;
+}
+.student-profile-form [aria-invalid="true"] { border-color: #a62922; box-shadow: 0 0 0 2px #a6292220; }
+.student-profile-form .field-error,
+.record-lookup .field-error {
+  display: block;
+  margin-top: 0.25rem;
+  color: #8d211b;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+.profile-error-summary {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  color: #7a211d;
+  border-left: 4px solid #a62922;
+  background: #f8ded7;
+}
+.profile-error-summary svg { flex: 0 0 1.15rem; }
+.profile-error-summary ul { margin: 0.4rem 0 0 1.2rem; font-size: 0.78rem; }
+.student-profile-form .student-aat-card { margin-top: 1rem; }
+.student-profile-form .student-aat-intro { margin-top: 0.35rem; }
+.profile-photo-remove { min-height: 2.75rem; margin-top: 0.65rem; }
+.student-photo-field > strong { display: flex; align-items: center; gap: 0.45rem; }
+.profile-review-summary,
+.profile-created__credentials {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0.5rem 0 1rem;
+}
+.profile-review-summary > div,
+.profile-created__credentials > div {
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid hsl(var(--color-ink) / 0.12);
+  background: #fffdf8;
+}
+.profile-review-summary dt,
+.profile-created__credentials dt {
+  color: hsl(var(--color-charcoal) / 0.68);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.profile-review-summary dd,
+.profile-created__credentials dd { margin-top: 0.28rem; overflow-wrap: anywhere; font-weight: 750; }
+.profile-review-section .btn-primary { width: 100%; min-height: 3rem; margin-top: 0.8rem; }
+.profile-submit-status {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin-top: 0.85rem;
+  color: #745018;
+  font-size: 0.8rem;
+}
+.profile-submit-status svg { flex: 0 0 1rem; }
+.profile-created {
+  width: min(46rem, 100%);
+  place-items: stretch;
+  padding: clamp(1.25rem, 5vw, 2.5rem);
+  text-align: left;
+  border-radius: 0.75rem;
+  box-shadow: 0 18px 45px hsl(var(--color-ink) / 0.08);
+}
+.profile-created__icon { justify-self: center; }
+.profile-created > .eyebrow,
+.profile-created > h2,
+.profile-created > h2 + p { text-align: center; }
+.profile-created__credentials { grid-template-columns: 1fr; width: 100%; }
+.profile-created__credentials dd { display: flex; flex-wrap: wrap; gap: 0.55rem; align-items: center; }
+.profile-created__credentials input { min-width: 12rem; min-height: 2.75rem; padding: 0.55rem; border: 1px solid hsl(var(--color-ink) / 0.2); background: white; font: inherit; }
+.profile-created__credentials button { min-height: 2.75rem; }
+.profile-created__notice { display: flex; gap: 0.65rem; padding: 0.85rem; color: #644616; background: #fff3d7; border-left: 3px solid #b27a22; }
+.profile-created__notice svg { flex: 0 0 1rem; }
+.profile-created__notice p { margin: 0; font-size: 0.8rem; line-height: 1.55; }
+.profile-created__next { width: 100%; padding: 1rem; border: 1px solid hsl(var(--color-ink) / 0.12); background: #fffdf8; }
+.profile-created__next ul { display: grid; gap: 0.45rem; margin: 0.7rem 0 0 1.15rem; font-size: 0.82rem; line-height: 1.5; }
+.profile-created__actions { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-top: 0.4rem; }
+.profile-created__actions > * { min-height: 2.75rem; }
+
+@media (max-width: 42rem) {
+  .profile-form-section { padding: 0.85rem; }
+  .profile-form-section > legend { align-items: flex-start; }
+  .profile-review-summary { grid-template-columns: 1fr; }
+  .profile-created__actions { display: grid; }
+  .profile-created__actions > * { width: 100%; }
+  .profile-created__credentials dd { display: grid; }
+  .profile-created__credentials input,
+  .profile-created__credentials button { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .student-profile-form *, .profile-created * { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+
 .gregorian-month-part {
   display: grid;
   gap: 0.28rem;
@@ -13327,3 +13479,10 @@ html.admin-route .admin-drawer {
     grid-template-columns: repeat(4, 1fr);
   }
 }
+
+/* Keep profile-creation layout overrides after legacy student-form rules. */
+.student-long-form.student-profile-form { width: min(64rem, 100%); }
+.student-profile-form .profile-form-section { margin-top: 1rem; }
+.student-profile-form .profile-form-section > legend { display: flex; }
+.record-success-panel.profile-created { place-items: stretch; text-align: left; }
+.student-profile-form .profile-photo-state { margin: 0.65rem 0 0; color: var(--muted); font-weight: 700; }

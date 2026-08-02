@@ -28,9 +28,10 @@ export const onRequestGet: PagesFunction<StudentEnv> = async ({
     const student = await db
       .prepare(
         `SELECT s.id, s.public_student_id, s.display_name, s.english_name, s.thai_name,
-      s.account_created_date, s.dojo_joined_date, s.current_belt, s.belt_color, s.profile_image_url, s.profile_image_consent, s.public_visible, s.active, s.share_fields, s.dojo_name, s.training_hours_adjustment, s.updated_at
+      s.account_created_date, s.dojo_joined_date, s.current_belt, s.belt_color, s.profile_image_url, s.profile_image_consent, s.public_visible, s.active, s.profile_status, s.share_fields, s.dojo_name, s.training_hours_adjustment, s.updated_at
       FROM share_tokens st JOIN students s ON s.id = st.student_id
-      WHERE st.token_hash = ? AND st.active = 1 AND (st.expires_at IS NULL OR st.expires_at > ?) AND s.active = 1 AND s.public_visible = 1 LIMIT 1`,
+      WHERE st.token_hash = ? AND st.active = 1 AND (st.expires_at IS NULL OR st.expires_at > ?) AND s.active = 1 AND s.public_visible = 1
+      AND s.profile_status IN ('pending_admin_approval', 'approved') LIMIT 1`,
       )
       .bind(hash, new Date().toISOString())
       .first<StudentRow>();

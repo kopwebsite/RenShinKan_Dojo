@@ -5,7 +5,7 @@
 The administration area now uses one role-aware shell with persistent dojo
 context, a task-first dashboard, labelled mobile navigation, and page-aware
 help. Existing Cloudflare Pages Functions, D1 data, R2 media, audit history,
-authentication, secondary RenShinKan verification, and public QR routes remain
+primary authentication, dojo-scoped authorization, and public QR routes remain
 the source of truth.
 
 ## Route map
@@ -27,7 +27,7 @@ the source of truth.
 ## Role and security behavior
 
 - Central administrators see all authorized dojos in the persistent context
-  selector. RenShinKan still requires the existing secondary verification.
+  selector and enter RenShinKan directly after selecting it.
 - Dojo administrators receive only their server-authorized dojo and never see
   central-only website, monthly-contribution, or dojo-settings destinations.
 - Direct routes and every read/write API remain server-protected.

@@ -126,10 +126,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     }
     if (query) {
       conditions.push(
-        "(s.display_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR COALESCE(s.thai_name, '') LIKE ? ESCAPE '\\' COLLATE NOCASE OR s.public_student_id LIKE ? ESCAPE '\\' COLLATE NOCASE OR COALESCE(s.aat_number, '') LIKE ? ESCAPE '\\' COLLATE NOCASE)",
+        "(s.display_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR COALESCE(s.thai_name, '') LIKE ? ESCAPE '\\' COLLATE NOCASE OR s.public_student_id LIKE ? ESCAPE '\\' COLLATE NOCASE OR COALESCE(s.aat_number, '') LIKE ? ESCAPE '\\' COLLATE NOCASE OR EXISTS (SELECT 1 FROM student_id_aliases a WHERE a.student_id = s.id AND a.alias_public_student_id LIKE ? ESCAPE '\\' COLLATE NOCASE))",
       );
       const term = `%${escapeLike(query)}%`;
-      bindings.push(term, term, term, term);
+      bindings.push(term, term, term, term, term);
     }
     if (rank) {
       conditions.push("s.current_belt = ? COLLATE NOCASE");
@@ -376,9 +376,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (!manualStudentId) studentId = await nextStudentId(db, dojo.id);
       const duplicate = await db
         .prepare(
-          "SELECT id FROM students WHERE UPPER(public_student_id) = ? LIMIT 1",
+          `SELECT id FROM students WHERE UPPER(public_student_id) = ?
+          UNION ALL SELECT student_id AS id FROM student_id_aliases
+          WHERE UPPER(alias_public_student_id) = ? LIMIT 1`,
         )
-        .bind(studentId)
+        .bind(studentId, studentId)
         .first();
       if (duplicate) {
         if (manualStudentId)

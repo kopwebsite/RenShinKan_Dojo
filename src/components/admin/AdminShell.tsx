@@ -215,8 +215,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   );
   const ready = Boolean(
     session.checked &&
-    session.admin?.selectedDojoId &&
-    !session.admin.renshinkanVerificationRequired,
+    session.admin?.selectedDojoId,
   );
   const central = session.admin?.permissionLevel === "renshinkan_super_admin";
 

@@ -16,7 +16,6 @@ import {
 import {
   AdminDojoSelector,
   AdminLoginFields,
-  AdminRenshinKanVerification,
 } from "../components/admin/AdminAccess";
 import { adminApi } from "../components/admin/adminApi";
 import { AdminGalleryDashboard } from "../components/admin/AdminGalleryDashboard";
@@ -502,17 +501,12 @@ export function AdminPage() {
     name: adminName,
     password,
     error: authError,
-    secondaryPassword,
-    verifying,
   } = session;
   const selectingDojo = session.selecting;
   const setAdminName = session.setName;
   const setPassword = session.setPassword;
-  const setSecondaryPassword = session.setSecondaryPassword;
   const login = session.login;
   const selectDojo = session.selectDojo;
-  const verifyRenshinKan = session.verifyRenshinKan;
-  const switchDojo = session.switchDojo;
   const setSessionError = session.setError;
   const [draft, setDraft] = useState<EditableContent>(emptyEditableContent);
   const [baseline, setBaseline] =
@@ -1357,19 +1351,6 @@ export function AdminPage() {
         </p>
       </section>
     );
-
-  if (admin?.renshinkanVerificationRequired) {
-    return (
-      <AdminRenshinKanVerification
-        password={secondaryPassword}
-        error={authError}
-        busy={verifying}
-        setPassword={setSecondaryPassword}
-        onSubmit={verifyRenshinKan}
-        onCancel={() => void switchDojo()}
-      />
-    );
-  }
 
   if (admin.permissionLevel !== "renshinkan_super_admin") {
     return <Navigate to="/admin/students" replace />;

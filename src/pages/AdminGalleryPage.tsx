@@ -37,7 +37,7 @@ import {
   type GalleryId,
   type GalleryPhoto,
 } from "../../shared/gallery";
-import { AdminDojoSelector, AdminLoginFields, AdminRenshinKanVerification } from "../components/admin/AdminAccess";
+import { AdminDojoSelector, AdminLoginFields } from "../components/admin/AdminAccess";
 import { adminApi, formatAdminDate } from "../components/admin/adminApi";
 import { useAdminSession } from "../components/admin/useAdminSession";
 import { GregorianDateInput } from "../components/GregorianDateInput";
@@ -541,9 +541,6 @@ export function AdminGalleryPage() {
   }
   if (!session.admin.selectedDojoId) {
     return <AdminDojoSelector dojos={session.dojos} admin={session.admin} busyId={session.selecting} error={session.error} onSelect={(id) => void session.selectDojo(id)} />;
-  }
-  if (session.admin.renshinkanVerificationRequired) {
-    return <AdminRenshinKanVerification password={session.secondaryPassword} error={session.error} busy={session.verifying} setPassword={session.setSecondaryPassword} onSubmit={session.verifyRenshinKan} onCancel={() => void session.switchDojo()} />;
   }
   if (session.admin.permissionLevel !== "renshinkan_super_admin") return <Navigate to="/admin/students" replace />;
 

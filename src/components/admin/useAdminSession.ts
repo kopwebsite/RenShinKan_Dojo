@@ -27,18 +27,14 @@ type AdminSessionContextValue = {
   dojos: AdminDojo[];
   name: string;
   password: string;
-  secondaryPassword: string;
   busy: boolean;
   selecting: string;
-  verifying: boolean;
   error: string;
   setName(value: string): void;
   setPassword(value: string): void;
-  setSecondaryPassword(value: string): void;
   setError(value: string): void;
   login(event: FormEvent): Promise<void>;
   selectDojo(dojoId: string): Promise<void>;
-  verifyRenshinKan(event: FormEvent): Promise<void>;
   switchDojo(): Promise<void>;
   logout(): Promise<void>;
   refresh(preserveView?: boolean): Promise<void>;
@@ -58,8 +54,6 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
   const [busy, setBusy] = useState(false);
   const [selecting, setSelecting] = useState("");
   const [error, setError] = useState("");
-  const [secondaryPassword, setSecondaryPassword] = useState("");
-  const [verifying, setVerifying] = useState(false);
   const generation = useRef(0);
   const bootstrapController = useRef<AbortController | null>(null);
 
@@ -69,9 +63,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
     setAdmin(null);
     setDojos([]);
     setPassword("");
-    setSecondaryPassword("");
     setSelecting("");
-    setVerifying(false);
     setStatus("unauthenticated");
   }, []);
 
@@ -155,8 +147,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
         if (currentGeneration !== generation.current) return;
         setAdmin(result.admin);
         setStatus("authenticated");
-        if (!result.admin.renshinkanVerificationRequired)
-          navigate("/admin/dashboard", { replace: true });
+        navigate("/admin/dashboard", { replace: true });
       } catch (reason) {
         if (currentGeneration === generation.current)
           setError(
@@ -171,43 +162,9 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
     [navigate],
   );
 
-  const verifyRenshinKan = useCallback(
-    async (event: FormEvent) => {
-      event.preventDefault();
-      const currentGeneration = generation.current;
-      setVerifying(true);
-      setError("");
-      try {
-        const result = await adminApi<{ admin: AdminIdentity }>(
-          "/api/admin/verify-renshinkan",
-          {
-            method: "POST",
-            body: JSON.stringify({ password: secondaryPassword }),
-          },
-        );
-        if (currentGeneration !== generation.current) return;
-        setSecondaryPassword("");
-        setAdmin(result.admin);
-        setStatus("authenticated");
-        navigate("/admin/dashboard", { replace: true });
-      } catch (reason) {
-        if (currentGeneration === generation.current)
-          setError(
-            reason instanceof Error
-              ? reason.message
-              : "RenShinKan access could not be verified.",
-          );
-      } finally {
-        if (currentGeneration === generation.current) setVerifying(false);
-      }
-    },
-    [navigate, secondaryPassword],
-  );
-
   const switchDojo = useCallback(async () => {
     const currentGeneration = generation.current;
     setError("");
-    setSecondaryPassword("");
     const result = await adminApi<{ admin: AdminIdentity }>(
       "/api/admin/switch-dojo",
       { method: "POST" },
@@ -234,18 +191,14 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
       dojos,
       name,
       password,
-      secondaryPassword,
       busy,
       selecting,
-      verifying,
       error,
       setName,
       setPassword,
-      setSecondaryPassword,
       setError,
       login,
       selectDojo,
-      verifyRenshinKan,
       switchDojo,
       logout,
       refresh,
@@ -260,13 +213,10 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
       name,
       password,
       refresh,
-      secondaryPassword,
       selectDojo,
       selecting,
       status,
       switchDojo,
-      verifyRenshinKan,
-      verifying,
     ],
   );
 

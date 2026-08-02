@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -10,9 +10,7 @@ import {
   getAuthorizedAdminSession,
   isRenShinKanSuperAdmin,
   requiresCentralAdmin,
-  updateRenshinKanVerifiedCookie,
   updateSelectedDojoCookie,
-  verifyRenshinKanSecondaryPassword,
   type AdminSession,
 } from "../functions/_lib/auth";
 import { onRequestGet as guardAdminPage } from "../functions/admin/[[path]]";
@@ -33,10 +31,7 @@ function sourceFiles(directory: string): string[] {
   });
 }
 
-function centralSession(
-  selectedDojoId: string | null,
-  renshinkanVerified = false,
-): AdminSession {
+function centralSession(selectedDojoId: string | null): AdminSession {
   return {
     sub: "admin",
     iat: 1,
@@ -46,7 +41,6 @@ function centralSession(
     role: "central",
     allowedDojoIds: [],
     selectedDojoId,
-    renshinkanVerified,
   };
 }
 
@@ -60,28 +54,25 @@ function dojoSession(selectedDojoId: string): AdminSession {
     role: "dojo",
     allowedDojoIds: [selectedDojoId],
     selectedDojoId,
-    renshinkanVerified: false,
   };
 }
 
-describe("RenShinKan secondary authorization", () => {
+describe("primary administrator authorization", () => {
   const env = {
     SESSION_SECRET: "authorization-test-session-secret",
-    RSK_ADMIN_SECONDARY_PASSWORD_HASH:
-      "pbkdf2-sha256:310000:2JiS-GVbBuG04ri2l-W58xY6:BKx6LWGgnN6px6B6GC_7f6DqSaAfqs2K0pWaZ9Nsiwk",
   };
 
   it("does not grant any protected context before dojo selection", async () => {
     const cookie = await createSessionCookie(env, centralSession(null));
-    expect(await getAdminSession(requestWithCookie(cookie), env)).toMatchObject(
-      { selectedDojoId: null, renshinkanVerified: false },
-    );
+    const session = await getAdminSession(requestWithCookie(cookie), env);
+    expect(session).toMatchObject({ selectedDojoId: null });
+    expect(session).not.toHaveProperty("renshinkanVerified");
     expect(
       await getAuthorizedAdminSession(requestWithCookie(cookie), env),
     ).toBeNull();
   });
 
-  it("requires verification after selecting RenShinKan and rejects an incorrect password", async () => {
+  it("authorizes a central account immediately after selecting RenShinKan", async () => {
     const selectedCookie = await updateSelectedDojoCookie(
       env,
       centralSession(null),
@@ -91,86 +82,32 @@ describe("RenShinKan secondary authorization", () => {
       requestWithCookie(selectedCookie),
       env,
     );
-    expect(selected).toMatchObject({
-      selectedDojoId: "dojo-rsk",
-      renshinkanVerified: false,
-    });
-    expect(
-      await getAuthorizedAdminSession(requestWithCookie(selectedCookie), env),
-    ).toBeNull();
-    expect(await verifyRenshinKanSecondaryPassword("incorrect", env)).toBe(
-      false,
-    );
-    expect(requiresCentralAdmin(selected)).toBe(false);
+    expect(selected).toMatchObject({ selectedDojoId: "dojo-rsk" });
+    const authorized = await getAuthorizedAdminSession(requestWithCookie(selectedCookie), env);
+    expect(isRenShinKanSuperAdmin(authorized)).toBe(true);
+    expect(requiresCentralAdmin(selected)).toBe(true);
   });
 
-  it("creates verified elevated authorization only after the correct server secret", async () => {
-    expect(
-      await verifyRenshinKanSecondaryPassword("secondary-test-password", env),
-    ).toBe(true);
-    const verifiedCookie = await updateRenshinKanVerifiedCookie(
-      env,
-      centralSession("dojo-rsk"),
-    );
-    const verified = await getAuthorizedAdminSession(
-      requestWithCookie(verifiedCookie),
-      env,
-    );
-    expect(verified).toMatchObject({
-      selectedDojoId: "dojo-rsk",
-      renshinkanVerified: true,
-    });
-    expect(isRenShinKanSuperAdmin(verified)).toBe(true);
-    expect(canAccessDojo(verified!, "dojo-cmu")).toBe(true);
+  it("keeps RenShinKan unavailable to dojo-scoped accounts", () => {
+    const scoped = dojoSession("dojo-cmu");
+    expect(isRenShinKanSuperAdmin(scoped)).toBe(false);
+    expect(canAccessDojo(scoped, "dojo-rsk")).toBe(false);
+    expect(canAccessDojo(scoped, "dojo-cmu")).toBe(true);
   });
 
-  it("accepts the encrypted legacy Pages secret only while the PBKDF2 verifier is absent", async () => {
-    const legacyOnly = {
-      SESSION_SECRET: env.SESSION_SECRET,
-      RSK_ADMIN_SECONDARY_PASSWORD: "existing-secondary-password",
-    };
-    expect(
-      await verifyRenshinKanSecondaryPassword(
-        "existing-secondary-password",
-        legacyOnly,
-      ),
-    ).toBe(true);
-    expect(
-      await verifyRenshinKanSecondaryPassword("incorrect", legacyOnly),
-    ).toBe(false);
-
-    const hashIsAuthoritative = {
-      ...legacyOnly,
-      RSK_ADMIN_SECONDARY_PASSWORD_HASH: env.RSK_ADMIN_SECONDARY_PASSWORD_HASH,
-    };
-    expect(
-      await verifyRenshinKanSecondaryPassword(
-        "existing-secondary-password",
-        hashIsAuthoritative,
-      ),
-    ).toBe(false);
-    expect(
-      await verifyRenshinKanSecondaryPassword(
-        "secondary-test-password",
-        hashIsAuthoritative,
-      ),
-    ).toBe(true);
+  it("removes the secondary challenge from runtime and UI source", () => {
+    expect(existsSync(resolve(root, "functions/api/admin/verify-renshinkan.ts"))).toBe(false);
+    const sources = [file("functions/_lib/auth.ts"), file("src/components/admin/AdminAccess.tsx"), file("src/components/admin/useAdminSession.ts")].join("\n");
+    expect(sources).not.toMatch(/secondaryPassword|verify-renshinkan|renshinkanVerified/i);
   });
 
   it("clears elevated authorization when switching to another dojo", async () => {
-    const switchedCookie = await updateSelectedDojoCookie(
-      env,
-      centralSession("dojo-rsk", true),
-      "dojo-cmu",
-    );
+    const switchedCookie = await updateSelectedDojoCookie(env, centralSession("dojo-rsk"), "dojo-cmu");
     const switched = await getAuthorizedAdminSession(
       requestWithCookie(switchedCookie),
       env,
     );
-    expect(switched).toMatchObject({
-      selectedDojoId: "dojo-cmu",
-      renshinkanVerified: false,
-    });
+    expect(switched).toMatchObject({ selectedDojoId: "dojo-cmu" });
     expect(isRenShinKanSuperAdmin(switched)).toBe(false);
     expect(canAccessDojo(switched!, "dojo-cmu")).toBe(true);
     expect(canAccessDojo(switched!, "dojo-rsk")).toBe(false);
@@ -229,7 +166,7 @@ describe("RenShinKan secondary authorization", () => {
     expect(logout).toContain("export const onRequestPost");
   });
 
-  it("never places the initial production password in frontend or function source", () => {
+  it("never places the initial production password or retired challenge in runtime source", () => {
     const forbidden = ["RSK", "001"].join("");
     const sources = [
       ...sourceFiles(resolve(root, "src")),
@@ -239,21 +176,16 @@ describe("RenShinKan secondary authorization", () => {
       .map((path) => readFileSync(path, "utf8"))
       .join("\n");
     expect(sources).not.toContain(forbidden);
-    expect(file("functions/api/admin/verify-renshinkan.ts")).toContain(
-      "RSK_ADMIN_SECONDARY_PASSWORD_HASH",
-    );
     const accessUi = file("src/components/admin/AdminAccess.tsx");
     expect(accessUi).not.toContain(forbidden);
-    expect(accessUi).toContain('name="rsk-secondary-verification"');
-    expect(accessUi).toContain('autoComplete="off"');
+    expect(accessUi).not.toMatch(/secondaryPassword|RenShinKanVerification/);
+    expect(existsSync(resolve(root, "functions/api/admin/verify-renshinkan.ts"))).toBe(false);
   });
 
-  it("allows unlimited failed verification attempts without logging the submitted secret", () => {
-    const endpoint = file("functions/api/admin/verify-renshinkan.ts");
-    expect(endpoint).not.toContain("allowRenshinKanVerificationAttempt");
-    expect(endpoint).not.toContain("recordFailedRenshinKanVerificationAttempt");
-    expect(endpoint).not.toContain("Too many attempts");
-    expect(endpoint).toContain("Incorrect RenShinKan access password.");
+  it("keeps primary authentication rate limits and safe credential logging", () => {
+    const endpoint = file("functions/api/admin/login.ts");
+    expect(endpoint).toContain("allowAdminLoginAttempt");
+    expect(endpoint).toContain("recordFailedAdminLoginAttempt");
     expect(endpoint).not.toMatch(/console\.(?:log|error).*password/i);
   });
 });

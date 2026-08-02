@@ -27,10 +27,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const accessToken = String(form.get("accessToken") || "");
     const file = form.get("file");
     if (!(file instanceof File) || file.size <= 0) return jsonResponse({ error: "Choose a profile photo." }, 400);
-    const student = await db.prepare(`SELECT id, profile_image_url FROM students
-      WHERE UPPER(public_student_id) = ? AND active = 1 AND public_visible = 1
-      AND profile_status = 'approved' AND deleted_at IS NULL LIMIT 1`)
-      .bind(publicStudentId).first<{ id: string; profile_image_url: string | null }>();
+    const student = await db.prepare(`SELECT s.id, s.profile_image_url FROM students s
+      WHERE (UPPER(s.public_student_id) = ? OR EXISTS (
+        SELECT 1 FROM student_id_aliases a WHERE a.student_id = s.id
+        AND UPPER(a.alias_public_student_id) = ?
+      )) AND s.active = 1 AND s.public_visible = 1
+      AND s.profile_status IN ('pending_admin_approval', 'approved')
+      AND s.deleted_at IS NULL LIMIT 1`)
+      .bind(publicStudentId, publicStudentId).first<{ id: string; profile_image_url: string | null }>();
     if (!student) return jsonResponse({ error: "The verified student session is unavailable. Look up the record again." }, 403);
     const session = await validStudentAccessSession(db, student.id, accessToken);
     if (!session) return jsonResponse({ error: "Your secure record session expired. Look up the record again before changing the photo." }, 403);

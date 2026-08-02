@@ -6,7 +6,6 @@ const outputDirectory = resolve(".perf");
 mkdirSync(outputDirectory, { recursive: true });
 
 const password = "LocalCapacityOnly!2026";
-const secondaryPassword = "LocalCapacitySecond!2026";
 const iterations = 310_000;
 
 function passwordHash(value, saltLabel) {
@@ -18,7 +17,6 @@ function passwordHash(value, saltLabel) {
 const variables = [
   `ADMIN_PASSWORD_HASH="${passwordHash(password, "rsk-perf-primary")}"`,
   `DOJO_ADMIN_PASSWORD_HASHES='{}'`,
-  `RSK_ADMIN_SECONDARY_PASSWORD_HASH="${passwordHash(secondaryPassword, "rsk-perf-secondary")}"`,
   `SESSION_SECRET="local-capacity-session-secret-2026-only"`,
   `STUDENT_LOOKUP_PEPPER="local-capacity-student-pepper-2026-only"`,
   `SITE_URL="http://127.0.0.1:8788"`,
@@ -36,6 +34,5 @@ console.log(JSON.stringify({
   envPath,
   adminName: "Capacity Reviewer",
   password,
-  secondaryPassword,
   localOnly: true,
 }));

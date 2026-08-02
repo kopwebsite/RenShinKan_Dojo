@@ -4,11 +4,8 @@ import {
   assertStudentAccess,
   auditStatement,
   currentBangkokMonthKey,
-  encryptCapabilityToken,
-  randomToken,
   requestIdentifier,
   requireStudentDb,
-  sha256Hex,
   type StudentEnv,
 } from "../../../../_lib/studentRecords";
 import { datedProfileKey, type R2Bucket } from "../../../../_lib/storage";
@@ -72,7 +69,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
       });
       approvedImageUrl = `/uploads/${approvedKey}`;
     }
-    const token = randomToken();
     const cycle = await db.prepare("SELECT id FROM examination_cycles WHERE status = 'active' ORDER BY created_at DESC LIMIT 1")
       .first<{ id: string }>();
     const currentMonth = currentBangkokMonthKey();
@@ -88,8 +84,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
         profile_student_visible_note = ?, profile_internal_note = ?, profile_reviewed_at = ?,
         profile_reviewed_by = ?, updated_at = ? WHERE id = ? AND profile_status = 'pending_admin_approval'`)
         .bind(approvedImageUrl, internalNote, studentVisibleNote, internalNote, now, session.adminName, now, id),
-      db.prepare("INSERT INTO share_tokens (id, token_hash, student_id, active, created_at, token_ciphertext, purpose) VALUES (?, ?, ?, 1, ?, ?, 'owner')")
-        .bind(crypto.randomUUID(), await sha256Hex(token), id, now, await encryptCapabilityToken(env, token)),
       ...(cycle ? [db.prepare(`INSERT OR IGNORE INTO exam_cycle_student_status (
         id, student_id, cycle_id, student_name_snapshot, student_public_id_snapshot,
         current_rank_snapshot, status, updated_at, updated_by
@@ -110,16 +104,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
       auditStatement(db, {
         actorType: "administrator", ...adminAuditMetadata(session, request), action: "profile_approved", entityType: "student", entityId: id, studentId: id,
         studentPublicId: existing.public_student_id, studentNameSnapshot: existing.display_name,
-        previousValues: { profileStatus: existing.profile_status, active: false, publicVisible: false },
+        previousValues: { profileStatus: existing.profile_status, active: true, publicVisible: true },
         newValues: { profileStatus: "approved", active: true, publicVisible: true, profileImageUrl: approvedImageUrl, studentVisibleNote },
         source: "admin_profile_review", requestId, administratorNote: internalNote || null,
         summary: `Approved profile request ${existing.public_student_id}`, createdAt: now,
-      }),
-      auditStatement(db, {
-        actorType: "system", actorIdentifier: "profile_approval", action: "qr_link_created", entityType: "share_token", entityId: id, studentId: id,
-        studentPublicId: existing.public_student_id, studentNameSnapshot: existing.display_name,
-        newValues: { purpose: "owner" }, source: "admin_profile_review", requestId,
-        summary: `Created an approved public profile QR link for ${existing.public_student_id}`, createdAt: now,
       }),
     ]);
     approvedKey = "";

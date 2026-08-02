@@ -37,7 +37,7 @@ migrations_dir = "migrations"
 # preview resources have been created and the release validation is run.
 [env.preview.vars]
 APP_ENV = "preview"
-BUILD_ID = "rsk-20260801-001"
+BUILD_ID = "rsk-20260802-001"
 SITE_URL = "https://release-preview.renshinkan-dojo-release-preview.pages.dev"
 ALLOWED_ORIGIN = "https://release-preview.renshinkan-dojo-release-preview.pages.dev"
 VITE_SITE_URL = "https://release-preview.renshinkan-dojo-release-preview.pages.dev"
@@ -63,7 +63,7 @@ migrations_dir = "migrations"
 
 [env.production.vars]
 APP_ENV = "production"
-BUILD_ID = "rsk-20260801-001"
+BUILD_ID = "rsk-20260802-001"
 SITE_URL = "https://renshinkandojo.org"
 ALLOWED_ORIGIN = "https://renshinkandojo.org"
 VITE_SITE_URL = "https://renshinkandojo.org"

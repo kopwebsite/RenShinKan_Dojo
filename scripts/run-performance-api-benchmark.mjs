@@ -8,7 +8,6 @@ const iterations = Math.max(3, Math.min(30, Number(process.argv.find((argument) 
 const output = resolve(process.argv.find((argument) => argument.startsWith("--output="))?.slice(9) || `.perf/${label}-api.json`);
 const adminName = "Capacity Reviewer";
 const password = "LocalCapacityOnly!2026";
-const secondaryPassword = "LocalCapacitySecond!2026";
 
 function percentile(values, quantile) {
   const sorted = [...values].sort((left, right) => left - right);
@@ -34,14 +33,7 @@ async function adminSession() {
     body: JSON.stringify({ dojoId: "dojo-rsk" }),
   });
   if (!selected.ok) throw new Error(`Dojo selection failed: ${selected.status} ${await selected.text()}`);
-  cookie = cookieFrom(selected, cookie);
-  const verified = await fetch(`${baseUrl}/api/admin/verify-renshinkan`, {
-    method: "POST",
-    headers: { ...mutationHeaders, Cookie: cookie, "X-Request-ID": crypto.randomUUID() },
-    body: JSON.stringify({ password: secondaryPassword }),
-  });
-  if (!verified.ok) throw new Error(`Secondary verification failed: ${verified.status} ${await verified.text()}`);
-  return cookieFrom(verified, cookie);
+  return cookieFrom(selected, cookie);
 }
 
 async function sample(path, cookie) {

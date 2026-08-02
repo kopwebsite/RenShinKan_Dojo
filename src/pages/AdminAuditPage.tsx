@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, History, Search } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
-import { AdminCheckingSession, AdminDojoSelector, AdminLoginFields, AdminRenshinKanVerification } from "../components/admin/AdminAccess";
+import { AdminCheckingSession, AdminDojoSelector, AdminLoginFields } from "../components/admin/AdminAccess";
 import { useAdminSession } from "../components/admin/useAdminSession";
 import { GregorianDateInput, GregorianMonthInput } from "../components/GregorianDateInput";
 import { formatGregorianDateTime } from "../../shared/date";
@@ -33,17 +33,16 @@ export function AdminAuditPage() {
   const [page, setPage] = useState(1); const [filters, setFilters] = useState({ search: "", student: "", administrator: "", dojoId: "", actorType: "", action: "", source: "", bulkOperationId: "", examCycleId: "", month: "", dateFrom: "", dateTo: "" });
   const [applied, setApplied] = useState(filters); const [error, setError] = useState("");
   useEffect(() => {
-    if (!session.admin?.selectedDojoId || session.admin.renshinkanVerificationRequired) return;
+    if (!session.admin?.selectedDojoId) return;
     const params = new URLSearchParams({ page: String(page) }); Object.entries(applied).forEach(([key, value]) => { if (value) params.set(key, value); });
     fetch(`/api/admin/audit?${params}`, { credentials: "include", cache: "no-store" }).then(async (response) => {
       const body = await response.json() as ResponseBody & { error?: string }; if (!response.ok) throw new Error(body.error || "Could not load the audit log."); setEntries(body.entries); setPagination(body.pagination);
     }).catch((reason) => setError(reason instanceof Error ? reason.message : "Could not load the audit log."));
-  }, [session.admin?.selectedDojoId, session.admin?.renshinkanVerificationRequired, page, applied]);
+  }, [session.admin?.selectedDojoId, page, applied]);
   function submit(event: FormEvent) { event.preventDefault(); setPage(1); setApplied(filters); }
   if (!session.checked) return <AdminCheckingSession />;
   if (!session.admin) return <main className="admin-gate"><form onSubmit={session.login}><AdminLoginFields name={session.name} password={session.password} error={session.error} busy={session.busy} setName={session.setName} setPassword={session.setPassword} /></form></main>;
   if (!session.admin.selectedDojoId) return <AdminDojoSelector dojos={session.dojos} admin={session.admin} busyId={session.selecting} error={session.error} onSelect={(id) => void session.selectDojo(id)} />;
-  if (session.admin.renshinkanVerificationRequired) return <AdminRenshinKanVerification password={session.secondaryPassword} error={session.error} busy={session.verifying} setPassword={session.setSecondaryPassword} onSubmit={session.verifyRenshinKan} onCancel={() => void session.switchDojo()} />;
   const superAdmin = session.admin.permissionLevel === "renshinkan_super_admin";
   const dojos = session.dojos;
   return <section className="container-shell admin-audit-page"><header><div><p className="eyebrow">Permanent history</p><h1>Audit log</h1><p>{superAdmin ? "All dojo and student changes, with before-and-after values retained for investigation." : "Changes to this dojo and its students, with before-and-after values retained for investigation."}</p></div></header>

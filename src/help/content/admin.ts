@@ -106,18 +106,18 @@ function enArticles(): LocalizedArticle[] {
       "admin-access",
       "getting-started",
       r.access,
-      "Sign in, verify access, and sign out",
-      "Use only your own administrator account, complete RenShinKan verification when required, and sign out on shared devices.",
+      "Sign in, select a dojo, and sign out",
+      "Use only your own administrator account, select the dojo you are managing, and sign out on shared devices.",
       [
         [
           "Sign in",
           "On the administrator sign-in page, enter your administrator email and password, then select “Sign in”.",
-          "The dashboard or a verification step opens.",
+          "The dojo selection screen opens.",
         ],
         [
-          "Complete central verification",
-          "If “RenShinKan verification” appears, enter the separate verification password and select “Verify access”.",
-          "Central-only administration becomes available for this session.",
+          "Select the administration scope",
+          "Choose RenShinKan with a central account, or choose a dojo assigned to your dojo administrator account.",
+          "The selected administration workspace opens with server-enforced permissions.",
         ],
         [
           "Sign out",
@@ -127,7 +127,7 @@ function enArticles(): LocalizedArticle[] {
       ],
       "If sign-in repeatedly fails, stop retrying and ask the authorized system owner to confirm your account. Never share credentials.",
       rel.access,
-      ["sign in", "login", "verification", "sign out", "session"],
+      ["sign in", "login", "dojo selection", "sign out", "session"],
       [
         {
           src: "/help/screenshots/admin-login-en-desktop-v2026-07.webp",
@@ -518,11 +518,11 @@ function thArticles(): LocalizedArticle[] {
       "admin-access",
       "getting-started",
       r.access,
-      "ลงชื่อเข้าใช้ ยืนยันสิทธิ์ และออกจากระบบ",
-      "ใช้บัญชีผู้ดูแลของตนเอง ทำการยืนยัน RenShinKan เมื่อระบบขอ และออกจากระบบบนเครื่องที่ใช้ร่วมกัน",
+      "ลงชื่อเข้าใช้ เลือกโดโจ และออกจากระบบ",
+      "ใช้บัญชีผู้ดูแลของตนเอง เลือกโดโจที่จัดการ และออกจากระบบบนเครื่องที่ใช้ร่วมกัน",
       [
         "กรอกอีเมลและรหัสผ่านผู้ดูแล แล้วเลือก “ลงชื่อเข้าใช้”",
-        "หากเห็น “การยืนยัน RenShinKan” ให้กรอกรหัสยืนยันแยกแล้วเลือก “ยืนยันสิทธิ์”",
+        "เลือก RenShinKan ด้วยบัญชีกลาง หรือเลือกโดโจที่กำหนดให้บัญชีผู้ดูแลโดโจ",
         "เมื่อเสร็จงาน เปิดเมนูบัญชีแล้วเลือก “ออกจากระบบ”",
       ],
       "หากล้มเหลวซ้ำ ให้หยุดลองและขอเจ้าของระบบตรวจบัญชี ห้ามแชร์ข้อมูลเข้าสู่ระบบ",

@@ -49,7 +49,6 @@ function session(
   role: "central" | "dojo",
   allowedDojoIds: string[] = [],
   selectedDojoId = allowedDojoIds[0] || "dojo-rsk",
-  renshinkanVerified = role === "central" && selectedDojoId === "dojo-rsk",
 ): AdminSession {
   return {
     sub: "admin",
@@ -60,7 +59,6 @@ function session(
     role,
     allowedDojoIds,
     selectedDojoId,
-    renshinkanVerified,
   };
 }
 

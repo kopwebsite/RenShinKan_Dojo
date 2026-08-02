@@ -25,9 +25,13 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
 
   const publicStudentId = normalizeStudentId(request.headers.get("X-Student-ID") || "");
   const db = requireStudentDb(env);
-  const student = await db.prepare(`SELECT id, public_student_id, display_name, dojo_id FROM students
-    WHERE UPPER(public_student_id) = ? AND active = 1 AND public_visible = 1 AND profile_status = 'approved' LIMIT 1`)
-    .bind(publicStudentId).first<{ id: string; public_student_id: string; display_name: string; dojo_id: string }>();
+  const student = await db.prepare(`SELECT s.id, s.public_student_id, s.display_name, s.dojo_id FROM students s
+    WHERE (UPPER(s.public_student_id) = ? OR EXISTS (
+      SELECT 1 FROM student_id_aliases a WHERE a.student_id = s.id
+      AND UPPER(a.alias_public_student_id) = ?
+    )) AND s.active = 1 AND s.public_visible = 1
+    AND s.profile_status IN ('pending_admin_approval', 'approved') LIMIT 1`)
+    .bind(publicStudentId, publicStudentId).first<{ id: string; public_student_id: string; display_name: string; dojo_id: string }>();
   const access = student ? await validStudentAccessSession(db, student.id, bearerToken(request)) : null;
   if (!student || !access) return jsonResponse({ error: "Unauthorized" }, 401);
 

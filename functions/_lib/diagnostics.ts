@@ -4,7 +4,7 @@ import type { StorageEnv } from "./storage";
 import type { D1Database, StudentEnv } from "./studentRecords";
 
 export const EXPECTED_LATEST_MIGRATION =
-  "0025_performance_capacity_indexes.sql";
+  "0026_simplify_student_and_admin_access.sql";
 const CONTENT_KEY = "site:editable-content";
 const CONTENT_POINTER_KEY = "site:editable-content:published-version";
 const EXPECTED_LOCALES = ["en", "th", "ja", "zh-CN"] as const;
@@ -14,8 +14,6 @@ export type DiagnosticsEnv = StudentEnv &
   StorageEnv &
   OperationalEnv & {
     ADMIN_PASSWORD_HASH?: string;
-    RSK_ADMIN_SECONDARY_PASSWORD?: string;
-    RSK_ADMIN_SECONDARY_PASSWORD_HASH?: string;
   };
 
 type Check = { ok: boolean; detail?: string };
@@ -38,12 +36,8 @@ function configurationCheck(env: DiagnosticsEnv): Check {
   const primaryConfigured =
     pbkdf2Verifier.test(env.ADMIN_PASSWORD_HASH?.trim() || "") ||
     hmacVerifier.test(env.ADMIN_PASSWORD_HASH?.trim() || "");
-  const secondaryConfigured =
-    pbkdf2Verifier.test(env.RSK_ADMIN_SECONDARY_PASSWORD_HASH?.trim() || "") ||
-    (env.RSK_ADMIN_SECONDARY_PASSWORD?.trim().length || 0) >= 12;
   const configured =
     primaryConfigured &&
-    secondaryConfigured &&
     (env.SESSION_SECRET?.trim().length || 0) >= 32 &&
     (env.STUDENT_LOOKUP_PEPPER?.trim().length || 0) >= 32 &&
     (env.TURNSTILE_SECRET_KEY?.trim().length || 0) >= 20;
@@ -286,7 +280,9 @@ async function relationalCounts(db: D1Database) {
     (SELECT COUNT(*) FROM pragma_foreign_key_check) AS foreign_key_violations,
     (SELECT COUNT(*) FROM (
       SELECT public_student_id FROM students GROUP BY UPPER(public_student_id) HAVING COUNT(*) > 1
-    )) AS duplicate_identifiers,
+    ))
+      + (SELECT COUNT(*) FROM student_id_aliases a JOIN students s ON UPPER(s.public_student_id) = UPPER(a.alias_public_student_id))
+      AS duplicate_identifiers,
     (SELECT COUNT(*) FROM training_hour_requests r LEFT JOIN students s ON s.id = r.student_id WHERE s.id IS NULL)
       + (SELECT COUNT(*) FROM examination_applications a LEFT JOIN students s ON s.id = a.student_id WHERE s.id IS NULL)
       + (SELECT COUNT(*) FROM payment_request_items i LEFT JOIN payment_requests r ON r.id = i.payment_request_id WHERE r.id IS NULL)

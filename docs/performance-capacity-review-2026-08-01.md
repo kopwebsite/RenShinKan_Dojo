@@ -277,7 +277,7 @@ Final verification:
 
 - TypeScript: passed.
 - Vitest: 18 files, 198 tests passed.
-- D1 empty replay and previous-schema upgrade: passed through migration 0025.
+- D1 empty replay and previous-schema upgrade: passed through migration 0026 after the access-simplification follow-up.
 - Production Vite build: passed.
 - Local Playwright release matrix: 54/54 passed across Chromium, Firefox, and WebKit.
 - Isolated Cloudflare preview Playwright release matrix: 54/54 passed across Chromium, Firefox, and WebKit.

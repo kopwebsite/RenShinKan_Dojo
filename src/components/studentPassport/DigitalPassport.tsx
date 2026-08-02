@@ -99,9 +99,10 @@ function EmptyState({ Icon, title, copy }: { Icon: ComponentType<{ "aria-hidden"
   return <div className={styles.empty}><Icon aria-hidden="true" /><strong>{title}</strong><p>{copy}</p></div>;
 }
 
-function VerificationSeal() {
-  return <div className={styles.seal} role="img" aria-label="Approved and verified by the dojo">
-    <BadgeCheck aria-hidden="true" /><span>DOJO</span><strong>VERIFIED</strong><small>APPROVED RECORD</small>
+function VerificationSeal({ approved }: { approved: boolean }) {
+  return <div className={`${styles.seal} ${approved ? "" : styles.sealPending}`} role="img" aria-label={approved ? "Approved and verified by the dojo" : "Pending administrator review"}>
+    {approved ? <BadgeCheck aria-hidden="true" /> : <FileClock aria-hidden="true" />}
+    <span>DOJO</span><strong>{approved ? "VERIFIED" : "PENDING"}</strong><small>{approved ? "APPROVED RECORD" : "ADMIN REVIEW"}</small>
   </div>;
 }
 
@@ -154,6 +155,7 @@ function IdentityPage({ record, owner, onRecordChange }: {
   onRecordChange?: (record: StudentPassportRecord) => void;
 }) {
   const fallback = owner?.dojoLogo;
+  const approved = record.profileStatus === "approved";
   return <div className={styles.spread}>
     <PassportPage folio="01" eyebrow="会員証 / MEMBER RECORD" title="Identity Record">
       <div className={styles.identityLead}>
@@ -167,7 +169,7 @@ function IdentityPage({ record, owner, onRecordChange }: {
       <dl className={styles.identityGrid}>
         <div><dt>DOJO / 道場</dt><dd>{record.dojoName}</dd></div>
         <div><dt>CURRENT RANK / 級・段</dt><dd><BeltMark rank={record.currentBelt} legacyColor={record.beltColor} /> {record.currentBelt}</dd></div>
-        <div><dt>RECORD STATUS</dt><dd><ShieldCheck aria-hidden="true" /> Approved</dd></div>
+        <div><dt>RECORD STATUS</dt><dd>{approved ? <ShieldCheck aria-hidden="true" /> : <FileClock aria-hidden="true" />} {approved ? "Approved" : "Pending administrator review"}</dd></div>
         <div><dt>VERIFIED HOURS</dt><dd>{record.totalVerifiedTrainingHours} hours</dd></div>
       </dl>
       {owner?.studentAccessToken ? <OwnerPhotoControl record={owner} onRecordChange={onRecordChange} /> : null}
@@ -181,7 +183,7 @@ function IdentityPage({ record, owner, onRecordChange }: {
         <div><dt>LAST UPDATED</dt><dd>{date(record.lastUpdated)}</dd></div>
         {owner?.practiceDuration ? <div><dt>PRACTICE RECORD</dt><dd>{owner.practiceDuration}</dd></div> : null}
       </dl>
-      <VerificationSeal />
+      <VerificationSeal approved={approved} />
     </PassportPage>
   </div>;
 }
@@ -495,7 +497,7 @@ export function DigitalPassport({ record, onRecordChange }: {
   }
 
   return <article ref={translationScope} className={styles.passport} aria-label={`${record.displayName} digital student passport`}>
-    <header className={styles.coverStrip}><div><span>REN SHIN KAN</span><strong>STUDENT PASSPORT</strong></div><p>Approved digital training record</p></header>
+    <header className={styles.coverStrip}><div><span>REN SHIN KAN</span><strong>STUDENT PASSPORT</strong></div><p>{record.profileStatus === "approved" ? "Approved digital training record" : "Usable profile · pending administrator review"}</p></header>
     {owner ? <PaymentAlerts record={owner} openTab={setActive} /> : null}
     <nav className={styles.tabs} role="tablist" aria-label="Student passport pages">
       {tabs.map(({ id: tab, label, Icon }, index) => <button
@@ -517,6 +519,6 @@ export function DigitalPassport({ record, onRecordChange }: {
       {active === "contributions" && owner ? <ContributionsPage record={owner} /> : null}
       {active === "requests" && owner ? <RequestsPage record={owner} openContributions={() => setActive("contributions")} /> : null}
     </div>
-    <footer className={styles.passportFooter}><span>Verified student record</span><span>Page {activeIndex + 1} of {tabs.length}</span><span>{record.studentId}</span></footer>
+    <footer className={styles.passportFooter}><span>{record.profileStatus === "approved" ? "Verified student record" : "Pending administrator review"}</span><span>Page {activeIndex + 1} of {tabs.length}</span><span>{record.studentId}</span></footer>
   </article>;
 }

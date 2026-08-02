@@ -1299,14 +1299,7 @@
     "chooseDojo": "选择道场",
     "chooseDojoCopy": "请选择您正在管理的道场。服务器会为每条记录和每项操作重新检查权限。",
     "select": "选择 {{dojo}}",
-    "noAccess": "无权访问",
-    "verification": "RenShinKan 验证",
-    "verificationTitle": "输入 RenShinKan 访问密码",
-    "verificationCopy": "解锁完整管理工作区前，需要进行此项额外的服务器端检查。",
-    "renshinkanPassword": "RenShinKan 访问密码",
-    "chooseAnother": "选择其他道场",
-    "verifying": "正在验证…",
-    "verify": "验证访问权限"
+    "noAccess": "无权访问"
   },
   "adminShell": {
     "administration": "管理",

@@ -40,7 +40,7 @@ async function ensureCurrentPeriod(db: D1Database, month: string, requestId: str
   const existing = await db.prepare("SELECT month_key FROM contribution_periods WHERE month_key = ? LIMIT 1")
     .bind(month).first<{ month_key: string }>();
   const activeStudentCount = Number((await db.prepare(`SELECT COUNT(*) AS count FROM students
-    WHERE active = 1 AND profile_status = 'approved' AND dojo_id = 'dojo-rsk'`).first<{ count: number }>())?.count || 0);
+    WHERE active = 1 AND profile_status IN ('pending_admin_approval', 'approved') AND dojo_id = 'dojo-rsk'`).first<{ count: number }>())?.count || 0);
   const now = new Date().toISOString();
   const statements: D1PreparedStatement[] = [
     db.prepare(`INSERT OR IGNORE INTO contribution_periods
@@ -50,7 +50,7 @@ async function ensureCurrentPeriod(db: D1Database, month: string, requestId: str
       id, month_key, student_id, student_name_snapshot, student_public_id_snapshot,
       current_rank_snapshot, active_at_period_start, created_at
     ) SELECT lower(hex(randomblob(16))), ?, id, display_name, public_student_id,
-      current_belt, 1, ? FROM students WHERE active = 1 AND profile_status = 'approved' AND dojo_id = 'dojo-rsk'`)
+      current_belt, 1, ? FROM students WHERE active = 1 AND profile_status IN ('pending_admin_approval', 'approved') AND dojo_id = 'dojo-rsk'`)
       .bind(month, now),
     db.prepare(`UPDATE contribution_periods SET active_student_count_snapshot = (
       SELECT COUNT(*) FROM contribution_period_students r
@@ -117,7 +117,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         NULL AS status_updated_at,
         NULL AS internal_note
       FROM students s
-      WHERE s.active = 1 AND s.profile_status = 'approved' AND s.dojo_id = 'dojo-rsk'
+      WHERE s.active = 1 AND s.profile_status IN ('pending_admin_approval', 'approved') AND s.dojo_id = 'dojo-rsk'
       `;
   } else {
     rosterSql = `SELECT s.id AS student_id, s.display_name AS student_name, s.public_student_id,

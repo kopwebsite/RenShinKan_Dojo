@@ -20,7 +20,8 @@ describe("unified administration UI contracts", () => {
     expect(shell).toContain("permissionLevel === \"renshinkan_super_admin\"");
     expect(shell).toContain("centralOnly");
     expect(shell).toContain('href: "/admin/profile-requests"');
-    expect(shell).toContain("renshinkanVerificationRequired");
+    expect(shell).not.toContain("renshinkanVerificationRequired");
+    expect(shell).toContain("session.admin?.selectedDojoId");
   });
 
   it("keeps student workflows task-first and preserves browser history", () => {

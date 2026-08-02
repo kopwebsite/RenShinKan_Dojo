@@ -28,7 +28,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
     const now = new Date().toISOString();
     const auditId = crypto.randomUUID();
-    const selectedSession = { ...session, selectedDojoId: dojo.id, renshinkanVerified: false };
+    const selectedSession = { ...session, selectedDojoId: dojo.id };
     await db.prepare(`INSERT INTO audit_log (
       id, admin_action, record_type, record_id, action_summary, created_at,
       actor_type, actor_identifier, action, entity_type, entity_id, source, request_id,
@@ -43,14 +43,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       ).run();
     return jsonResponse({
       ok: true,
-      verificationRequired: dojo.id === RENSHINKAN_DOJO_ID,
       admin: {
         name: selectedSession.adminName,
         role: selectedSession.role,
         allowedDojoIds: selectedSession.allowedDojoIds,
         selectedDojoId: selectedSession.selectedDojoId,
         permissionLevel: effectivePermissionLevel(selectedSession),
-        renshinkanVerificationRequired: dojo.id === RENSHINKAN_DOJO_ID,
       },
     }, 200, {
       "Set-Cookie": await updateSelectedDojoCookie(env, session, dojo.id),

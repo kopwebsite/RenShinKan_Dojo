@@ -262,8 +262,9 @@ describe("student workflow contracts", () => {
     );
   });
 
-  it("requires approved Student ID plus name, Turnstile, a higher rank, and one application per cycle", () => {
-    expect(application).toContain("profile_status = 'approved'");
+  it("requires a usable Student ID plus name, Turnstile, a higher rank, and one application per cycle", () => {
+    expect(application).toContain("profile_status IN ('pending_admin_approval', 'approved')");
+    expect(application).toContain("student_id_aliases");
     expect(application).toContain("namesLikelyMatch");
     expect(application).toContain("verifyTurnstile");
     expect(application).toContain(
@@ -299,13 +300,16 @@ describe("student workflow contracts", () => {
       expect(page).toContain(value);
   });
 
-  it("keeps pending profiles private and permits an optional photo until an administrator approves them", () => {
+  it("makes pending profiles usable immediately and permits an optional photo until review", () => {
     const submit = file("functions/api/records/profile-requests.ts");
     const approval = file(
       "functions/api/admin/students/[id]/profile-status.ts",
     );
     expect(submit).toContain("'pending_admin_approval'");
-    expect(submit).toContain("NULL, ?, 0, 0, 0");
+    expect(submit).toContain("NULL, ?, 0, 1, 1");
+    expect(submit).toContain("completedProfileResponse");
+    expect(submit).toContain("studentName: englishName");
+    expect(submit).toContain("mutation_requests");
     expect(submit).toContain("file ? 1 : 0");
     expect(submit).toContain("pendingKey || null");
     expect(submit).toContain("const dojoId = clean(payload.dojoId");
@@ -329,11 +333,15 @@ describe("student workflow contracts", () => {
   it("preserves old QR destinations while adding owner-share links", () => {
     const records = file("functions/_lib/studentRecords.ts");
     const lookup = file("functions/api/records/lookup.ts");
+    const share = file("functions/api/records/share/[token].ts");
     expect(records).toContain("purpose = 'owner'");
     expect(records).not.toContain("UPDATE share_tokens SET active = 0");
     expect(lookup).toContain("ensureOwnerShareUrl");
-    expect(lookup).toContain("WHERE s.public_student_id = ?");
-    expect(lookup).not.toContain("UPPER(s.public_student_id) = ?");
+    expect(lookup).toContain("student_id_aliases");
+    expect(lookup).toContain("a.alias_public_student_id = ?");
+    expect(lookup).not.toContain("student_private_access");
+    expect(share).toContain("s.profile_status");
+    expect(share).toContain("profile_status IN ('pending_admin_approval', 'approved')");
   });
 
   it("keeps passport payment and request ledgers behind verified owner lookup", () => {
@@ -625,6 +633,18 @@ describe("UI and responsive workflow contracts", () => {
     expect(page).not.toMatch(/guarantor/i);
     expect(page).toContain("LOOKUP_VERIFICATION_PENDING");
     expect(page).toContain("disabled={busy || !token}");
+    for (const successCopy of [
+      "Your student profile is ready",
+      "Name used for access",
+      "Pending administrator review",
+      "Save or photograph these details.",
+      "Apply for kyu examinations.",
+      "Submit RenShinKan monthly contributions, when applicable.",
+      "View and update your student portfolio.",
+      "Share your portfolio with another dojo or gym.",
+      "Open my student profile",
+    ])
+      expect(page).toContain(successCopy);
     const compactCss = css.replace(/\s+/g, " ");
     expect(compactCss).toContain(".record-workspace-tabs { display: flex");
     expect(compactCss).toContain("overflow-x: auto");
@@ -655,7 +675,8 @@ describe("UI and responsive workflow contracts", () => {
       'role="tabpanel"',
       "aria-selected",
       "aria-controls",
-      'aria-label="Approved and verified by the dojo"',
+      '"Approved and verified by the dojo"',
+      '"Pending administrator review"',
     ])
       expect(passport).toContain(accessibility);
     expect(passport).toContain("record.monthlyContributions !== null");

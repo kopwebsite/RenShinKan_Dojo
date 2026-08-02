@@ -11,8 +11,6 @@ export const RENSHINKAN_DOJO_ID = "dojo-rsk";
 type AuthEnv = {
   ADMIN_PASSWORD_HASH?: string;
   DOJO_ADMIN_PASSWORD_HASHES?: string;
-  RSK_ADMIN_SECONDARY_PASSWORD?: string;
-  RSK_ADMIN_SECONDARY_PASSWORD_HASH?: string;
   SESSION_SECRET?: string;
   STUDENT_LOOKUP_PEPPER?: string;
   STUDENT_DB?: {
@@ -38,7 +36,6 @@ export type AdminSession = {
   role: AdminRole;
   allowedDojoIds: string[];
   selectedDojoId: string | null;
-  renshinkanVerified: boolean;
 };
 
 export function jsonResponse(
@@ -197,27 +194,6 @@ export async function clearAdminLoginAttempts(request: Request, env: AuthEnv) {
   await clearRateLimit(request, env, "admin-login");
 }
 
-export async function verifyRenshinKanSecondaryPassword(
-  password: string,
-  env: AuthEnv,
-) {
-  if (isConfigured(env.RSK_ADMIN_SECONDARY_PASSWORD_HASH)) {
-    return verifyStoredPassword(
-      password,
-      env.RSK_ADMIN_SECONDARY_PASSWORD_HASH!,
-      env,
-      false,
-    );
-  }
-
-  // Deployment compatibility only: existing installations may still have the
-  // encrypted Pages secret from before PBKDF2 verifiers were introduced. The
-  // hash is authoritative as soon as it is configured, so a stale plaintext
-  // secret can never bypass a mismatched PBKDF2 verifier.
-  if (!isConfigured(env.RSK_ADMIN_SECONDARY_PASSWORD)) return false;
-  return timingSafeEqual(password, env.RSK_ADMIN_SECONDARY_PASSWORD!);
-}
-
 const MIN_PBKDF2_ITERATIONS = 210_000;
 
 async function verifyStoredPassword(
@@ -298,8 +274,7 @@ async function verifyStoredPassword(
   }
 
   // Temporary compatibility for existing primary/dojo HMAC hashes. New and
-  // rotated credentials must use PBKDF2; the RenShinKan secondary credential
-  // deliberately does not accept this legacy form.
+  // rotated credentials must use PBKDF2.
   if (!allowLegacyHmac || !isConfigured(env.SESSION_SECRET)) return false;
   const expected = value.replace(/^hmac-sha256:/i, "");
   if (!/^[a-f0-9]{64}$/i.test(expected)) return false;
@@ -371,7 +346,6 @@ type NewSession = Partial<
     | "role"
     | "allowedDojoIds"
     | "selectedDojoId"
-    | "renshinkanVerified"
   >
 >;
 
@@ -401,10 +375,6 @@ export async function createSessionCookie(
         ? Array.from(new Set(session.allowedDojoIds || [])).slice(0, 3)
         : [],
     selectedDojoId: session.selectedDojoId || null,
-    renshinkanVerified:
-      session.selectedDojoId === RENSHINKAN_DOJO_ID &&
-      session.role === "central" &&
-      session.renshinkanVerified === true,
   };
   const encodedPayload = bytesToBase64Url(textToBytes(JSON.stringify(payload)));
   const encodedSignature = bytesToBase64Url(
@@ -493,7 +463,6 @@ export async function getAdminSession(
         typeof payload.selectedDojoId === "string"
           ? payload.selectedDojoId
           : null,
-      renshinkanVerified: payload.renshinkanVerified === true,
     };
     if (
       !/^[A-Za-z0-9-]{8,120}$/.test(result.sessionId) ||
@@ -544,8 +513,7 @@ export function isRenShinKanSuperAdmin(
   return Boolean(
     session &&
     session.role === "central" &&
-    session.selectedDojoId === RENSHINKAN_DOJO_ID &&
-    session.renshinkanVerified,
+    session.selectedDojoId === RENSHINKAN_DOJO_ID,
   );
 }
 
@@ -565,10 +533,7 @@ export function hasSelectedDojoAccess(
     !canSelectDojo(session, session.selectedDojoId)
   )
     return false;
-  return (
-    session.selectedDojoId !== RENSHINKAN_DOJO_ID ||
-    isRenShinKanSuperAdmin(session)
-  );
+  return true;
 }
 
 export async function getAuthorizedAdminSession(
@@ -630,26 +595,5 @@ export async function updateSelectedDojoCookie(
     role: session.role,
     allowedDojoIds: session.allowedDojoIds,
     selectedDojoId,
-    renshinkanVerified: false,
-  });
-}
-
-export async function updateRenshinKanVerifiedCookie(
-  env: AuthEnv,
-  session: AdminSession,
-) {
-  await revokeAdminSession(
-    env,
-    session,
-    session.adminName,
-    "privilege_elevated",
-  );
-  return createSessionCookie(env, {
-    accountId: session.accountId,
-    adminName: session.adminName,
-    role: session.role,
-    allowedDojoIds: session.allowedDojoIds,
-    selectedDojoId: RENSHINKAN_DOJO_ID,
-    renshinkanVerified: true,
   });
 }

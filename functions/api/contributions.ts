@@ -101,10 +101,14 @@ async function lookupStudent(
       `SELECT s.id, s.public_student_id, s.display_name, s.current_belt,
     s.dojo_id, s.aat_number, s.aat_last_paid_date, d.official_name AS dojo_name
     FROM students s JOIN dojos d ON d.id = s.dojo_id AND d.active = 1
-    WHERE UPPER(s.public_student_id) = ? AND s.dojo_id = ?
-      AND s.active = 1 AND s.profile_status = 'approved' AND s.deleted_at IS NULL LIMIT 1`,
+    WHERE (UPPER(s.public_student_id) = ? OR EXISTS (
+      SELECT 1 FROM student_id_aliases a WHERE a.student_id = s.id
+      AND UPPER(a.alias_public_student_id) = ?
+    )) AND s.dojo_id = ? AND s.active = 1
+      AND s.profile_status IN ('pending_admin_approval', 'approved')
+      AND s.deleted_at IS NULL LIMIT 1`,
     )
-    .bind(publicStudentId, dojoId)
+    .bind(publicStudentId, publicStudentId, dojoId)
     .first<StudentRow>();
   return student && namesLikelyMatch(submittedName, student.display_name)
     ? student
@@ -430,7 +434,7 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({
             await db
               .prepare(
                 `SELECT COUNT(*) AS count FROM students
-      WHERE active = 1 AND profile_status = 'approved' AND dojo_id = ?`,
+      WHERE active = 1 AND profile_status IN ('pending_admin_approval', 'approved') AND dojo_id = ?`,
               )
               .bind(DEFAULT_DOJO_ID)
               .first<{ count: number }>()
@@ -452,7 +456,7 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({
         id, month_key, student_id, student_name_snapshot, student_public_id_snapshot,
         current_rank_snapshot, active_at_period_start, created_at
       ) SELECT lower(hex(randomblob(16))), ?, id, display_name, public_student_id,
-        current_belt, 1, ? FROM students WHERE active = 1 AND profile_status = 'approved' AND dojo_id = ?`,
+        current_belt, 1, ? FROM students WHERE active = 1 AND profile_status IN ('pending_admin_approval', 'approved') AND dojo_id = ?`,
           )
           .bind(month, now, DEFAULT_DOJO_ID),
       );

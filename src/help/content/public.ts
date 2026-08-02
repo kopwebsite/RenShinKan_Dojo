@@ -223,12 +223,12 @@ function enArticles(): LocalizedArticle[] {
       routes: routes.profile,
       title: "Look up or update your student profile",
       summary:
-        "Open your private student workspace with your student details and access code, then send profile changes for dojo review.",
+        "Open your student workspace with the name used for the profile and your Student ID, then send changes for dojo review.",
       steps: [
         {
           title: "Open your record",
           instruction:
-            "On “Student Record”, enter the requested student details and access code, then select “Open my record”.",
+            "On “Student Record”, enter the name used for the profile and the Student ID, then select “Find my record”.",
           result:
             "Your private student workspace opens when the details match.",
         },
@@ -250,7 +250,7 @@ function enArticles(): LocalizedArticle[] {
       troubleshooting: [
         {
           issue: "Your record is not found.",
-          fix: "Check spelling and your access code. Use “Contact us” if the same details still fail.",
+          fix: "Check the name and Student ID. Use “Contact us” if the same details still fail.",
         },
         {
           issue: "Your new details do not appear yet.",
@@ -261,7 +261,7 @@ function enArticles(): LocalizedArticle[] {
       keywords: [
         "student record",
         "profile",
-        "access code",
+        "Student ID",
         "update",
         "correction",
         "approval",
@@ -272,7 +272,7 @@ function enArticles(): LocalizedArticle[] {
               src: publicScreenshots.en.profile,
               alt: "Student Record lookup form on a mobile-width screen using demonstration fields only",
               caption:
-                "Use the Student Record page to open the private workspace. Never share your access code.",
+                "Use the Student Record page to open your workspace with your name and Student ID.",
             },
           ]
         : [],
@@ -479,7 +479,7 @@ function enArticles(): LocalizedArticle[] {
           instruction:
             "Select “Create share link”, then select “Copy link”. Send it only to the intended recipient.",
           result:
-            "A time-limited link is copied; your access code is never included.",
+            "A time-limited link is copied; lookup details are never included.",
         },
         {
           title: "Revoke access",
@@ -491,7 +491,7 @@ function enArticles(): LocalizedArticle[] {
       troubleshooting: [
         {
           issue: "A recipient says the link expired.",
-          fix: "Confirm the recipient still needs access, then create a new limited link. Never send your access code.",
+          fix: "Confirm the recipient still needs access, then create a new limited link.",
         },
       ],
       related: related.sharing,
@@ -610,7 +610,7 @@ function enArticles(): LocalizedArticle[] {
         {
           title: "Describe the problem",
           instruction:
-            "Include the page name, what you selected, what happened, device/browser, and the time. Do not send passwords or access codes.",
+            "Include the page name, what you selected, what happened, device/browser, and the time. Do not send passwords or full Student IDs.",
           result:
             "Support receives enough non-sensitive detail to investigate.",
         },
@@ -663,15 +663,15 @@ function thArticles(): LocalizedArticle[] {
       "student-records",
       routes.profile,
       "ค้นหาและขอแก้ไขข้อมูลนักเรียน",
-      "เข้าสู่พื้นที่ส่วนตัวด้วยข้อมูลนักเรียนและรหัสเข้าถึง แล้วส่งการแก้ไขให้โดโจตรวจสอบ",
+      "เข้าสู่พื้นที่นักเรียนด้วยชื่อที่ใช้สร้างโปรไฟล์และรหัสนักเรียน แล้วส่งการแก้ไขให้โดโจตรวจสอบ",
       [
-        "กรอกข้อมูลและรหัสเข้าถึงในหน้า “ประวัตินักเรียน” แล้วเลือก “เปิดประวัติของฉัน”",
+        "กรอกชื่อที่ใช้สร้างโปรไฟล์และรหัสนักเรียนในหน้า “ประวัตินักเรียน” แล้วเลือก “ค้นหาประวัติของฉัน”",
         "เลือก “ขอแก้ไขข้อมูลส่วนตัว” และแก้เฉพาะช่องที่ต้องการ",
         "ตรวจสอบแล้วเลือก “ส่งคำขอแก้ไข”",
       ],
-      "หากค้นหาไม่พบ ให้ตรวจการสะกดและรหัสเข้าถึง ห้ามส่งรหัสให้ผู้อื่น",
+      "หากค้นหาไม่พบ ให้ตรวจชื่อและรหัสนักเรียนแล้วลองอีกครั้ง",
       related.profile,
-      ["ประวัตินักเรียน", "ข้อมูลส่วนตัว", "รหัสเข้าถึง", "แก้ไข"],
+      ["ประวัตินักเรียน", "ข้อมูลส่วนตัว", "รหัสนักเรียน", "แก้ไข"],
     ],
     [
       "public-training",
@@ -744,7 +744,7 @@ function thArticles(): LocalizedArticle[] {
         "เลือก “สร้างลิงก์แชร์” แล้ว “คัดลอกลิงก์” ส่งเฉพาะผู้รับที่ตั้งใจ",
         "เลือก “ยกเลิกลิงก์” เมื่อไม่ต้องการแชร์",
       ],
-      "หากลิงก์หมดอายุ ให้ยืนยันความจำเป็นก่อนสร้างใหม่ และห้ามส่งรหัสเข้าถึง",
+      "หากลิงก์หมดอายุ ให้ยืนยันความจำเป็นก่อนสร้างใหม่",
       related.sharing,
       ["แชร์", "ลิงก์", "ความเป็นส่วนตัว", "ยกเลิก"],
     ],
@@ -786,7 +786,7 @@ function thArticles(): LocalizedArticle[] {
       "ใช้หน้าติดต่อสำหรับคำถามโดโจ และส่งรายละเอียดที่ไม่อ่อนไหวเมื่อเว็บไซต์มีปัญหา",
       [
         "เลือก “ติดต่อ” สำหรับชั้นเรียน สมาชิก หรือประวัติ และเลือก “ช่วยเหลือ” สำหรับปัญหาเว็บไซต์",
-        "ระบุชื่อหน้า สิ่งที่กด ผลที่เกิด อุปกรณ์ เบราว์เซอร์ และเวลา โดยไม่ส่งรหัสผ่านหรือรหัสเข้าถึง",
+        "ระบุชื่อหน้า สิ่งที่กด ผลที่เกิด อุปกรณ์ เบราว์เซอร์ และเวลา โดยไม่ส่งรหัสผ่านหรือรหัสนักเรียนแบบเต็ม",
         "กรอกช่องที่จำเป็นแล้วเลือก “ส่งข้อความ”",
       ],
       "หากส่งไม่ได้ ให้แก้ช่องที่มีข้อความผิดพลาดและทำการตรวจป้องกันบอต",
@@ -818,15 +818,15 @@ function jaArticles(): LocalizedArticle[] {
       "student-records",
       routes.profile,
       "会員記録を開き、修正を依頼する",
-      "会員情報とアクセスコードで専用画面を開き、修正内容を道場へ送ります。",
+      "プロフィール作成時の氏名と生徒IDで画面を開き、修正内容を道場へ送ります。",
       [
-        "「会員記録」で必要事項とアクセスコードを入力し、「記録を開く」を選びます。",
+        "「生徒記録」でプロフィール作成時の氏名と生徒IDを入力し、「自分の記録を探す」を選びます。",
         "「プロフィール更新を依頼」を選び、必要な項目だけ直します。",
         "内容を確認して「更新依頼を送信」を選びます。",
       ],
-      "見つからない場合は表記とアクセスコードを確認し、コードは他人に送らないでください。",
+      "見つからない場合は氏名と生徒IDを確認して、もう一度お試しください。",
       related.profile,
-      ["会員記録", "プロフィール", "アクセスコード", "修正"],
+      ["生徒記録", "プロフィール", "生徒ID", "修正"],
     ],
     [
       "public-training",
@@ -899,7 +899,7 @@ function jaArticles(): LocalizedArticle[] {
         "「共有リンクを作成」「リンクをコピー」の順に選び、対象者だけに送ります。",
         "共有が不要になったら「リンクを無効化」を選びます。",
       ],
-      "期限切れの場合は必要性を再確認して新しいリンクを作り、アクセスコードは共有しません。",
+      "期限切れの場合は必要性を再確認して新しいリンクを作成します。",
       related.sharing,
       ["共有", "リンク", "プライバシー", "無効"],
     ],
@@ -941,7 +941,7 @@ function jaArticles(): LocalizedArticle[] {
       "道場への質問は問い合わせを使い、サイト不具合には安全な技術情報を添えます。",
       [
         "クラス、会員、記録の質問は「お問い合わせ」、サイト不具合は「サポート」を選びます。",
-        "ページ名、操作、結果、端末、ブラウザ、時刻を記載し、パスワードやアクセスコードは送りません。",
+        "ページ名、操作、結果、端末、ブラウザ、時刻を記載し、パスワードや完全な生徒IDは送りません。",
         "必須欄を入力して「メッセージを送信」を選びます。",
       ],
       "送信できない場合はエラー表示の欄を直し、表示されたボット確認を完了します。",
@@ -973,15 +973,15 @@ function zhArticles(): LocalizedArticle[] {
       "student-records",
       routes.profile,
       "查找并申请修改学员资料",
-      "使用学员信息和访问码进入私人工作区，再把修改申请提交给道场审核。",
+      "使用创建资料时的姓名和学员编号进入工作区，再把修改申请提交给道场审核。",
       [
-        "在“学员记录”页填写所需信息和访问码，然后选择“打开我的记录”。",
+        "在“学员记录”页填写创建资料时的姓名和学员编号，然后选择“查找我的记录”。",
         "选择“申请更新资料”，只修改需要更正的字段。",
         "检查内容后选择“提交更新申请”。",
       ],
-      "如果找不到记录，请检查拼写和访问码；不要把访问码发送给他人。",
+      "如果找不到记录，请检查姓名和学员编号后重试。",
       related.profile,
-      ["学员记录", "资料", "访问码", "修改"],
+      ["学员记录", "资料", "学员编号", "修改"],
     ],
     [
       "public-training",
@@ -1054,7 +1054,7 @@ function zhArticles(): LocalizedArticle[] {
         "选择“创建分享链接”再选择“复制链接”，只发给预定接收者。",
         "不再分享时选择“撤销链接”。",
       ],
-      "链接过期时先确认仍需分享，再建立新链接；切勿分享访问码。",
+      "链接过期时先确认仍需分享，再建立新链接。",
       related.sharing,
       ["分享", "链接", "隐私", "撤销"],
     ],
@@ -1096,7 +1096,7 @@ function zhArticles(): LocalizedArticle[] {
       "道场问题使用联系页面；网站问题请提供不含敏感信息的技术细节。",
       [
         "课程、会员或记录问题选择“联系”；网站故障选择“支持”。",
-        "写明页面、操作、结果、设备、浏览器和时间，不要发送密码或访问码。",
+        "写明页面、操作、结果、设备、浏览器和时间，不要发送密码或完整学员编号。",
         "填写必填项并选择“发送消息”。",
       ],
       "无法提交时，请修正标记错误的字段并完成页面显示的防机器人检查。",

@@ -60,12 +60,15 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
     const student = await db.prepare(`SELECT s.id, s.public_student_id, s.display_name, s.current_belt, s.dojo_id,
       s.aat_number, s.aat_last_paid_date, d.official_name AS dojo_name FROM students s
       JOIN dojos d ON d.id = s.dojo_id AND d.active = 1
-      WHERE UPPER(s.public_student_id) = ?
-      AND s.active = 1 AND s.public_visible = 1 AND s.profile_status = 'approved' LIMIT 1`)
-      .bind(publicStudentId)
+      WHERE (UPPER(s.public_student_id) = ? OR EXISTS (
+        SELECT 1 FROM student_id_aliases a WHERE a.student_id = s.id
+        AND UPPER(a.alias_public_student_id) = ?
+      )) AND s.active = 1 AND s.public_visible = 1
+      AND s.profile_status IN ('pending_admin_approval', 'approved') LIMIT 1`)
+      .bind(publicStudentId, publicStudentId)
       .first<{ id: string; public_student_id: string; display_name: string; current_belt: string; dojo_id: string; dojo_name: string; aat_number: string | null; aat_last_paid_date: string | null }>();
     if (!student || !namesLikelyMatch(verificationName, student.display_name)) {
-      return jsonResponse({ error: "The student verification details do not match an approved record." }, 403);
+      return jsonResponse({ error: "Check the name and Student ID and try again." }, 403);
     }
     const submittedDojoId = text(body.dojoId, 100, true);
     if (submittedDojoId !== student.dojo_id) return jsonResponse({ error: "The selected dojo does not match this approved student record." }, 403);

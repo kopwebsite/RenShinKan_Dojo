@@ -7,7 +7,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
   const session = await getAdminSession(request, env);
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
-  const clearedSession = { ...session, selectedDojoId: null, renshinkanVerified: false };
+  const clearedSession = { ...session, selectedDojoId: null };
   if (session.selectedDojoId) {
     await auditStatement(requireStudentDb(env), {
       actorType: "administrator",
@@ -28,7 +28,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       allowedDojoIds: clearedSession.allowedDojoIds,
       selectedDojoId: null,
       permissionLevel: effectivePermissionLevel(clearedSession),
-      renshinkanVerificationRequired: false,
     },
   }, 200, {
     "Set-Cookie": await updateSelectedDojoCookie(env, session, null),

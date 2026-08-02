@@ -1299,14 +1299,7 @@
     "chooseDojo": "Choose a dojo",
     "chooseDojoCopy": "Select the dojo you are working with. Access is checked again by the server for every record and action.",
     "select": "Select {{dojo}}",
-    "noAccess": "No access",
-    "verification": "RenShinKan verification",
-    "verificationTitle": "Enter the RenShinKan access password",
-    "verificationCopy": "This additional server-side check is required before the full administration workspace is unlocked.",
-    "renshinkanPassword": "RenShinKan access password",
-    "chooseAnother": "Choose another dojo",
-    "verifying": "Verifying…",
-    "verify": "Verify access"
+    "noAccess": "No access"
   },
   "adminShell": {
     "administration": "Administration",

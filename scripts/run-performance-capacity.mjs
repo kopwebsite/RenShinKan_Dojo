@@ -25,10 +25,8 @@ async function adminCookie() {
   if (!login.ok) throw new Error(`Capacity login failed (${login.status}).`);
   let cookie = cookieFrom(login);
   const select = await fetch(`${baseUrl}/api/admin/select-dojo`, { method: "POST", headers: { ...headers, Cookie: cookie, "X-Request-ID": crypto.randomUUID() }, body: JSON.stringify({ dojoId: "dojo-rsk" }) });
-  cookie = cookieFrom(select, cookie);
-  const verify = await fetch(`${baseUrl}/api/admin/verify-renshinkan`, { method: "POST", headers: { ...headers, Cookie: cookie, "X-Request-ID": crypto.randomUUID() }, body: JSON.stringify({ password: "LocalCapacitySecond!2026" }) });
-  if (!verify.ok) throw new Error(`Capacity verification failed (${verify.status}).`);
-  return cookieFrom(verify, cookie);
+  if (!select.ok) throw new Error(`Capacity dojo selection failed (${select.status}).`);
+  return cookieFrom(select, cookie);
 }
 
 async function runLoad({ name, requests, concurrency, execute }) {
@@ -63,7 +61,7 @@ const cookie = await adminCookie();
 const jsonHeaders = { "Content-Type": "application/json", Origin: baseUrl };
 const cases = [
   { name: "public-reads", requests: 120, concurrency: 20, execute: (index) => fetch(`${baseUrl}${["/api/content", "/api/newsletters?page=1", "/api/downloads?page=1", "/api/galleries?galleryId=history&page=1"][index % 4]}`) },
-  { name: "student-lookup-and-rate-limit", requests: 30, concurrency: 5, execute: () => fetch(`${baseUrl}/api/records/lookup`, { method: "POST", headers: { ...jsonHeaders, "CF-Connecting-IP": "198.51.100.44", "X-Request-ID": crypto.randomUUID() }, body: JSON.stringify({ name: "Synthetic Nobody", studentId: "T26-99999", accessCode: "not-a-real-code", turnstileToken: "local-invalid" }) }) },
+  { name: "student-lookup-and-rate-limit", requests: 30, concurrency: 5, execute: () => fetch(`${baseUrl}/api/records/lookup`, { method: "POST", headers: { ...jsonHeaders, "CF-Connecting-IP": "198.51.100.44", "X-Request-ID": crypto.randomUUID() }, body: JSON.stringify({ name: "Synthetic Nobody", studentId: "T26-99999", turnstileToken: "local-invalid" }) }) },
   { name: "admin-lists", requests: 80, concurrency: 10, execute: (index) => fetch(`${baseUrl}${["/api/admin/students?page=1", "/api/admin/examinations?page=1", "/api/admin/memberships?page=1", "/api/admin/audit?page=1"][index % 4]}`, { headers: { Cookie: cookie } }) },
   { name: "newsletter-publish-safeguard", requests: 12, concurrency: 4, execute: () => fetch(`${baseUrl}/api/admin/newsletters/save`, { method: "POST", headers: { Origin: baseUrl, Cookie: cookie, "X-Request-ID": crypto.randomUUID() }, body: new FormData() }) },
   { name: "upload-initiation-validation", requests: 12, concurrency: 4, execute: () => fetch(`${baseUrl}/api/admin/downloads`, { method: "POST", headers: { Origin: baseUrl, Cookie: cookie, "X-Request-ID": crypto.randomUUID() }, body: new FormData() }) },

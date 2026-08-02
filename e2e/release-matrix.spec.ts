@@ -73,8 +73,6 @@ async function signInAsSyntheticAdministrator(page: Page) {
     }),
   ).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Select RenShinKan" }).click();
-  await page.getByLabel("RenShinKan access password").fill(fixture.password);
-  await page.getByRole("button", { name: "Verify access" }).click();
   await expect(page).toHaveURL(/\/admin\/dashboard$/);
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
     timeout: 15_000,
@@ -222,6 +220,39 @@ test("sanitized student lookup completes without URL or storage disclosure", asy
   );
   expect(JSON.stringify(stored)).not.toContain(fixture.studentName);
   expect(JSON.stringify(stored)).not.toContain(fixture.studentId);
+});
+
+test("a new pending profile is immediately usable and exposes no credentials in the URL", async ({
+  page,
+}) => {
+  const pendingName = `Sanitized Pending Student ${Date.now()}`;
+  await page.goto("/student-records");
+  await page.getByRole("button", { name: /New profile/ }).click();
+  await page.getByLabel(/^English name/).fill(pendingName);
+  await page.getByLabel(/^Current dojo/).selectOption("dojo-rsk");
+  await expect(page.getByText("Verification complete.")).toBeVisible({
+    timeout: 30_000,
+  });
+  await page.getByRole("button", { name: "Create student profile" }).click();
+
+  await expect(
+    page.getByRole("heading", { name: "Your student profile is ready" }),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator(".profile-created")).toBeFocused();
+  await expect(page.getByText(pendingName, { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Pending administrator review", { exact: true }),
+  ).toBeVisible();
+  const generatedId = await page.getByLabel("Your new Student ID").inputValue();
+  expect(generatedId).toMatch(/^[A-Z0-9]{2,8}-\d{4,}$/);
+  expect(page.url()).not.toContain(encodeURIComponent(pendingName));
+  expect(page.url()).not.toContain(generatedId);
+
+  await page.getByRole("button", { name: "Open my student profile" }).click();
+  await expect(
+    page.getByText("Pending administrator review", { exact: true }).first(),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/student-records$/);
 });
 
 test("admin workflows bootstrap once, remain scoped, and do not retain passwords", async ({

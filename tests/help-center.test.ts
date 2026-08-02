@@ -97,7 +97,7 @@ describe("help center content contracts", () => {
     }
     const adminText = JSON.stringify(getAdminHelpCatalog("en"));
     for (const term of [
-      "verification",
+      "dojo selection",
       "data scope",
       "dashboard",
       "archive",

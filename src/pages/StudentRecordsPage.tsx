@@ -1,5 +1,7 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
+  AlertCircle,
+  Camera,
   CheckCircle2,
   Clock3,
   Copy,
@@ -14,6 +16,7 @@ import {
   ShieldCheck,
   UserPlus,
   UserRound,
+  X,
 } from "lucide-react";
 import QRCodeLib from "qrcode";
 import { RANKS } from "../../shared/ranks";
@@ -44,6 +47,17 @@ type LookupResult = {
   record: StudentPassportRecord;
   shareUrl: string;
   accessToken: string;
+};
+type ProfileCreationResult = {
+  ok: true;
+  requestId: string;
+  status: "pending_admin_approval";
+  studentName: string;
+  studentId: string;
+  hasAatMembership: boolean;
+  record?: StudentPassportRecord;
+  shareUrl?: string;
+  accessToken?: string;
 };
 type PublicDojo = {
   id: string;
@@ -277,6 +291,7 @@ export function StudentRecordsPage() {
     return value === "profile" || value === "exam" ? value : "lookup";
   };
   const [task, setTask] = useState<Task>(taskFromUrl);
+  const [createdRecord, setCreatedRecord] = useState<LookupResult | null>(null);
   useEffect(() => {
     const onPopState = () => setTask(taskFromUrl());
     window.addEventListener("popstate", onPopState);
@@ -307,8 +322,8 @@ export function StudentRecordsPage() {
       >
         {(
           [
-            ["lookup", Search, "My passport", "Approved record and training"],
-            ["profile", UserPlus, "New profile", "Request an official record"],
+            ["lookup", Search, "My passport", "Usable profile and training"],
+            ["profile", UserPlus, "New profile", "Create a usable profile"],
             [
               "exam",
               FileCheck2,
@@ -333,9 +348,18 @@ export function StudentRecordsPage() {
       </nav>
       <section className="container-shell record-task-panel">
         {task === "lookup" ? (
-          <LookupWorkflow />
+          <LookupWorkflow initialResult={createdRecord} />
         ) : task === "profile" ? (
-          <ProfileWorkflow />
+          <ProfileWorkflow
+            onOpenRecord={(result) => {
+              setCreatedRecord(result);
+              chooseTask("lookup");
+            }}
+            onBack={() => {
+              setCreatedRecord(null);
+              chooseTask("lookup");
+            }}
+          />
         ) : (
           <ExamWorkflow />
         )}
@@ -344,12 +368,12 @@ export function StudentRecordsPage() {
   );
 }
 
-function LookupWorkflow() {
+function LookupWorkflow({ initialResult = null }: { initialResult?: LookupResult | null }) {
   const [name, setName] = useState("");
   const [studentId, setStudentId] = useState("");
-  const [accessCode, setAccessCode] = useState("");
   const [token, setToken] = useState("");
-  const [result, setResult] = useState<LookupResult | null>(null);
+  const [result, setResult] = useState<LookupResult | null>(initialResult);
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; studentId?: string }>({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [reset, setReset] = useState(0);
@@ -371,6 +395,9 @@ function LookupWorkflow() {
       );
   }, []);
   useEffect(() => {
+    if (initialResult) setResult(initialResult);
+  }, [initialResult]);
+  useEffect(() => {
     if (result?.shareUrl)
       QRCodeLib.toDataURL(result.shareUrl, {
         width: 360,
@@ -382,8 +409,12 @@ function LookupWorkflow() {
     event.preventDefault();
     setError("");
     setResult(null);
-    if (!name.trim() || !studentId.trim()) {
-      setError("Enter both the student name and Student ID.");
+    const nextErrors = {
+      ...(!name.trim() ? { name: "Enter the student name." } : {}),
+      ...(!studentId.trim() ? { studentId: "Enter the Student ID." } : {}),
+    };
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length) {
       return;
     }
     if (!token) {
@@ -401,7 +432,6 @@ function LookupWorkflow() {
         body: JSON.stringify({
           name,
           studentId,
-          accessCode,
           turnstileToken: token,
         }),
       });
@@ -410,7 +440,7 @@ function LookupWorkflow() {
       setError(
         reason instanceof Error
           ? reason.message
-          : "No matching approved record was found.",
+          : "Check the name and Student ID and try again.",
       );
     } finally {
       setBusy(false);
@@ -481,47 +511,36 @@ function LookupWorkflow() {
       >
         <form className="record-lookup" onSubmit={submit}>
           <p className="eyebrow">Existing student</p>
-          <h2>Look up an approved record</h2>
-          <p>
-            Enter the full approved name and Student ID. Add the private code if
-            your dojo has issued one.
-          </p>
-          <label>
+          <h2>Look up your student record</h2>
+          <p>Enter the name used on your profile and your Student ID.</p>
+          <label htmlFor="record-student-name">
             Student name
             <input
+              id="record-student-name"
               name="studentName"
               value={name}
-              onChange={(event) => setName(event.target.value)}
+              onChange={(event) => { setName(event.target.value); setFieldErrors((current) => ({ ...current, name: undefined })); }}
               autoComplete="name"
+              aria-invalid={Boolean(fieldErrors.name)}
+              aria-describedby={fieldErrors.name ? "record-student-name-error" : undefined}
+              required
             />
+            {fieldErrors.name ? <small id="record-student-name-error" className="field-error">{fieldErrors.name}</small> : null}
           </label>
-          <label>
+          <label htmlFor="record-student-id">
             Student ID{" "}
             <small id="record-student-id-format">Example: RSK-2601.</small>
             <input
+              id="record-student-id"
               name="studentId"
               value={studentId}
-              onChange={(event) =>
-                setStudentId(event.target.value.toUpperCase())
-              }
+              onChange={(event) => { setStudentId(event.target.value.toUpperCase()); setFieldErrors((current) => ({ ...current, studentId: undefined })); }}
               placeholder="RSK-2601"
-              aria-describedby="record-student-id-format"
+              aria-invalid={Boolean(fieldErrors.studentId)}
+              aria-describedby={`record-student-id-format${fieldErrors.studentId ? " record-student-id-error" : ""}`}
+              required
             />
-          </label>
-          <label>
-            Private access code{" "}
-            <small>Required after your dojo issues or resets a code.</small>
-            <input
-              name="accessCode"
-              value={accessCode}
-              onChange={(event) =>
-                setAccessCode(event.target.value.toUpperCase())
-              }
-              autoComplete="off"
-              spellCheck={false}
-              maxLength={24}
-              placeholder="XXXXX-XXXXX-XXXXX"
-            />
+            {fieldErrors.studentId ? <small id="record-student-id-error" className="field-error">{fieldErrors.studentId}</small> : null}
           </label>
           <TurnstileWidget onToken={onToken} resetSignal={reset} />
           {error ? (
@@ -533,8 +552,7 @@ function LookupWorkflow() {
             <Search size={17} /> {busy ? "Checking…" : "Find my record"}
           </button>
           <p className="record-privacy">
-            <ShieldCheck size={15} /> Verification details are sent securely and
-            never placed in the page URL.
+            <ShieldCheck size={15} /> The name and Student ID are sent securely and never placed in the page URL.
           </p>
         </form>
         {result ? (
@@ -549,7 +567,7 @@ function LookupWorkflow() {
         ) : (
           <div className="record-placeholder">
             <span>認</span>
-            <h2>Your verified record will appear here</h2>
+            <h2>Your student record will appear here</h2>
             <p>
               Public profile links never allow editing and never reveal
               application answers or payment details.
@@ -728,7 +746,10 @@ function LookupWorkflow() {
   );
 }
 
-function ProfileWorkflow() {
+function ProfileWorkflow({ onOpenRecord, onBack }: {
+  onOpenRecord: (result: LookupResult) => void;
+  onBack: () => void;
+}) {
   const { language } = useTranslation();
   const aatHelp = AAT_PAYMENT_HELP[language];
   const [draft, setDraft] = useState({
@@ -744,12 +765,21 @@ function ProfileWorkflow() {
   const [dojos, setDojos] = useState<PublicDojo[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [token, setToken] = useState("");
   const [reset, setReset] = useState(0);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(false);
-  const onToken = useCallback((value: string) => setToken(value), []);
+  const [result, setResult] = useState<ProfileCreationResult | null>(null);
+  const [copied, setCopied] = useState(false);
+  const requestId = useRef(crypto.randomUUID());
+  const errorSummary = useRef<HTMLDivElement>(null);
+  const successPanel = useRef<HTMLDivElement>(null);
+  const onToken = useCallback((value: string) => {
+    setToken(value);
+    if (value) setFieldErrors((current) => ({ ...current, verification: "" }));
+  }, []);
   useEffect(() => {
     fetch("/api/dojos")
       .then((response) => response.json() as Promise<{ dojos?: PublicDojo[] }>)
@@ -764,10 +794,15 @@ function ProfileWorkflow() {
     },
     [preview],
   );
+  useEffect(() => {
+    if (result) requestAnimationFrame(() => successPanel.current?.focus());
+  }, [result]);
   async function choose(input?: File) {
     if (!input) return;
+    setPhotoBusy(true);
     try {
       const prepared = await prepareProfilePhoto(input);
+      if (preview) URL.revokeObjectURL(preview);
       setFile(prepared);
       setPreview(URL.createObjectURL(prepared));
       setError("");
@@ -777,16 +812,22 @@ function ProfileWorkflow() {
           ? reason.message
           : "The photo could not be prepared.",
       );
+    } finally {
+      setPhotoBusy(false);
     }
   }
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!draft.dojoId) {
-      setError("Choose the student's dojo.");
-      return;
-    }
-    if (!token) {
-      setError("Complete Cloudflare verification.");
+    const nextErrors: Record<string, string> = {};
+    if (!draft.englishName.trim()) nextErrors.englishName = "Enter the English name used for record lookup.";
+    if (!draft.dojoId) nextErrors.dojoId = "Choose the student's current dojo.";
+    if (draft.hasAatMembership && !draft.aatLastPaidDate)
+      nextErrors.aatLastPaidDate = "Enter the most recent AAT payment date, or turn off AAT membership.";
+    if (!token) nextErrors.verification = "Complete Cloudflare verification.";
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length) {
+      setError("Review the highlighted fields and try again.");
+      requestAnimationFrame(() => errorSummary.current?.focus());
       return;
     }
     setBusy(true);
@@ -809,11 +850,12 @@ function ProfileWorkflow() {
       if (file) data.set("file", file);
       const response = await fetch("/api/records/profile-requests", {
         method: "POST",
-        headers: { "X-Request-ID": crypto.randomUUID() },
+        headers: { "X-Request-ID": requestId.current },
         body: data,
       });
-      await responseBody(response);
-      setDone(true);
+      const created = await responseBody<ProfileCreationResult>(response);
+      setResult(created);
+      requestId.current = crypto.randomUUID();
     } catch (reason) {
       setError(
         reason instanceof Error
@@ -822,30 +864,38 @@ function ProfileWorkflow() {
       );
       setReset((value) => value + 1);
       setToken("");
+      requestAnimationFrame(() => errorSummary.current?.focus());
     } finally {
       setBusy(false);
     }
   }
-  if (done)
+  if (result)
     return (
-      <div className="record-success-panel">
-        <CheckCircle2 />
-        <p className="eyebrow">Request received</p>
-        <h2>Your profile is pending administrator approval</h2>
-        <p>
-          It is not searchable, active, public, or QR-enabled yet. A sensei will
-          review your details and any optional photo before activating the
-          official student record.
-        </p>
-        {!draft.hasAatMembership ? (
+      <div ref={successPanel} className="record-success-panel profile-created" tabIndex={-1} aria-labelledby="profile-created-title">
+        <CheckCircle2 className="profile-created__icon" aria-hidden="true" />
+        <p className="eyebrow">Profile created</p>
+        <h2 id="profile-created-title">Your student profile is ready</h2>
+        <p>You can start using your student profile now. An administrator will review the information later.</p>
+        <dl className="profile-created__credentials">
+          <div><dt>Name used for access</dt><dd>{result.studentName}</dd></div>
+          <div><dt>Student ID</dt><dd><input aria-label="Your new Student ID" readOnly value={result.studentId} onFocus={(event) => event.currentTarget.select()} /><button type="button" className="btn-secondary" onClick={() => void navigator.clipboard.writeText(result.studentId).then(() => setCopied(true))}><Copy size={16} aria-hidden="true" /> {copied ? "Copied" : "Copy ID"}</button></dd></div>
+          <div><dt>Status</dt><dd><span className="admin-status is-pending"><Clock3 size={15} aria-hidden="true" /> Pending administrator review</span></dd></div>
+        </dl>
+        <div className="profile-created__notice"><Info aria-hidden="true" /><p>Save or photograph these details. You will use this name and Student ID to open your profile. An administrator may correct the Student ID during review; if it changes, this original ID will still open the same profile.</p></div>
+        <section className="profile-created__next">
+          <h3>You may now use your student profile to:</h3>
+          <ul>
+            <li>Apply for kyu examinations.</li>
+            <li>Submit RenShinKan monthly contributions, when applicable.</li>
+            <li>View and update your student portfolio.</li>
+            <li>Share your portfolio with another dojo or gym.</li>
+          </ul>
+        </section>
+        {!result.hasAatMembership ? (
           <section className="aat-next-step-card">
-            <p className="eyebrow">AAT membership · next step</p>
-            <h3>Choose the application method that suits you</h3>
-            <p>
-              You can print the bilingual application and give the completed
-              form to a sensei, or continue to the association’s online
-              registration service.
-            </p>
+            <p className="eyebrow">Optional AAT membership</p>
+            <h3>You can register on paper or online</h3>
+            <p>AAT membership is optional here. If you decide to join, use either route below.</p>
             <div>
               <a
                 className="btn-primary"
@@ -869,19 +919,28 @@ function ProfileWorkflow() {
             </small>
           </section>
         ) : null}
+        <div className="profile-created__actions">
+          {result.record && result.shareUrl && result.accessToken ? <button className="btn-primary" type="button" onClick={() => onOpenRecord({ record: result.record!, shareUrl: result.shareUrl!, accessToken: result.accessToken! })}><UserRound size={17} aria-hidden="true" /> Open my student profile</button> : null}
+          <button className="btn-secondary" type="button" onClick={onBack}>Back to student-record landing page</button>
+        </div>
       </div>
     );
   return (
-    <form className="student-long-form" onSubmit={submit}>
+    <form className="student-long-form student-profile-form" onSubmit={submit} noValidate>
       <header>
         <div>
           <p className="eyebrow">New student profile</p>
-          <h2>Request an official record</h2>
+          <h2>Create your student profile</h2>
+          <p>Complete the required details first. Optional membership and photo details can be added now or later.</p>
         </div>
-        <span className="admin-status is-pending">Pending until approved</span>
+        <span className="admin-status is-pending">Usable immediately · review pending</span>
       </header>
-      <div className="student-form-grid">
-        <label>
+      {error ? <div ref={errorSummary} className="profile-error-summary" role="alert" tabIndex={-1}><AlertCircle aria-hidden="true" /><div><strong>{error}</strong>{Object.values(fieldErrors).filter(Boolean).length ? <ul>{Object.values(fieldErrors).filter(Boolean).map((message) => <li key={message}>{message}</li>)}</ul> : null}</div></div> : null}
+      <div className="profile-form-sections">
+        <fieldset className="profile-form-section">
+          <legend><span>1</span><div><strong>Basic information</strong><small>Your English name is the name you will use to look up this profile.</small></div></legend>
+          <div className="student-form-grid">
+        <label htmlFor="new-profile-english-name">
           <span className="student-field-copy">
             English name{" "}
             <small>
@@ -889,14 +948,16 @@ function ProfileWorkflow() {
             </small>
           </span>
           <input
+            id="new-profile-english-name"
             name="englishName"
             autoComplete="name"
             value={draft.englishName}
-            onChange={(event) =>
-              setDraft({ ...draft, englishName: event.target.value })
-            }
+            onChange={(event) => { setDraft({ ...draft, englishName: event.target.value }); setFieldErrors((current) => ({ ...current, englishName: "" })); }}
+            aria-invalid={Boolean(fieldErrors.englishName)}
+            aria-describedby={fieldErrors.englishName ? "new-profile-english-name-error" : undefined}
             required
           />
+          {fieldErrors.englishName ? <small id="new-profile-english-name-error" className="field-error">{fieldErrors.englishName}</small> : null}
         </label>
         <label>
           <span className="student-field-copy">
@@ -927,16 +988,17 @@ function ProfileWorkflow() {
             ))}
           </select>
         </label>
-        <label>
+        <label htmlFor="new-profile-dojo">
           <span className="student-field-copy">
             Current dojo{" "}
             <small>Choose the dojo where you currently study or train.</small>
           </span>
           <select
+            id="new-profile-dojo"
             value={draft.dojoId}
-            onChange={(event) =>
-              setDraft({ ...draft, dojoId: event.target.value })
-            }
+            onChange={(event) => { setDraft({ ...draft, dojoId: event.target.value }); setFieldErrors((current) => ({ ...current, dojoId: "" })); }}
+            aria-invalid={Boolean(fieldErrors.dojoId)}
+            aria-describedby={fieldErrors.dojoId ? "new-profile-dojo-error" : undefined}
             required
           >
             <option value="">Choose a dojo</option>
@@ -946,25 +1008,44 @@ function ProfileWorkflow() {
               </option>
             ))}
           </select>
+          {fieldErrors.dojoId ? <small id="new-profile-dojo-error" className="field-error">{fieldErrors.dojoId}</small> : null}
         </label>
+          </div>
+        </fieldset>
+        <fieldset className="profile-form-section">
+          <legend><span>2</span><div><strong>Aikido background</strong><small>Tell us roughly when you began training.</small></div></legend>
+          <div className="student-form-grid">
+        <fieldset className="student-practice-start admin-span-2">
+          <legend className="student-field-copy">
+            Approximately when did you start aikido? <small>Optional</small>
+            <small id="practice-start-help">
+              Choose a month and Gregorian year if you remember. An approximate answer is fine.
+            </small>
+          </legend>
+          <GregorianMonthInput
+            name="practiceStartMonth"
+            aria-describedby="practice-start-help"
+            value={draft.practiceStartMonth}
+            onChange={(value) => setDraft({ ...draft, practiceStartMonth: value })}
+          />
+        </fieldset>
+          </div>
+        </fieldset>
         <fieldset
-          className={`student-aat-card admin-span-2${draft.hasAatMembership ? " is-paid" : ""}`}
+          className={`profile-form-section student-aat-card${draft.hasAatMembership ? " is-paid" : ""}`}
         >
           <legend>
-            <span>AAT annual membership</span>
-            <small>Optional</small>
+            <span>3</span><div><strong>AAT annual membership</strong><small>Optional</small></div>
           </legend>
           <p className="student-aat-intro">
-            Tell us whether you already have an annual membership. A
-            student-entered payment date remains unverified until an
-            administrator reviews it.
+            Already registered with the Aikido Association of Thailand? Add your membership details for review.
           </p>
           <div className="student-aat-card__grid">
             <label className="student-aat-paid-toggle">
               <input
                 type="checkbox"
                 checked={draft.hasAatMembership}
-                onChange={(event) =>
+                onChange={(event) => {
                   setDraft({
                     ...draft,
                     hasAatMembership: event.target.checked,
@@ -972,11 +1053,12 @@ function ProfileWorkflow() {
                     aatLastPaidDate: event.target.checked
                       ? draft.aatLastPaidDate
                       : "",
-                  })
-                }
+                  });
+                  if (!event.target.checked) setFieldErrors((current) => ({ ...current, aatLastPaidDate: "" }));
+                }}
               />
               <span>
-                <strong>I currently have an AAT annual membership</strong>
+                <strong>I already have a current AAT membership</strong>
                 <small>
                   Select this to add your membership details for review.
                 </small>
@@ -1010,46 +1092,29 @@ function ProfileWorkflow() {
                   <GregorianDateInput
                     name="aatLastPaidDate"
                     value={draft.aatLastPaidDate}
-                    onChange={(value) =>
-                      setDraft({ ...draft, aatLastPaidDate: value })
-                    }
+                    onChange={(value) => { setDraft({ ...draft, aatLastPaidDate: value }); setFieldErrors((current) => ({ ...current, aatLastPaidDate: "" })); }}
+                    aria-invalid={Boolean(fieldErrors.aatLastPaidDate)}
+                    aria-describedby={fieldErrors.aatLastPaidDate ? "new-profile-aat-date-error" : undefined}
                     required
                   />
+                  {fieldErrors.aatLastPaidDate ? <small id="new-profile-aat-date-error" className="field-error">{fieldErrors.aatLastPaidDate}</small> : null}
                 </label>
               </>
             ) : (
               <div className="student-aat-note">
                 <Info aria-hidden="true" />
                 <div>
-                  <strong>No membership yet is okay.</strong>
-                  <p>
-                    {aatHelp.explanation} After you submit this profile, we will
-                    show simple paper and online application options.
-                  </p>
+                  <strong title={aatHelp.status}>No membership yet?</strong>
+                  <p>You can finish the AAT application after creating your profile.</p>
                 </div>
               </div>
             )}
           </div>
         </fieldset>
-        <fieldset className="student-practice-start">
-          <legend className="student-field-copy">
-            Approximately when did you start aikido? <small>Optional</small>
-            <small id="practice-start-help">
-              Choose a month and year if you remember. An approximate answer is
-              fine.
-            </small>
-          </legend>
-          <GregorianMonthInput
-            name="practiceStartMonth"
-            aria-describedby="practice-start-help"
-            value={draft.practiceStartMonth}
-            onChange={(value) =>
-              setDraft({ ...draft, practiceStartMonth: value })
-            }
-          />
-        </fieldset>
       </div>
-      <label className="student-photo-field">
+      <fieldset className="profile-form-section">
+        <legend><span>4</span><div><strong>Profile photo</strong><small>Optional · add a clear portrait now or from your profile later.</small></div></legend>
+      <label className="student-photo-field" aria-label="Choose a profile photo">
         <span>
           {preview ? (
             <img src={preview} alt="Profile preview" />
@@ -1058,24 +1123,39 @@ function ProfileWorkflow() {
           )}
         </span>
         <strong>
-          {preview ? "Replace profile photo" : "Add profile photo (optional)"}
+          <Camera size={18} aria-hidden="true" /> {photoBusy ? "Preparing photo…" : preview ? "Replace profile photo" : "Choose profile photo"}
         </strong>
         <small id="profile-photo-help">
           Choose one from your photo library or take a new photo. JPEG, PNG,
-          WebP, HEIC, or HEIF; at least 128 × 128 pixels.
+          WebP, HEIC, or HEIF; up to 8 MB and at least 128 × 128 pixels.
         </small>
         <input
           type="file"
           accept="image/*"
           aria-describedby="profile-photo-help"
+          disabled={photoBusy || busy}
           onChange={(event) => void choose(event.target.files?.[0])}
         />
       </label>
+      {photoBusy ? <p className="profile-photo-state" role="status">Preparing your photo…</p> : preview ? <p className="profile-photo-state" role="status">Photo ready to upload.</p> : null}
+      {preview ? <button className="btn-secondary profile-photo-remove" type="button" disabled={photoBusy || busy} onClick={() => { URL.revokeObjectURL(preview); setPreview(""); setFile(null); }}><X size={16} aria-hidden="true" /> Remove photo</button> : null}
+      </fieldset>
+      <fieldset className="profile-form-section profile-review-section">
+        <legend><span>5</span><div><strong>Review and create</strong><small>Your Student ID will be generated securely when this form is accepted.</small></div></legend>
+        <dl className="profile-review-summary">
+          <div><dt>Name</dt><dd>{draft.englishName.trim() || "Not entered"}</dd></div>
+          <div><dt>Dojo</dt><dd>{dojos.find((dojo) => dojo.id === draft.dojoId)?.official_name || "Not selected"}</dd></div>
+          <div><dt>Current rank</dt><dd>{draft.currentRank}</dd></div>
+          <div><dt>AAT membership</dt><dd>{draft.hasAatMembership ? "Included for review" : "Not added"}</dd></div>
+          <div><dt>Photo</dt><dd>{file ? "Ready to upload" : "Not added"}</dd></div>
+        </dl>
       <TurnstileWidget onToken={onToken} resetSignal={reset} />
-      {error ? <p className="form-error">{error}</p> : null}
-      <button className="btn-primary" disabled={busy}>
-        {busy ? "Submitting…" : "Send profile for approval"}
+      {fieldErrors.verification ? <p className="field-error" role="alert">{fieldErrors.verification}</p> : null}
+      <p className="profile-submit-status"><Clock3 aria-hidden="true" /> The profile will be usable immediately with a Pending administrator review status.</p>
+      <button className="btn-primary" disabled={busy || photoBusy}>
+        {busy ? "Creating profile…" : "Create student profile"}
       </button>
+      </fieldset>
     </form>
   );
 }
@@ -1315,7 +1395,7 @@ function ExamWorkflow() {
       </aside>
       <fieldset>
         <ExamSectionLegend
-          title="Verify your approved student record"
+          title="Verify your student record"
           copy="These details must match your active student profile."
         />
         <label>

@@ -1,7 +1,6 @@
 import {
   effectivePermissionLevel,
   getAdminSession,
-  isRenShinKanSuperAdmin,
   jsonResponse,
   RENSHINKAN_DOJO_ID,
 } from "../../_lib/auth";
@@ -38,9 +37,6 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         allowedDojoIds: session.allowedDojoIds,
         selectedDojoId: session.selectedDojoId,
         permissionLevel: effectivePermissionLevel(session),
-        renshinkanVerificationRequired:
-          session.selectedDojoId === RENSHINKAN_DOJO_ID &&
-          !isRenShinKanSuperAdmin(session),
       },
       dojos,
     },

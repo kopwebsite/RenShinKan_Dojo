@@ -97,7 +97,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         s.profile_image_url, s.dojo_id
       FROM students s
       LEFT JOIN exam_cycle_student_status ecs ON ecs.student_id = s.id AND ecs.cycle_id = ?
-      WHERE s.active = 1 AND s.profile_status = 'approved' ${isRenShinKanSuperAdmin(session) ? "" : "AND s.dojo_id = ?"}`;
+      WHERE s.active = 1 AND s.profile_status IN ('pending_admin_approval', 'approved') ${isRenShinKanSuperAdmin(session) ? "" : "AND s.dojo_id = ?"}`;
     if (!isRenShinKanSuperAdmin(session)) rosterBindings.push(session.selectedDojoId || "__none__");
   } else {
     rosterSql = `SELECT
@@ -169,7 +169,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const current = await db.prepare("SELECT id, name FROM examination_cycles WHERE status = 'active' ORDER BY created_at DESC LIMIT 1")
         .first<{ id: string; name: string }>();
       const rosterCount = Number((await db.prepare(`SELECT COUNT(*) AS count FROM students
-        WHERE active = 1 AND profile_status = 'approved'`).first<{ count: number }>())?.count || 0);
+        WHERE active = 1 AND profile_status IN ('pending_admin_approval', 'approved')`).first<{ count: number }>())?.count || 0);
       const now = new Date().toISOString();
       const examinationType = cleanText(body.examinationType, 80) || "Belt promotion";
       const rankCategory = cleanText(body.rankCategory, 40) || "Kyu and Dan";
@@ -195,7 +195,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           current_rank_snapshot, status, updated_at, updated_by
         ) SELECT lower(hex(randomblob(16))), id, ?, display_name, public_student_id,
           current_belt, 'not_signed_up', ?, ?
-        FROM students WHERE active = 1 AND profile_status = 'approved'`)
+        FROM students WHERE active = 1 AND profile_status IN ('pending_admin_approval', 'approved')`)
         .bind(cycleId, now, session.adminName));
       const response = { ok: true, action, cycleId, name, rosterCount, previousCycleId: current?.id || null };
       statements.push(

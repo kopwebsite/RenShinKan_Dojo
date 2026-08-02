@@ -6,7 +6,6 @@ import {
   AdminCheckingSession,
   AdminDojoSelector,
   AdminLoginFields,
-  AdminRenshinKanVerification,
 } from "../components/admin/AdminAccess";
 import { useAdminSession } from "../components/admin/useAdminSession";
 import { useAdminTranslation } from "../i18n";
@@ -87,19 +86,6 @@ export function AdminDashboardPage() {
       </div>
     );
   }
-  if (session.admin.renshinkanVerificationRequired) {
-    return (
-      <AdminRenshinKanVerification
-        password={session.secondaryPassword}
-        error={session.error}
-        busy={session.verifying}
-        setPassword={session.setSecondaryPassword}
-        onSubmit={session.verifyRenshinKan}
-        onCancel={() => void session.switchDojo()}
-      />
-    );
-  }
-
   return (
     <section
       ref={translationScopeRef}

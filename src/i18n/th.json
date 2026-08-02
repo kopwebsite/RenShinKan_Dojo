@@ -1299,14 +1299,7 @@
     "chooseDojo": "เลือกโดโจ",
     "chooseDojoCopy": "เลือกโดโจที่คุณกำลังดูแล เซิร์ฟเวอร์จะตรวจสอบสิทธิ์อีกครั้งสำหรับทุกระเบียนและทุกการดำเนินการ",
     "select": "เลือก {{dojo}}",
-    "noAccess": "ไม่มีสิทธิ์",
-    "verification": "การยืนยัน RenShinKan",
-    "verificationTitle": "กรอกรหัสผ่านสำหรับการเข้าถึง RenShinKan",
-    "verificationCopy": "ต้องผ่านการตรวจสอบฝั่งเซิร์ฟเวอร์เพิ่มเติมนี้ก่อนเปิดพื้นที่บริหารทั้งหมด",
-    "renshinkanPassword": "รหัสผ่านสำหรับ RenShinKan",
-    "chooseAnother": "เลือกโดโจอื่น",
-    "verifying": "กำลังยืนยัน…",
-    "verify": "ยืนยันสิทธิ์"
+    "noAccess": "ไม่มีสิทธิ์"
   },
   "adminShell": {
     "administration": "ระบบผู้ดูแล",

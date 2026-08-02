@@ -40,7 +40,7 @@ function healthyDb() {
       if (query.includes("SELECT 1 AS available"))
         return statement({ available: 1 });
       if (query.includes("FROM d1_migrations"))
-        return statement({ name: "0025_performance_capacity_indexes.sql" });
+        return statement({ name: "0026_simplify_student_and_admin_access.sql" });
       if (
         query.includes("FROM publish_operations") &&
         query.includes("problems")
@@ -150,7 +150,6 @@ describe("health and consistency failure injection", () => {
       APP_ENV: "production",
       BUILD_ID: "release-1234567",
       ADMIN_PASSWORD_HASH: `hmac-sha256:${"a".repeat(64)}`,
-      RSK_ADMIN_SECONDARY_PASSWORD: "synthetic-secondary-password",
       SESSION_SECRET: "s".repeat(32),
       STUDENT_LOOKUP_PEPPER: "p".repeat(32),
       TURNSTILE_SECRET_KEY: "turnstile-test-secret-key",

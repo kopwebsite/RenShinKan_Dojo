@@ -19,7 +19,6 @@ const credentials = {
   newsletterCount: 50,
   secrets: {
     ADMIN_PASSWORD_HASH: passwordHash,
-    RSK_ADMIN_SECONDARY_PASSWORD: password,
     SESSION_SECRET: sessionSecret,
     STUDENT_LOOKUP_PEPPER: randomBytes(48).toString("base64url"),
     TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA",

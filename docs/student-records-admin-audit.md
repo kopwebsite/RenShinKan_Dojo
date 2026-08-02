@@ -21,9 +21,9 @@
 - Turnstile uses explicit rendering, responsive flexible/compact sizing, and interaction-only appearance so successful background checks do not leave a tall widget behind. It reports loading/success/expiry/timeout/error states and resets after each lookup attempt. Siteverify checks the expected action and configured hostname with a network timeout.
 - Student lookup keeps its submit control disabled until Turnstile supplies a usable token, preventing a completed status from appearing beside a stale pre-verification error.
 - The admin bulk bar now separates record-status actions, training/rank actions, and destructive archive maintenance. Selection is page-scoped, keyboard-operable, and exposes checked/unchecked/indeterminate states.
-- Primary and dojo password verifiers support PBKDF2-SHA-256. Legacy primary/dojo HMAC verifiers remain readable only for migration; rotate them. For existing deployments, the encrypted legacy RenShinKan secondary Pages secret remains usable only when the PBKDF2 verifier is absent; the hash is authoritative once configured.
-- Session IDs rotate when dojo context or RenShinKan privilege changes. Logout stores server-side revocation, and protected routes reject revoked sessions.
-- Login failures, RenShinKan verification failures, private file views, request decisions, replacements, bulk operations, and cleanup summaries are audited without tokens, passwords, or file contents. RenShinKan secondary verification permits unlimited retries; the primary administrator login retains its separate lockout protection.
+- Primary and dojo password verifiers support PBKDF2-SHA-256. Legacy primary/dojo HMAC verifiers remain readable only for migration; rotate them. RenShinKan authorization now relies on the primary central account plus server-validated dojo selection, with no additional challenge.
+- Session IDs rotate when dojo context changes. Logout stores server-side revocation, and protected routes reject revoked sessions.
+- Login failures, private file views, request decisions, replacements, bulk operations, and cleanup summaries are audited without tokens, passwords, or file contents. The primary administrator login retains its durable lockout protection.
 - The patched `sharp` 0.35 dependency is enforced for the direct image optimizer and Wrangler/Miniflare dependency tree; `npm audit` reports no known advisories at handoff.
 
 ## Migration and recovery
@@ -55,10 +55,9 @@ Generate PBKDF2 verifiers with `scripts/hash-password.mjs` as described in `docs
 
 - `ADMIN_PASSWORD_HASH`
 - `DOJO_ADMIN_PASSWORD_HASHES`
-- `RSK_ADMIN_SECONDARY_PASSWORD_HASH`
 - existing `SESSION_SECRET`
 
-Remove the old `RSK_ADMIN_SECONDARY_PASSWORD` Pages secret after the hashed secret is confirmed. Until then, it is a narrowly scoped compatibility fallback only when `RSK_ADMIN_SECONDARY_PASSWORD_HASH` is absent. Rotate all legacy HMAC primary/dojo verifiers after deployment; compatibility exists only to avoid an immediate lockout.
+Rotate all legacy HMAC primary/dojo verifiers after deployment; compatibility exists only to avoid an immediate lockout. The retired RenShinKan secondary-password secrets should be deleted from each environment.
 
 ## Required non-secret configuration
 
@@ -92,7 +91,7 @@ An authenticated RenShinKan super administrator can also run `POST /api/admin/au
 ## Manual QA checklist
 
 - At 320, 375, 768, 1024, and 1440 CSS pixels, confirm Turnstile remains inside the lookup card and its status text is visible; repeat at 200% zoom and with keyboard-only navigation.
-- Look up an approved student. Confirm a failed lookup resets Turnstile and does not reveal whether name or ID matched.
+- Look up both a pending and an approved student. Confirm a failed lookup resets Turnstile and does not reveal whether the name or Student ID matched.
 - In Requests & Notices, verify every supported workflow appears, denial text is gentle, and only student-visible notes are present in the network response.
 - For a RenShinKan student, verify expected/missing monthly periods, upload or replace a payslip, view it, and see the review result. Confirm the entire monthly section/data is absent for another dojo.
 - Preview both an image and PDF payslip as the submitting student, the correct dojo admin, a different dojo admin, and anonymously. Only the first two authorized cases should succeed.

@@ -1,5 +1,4 @@
-import { CheckCircle2, KeyRound, LoaderCircle, LockKeyhole } from "lucide-react";
-import type { FormEvent } from "react";
+import { CheckCircle2, LoaderCircle, LockKeyhole } from "lucide-react";
 import { useAdminTranslation } from "../../i18n";
 
 export type AdminDojo = {
@@ -11,7 +10,6 @@ export type AdminIdentity = {
   allowedDojoIds: string[];
   selectedDojoId: string | null;
   permissionLevel: "renshinkan_super_admin" | "dojo_admin";
-  renshinkanVerificationRequired: boolean;
 };
 export type AdminSessionResponse = { authenticated: boolean; admin: AdminIdentity | null; dojos: AdminDojo[] };
 
@@ -76,27 +74,4 @@ export function AdminDojoSelector({
       })}
     </div>
   </section>;
-}
-
-export function AdminRenshinKanVerification({
-  password, error, busy, setPassword, onSubmit, onCancel,
-}: {
-  password: string;
-  error: string;
-  busy?: boolean;
-  setPassword: (value: string) => void;
-  onSubmit: (event: FormEvent) => void;
-  onCancel: () => void;
-}) {
-  const { t } = useAdminTranslation();
-  return <main className="admin-gate"><form className="admin-login-card" onSubmit={onSubmit}>
-    <AdminLanguageSelector />
-    <KeyRound size={34} aria-hidden="true" />
-    <p className="eyebrow">{t("adminAccess.verification")}</p>
-    <h1>{t("adminAccess.verificationTitle")}</h1>
-    <p>{t("adminAccess.verificationCopy")}</p>
-    <label htmlFor="renshinkan-secondary-password">{t("adminAccess.renshinkanPassword")}<input id="renshinkan-secondary-password" name="rsk-secondary-verification" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="off" spellCheck={false} required autoFocus /></label>
-    {error ? <p className="form-error" role="alert">{error}</p> : null}
-    <div className="admin-header-actions"><button type="button" className="btn-secondary" onClick={onCancel}>{t("adminAccess.chooseAnother")}</button><button className="btn-primary" disabled={busy || !password}><KeyRound size={17} /> {busy ? t("adminAccess.verifying") : t("adminAccess.verify")}</button></div>
-  </form></main>;
 }

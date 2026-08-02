@@ -31,7 +31,7 @@ export function AdminWorkflowPage({ kind }: { kind: AdminWorkflowKind }) {
   const [error, setError] = useState("");
 
   if (!session.checked) return <AdminCheckingSession />;
-  if (!session.admin?.selectedDojoId || session.admin.renshinkanVerificationRequired) {
+  if (!session.admin?.selectedDojoId) {
     return <Navigate to="/admin" replace />;
   }
   if (kind === "monthly-contributions" && session.admin.permissionLevel !== "renshinkan_super_admin") {

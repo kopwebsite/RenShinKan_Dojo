@@ -50,20 +50,6 @@ async function authenticate() {
   if (!selected.ok())
     throw new Error(`Dojo selection failed (${selected.status()})`);
   cookie = selected.headers()["set-cookie"]?.split(";", 1)[0] || cookie;
-  const verified = await context.request.post(
-    `${baseUrl}/api/admin/verify-renshinkan`,
-    {
-      headers: {
-        ...headers,
-        Cookie: cookie,
-        "X-Request-ID": crypto.randomUUID(),
-      },
-      data: { password: "LocalCapacitySecond!2026" },
-    },
-  );
-  if (!verified.ok())
-    throw new Error(`Secondary verification failed (${verified.status()})`);
-  cookie = verified.headers()["set-cookie"]?.split(";", 1)[0] || cookie;
   const separator = cookie.indexOf("=");
   await context.addCookies([
     {

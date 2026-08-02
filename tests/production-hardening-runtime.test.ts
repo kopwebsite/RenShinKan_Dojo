@@ -14,12 +14,7 @@ import {
   adminRouteAccess,
   canAccessAdminPath,
 } from "../shared/adminPermissions";
-import {
-  generateStudentAccessCode,
-  namesLikelyMatch,
-  studentAccessCodeHash,
-  verifyStudentAccessCode,
-} from "../functions/_lib/studentRecords";
+import { namesLikelyMatch } from "../functions/_lib/studentRecords";
 import {
   normalizeIpAddress,
   trustedClientIp,
@@ -315,25 +310,10 @@ describe("route, identity, lookup, and storage security", () => {
     ).toBeNull();
   });
 
-  it("rejects partial or fuzzy names and verifies random private codes", async () => {
+  it("matches normalized full names exactly without an extra student credential", () => {
     expect(namesLikelyMatch(" สมชาย   ใจดี ", "สมชาย ใจดี")).toBe(true);
+    expect(namesLikelyMatch("ＳＯＭＣＨＡＩ", "somchai")).toBe(true);
     expect(namesLikelyMatch("สมชาย", "สมชาย ใจดี")).toBe(false);
-    const env = {
-      STUDENT_LOOKUP_PEPPER: "test-only-pepper-that-is-long-enough",
-    };
-    const code = generateStudentAccessCode();
-    const hash = await studentAccessCodeHash(env, "student-1", code);
-    expect(
-      await verifyStudentAccessCode(env, "student-1", code.toLowerCase(), hash),
-    ).toBe(true);
-    expect(
-      await verifyStudentAccessCode(
-        env,
-        "student-1",
-        `${code.slice(0, -1)}A`,
-        hash,
-      ),
-    ).toBe(false);
   });
 
   it("fails closed for missing, malformed, and unavailable versioned content", async () => {
@@ -600,7 +580,6 @@ function publishInput(harness: ReturnType<typeof publishingHarness>) {
       role: "central" as const,
       allowedDojoIds: [],
       selectedDojoId: "dojo-rsk",
-      renshinkanVerified: true,
     },
     content: emptyContent(),
     action: "site_content_published",

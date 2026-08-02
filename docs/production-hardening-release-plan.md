@@ -8,7 +8,7 @@ This runbook is intentionally not executed by the hardening task. Replace every 
 2. Replace only the preview placeholders in `wrangler.toml`; configure preview secrets using Cloudflare secret controls.
 3. Set preview `SITE_URL`, allowed origin, public Turnstile site key, and a release build ID. Run `npm run config:release` and require success.
 4. Import a scrubbed or access-controlled production snapshot only when approved. Apply all migrations, then run the integrity and query-plan checks.
-5. Deploy to preview through the authorized release workflow. Test anonymous, dojo administrator, central administrator, and student flows in normal and private browser contexts. Exercise invalid sessions, direct privileged URLs, storage failures, interrupted publishing/reconciliation, private downloads, and access-code reset.
+5. Deploy to preview through the authorized release workflow. Test anonymous, dojo administrator, central administrator, and student flows in normal and private browser contexts. Exercise invalid sessions, direct privileged URLs, storage failures, interrupted publishing/reconciliation, private downloads, name-and-ID lookup, and corrected-ID aliases.
 
 ## 2. Back up production and freeze writers
 
@@ -27,7 +27,7 @@ This runbook is intentionally not executed by the hardening task. Replace every 
 
 ## 4. Apply and deploy
 
-1. Apply migration 0024 to production before deploying code because authentication and rate limiting depend on its additive tables.
+1. Back up D1, then apply migrations through 0026 before deploying code. Migration 0026 adds Student ID aliases and retires the obsolete challenge tables without deleting student or workflow records.
 2. Run foreign-key, integrity, duplicate, orphan, status/date, media metadata, and query-plan checks. Stop on any unexpected row.
 3. Deploy the exact tested artifact through the authorized Pages workflow. Do not run the disabled direct `npm run deploy` script.
 4. Keep the writer freeze until build identity, authentication, publishing, and private-file checks pass.
@@ -40,12 +40,11 @@ Application limits remain authoritative. Add Cloudflare WAF/rate-limiting rules 
 | ----------------------------------- | -----------------------: | --------------------------------------------------------- |
 | `POST /api/admin/login`             |    8 per IP / 15 minutes | Managed challenge, then temporary block                   |
 | `POST /api/records/lookup`          |   16 per IP / 15 minutes | Managed challenge; application also limits per student ID |
-| `POST /api/admin/verify-renshinkan` |    8 per IP / 15 minutes | Temporary block; application also limits per account      |
 | Payment-proof upload                |    8 per IP / 15 minutes | Managed challenge or temporary block                      |
 | Administrator upload endpoints      |   20 per IP / 15 minutes | Temporary block; application also limits per account      |
 | Publishing endpoints                |    30 per IP / 5 minutes | Temporary block; application also limits per account      |
 
-Exclude verified internal health checks only by an authenticated, narrowly scoped rule. Never bypass limits based only on User-Agent or a client-supplied forwarding header. Review security events without logging passwords, access codes, Turnstile responses, or private file bodies.
+Exclude verified internal health checks only by an authenticated, narrowly scoped rule. Never bypass limits based only on User-Agent or a client-supplied forwarding header. Review security events without logging passwords, student lookup credentials, Turnstile responses, or private file bodies.
 
 ## 6. Cache policy and targeted purge
 
@@ -60,7 +59,7 @@ Exclude verified internal health checks only by an authenticated, narrowly scope
 2. Inspect headers on public HTML, `/api/*`, `/admin`, session/login/selection, private student responses, and assets. Confirm no private response is stored in browser or Cloudflare cache.
 3. In equivalent normal/private sessions, verify the same role receives the same shell and allowed navigation. Confirm a dojo administrator is redirected from every central route, including nested gallery routes and unknown administrator paths.
 4. Verify exactly one session bootstrap per app load, deliberate endpoint delay/error behavior, logout invalidation, and session revocation.
-5. Verify exact-name legacy student access, issue a private code, verify code-required access, then reset/revoke it. Confirm partial/fuzzy names and enumeration attempts produce the same generic failure.
+5. Verify pending and approved student access with exact normalized full name plus the current Student ID. Correct an ID in the administrator UI and confirm both the new ID and its old alias resolve to the same record. Confirm partial names, mismatched pairs, and enumeration attempts produce the same generic failure.
 6. Verify rate limits survive User-Agent/forwarding-header changes, expire normally, and distinguish trusted IPv4/IPv6 Cloudflare sources. Confirm Turnstile action and hostname validation.
 7. Publish a harmless previewed change, confirm D1 operation/revision/audit, versioned KV payload, and pointer order. Reconcile an approved interrupted operation and roll back to a known revision.
 8. Confirm private proofs and pending downloads cannot be fetched anonymously and are served with safe attachment/type headers only to authorized roles.

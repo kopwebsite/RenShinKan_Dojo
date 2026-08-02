@@ -32,7 +32,7 @@ $passwordHash
 
 Put the printed value into `ADMIN_PASSWORD_HASH`. Do not store the plaintext admin password in Cloudflare, GitHub, or frontend code.
 
-Generate a separate verifier for the RenShinKan secondary password and store it as `RSK_ADMIN_SECONDARY_PASSWORD_HASH`. Generate one verifier per individual dojo administrator and store the JSON map in `DOJO_ADMIN_PASSWORD_HASHES`. Supported IDs are `dojo-ai`, `dojo-cmu`, `dojo-rsk`, `dojo-nu`, `dojo-all-gym`, and `dojo-mhs`. For example:
+Generate one verifier per individual dojo administrator and store the JSON map in `DOJO_ADMIN_PASSWORD_HASHES`. Supported IDs are `dojo-ai`, `dojo-cmu`, `dojo-rsk`, `dojo-nu`, `dojo-all-gym`, and `dojo-mhs`. For example:
 
 ```json
 {"dojo-cmu":"HASH_ONLY_NOT_THE_PASSWORD","dojo-nu":"HASH_ONLY_NOT_THE_PASSWORD"}
@@ -40,7 +40,7 @@ Generate a separate verifier for the RenShinKan secondary password and store it 
 
 Do not assign the central administrator password to a dojo entry. A dojo password creates a signed session whose allowed dojo IDs are checked again by every student, application, membership, and export query.
 
-Existing deployments may temporarily retain the encrypted `RSK_ADMIN_SECONDARY_PASSWORD` Pages secret while creating and validating the PBKDF2 verifier. It is consulted only when `RSK_ADMIN_SECONDARY_PASSWORD_HASH` is absent. Delete the legacy secret after the hash is configured and verified.
+Delete the retired `RSK_ADMIN_SECONDARY_PASSWORD` and `RSK_ADMIN_SECONDARY_PASSWORD_HASH` secrets from existing deployments. They are no longer read by the application.
 
 ## Cloudflare Storage
 
@@ -68,7 +68,6 @@ Add these secrets:
 npx wrangler pages secret put ADMIN_PASSWORD_HASH --project-name renshinkan-dojo
 npx wrangler pages secret put DOJO_ADMIN_PASSWORD_HASHES --project-name renshinkan-dojo
 npx wrangler pages secret put SESSION_SECRET --project-name renshinkan-dojo
-npx wrangler pages secret put RSK_ADMIN_SECONDARY_PASSWORD_HASH --project-name renshinkan-dojo
 npx wrangler pages secret put TURNSTILE_SECRET_KEY --project-name renshinkan-dojo
 npx wrangler pages secret put BREVO_API_KEY --project-name renshinkan-dojo
 ```
@@ -90,7 +89,7 @@ BREVO_SENDER_NAME = "RenShinKan Dojo"
 VITE_BREVO_SIGNUP_FORM_URL = "PLACEHOLDER_BREVO_SIGNUP_FORM_URL"
 ```
 
-Only the `VITE_*` values are exposed to browser JavaScript. Keep `ADMIN_PASSWORD_HASH`, `DOJO_ADMIN_PASSWORD_HASHES`, `RSK_ADMIN_SECONDARY_PASSWORD_HASH`, `SESSION_SECRET`, `TURNSTILE_SECRET_KEY`, and `BREVO_API_KEY` as secrets managed in the Cloudflare dashboard.
+Only the `VITE_*` values are exposed to browser JavaScript. Keep `ADMIN_PASSWORD_HASH`, `DOJO_ADMIN_PASSWORD_HASHES`, `SESSION_SECRET`, `TURNSTILE_SECRET_KEY`, and `BREVO_API_KEY` as secrets managed in the Cloudflare dashboard.
 
 Apply checked-in D1 migrations before deploying application code that depends on
 them:
@@ -174,7 +173,7 @@ npm run build
 npx wrangler pages dev dist
 ```
 
-Use local env values for `ADMIN_PASSWORD_HASH`, `DOJO_ADMIN_PASSWORD_HASHES`, `RSK_ADMIN_SECONDARY_PASSWORD_HASH`, `SESSION_SECRET`, `SITE_URL`, and optional Brevo settings.
+Use local env values for `ADMIN_PASSWORD_HASH`, `DOJO_ADMIN_PASSWORD_HASHES`, `SESSION_SECRET`, `SITE_URL`, and optional Brevo settings.
 
 ## Post-Deploy Tests
 

@@ -1,5 +1,5 @@
 -- Sanitized, deterministic data shaped like the release immediately before
--- migrations 0024 and 0025. It contains no production identifiers or people.
+-- migrations 0024, 0025, and 0026. It contains no production identifiers or people.
 PRAGMA foreign_keys = ON;
 
 INSERT INTO students (

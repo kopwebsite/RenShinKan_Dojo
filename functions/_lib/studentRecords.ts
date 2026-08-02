@@ -1,10 +1,12 @@
-import { beltKeyForRank, normalizeRank } from "../../shared/ranks";
+import { beltKeyForRank, nextRank, normalizeRank } from "../../shared/ranks";
 import { aatMembershipStatus } from "../../shared/membership";
 import { studentRequestStatus } from "../../shared/requestStatus";
 import {
+  bangkokBuddhistYear,
   bangkokGregorianYear,
   currentBangkokMonthKey as gregorianBangkokMonthKey,
 } from "../../shared/date";
+import { examinationFeeThb } from "../../shared/examFees";
 import { decideStudentPaymentAlerts } from "../../shared/studentPaymentAlerts";
 import {
   canAccessDojo,
@@ -211,15 +213,15 @@ export function isValidStudentId(value: string) {
   return STUDENT_ID_PATTERN.test(normalizeStudentId(value));
 }
 
-export { bangkokGregorianYear };
+export { bangkokBuddhistYear, bangkokGregorianYear };
 
 export function formatStudentId(
   sequence: number,
   code = "RSK",
-  gregorianYear = bangkokGregorianYear(),
+  buddhistYear = bangkokBuddhistYear(),
 ) {
   const normalizedSequence = Math.max(1, Math.trunc(sequence));
-  const yearSuffix = String(gregorianYear).slice(-2).padStart(2, "0");
+  const yearSuffix = String(buddhistYear).slice(-2).padStart(2, "0");
   return `${code.toLocaleUpperCase("en-US")}-${yearSuffix}${String(normalizedSequence).padStart(2, "0")}`;
 }
 
@@ -228,15 +230,15 @@ export function studentIdSequenceForCurrentYear(
   code: string,
   date = new Date(),
 ) {
-  const gregorianYear = bangkokGregorianYear(date);
-  const prefix = `${code.toLocaleUpperCase("en-US")}-${String(gregorianYear).slice(-2).padStart(2, "0")}`;
+  const buddhistYear = bangkokBuddhistYear(date);
+  const prefix = `${code.toLocaleUpperCase("en-US")}-${String(buddhistYear).slice(-2).padStart(2, "0")}`;
   const normalized = normalizeStudentId(studentId);
   if (!normalized.startsWith(prefix)) return null;
   const sequenceText = normalized.slice(prefix.length);
   if (!/^\d{2,}$/.test(sequenceText)) return null;
   const sequence = Number(sequenceText);
   return Number.isSafeInteger(sequence) && sequence > 0
-    ? { gregorianYear, sequence }
+    ? { buddhistYear, sequence }
     : null;
 }
 
@@ -255,13 +257,13 @@ export function syncStudentIdSequenceStatement(
   if (!parsed) return null;
   return db
     .prepare(
-      `INSERT INTO dojo_student_gregorian_sequences (dojo_id, gregorian_year, last_number, updated_at)
+      `INSERT INTO dojo_student_year_sequences (dojo_id, buddhist_year, last_number, updated_at)
       VALUES (?, ?, ?, ?)
-      ON CONFLICT(dojo_id, gregorian_year) DO UPDATE SET
-        last_number = MAX(dojo_student_gregorian_sequences.last_number, excluded.last_number),
+      ON CONFLICT(dojo_id, buddhist_year) DO UPDATE SET
+        last_number = MAX(dojo_student_year_sequences.last_number, excluded.last_number),
         updated_at = excluded.updated_at`,
     )
-    .bind(dojoId, parsed.gregorianYear, parsed.sequence, updatedAt);
+    .bind(dojoId, parsed.buddhistYear, parsed.sequence, updatedAt);
 }
 
 export function rankColor(rank: string, fallback = "white") {
@@ -273,21 +275,28 @@ export async function nextStudentId(
   dojoId = DEFAULT_DOJO_ID,
   date = new Date(),
 ) {
-  const gregorianYear = bangkokGregorianYear(date);
+  const buddhistYear = bangkokBuddhistYear(date);
   const row = await db
     .prepare(
-      `INSERT INTO dojo_student_gregorian_sequences (dojo_id, gregorian_year, last_number, updated_at)
-      SELECT id, ?, 1, ? FROM dojos WHERE id = ? AND active = 1
-      ON CONFLICT(dojo_id, gregorian_year) DO UPDATE SET
-        last_number = dojo_student_gregorian_sequences.last_number + 1,
+      `INSERT INTO dojo_student_year_sequences (dojo_id, buddhist_year, last_number, updated_at)
+      SELECT d.id, ?, MAX(1, COALESCE((
+        SELECT MAX(CAST(substr(s.public_student_id, length(d.code) + 4) AS INTEGER))
+        FROM students s
+        WHERE s.dojo_id = d.id
+          AND upper(s.public_student_id) LIKE upper(d.code) || '-' || printf('%02d', ? % 100) || '%'
+          AND length(s.public_student_id) >= length(d.code) + 5
+          AND substr(s.public_student_id, length(d.code) + 4) NOT GLOB '*[^0-9]*'
+      ), 0) + 1), ? FROM dojos d WHERE d.id = ? AND d.active = 1
+      ON CONFLICT(dojo_id, buddhist_year) DO UPDATE SET
+        last_number = MAX(dojo_student_year_sequences.last_number + 1, excluded.last_number),
         updated_at = excluded.updated_at
       RETURNING last_number, (SELECT code FROM dojos WHERE id = ?) AS code`,
     )
-    .bind(gregorianYear, date.toISOString(), dojoId, dojoId)
+    .bind(buddhistYear, buddhistYear, date.toISOString(), dojoId, dojoId)
     .first<{ last_number: number; code: string }>();
   if (!row?.code)
     throw new Error("The dojo Student ID sequence is not configured");
-  return formatStudentId(Number(row.last_number), row.code, gregorianYear);
+  return formatStudentId(Number(row.last_number), row.code, buddhistYear);
 }
 
 export async function suggestedStudentId(
@@ -295,20 +304,27 @@ export async function suggestedStudentId(
   dojoId = DEFAULT_DOJO_ID,
   date = new Date(),
 ) {
-  const gregorianYear = bangkokGregorianYear(date);
+  const buddhistYear = bangkokBuddhistYear(date);
   const row = await db
     .prepare(
-      `SELECT d.code, COALESCE(seq.last_number, 0) AS last_number
-    FROM dojos d LEFT JOIN dojo_student_gregorian_sequences seq ON seq.dojo_id = d.id AND seq.gregorian_year = ?
+      `SELECT d.code, MAX(COALESCE(seq.last_number, 0), COALESCE((
+        SELECT MAX(CAST(substr(s.public_student_id, length(d.code) + 4) AS INTEGER))
+        FROM students s
+        WHERE s.dojo_id = d.id
+          AND upper(s.public_student_id) LIKE upper(d.code) || '-' || printf('%02d', ? % 100) || '%'
+          AND length(s.public_student_id) >= length(d.code) + 5
+          AND substr(s.public_student_id, length(d.code) + 4) NOT GLOB '*[^0-9]*'
+      ), 0)) AS last_number
+    FROM dojos d LEFT JOIN dojo_student_year_sequences seq ON seq.dojo_id = d.id AND seq.buddhist_year = ?
     WHERE d.id = ? AND d.active = 1`,
     )
-    .bind(gregorianYear, dojoId)
+    .bind(buddhistYear, buddhistYear, dojoId)
     .first<{ code: string; last_number: number }>();
-  if (!row) return formatStudentId(1, "RSK", gregorianYear);
+  if (!row) return formatStudentId(1, "RSK", buddhistYear);
   return formatStudentId(
     Number(row.last_number || 0) + 1,
     row.code,
-    gregorianYear,
+    buddhistYear,
   );
 }
 
@@ -636,6 +652,7 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
     hourRequestResult,
     examRequestResult,
     proofRequestResult,
+    activeExamCycle,
   ] = await Promise.all([
     db
       .prepare(
@@ -729,7 +746,7 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
       }>(),
     db
       .prepare(
-        `SELECT ea.id, ea.current_rank, ea.attempted_rank, ea.status, ea.payment_status, ea.submitted_at, ea.updated_at,
+        `SELECT ea.id, ea.cycle_id, ea.current_rank, ea.attempted_rank, ea.status, ea.payment_status, ea.submitted_at, ea.updated_at,
         ea.completed_at, ea.student_visible_decision_note, ec.lifecycle_status, ec.application_opens_at
       FROM examination_applications ea JOIN examination_cycles ec ON ec.id = ea.cycle_id
       WHERE ea.student_id = ?
@@ -738,6 +755,7 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
       .bind(student.id)
       .all<{
         id: string;
+        cycle_id: string;
         current_rank: string;
         attempted_rank: string;
         status: string;
@@ -774,6 +792,19 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
         object_key: string | null;
         content_type: string | null;
         period: string | null;
+      }>(),
+    db
+      .prepare(
+        `SELECT id, lifecycle_status, application_opens_at, application_closes_at, examination_at
+        FROM examination_cycles WHERE status = 'active'
+        ORDER BY created_at DESC LIMIT 1`,
+      )
+      .first<{
+        id: string;
+        lifecycle_status: string;
+        application_opens_at: string | null;
+        application_closes_at: string | null;
+        examination_at: string | null;
       }>(),
   ]);
   const monthlyResult =
@@ -1115,29 +1146,20 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
   const pendingAat =
     aatContributions.find((entry) => entry.status === "awaiting_payment") ||
     null;
-  const proofForRequest = (
-    entry: NonNullable<typeof proofRequestResult.results>[number] | undefined,
-  ) =>
-    entry
-      ? proof({
-          proof_id: entry.id,
-          proof_status: entry.status,
-          proof_submitted_at: entry.submitted_at,
-          proof_reviewed_at: entry.reviewed_at,
-          proof_student_visible_note: entry.student_visible_note,
-          proof_object_key: entry.object_key,
-          proof_content_type: entry.content_type,
-          proof_owner_student_id: entry.proof_owner_student_id,
-        })
-      : null;
-  const examAlerts = (examRequestResult.results || []).map((entry) => {
-    const examProofEntry = (proofRequestResult.results || []).find(
-      (candidate) =>
-        candidate.payment_type === "exam" &&
-        candidate.payment_reference_id === entry.id,
-    );
-    return { entry, proof: proofForRequest(examProofEntry) };
-  });
+  const nowIso = new Date().toISOString();
+  const attemptedRank = nextRank(student.current_belt);
+  const examinationOpen = Boolean(
+    activeExamCycle &&
+    activeExamCycle.lifecycle_status === "open" &&
+    (!activeExamCycle.application_opens_at ||
+      nowIso >= activeExamCycle.application_opens_at) &&
+    (!activeExamCycle.application_closes_at ||
+      nowIso <= activeExamCycle.application_closes_at) &&
+    (!activeExamCycle.examination_at ||
+      nowIso <= activeExamCycle.examination_at) &&
+    attemptedRank &&
+    examinationFeeThb(attemptedRank) !== null,
+  );
   const alertDecisions = decideStudentPaymentAlerts({
     isRenshinKan: student.dojo_id === DEFAULT_DOJO_ID,
     currentMonth,
@@ -1152,21 +1174,24 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
       : null,
     aat: {
       id: pendingAat?.id || `aat:${student.id}`,
+      hasMembershipNumber: Boolean(student.aat_number?.trim()),
       membershipState: membership.state,
       proofStatus: pendingAat?.proof?.status || null,
     },
-    exams: examAlerts.map(({ entry, proof: examProof }) => ({
-      id: entry.id,
-      applicationStatus: entry.status,
-      paymentStatus: entry.payment_status,
-      lifecycleStatus: entry.lifecycle_status,
-      applicationOpensAt: entry.application_opens_at,
-      proofStatus: examProof?.status || null,
-    })),
-    nowIso: new Date().toISOString(),
+    examination:
+      activeExamCycle && attemptedRank
+        ? {
+            id: activeExamCycle.id,
+            attemptedRank,
+            open: examinationOpen,
+            alreadyApplied: (examRequestResult.results || []).some(
+              (entry) => entry.cycle_id === activeExamCycle.id,
+            ),
+          }
+        : null,
   });
   const paymentAlerts = alertDecisions.map((decision) => {
-    if (decision.type === "monthly_contribution") {
+    if (decision.type === "monthly_missing") {
       return {
         ...decision,
         period: currentMonthly?.month || null,
@@ -1174,7 +1199,15 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
         proof: currentMonthly?.proof || null,
       };
     }
-    if (decision.type === "aat_membership") {
+    if (decision.type === "aat_number_missing") {
+      return {
+        ...decision,
+        period: null,
+        attemptedRank: null,
+        proof: null,
+      };
+    }
+    if (decision.type === "aat_contribution_due") {
       return {
         ...decision,
         period: null,
@@ -1182,12 +1215,11 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
         proof: pendingAat?.proof || null,
       };
     }
-    const exam = examAlerts.find(({ entry }) => entry.id === decision.id);
     return {
       ...decision,
       period: null,
-      attemptedRank: exam?.entry.attempted_rank || null,
-      proof: exam?.proof || null,
+      attemptedRank: attemptedRank || null,
+      proof: null,
     };
   });
 

@@ -2,38 +2,46 @@ import type { HelpArticle, HelpAudience } from "./types";
 
 const routeTopics: Record<HelpAudience, Array<[RegExp, string[]]>> = {
   public: [
-    [/^\/records\/share\//, ["public-sharing"]],
+    [/^\/records\/share\//, ["public-passport"]],
     [
       /^\/student-records/,
       [
-        "public-profile",
+        "public-new-profile",
         "public-passport",
-        "public-training",
-        "public-exams",
-        "public-payments",
-        "public-sharing",
+        "public-exam-application",
+        "public-monthly",
+        "public-aat",
       ],
     ],
-    [/^\/newsletter/, ["public-news"]],
-    [/^\/downloads/, ["public-resources"]],
-    [/^\/(support|contact)/, ["public-support", "public-payments"]],
-    [/^\/(aikido|classes|instructors|workshops)?$/, ["public-start"]],
+    [/^\/newsletter/, ["public-newsletter", "public-newsletter-email"]],
+    [/^\/downloads/, ["public-newsletter"]],
+    [
+      /^\/(support|contact)/,
+      ["public-contact", "public-donation", "public-monthly"],
+    ],
+    [
+      /^\/(aikido|classes|instructors|workshops)?$/,
+      ["public-new-profile", "public-newsletter"],
+    ],
   ],
   admin: [
-    [/^\/admin\/students/, ["admin-students"]],
-    [/^\/admin\/profile-requests/, ["admin-students"]],
+    [/^\/admin\/students/, ["admin-students", "admin-complete-record"]],
+    [/^\/admin\/profile-requests/, ["admin-profile-approval"]],
     [/^\/admin\/training-requests/, ["admin-training"]],
-    [/^\/admin\/(exam-applications|examination-records)/, ["admin-exams"]],
+    [
+      /^\/admin\/(exam-applications|examination-records|exam-payslips)/,
+      ["admin-exams", "admin-exam-records"],
+    ],
     [
       /^\/admin\/(monthly-contributions|aat-contributions|payment-proofs)/,
-      ["admin-payments"],
+      ["admin-payments", "admin-bulk-proofs"],
     ],
     [/^\/admin\/galleries\//, ["admin-gallery"]],
     [/^\/admin\/downloads/, ["admin-downloads"]],
     [/^\/admin\/website/, ["admin-newsletters", "admin-gallery"]],
     [/^\/admin\/(dojos|memberships|audit)/, ["admin-audit", "admin-scope"]],
     [/^\/admin\/dashboard/, ["admin-dashboard", "admin-scope"]],
-    [/^\/admin\/?$/, ["admin-access", "admin-dashboard"]],
+    [/^\/admin\/?$/, ["admin-students", "admin-profile-approval"]],
   ],
 };
 

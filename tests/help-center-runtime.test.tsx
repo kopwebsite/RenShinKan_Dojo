@@ -128,23 +128,23 @@ describe("help launcher runtime", () => {
         InputElement.prototype,
         "value",
       )!.set!;
-      setter.call(search, "ชั่วโมงฝึก");
+      setter.call(search, "โปรไฟล์");
       search.dispatchEvent(new Event("input", { bubbles: true }));
     });
     await waitFor(
       () =>
         document.body.textContent?.includes(
-          "ตรวจชั่วโมงและแจ้งการฝึกที่ขาด",
+          "สร้างโปรไฟล์นักเรียนใหม่อย่างไร?",
         ) === true,
       "Thai search results did not update",
     );
     expect(document.body.textContent).toContain(
-      "ตรวจชั่วโมงและแจ้งการฝึกที่ขาด",
+      "สร้างโปรไฟล์นักเรียนใหม่อย่างไร?",
     );
     expect(document.body.textContent).toMatch(/พบ \d+ หัวข้อ/);
   });
 
-  it("names and describes the Auggie guide accurately", async () => {
+  it("names and describes the concise admin guide accurately", async () => {
     await act(async () =>
       root.render(
         <BrowserRouter
@@ -159,22 +159,22 @@ describe("help launcher runtime", () => {
       ),
     );
     const trigger = document.querySelector<HTMLButtonElement>(
-      'button[aria-label="Open Auggie admin help"]',
+      'button[aria-label="Open admin help"]',
     )!;
-    expect(trigger.textContent).toContain("Open Auggie help");
+    expect(trigger.textContent).toContain("Admin help");
     await act(async () => trigger.click());
     await waitFor(
       () => Boolean(document.getElementById("admin-help-title")),
-      "Auggie help panel did not finish loading",
+      "Admin help panel did not finish loading",
     );
     expect(
       document
         .querySelector('[role="dialog"]')
         ?.getAttribute("aria-labelledby"),
     ).toBe("admin-help-title");
-    expect(document.body.textContent).toContain("Auggie — Admin help");
+    expect(document.body.textContent).toContain("How to use administration");
     expect(document.body.textContent).toContain(
-      "not a person or an AI assistant",
+      "Choose a task and follow the short steps.",
     );
   });
 });

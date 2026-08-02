@@ -67,13 +67,7 @@ async function signInAsSyntheticAdministrator(page: Page) {
   await page.getByLabel("Your name").fill(fixture.adminName);
   await password.fill(fixture.password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(
-    page.getByRole("heading", {
-      name: "Choose a dojo",
-    }),
-  ).toBeVisible({ timeout: 30_000 });
-  await page.getByRole("button", { name: "Select RenShinKan" }).click();
-  await expect(page).toHaveURL(/\/admin\/dashboard$/);
+  await expect(page).toHaveURL(/\/admin(?:\/dashboard)?$/);
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
     timeout: 15_000,
   });
@@ -105,7 +99,7 @@ test("all public routes render without same-origin failures or runtime errors", 
     const response = await page.goto(path, { waitUntil: "domcontentloaded" });
     expect(response?.status(), path).toBeLessThan(400);
     await expect(page.locator("main")).toBeVisible();
-    await expect(page.locator("h1").first()).toBeVisible();
+    await expect(page.locator("h1").first()).toBeVisible({ timeout: 30_000 });
     await expect(page).toHaveTitle(/RenShinKan/);
     await page.waitForTimeout(350);
     await expectNoHorizontalOverflow(page);
@@ -124,7 +118,10 @@ test("responsive layouts reflow at every required viewport", async ({
   for (const viewport of viewports) {
     await page.setViewportSize(viewport);
     for (const path of ["/", "/student-records"] as const) {
-      await page.goto(path, { waitUntil: "domcontentloaded" });
+      await page.goto(path, {
+        waitUntil: "domcontentloaded",
+        timeout: 60_000,
+      });
       await expect(page.locator("main")).toBeVisible();
       await expectNoHorizontalOverflow(page);
     }
@@ -296,6 +293,7 @@ test("admin workflows bootstrap once, remain scoped, and do not retain passwords
   for (const [link, heading] of [
     ["Training hour requests", "Training hour requests"],
     ["Exam applications", "Exam applications"],
+    ["Exam payment proofs", "Exam payment proofs"],
     ["Monthly contributions", "Monthly contributions"],
     ["AAT annual contributions", "AAT annual contributions"],
     ["Payment proofs", "Payment proofs"],

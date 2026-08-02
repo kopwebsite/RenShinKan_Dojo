@@ -1,6 +1,5 @@
 import {
   BookOpen,
-  Building2,
   Check,
   ChevronDown,
   ClipboardCheck,
@@ -21,7 +20,6 @@ import {
 } from "lucide-react";
 import {
   useEffect,
-  useMemo,
   useRef,
   useState,
   type ComponentType,
@@ -91,6 +89,11 @@ function navigationGroups(t: Translate): NavigationGroup[] {
           label: t("adminShell.examinationRecords"),
           href: "/admin/examination-records",
           Icon: GraduationCap,
+        },
+        {
+          label: t("adminShell.examPaymentProofs"),
+          href: "/admin/exam-payslips",
+          Icon: FileImage,
         },
       ],
     },
@@ -209,14 +212,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     };
   }, [languageOpen]);
 
-  const selectedDojo = useMemo(
-    () => session.dojos.find((dojo) => dojo.id === session.admin?.selectedDojoId),
-    [session.admin?.selectedDojoId, session.dojos],
-  );
-  const ready = Boolean(
-    session.checked &&
-    session.admin?.selectedDojoId,
-  );
+  const ready = Boolean(session.checked && session.admin);
   const central = session.admin?.permissionLevel === "renshinkan_super_admin";
 
   async function signOut() {
@@ -257,11 +253,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </button>
         <div className="admin-shell__dojo-context">
           <span>Data scope</span>
-          <strong><Building2 size={17} aria-hidden="true" /> {central ? "All dojos" : selectedDojo?.official_name || t("adminShell.selectedDojo")}</strong>
-          <Link to="/admin/dashboard?switch=1">{t("adminShell.changeDojo")}</Link>
-        </div>
-        <div className="admin-shell__account">
-          <span><strong>{session.admin.name}</strong><small>{central ? t("adminShell.centralAdministrator") : t("adminShell.dojoAdministrator")}</small></span>
+            <strong>All dojos</strong>
+          </div>
+          <div className="admin-shell__account">
+            <span><strong>{session.admin.name}</strong><small>{central ? t("adminShell.centralAdministrator") : t("adminShell.dojoAdministrator")}</small></span>
           <div className="admin-language-menu">
             <button ref={languageButtonRef} type="button" aria-haspopup="menu" aria-expanded={languageOpen} onClick={() => setLanguageOpen((open) => !open)}>
               <Languages size={18} aria-hidden="true" /><span>{language === "th" ? "ไทย" : "English"}</span><ChevronDown size={15} aria-hidden="true" />
@@ -282,8 +277,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
     <AccessibleDialog open={menuOpen} onClose={closeMenu} triggerRef={menuTriggerRef} titleId="admin-mobile-menu-title" backdropClassName="admin-shell__overlay" panelClassName="admin-shell__mobile-panel" panelAs="aside">
         <header><div><strong id="admin-mobile-menu-title">RenShinKan</strong><span>{t("adminShell.administration")}</span></div><button type="button" onClick={closeMenu} aria-label={t("adminShell.closeMenu")}><X /></button></header>
-        <div className="admin-shell__mobile-context"><span>Data scope</span><strong>{central ? "All dojos" : selectedDojo?.official_name}</strong><Link to="/admin/dashboard?switch=1" onClick={closeMenu}>{t("adminShell.changeDojo")}</Link></div>
-        <Navigation central={central} pathname={location.pathname} search={location.search} hash={location.hash} close={closeMenu} t={t} />
+        <div className="admin-shell__mobile-context"><span>Data scope</span>
+          <strong>All dojos</strong>
+        </div>
+        <Navigation
+          central={central}
+          pathname={location.pathname} search={location.search} hash={location.hash} close={closeMenu} t={t} />
         <footer><button type="button" onClick={() => void signOut()}><LogOut size={18} /> {t("adminShell.signOut")}</button></footer>
     </AccessibleDialog>
   </div>;

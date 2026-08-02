@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const file = (path: string) => readFileSync(resolve(root, path), "utf8");
+const compact = (value: string) => value.replace(/\s+/g, " ");
 
 describe("database safety and audit contracts", () => {
   const migration = file("migrations/0003_student_workflows.sql");
@@ -425,7 +426,7 @@ describe("UI and responsive workflow contracts", () => {
     ).toBeGreaterThanOrEqual(3);
     expect(students).toContain("never shown to students or on public profiles");
     expect(contributions).toContain("never shown to students or the public");
-    expect(proofs).toContain("Never shown to students or the public");
+    expect(compact(proofs)).toContain("Never shown to students or the public");
   });
 
   it("removes the decorative background only from administrator routes", () => {
@@ -516,7 +517,7 @@ describe("UI and responsive workflow contracts", () => {
       "Delete archived",
     ])
       expect(admin).toContain(value);
-    expect(admin).toContain(
+    expect(compact(admin)).toContain(
       'const targets = bulk.type === "approve_hours" ? selectedPendingRows : selectedActiveRows',
     );
     expect(admin).toContain("function studentRecordStatus");
@@ -557,7 +558,9 @@ describe("UI and responsive workflow contracts", () => {
     ])
       expect(memberships).toContain(value);
     expect(membershipsApi).toContain("s.profile_image_url");
-    expect(memberships).toContain("row.history.length ? <details");
+    expect(memberships).toMatch(
+      /row\.history\.length\s*\?\s*(?:\(\s*)?<details className="admin-aat-history"/s,
+    );
     expect(css).toContain(".admin-aat-history-empty");
     expect(css).toContain(".admin-aat-bulk-bar");
     expect(css).toContain(".admin-aat-membership-cell");
@@ -601,7 +604,7 @@ describe("UI and responsive workflow contracts", () => {
       "Examination date",
       "examinationDate",
       "formatDay(entry.entry_date",
-      "formatDay(entry.examination_date",
+      "entry.examination_date || entry.examination_timestamp",
     ])
       expect(admin).toContain(value);
     expect(hours).toContain(
@@ -680,10 +683,11 @@ describe("UI and responsive workflow contracts", () => {
     ])
       expect(passport).toContain(accessibility);
     expect(passport).toContain("record.monthlyContributions !== null");
-    expect(passport).toContain("showMonthlyContributions ? <PassportPage");
-    expect(passport).toContain(
-      "Please speak with a sensei if you have questions or need help.",
+    expect(compact(passport)).toContain(
+      'showMonthlyContributions ? ( <PassportPage folio="08"',
     );
+    expect(passport).toContain("HistoryPagination");
+    expect(passport).toContain("studentAlerts.position");
     expect(passport).toContain("owner?.dojoLogo");
     expect(page).toContain("StudentPassportRecord");
     expect(styles).toContain("--passport-burgundy");

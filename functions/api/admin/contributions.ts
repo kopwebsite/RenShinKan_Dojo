@@ -127,9 +127,21 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   }
   const query = clean(url.searchParams.get("query"), 120);
   const status = clean(url.searchParams.get("status"), 30);
+  const rank = clean(url.searchParams.get("rank"), 80);
+  const lastPaid = clean(url.searchParams.get("lastPaid"), 20);
+  const sort = clean(url.searchParams.get("sort"), 30);
   const filters: string[] = [];
   const filterBindings: unknown[] = [];
-  if (status) { filters.push("status = ?"); filterBindings.push(status); }
+  if (status) {
+    filters.push("status = ?");
+    filterBindings.push(status);
+  }
+  if (rank) {
+    filters.push("current_rank = ? COLLATE NOCASE");
+    filterBindings.push(rank);
+  }
+  if (lastPaid === "recorded") filters.push("paid_at IS NOT NULL");
+  if (lastPaid === "never") filters.push("paid_at IS NULL");
   if (query) {
     const prefix = `${escapeLike(query)}%`;
     filters.push("(student_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR public_student_id LIKE ? ESCAPE '\\' COLLATE NOCASE)");
@@ -149,10 +161,33 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const total = Number((countResult.results?.[0] as { total?: number } | undefined)?.total || 0);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, totalPages);
-  const contributions = ((await db.prepare(`${base} SELECT * FROM roster ${filteredWhere}
-    ORDER BY student_name COLLATE NOCASE, public_student_id COLLATE NOCASE LIMIT ? OFFSET ?`)
-    .bind(...rosterBindings, ...filterBindings, pageSize, (safePage - 1) * pageSize).all<ContributionRow>()).results || []);
-  const summaryRow = (summaryResult.results?.[0] || {}) as Record<string, unknown>;
+  const orderBy =
+    sort === "studentId"
+      ? "public_student_id COLLATE NOCASE"
+      : sort === "rank"
+        ? "current_rank COLLATE NOCASE, student_name COLLATE NOCASE"
+        : sort === "lastPaid"
+          ? "paid_at DESC, student_name COLLATE NOCASE"
+          : "student_name COLLATE NOCASE, public_student_id COLLATE NOCASE";
+  const contributions =
+    (
+      await db
+        .prepare(
+          `${base} SELECT * FROM roster ${filteredWhere}
+    ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
+        )
+        .bind(
+          ...rosterBindings,
+          ...filterBindings,
+          pageSize,
+          (safePage - 1) * pageSize,
+        )
+        .all<ContributionRow>()
+    ).results || [];
+  const summaryRow = (summaryResult.results?.[0] || {}) as Record<
+    string,
+    unknown
+  >;
   const summary = {
     total: Number(summaryRow.total || 0),
     submitted: Number(summaryRow.submitted || 0),

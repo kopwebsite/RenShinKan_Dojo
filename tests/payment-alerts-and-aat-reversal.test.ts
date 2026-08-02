@@ -20,34 +20,53 @@ function completeInputs() {
     },
     aat: {
       id: "aat-current",
+      hasMembershipNumber: true,
       membershipState: "current" as const,
       proofStatus: "approved" as const,
     },
-    exams: [{
-      id: "exam-paid",
-      applicationStatus: "application_submitted",
-      paymentStatus: "paid",
-      lifecycleStatus: "open",
-      applicationOpensAt: "2026-06-01T00:00:00.000Z",
-      proofStatus: "approved" as const,
-    }],
-    nowIso: "2026-07-27T00:00:00.000Z",
+    examination: null as {
+      id: string;
+      attemptedRank: string;
+      open: boolean;
+      alreadyApplied: boolean;
+    } | null,
   };
 }
 
 describe("student passport payment alerts", () => {
-  it("raises each genuine current obligation and distinguishes a submitted proof", () => {
+  it("raises only genuine current obligations that still need action", () => {
     const input = completeInputs();
     const alerts = decideStudentPaymentAlerts({
       ...input,
-      monthly: { ...input.monthly, paymentStatus: "awaiting_payment", proofStatus: "pending_review" },
+      monthly: {
+        ...input.monthly,
+        paymentStatus: "awaiting_payment",
+        proofStatus: null,
+      },
       aat: { ...input.aat, membershipState: "expired", proofStatus: null },
-      exams: [{ ...input.exams[0], id: "exam-unpaid", paymentStatus: "payment_pending", proofStatus: null }],
+      examination: {
+        id: "exam-open",
+        attemptedRank: "4th Kyu",
+        open: true,
+        alreadyApplied: false,
+      },
     });
     expect(alerts).toEqual([
-      { id: "monthly-current", type: "monthly_contribution", status: "under_review" },
-      { id: "aat-current", type: "aat_membership", status: "action_required" },
-      { id: "exam-unpaid", type: "examination_payment", status: "action_required" },
+      {
+        id: "monthly-current",
+        type: "monthly_missing",
+        status: "action_required",
+      },
+      {
+        id: "aat-current",
+        type: "aat_contribution_due",
+        status: "action_required",
+      },
+      {
+        id: "exam-open",
+        type: "examination_application",
+        status: "action_required",
+      },
     ]);
   });
 
@@ -58,12 +77,14 @@ describe("student passport payment alerts", () => {
       isRenshinKan: false,
       monthly: { ...input.monthly, month: "2026-06", expected: false, paymentStatus: "awaiting_payment" },
       aat: { ...input.aat, membershipState: "expiring" },
-      exams: [
-        { ...input.exams[0], id: "future", paymentStatus: "payment_pending", applicationOpensAt: "2026-08-01T00:00:00.000Z" },
-        { ...input.exams[0], id: "draft", paymentStatus: "payment_pending", lifecycleStatus: "draft" },
-        { ...input.exams[0], id: "complete", paymentStatus: "payment_pending", applicationStatus: "examination_completed" },
-      ],
-    })).toEqual([]);
+        examination: {
+          id: "already-applied",
+          attemptedRank: "4th Kyu",
+          open: true,
+          alreadyApplied: true,
+        },
+      }),
+    ).toEqual([]);
   });
 
   it("uses server decisions and localized, accessible actions in the owner passport", () => {

@@ -20,12 +20,30 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const page = Math.max(1, Number.parseInt(url.searchParams.get("page") || "1", 10) || 1);
   const pageSize = 40;
   const query = clean(url.searchParams.get("query"), 120);
+  const rank = clean(url.searchParams.get("rank"), 80);
+  const lastPaid = clean(url.searchParams.get("lastPaid"), 20);
+  const sort = clean(url.searchParams.get("sort"), 30);
   const requestedDojoId = clean(url.searchParams.get("dojoId"), 80);
   const dojoId = isRenShinKanSuperAdmin(session) ? requestedDojoId : session.selectedDojoId;
   if (dojoId && !canAccessDojo(session, dojoId)) return jsonResponse({ error: "You do not have access to that dojo." }, 403);
   const conditions = ["s.deleted_at IS NULL"];
   const bindings: unknown[] = [];
-  if (dojoId) { conditions.push("s.dojo_id = ?"); bindings.push(dojoId); }
+  if (dojoId) {
+    conditions.push("s.dojo_id = ?");
+    bindings.push(dojoId);
+  }
+  if (rank) {
+    conditions.push("s.current_belt = ? COLLATE NOCASE");
+    bindings.push(rank);
+  }
+  if (lastPaid === "recorded")
+    conditions.push(
+      "s.aat_last_paid_date IS NOT NULL AND s.aat_last_paid_date <> ''",
+    );
+  if (lastPaid === "never")
+    conditions.push(
+      "(s.aat_last_paid_date IS NULL OR s.aat_last_paid_date = '')",
+    );
   if (query) {
     const term = `%${escapeLike(query)}%`;
     conditions.push("(s.display_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR s.public_student_id LIKE ? ESCAPE '\\' COLLATE NOCASE OR COALESCE(s.aat_number, '') LIKE ? ESCAPE '\\' COLLATE NOCASE)");
@@ -56,7 +74,19 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     .bind(...bindings).first<{ total: number }>())?.total || 0);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, totalPages);
-  const rows = (await db.prepare(`SELECT s.id, s.display_name, s.public_student_id, s.current_belt, s.profile_image_url,
+  const orderBy =
+    sort === "studentId"
+      ? "s.public_student_id COLLATE NOCASE"
+      : sort === "rank"
+        ? "s.current_belt COLLATE NOCASE, s.display_name COLLATE NOCASE"
+        : sort === "lastPaid"
+          ? "s.aat_last_paid_date DESC, s.display_name COLLATE NOCASE"
+          : "s.display_name COLLATE NOCASE, s.public_student_id COLLATE NOCASE";
+  const rows =
+    (
+      await db
+        .prepare(
+          `SELECT s.id, s.display_name, s.public_student_id, s.current_belt, s.profile_image_url,
       s.dojo_id, d.official_name AS dojo_name, s.aat_number, s.aat_last_paid_date, s.aat_notes,
       EXISTS(SELECT 1 FROM payments pending WHERE pending.student_id = s.id
         AND pending.payment_type = 'aat_annual' AND pending.status = 'awaiting_payment') AS payment_awaiting_review,
@@ -67,8 +97,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
        FROM aat_membership_payments ap LEFT JOIN payments ledger ON ledger.id = ap.id
        WHERE ap.student_id = s.id ORDER BY ap.payment_date DESC) AS history_json
     FROM students s JOIN dojos d ON d.id = s.dojo_id
-    WHERE ${whereSql} ORDER BY s.display_name COLLATE NOCASE, s.public_student_id COLLATE NOCASE
-    LIMIT ? OFFSET ?`).bind(...bindings, pageSize, (safePage - 1) * pageSize).all<Record<string, unknown>>()).results || [];
+    WHERE ${whereSql} ORDER BY ${orderBy}
+    LIMIT ? OFFSET ?`,
+        )
+        .bind(...bindings, pageSize, (safePage - 1) * pageSize)
+        .all<Record<string, unknown>>()).results || [];
   const mapped = rows.map((row) => {
     const membership = aatMembershipStatus(String(row.aat_number || ""), String(row.aat_last_paid_date || ""));
     let history: unknown[] = [];

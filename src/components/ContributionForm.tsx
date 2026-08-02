@@ -230,7 +230,13 @@ export function ContributionForm() {
           <div className="contribution-student-list__rows">{monthlyStudents.map((student, index) => <div className={`contribution-student-row${contributionType === "aat_annual" ? " contribution-student-row--aat" : ""}`} key={student.key}>
             <span className="contribution-student-row__number">{String(index + 1).padStart(2, "0")}</span>
             {contributionType === "aat_annual" ? <label><span>{t("contribution.dojo")} <b aria-hidden="true">*</b></span><select value={student.dojoId} onChange={(event) => updateMonthlyStudent(student.key, "dojoId", event.target.value)} required><option value="">{t("contribution.chooseDojo")}</option>{dojos.map((dojo) => <option key={dojo.id} value={dojo.id}>{dojo.official_name}</option>)}</select></label> : null}
-            <label><span>{t("contribution.studentId")} <b aria-hidden="true">*</b></span><input value={student.studentId} onChange={(event) => updateMonthlyStudent(student.key, "studentId", event.target.value)} placeholder={contributionType === "aat_annual" ? `${dojos.find((dojo) => dojo.id === student.dojoId)?.code || "DOJO"}-6901` : "RSK-2601"} autoComplete="off" required /></label>
+            <label><span>{t("contribution.studentId")} <b aria-hidden="true">*</b></span><input value={student.studentId} onChange={(event) => updateMonthlyStudent(student.key, "studentId", event.target.value)} placeholder={contributionType === "aat_annual" ? `${dojos.find((dojo) => dojo.id === student.dojoId)?.code || "DOJO"}-6901`
+                          : "RSK-6901"
+                      }
+                      autoComplete="off"
+                      required
+                    />
+                  </label>
             <label><span>{t("contribution.studentName")} <b aria-hidden="true">*</b></span><input value={student.studentName} onChange={(event) => updateMonthlyStudent(student.key, "studentName", event.target.value)} autoComplete={index === 0 ? "name" : "off"} required /></label>
             {monthlyStudents.length > 1 ? <button type="button" className="contribution-student-row__remove" aria-label={t("contribution.removeStudent", { number: index + 1 })} onClick={() => setMonthlyStudents((students) => students.filter((entry) => entry.key !== student.key))}><Trash2 size={16} /></button> : <span />}
           </div>)}</div>

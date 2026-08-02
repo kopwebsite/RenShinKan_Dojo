@@ -30,41 +30,6 @@ import type {
 } from "./types";
 import "./help.css";
 
-function GuideImage({
-  article,
-  src,
-  alt,
-  caption,
-  fallback,
-}: {
-  article: HelpArticle;
-  src: string;
-  alt: string;
-  caption: string;
-  fallback: string;
-}) {
-  const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [src]);
-  if (failed)
-    return (
-      <div className="help-image-fallback" role="img" aria-label={fallback}>
-        {fallback}
-      </div>
-    );
-  return (
-    <figure className="help-figure" data-help-topic={article.id}>
-      <img
-        src={src}
-        alt={alt}
-        loading="lazy"
-        decoding="async"
-        onError={() => setFailed(true)}
-      />
-      <figcaption>{caption}</figcaption>
-    </figure>
-  );
-}
-
 function TopicButton({
   article,
   onSelect,
@@ -210,9 +175,7 @@ export function HelpPanel({
     >
       <div className="help-panel__header">
         <div>
-          <span className="help-panel__eyebrow">
-            {audience === "admin" ? "Auggie" : catalog.ui.trigger}
-          </span>
+          <span className="help-panel__eyebrow">{catalog.ui.trigger}</span>
           <h1 id={titleId}>{catalog.ui.heading}</h1>
           <p id={descriptionId}>{catalog.ui.guideDescription}</p>
         </div>
@@ -299,58 +262,20 @@ export function HelpPanel({
               )}
               {copyState === "copied" ? catalog.ui.copied : catalog.ui.copyLink}
             </button>
-            {selected.screenshots.map((screenshot) => (
-              <GuideImage
-                key={screenshot.src}
-                article={selected}
-                {...screenshot}
-                fallback={catalog.ui.imageUnavailable}
-              />
-            ))}
             <section>
               <h3>{catalog.ui.steps}</h3>
               <ol className="help-steps">
                 {selected.steps.map((step, index) => (
                   <li key={`${selected.id}-${index}`}>
-                    <h4>{step.title}</h4>
                     <p>{step.instruction}</p>
-                    <p className="help-step-result">
-                      <strong>{catalog.ui.expectedResult}:</strong>{" "}
-                      {step.result}
-                    </p>
                   </li>
                 ))}
               </ol>
             </section>
-            <section className="help-troubleshooting">
-              <h3>{catalog.ui.troubleshooting}</h3>
-              {selected.troubleshooting.map((item) => (
-                <div key={item.issue}>
-                  <h4>{item.issue}</h4>
-                  <p>{item.fix}</p>
-                </div>
-              ))}
-            </section>
-            {selected.related.length ? (
-              <section>
-                <h3>{catalog.ui.related}</h3>
-                <div className="help-related">
-                  {selected.related.map((id) => {
-                    const article = validHelpArticle(catalog.articles, id);
-                    return article ? (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => selectArticle(article)}
-                      >
-                        {article.title}
-                        <ChevronRight aria-hidden="true" />
-                      </button>
-                    ) : null;
-                  })}
-                </div>
-              </section>
-            ) : null}
+            <a className="help-action" href={selected.action.href}>
+              {selected.action.label}
+              <ChevronRight aria-hidden="true" />
+            </a>
           </article>
         ) : (
           <div className="help-index">

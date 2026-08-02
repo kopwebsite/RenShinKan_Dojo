@@ -1408,6 +1408,17 @@ html:lang(th) :is(strong, b) {
   width: min(390px, 100%);
 }
 @media (max-width: 700px) {
+  .payment-proof-upload__preview {
+    grid-template-columns: 4rem 1fr;
+  }
+  .payment-proof-upload__preview > div:last-child {
+    grid-column: 1 / -1;
+    justify-content: stretch;
+  }
+  .payment-proof-upload__preview > div:last-child .btn-secondary {
+    flex: 1 1 9rem;
+    justify-content: center;
+  }
   .managed-block--imageText,
   .managed-block--instructorCard {
     grid-template-columns: 1fr;
@@ -9917,7 +9928,7 @@ html.admin-route .admin-drawer {
 }
 .contribution-student-row--aat {
   grid-template-columns:
-    2rem minmax(9rem, 1fr) minmax(8rem, 0.75fr) minmax(10rem, 1.15fr)
+    2rem minmax(10rem, 0.85fr) minmax(9rem, 0.7fr) minmax(14rem, 1.6fr)
     2.25rem;
 }
 .contribution-student-row + .contribution-student-row {
@@ -10290,6 +10301,51 @@ html.admin-route .admin-drawer {
 .payment-proof-upload__action .btn-primary {
   width: fit-content;
 }
+.payment-proof-upload__preview {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  gap: 0.8rem;
+  align-items: center;
+  padding: 0.75rem;
+  border: 1px solid hsl(var(--color-ink) / 0.12);
+  border-radius: 0.65rem;
+  background: hsl(var(--color-paper) / 0.82);
+}
+.payment-proof-upload__preview > img,
+.payment-proof-upload__preview > span {
+  display: grid;
+  width: 4.5rem;
+  height: 4.5rem;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 0.45rem;
+  background: hsl(var(--color-ink) / 0.06);
+  object-fit: cover;
+}
+.payment-proof-upload__preview > div:nth-child(2) {
+  min-width: 0;
+}
+.payment-proof-upload__preview strong,
+.payment-proof-upload__preview small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.payment-proof-upload__preview small {
+  margin-top: 0.25rem;
+  color: hsl(var(--color-charcoal) / 0.62);
+  font-size: 0.64rem;
+}
+.payment-proof-upload__preview > div:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+.payment-proof-upload__preview .btn-secondary {
+  min-height: 2.25rem;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.64rem;
+}
 .payment-proof-upload__action small,
 .payment-proof-upload > small {
   display: flex;
@@ -10388,6 +10444,16 @@ html.admin-route .admin-drawer {
   min-height: 55vh;
   border: 0;
   background: #fff;
+}
+
+.admin-payment-proof-open {
+  display: flex;
+  justify-content: flex-end;
+  margin: -0.35rem 0 0.25rem;
+}
+
+.admin-payment-proof-open a {
+  text-decoration: none;
 }
 .admin-payment-proof-details {
   display: grid;
@@ -11172,6 +11238,25 @@ html.admin-route .admin-drawer {
   width: 68%;
   height: 68%;
   stroke-width: 1.15;
+}
+
+@media (max-width: 1100px) {
+  .contribution-student-row--aat {
+    grid-template-columns: 1.8rem minmax(0, 1fr) 2.25rem;
+    align-items: end;
+  }
+  .contribution-student-row--aat > label {
+    grid-column: 2 / 3;
+  }
+  .contribution-student-row--aat .contribution-student-row__number {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: center;
+  }
+  .contribution-student-row--aat .contribution-student-row__remove {
+    grid-column: 3;
+    grid-row: 1;
+  }
 }
 
 @media (max-width: 980px) {
@@ -12309,9 +12394,6 @@ html.admin-route .admin-drawer {
 
 .admin-student-workspace
   .admin-drawer__body[data-section="overview"]
-  > .admin-profile-review,
-.admin-student-workspace
-  .admin-drawer__body[data-section="profile"]
   > .admin-profile-review,
 .admin-student-workspace .admin-drawer__body[data-section="profile"] > details,
 .admin-student-workspace

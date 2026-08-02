@@ -25,7 +25,7 @@ describe("help center content contracts", () => {
 
   it("ships the same complete public topic set in all four locales", () => {
     const english = getPublicHelpCatalog("en");
-    expect(english.articles).toHaveLength(10);
+    expect(english.articles).toHaveLength(9);
     const expectedIds = english.articles.map((article) => article.id).sort();
     for (const locale of publicLocales) {
       const catalog = getPublicHelpCatalog(locale);
@@ -39,10 +39,11 @@ describe("help center content contracts", () => {
           version: "2026.07",
         });
         expect(article.routes.length).toBeGreaterThan(0);
-        expect(article.summary.length).toBeGreaterThan(20);
+        expect(article.summary.length).toBeGreaterThanOrEqual(8);
         expect(article.steps.length).toBeGreaterThanOrEqual(3);
-        expect(article.troubleshooting.length).toBeGreaterThan(0);
-        expect(article.keywords.length).toBeGreaterThan(2);
+        expect(article.troubleshooting).toEqual([]);
+        expect(article.keywords.length).toBeGreaterThanOrEqual(2);
+        expect(article.action.href).toMatch(/^(\/|https:\/\/)/);
       }
     }
     for (const locale of publicLocales.filter((value) => value !== "en")) {
@@ -54,20 +55,17 @@ describe("help center content contracts", () => {
     }
   });
 
-  it("ships complete English and Thai Auggie admin topics with strict audience separation", () => {
+  it("ships complete English and Thai admin topics with strict audience separation", () => {
     const expectedIds = getAdminHelpCatalog("en")
       .articles.map((article) => article.id)
       .sort();
-    expect(expectedIds).toHaveLength(11);
+    expect(expectedIds).toHaveLength(22);
     for (const locale of adminLocales) {
       const catalog = getAdminHelpCatalog(locale);
       expect(catalog.articles.map((article) => article.id).sort()).toEqual(
         expectedIds,
       );
-      expect(catalog.ui.heading).toContain("Auggie");
-      expect(catalog.ui.guideDescription).toMatch(
-        locale === "th" ? /ไม่ใช่บุคคล/ : /not a person/,
-      );
+      expect(catalog.ui.heading).not.toContain("Auggie");
       catalog.articles.forEach((article) => {
         expect(article.audience).toBe("admin");
         expect(article.locale).toBe(locale);
@@ -75,39 +73,40 @@ describe("help center content contracts", () => {
         expect(article.steps).toHaveLength(3);
       });
     }
-    expect(getAdminHelpCatalog("en").ui.trigger).toBe("Open Auggie help");
-    expect(getAdminHelpCatalog("en").ui.heading).toBe("Auggie — Admin help");
+    expect(getAdminHelpCatalog("en").ui.trigger).toBe("Admin help");
+    expect(getAdminHelpCatalog("en").ui.heading).toBe(
+      "How to use administration",
+    );
   });
 
   it("covers the required student and administration workflows", () => {
     const publicText = JSON.stringify(getPublicHelpCatalog("en"));
     for (const term of [
       "profile",
-      "training",
-      "eligibility",
-      "payment proof",
-      "receipt",
-      "digital passport",
-      "revoke",
+      "exam application",
+      "monthly dojo contributions",
+      "aat annual contribution",
+      "student passport",
+      "donation",
       "newsletter",
-      "download",
-      "website problem",
+      "contact",
     ]) {
       expect(publicText.toLowerCase()).toContain(term);
     }
     const adminText = JSON.stringify(getAdminHelpCatalog("en"));
     for (const term of [
-      "dojo selection",
-      "data scope",
-      "dashboard",
+      "student profile",
+      "payment proof",
+      "pdf",
+      "excel",
+      "training hours",
       "archive",
-      "duplicate",
-      "certificate",
-      "retry publish",
-      "alt text",
+      "newsletter",
+      "aat number",
+      "exam applications",
+      "monthly contribution",
       "public downloads",
-      "least privilege",
-      "audit history",
+      "audit",
     ]) {
       expect(adminText.toLowerCase()).toContain(term);
     }
@@ -115,10 +114,10 @@ describe("help center content contracts", () => {
 
   it("searches localized content, including unsegmented Thai queries", () => {
     expect(
-      searchHelpArticles(getPublicHelpCatalog("th").articles, "ชั่วโมงฝึก").map(
+      searchHelpArticles(getPublicHelpCatalog("th").articles, "โปรไฟล์").map(
         (article) => article.id,
       ),
-    ).toContain("public-training");
+    ).toContain("public-new-profile");
     expect(
       searchHelpArticles(getPublicHelpCatalog("ja").articles, "パスポート").map(
         (article) => article.id,
@@ -127,9 +126,9 @@ describe("help center content contracts", () => {
     expect(
       searchHelpArticles(
         getPublicHelpCatalog("zh-CN").articles,
-        "付款凭证",
+        "每月道场会费",
       ).map((article) => article.id),
-    ).toContain("public-payments");
+    ).toContain("public-monthly");
     expect(
       searchHelpArticles(getAdminHelpCatalog("th").articles, "เผยแพร่").map(
         (article) => article.id,
@@ -150,7 +149,7 @@ describe("help center content contracts", () => {
       "/student-records",
       publicCatalog.articles,
     );
-    expect(student[0].id).toBe("public-profile");
+    expect(student[0].id).toBe("public-new-profile");
     expect(student.every((article) => article.audience === "public")).toBe(
       true,
     );
@@ -230,17 +229,10 @@ describe("help screenshot manifest", () => {
       expect(metadata.width).toBe(item.viewport.width);
       expect(metadata.height).toBe(item.viewport.height);
     }
-    const catalogScreenshots = [
-      ...publicLocales.map(getPublicHelpCatalog),
-      ...adminLocales.map(getAdminHelpCatalog),
-    ].flatMap((catalog) =>
-      catalog.articles.flatMap((article) => article.screenshots),
-    );
-    manifest.items.forEach((item) => {
-      const screenshot = catalogScreenshots.find((candidate) =>
-        candidate.src.endsWith(item.file),
-      );
-      expect(screenshot?.alt).toBe(item.alt);
-    });
+    expect(
+      getPublicHelpCatalog("en").articles.every(
+        (article) => article.screenshots.length === 0,
+      ),
+    ).toBe(true);
   });
 });

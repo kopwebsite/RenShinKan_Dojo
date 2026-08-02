@@ -70,8 +70,15 @@ function AdminRouteFrame() {
               <Route path="/admin/profile-requests" element={<AdminStudentsPage mode="profileRequests" />} />
               <Route path="/admin/training-requests" element={<AdminStudentsPage mode="trainingRequests" />} />
               <Route path="/admin/exam-applications" element={<AdminWorkflowPage kind="exam-applications" />} />
-              <Route path="/admin/examination-records" element={<AdminWorkflowPage kind="examination-records" />} />
-              <Route path="/admin/monthly-contributions" element={<AdminWorkflowPage kind="monthly-contributions" />} />
+              <Route path="/admin/examination-records" element={<AdminWorkflowPage kind="examination-records" />}
+              />
+              <Route
+                path="/admin/exam-payslips"
+                element={<AdminWorkflowPage kind="exam-payslips" />}
+              />
+              <Route
+                path="/admin/monthly-contributions"
+                element={<AdminWorkflowPage kind="monthly-contributions" />} />
               <Route path="/admin/aat-contributions" element={<AdminWorkflowPage kind="aat-contributions" />} />
               <Route path="/admin/payment-proofs" element={<AdminWorkflowPage kind="payment-proofs" />} />
               <Route path="/admin/audit" element={<AdminAuditPage />} />

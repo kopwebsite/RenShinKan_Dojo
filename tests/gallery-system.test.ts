@@ -106,12 +106,25 @@ describe("gallery security, recovery, performance, and interaction contracts", (
   it("provides album ordering, bulk actions, trash, undo, focal points, incremental loading, retry, and exact preview", () => {
     const admin = file("src/pages/AdminGalleryPage.tsx");
     for (const value of [
-      "Drag to reorder", "Select all", "Deselect all", "Move to trash", "Permanently remove",
-      "Undo", "Focal point", "Load ", "Retry", "Upload anyway", "Exact public presentation",
-      "Review &amp; publish", "Save draft",
-    ]) expect(admin).toContain(value);
+      "Drag to reorder",
+      "Select all",
+      "Deselect all",
+      "Move to trash",
+      "Permanently remove",
+      "Undo",
+      "Focal point",
+      "Load {Math.min(",
+      "Retry",
+      "Upload anyway",
+      "Exact public presentation",
+      "Review &amp; publish",
+      "Save draft",
+    ])
+      expect(admin).toContain(value);
     expect(admin).toContain("const PAGE_SIZE = 48");
-    expect(admin).toContain("Promise.all(Array.from({ length: Math.min(3, jobs.length) }");
+    expect(admin).toContain("Promise.all(");
+    expect(admin).toContain("Math.min(3, jobs.length)");
+    expect(admin).toContain("() => worker()");
   });
 
   it("shares keyboard, swipe, focus, scroll-lock, thumbnail, and reduced-motion behavior", () => {

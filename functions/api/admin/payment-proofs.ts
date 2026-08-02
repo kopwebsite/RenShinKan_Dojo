@@ -33,7 +33,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const pageSize = 25;
   const query = clean(url.searchParams.get("query"), 120);
   const status = ["pending_review", "approved", "denied"].includes(String(url.searchParams.get("status"))) ? String(url.searchParams.get("status")) : "";
-  const paymentType = ["exam", "aat_annual", "renshinkan_monthly"].includes(String(url.searchParams.get("paymentType"))) ? String(url.searchParams.get("paymentType")) : "";
+  const paymentType = ["exam", "aat_annual", "renshinkan_monthly"].includes(String(url.searchParams.get("paymentType"))) ? String(url.searchParams.get("paymentType"))
+    : "";
+  const paymentScope =
+    url.searchParams.get("paymentScope") === "exam" ? "exam" : "contributions";
   const conditions = ["p.object_key IS NOT NULL", "p.submitted_at IS NOT NULL"];
   const bindings: unknown[] = [];
   if (!isRenShinKanSuperAdmin(session)) {
@@ -48,8 +51,18 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     );
     bindings.push(dojoId, dojoId);
   }
-  if (status) { conditions.push("p.status = ?"); bindings.push(status); }
-  if (paymentType) { conditions.push("p.payment_type = ?"); bindings.push(paymentType); }
+  if (status) {
+    conditions.push("p.status = ?");
+    bindings.push(status);
+  }
+  conditions.push(
+    paymentScope === "exam"
+      ? "p.payment_type = 'exam'"
+      : "p.payment_type IN ('aat_annual', 'renshinkan_monthly')",
+  );
+  if (paymentType) {
+    conditions.push("p.payment_type = ?");
+    bindings.push(paymentType); }
   if (query) {
     const term = `%${escapeLike(query)}%`;
     conditions.push(`(s.display_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR s.public_student_id LIKE ? ESCAPE '\\' COLLATE NOCASE
@@ -61,12 +74,18 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     bindings.push(term, term, term, term, term, term);
   }
   const where = conditions.join(" AND ");
-  const scope = isRenShinKanSuperAdmin(session) ? "" : `AND s.dojo_id = ? AND p.payment_type <> 'renshinkan_monthly'
+  const scope = `${paymentScope === "exam" ? "AND p.payment_type = 'exam'" : "AND p.payment_type IN ('aat_annual', 'renshinkan_monthly')"} ${
+    isRenShinKanSuperAdmin(session)
+      ? ""
+      : `AND s.dojo_id = ? AND p.payment_type <> 'renshinkan_monthly'
     AND (p.payment_type <> 'aat_annual' OR NOT EXISTS (
       SELECT 1 FROM payment_request_items scoped_item
       WHERE scoped_item.payment_request_id = p.payment_reference_id AND scoped_item.dojo_id <> ?
-    ))`;
-  const scopeBindings = isRenShinKanSuperAdmin(session) ? [] : [session.selectedDojoId || "__none__", session.selectedDojoId || "__none__"];
+    ))`
+  }`;
+  const scopeBindings = isRenShinKanSuperAdmin(session)
+    ? []
+    : [session.selectedDojoId || "__none__", session.selectedDojoId || "__none__"];
   const [countResult, rowResult, summaryResult] = await db.batch([
     db.prepare(`SELECT COUNT(*) AS total FROM payment_proofs p JOIN students s ON s.id = p.student_id WHERE ${where}`).bind(...bindings),
     db.prepare(`SELECT p.id, p.student_id, p.dojo_id, p.payment_type, p.payment_reference_id, p.status,

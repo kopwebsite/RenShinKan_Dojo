@@ -14,10 +14,10 @@ import {
 import { buildExamPdf, buildExamXlsx } from "../functions/_lib/examExports";
 import { validateEditableContent } from "../functions/_lib/content";
 import {
-  bangkokGregorianYear,
   formatStudentId,
   studentIdSequenceForCurrentYear,
 } from "../functions/_lib/studentRecords";
+import { bangkokBuddhistYear } from "../shared/date";
 import { aatMembershipStatus, addOneCalendarYear } from "../shared/membership";
 import {
   onRequestGet as getStudent,
@@ -135,7 +135,7 @@ describe("multi-dojo authentication and authorization", () => {
     });
   });
 
-  it("keeps selected dojo separate from allowed dojo and rejects a cross-dojo request", () => {
+  it("keeps legacy dojo scopes safe while retiring dojo-selection endpoints", () => {
     const central = session("central");
     const centralAtCmu = session("central", [], "dojo-cmu", false);
     const cmu = session("dojo", ["dojo-cmu"]);
@@ -147,8 +147,8 @@ describe("multi-dojo authentication and authorization", () => {
     expect(canAccessDojo(centralAtCmu, "dojo-cmu")).toBe(true);
     expect(canAccessDojo(centralAtCmu, "dojo-nu")).toBe(false);
     const selection = file("functions/api/admin/select-dojo.ts");
-    expect(selection).toContain("canSelectDojo");
-    expect(selection).toContain("does not have access to that dojo");
+    expect(selection).toContain("410,");
+    expect(selection).toContain("dojo filter");
   });
 
   it("signs role, allowed dojos, administrator name, and selection into a tamper-evident cookie", async () => {
@@ -173,7 +173,7 @@ describe("multi-dojo authentication and authorization", () => {
     });
   });
 
-  it("returns 403 for direct read and write API attempts against another dojo", async () => {
+  it("rejects non-RenShinKan sessions at the shared admin authorization boundary", async () => {
     const authEnv = { SESSION_SECRET: "direct-api-scope-secret" };
     const cookie = await createSessionCookie(authEnv, {
       adminName: "CMU Admin",
@@ -200,9 +200,9 @@ describe("multi-dojo authentication and authorization", () => {
       env,
       params: { id: "nu-student" },
     } as never);
-    expect(getResponse.status).toBe(403);
+    expect(getResponse.status).toBe(401);
     expect(await getResponse.json()).toMatchObject({
-      error: expect.stringContaining("not have access"),
+      error: expect.stringContaining("Unauthorized"),
     });
     const putResponse = await putStudent({
       request: new Request(
@@ -220,7 +220,7 @@ describe("multi-dojo authentication and authorization", () => {
       env,
       params: { id: "nu-student" },
     } as never);
-    expect(putResponse.status).toBe(403);
+    expect(putResponse.status).toBe(401);
   });
 });
 
@@ -241,33 +241,33 @@ describe("multi-dojo data model and workflows", () => {
     expect(migration).toContain("ELSE 'dojo-rsk'");
   });
 
-  it("generates dojo-prefixed Gregorian-year IDs without renumbering legacy IDs", () => {
-    expect(bangkokGregorianYear(new Date("2026-07-22T00:00:00Z"))).toBe(2026);
-    expect(formatStudentId(1, "RSK", 2026)).toBe("RSK-2601");
-    expect(formatStudentId(2, "cmu", 2026)).toBe("CMU-2602");
-    expect(formatStudentId(1, "RSK", 2027)).toBe("RSK-2701");
+  it("generates dojo-prefixed Buddhist-year IDs without renumbering legacy IDs", () => {
+    expect(bangkokBuddhistYear(new Date("2026-07-22T00:00:00Z"))).toBe(2569);
+    expect(formatStudentId(1, "RSK", 2569)).toBe("RSK-6901");
+    expect(formatStudentId(2, "cmu", 2569)).toBe("CMU-6902");
+    expect(formatStudentId(100, "RSK", 2569)).toBe("RSK-69100");
     expect(
       studentIdSequenceForCurrentYear(
-        "RSK-2612",
+        "RSK-6912",
         "RSK",
         new Date("2026-07-22T00:00:00Z"),
       ),
-    ).toEqual({ gregorianYear: 2026, sequence: 12 });
+    ).toEqual({ buddhistYear: 2569, sequence: 12 });
     expect(
       studentIdSequenceForCurrentYear(
-        "RSK-6909",
+        "RSK-2609",
         "RSK",
         new Date("2026-07-22T00:00:00Z"),
       ),
     ).toBeNull();
     expect("RSK-6901").toBe("RSK-6901");
     const records = file("functions/_lib/studentRecords.ts");
-    expect(records).toContain("ON CONFLICT(dojo_id, gregorian_year)");
+    expect(records).toContain("ON CONFLICT(dojo_id, buddhist_year)");
     expect(records).toContain("RETURNING last_number");
     const yearlyMigration = file(
-      "migrations/0020_gregorian_student_id_sequences.sql",
+      "migrations/0011_buddhist_year_student_ids.sql",
     );
-    expect(yearlyMigration).toContain("PRIMARY KEY (dojo_id, gregorian_year)");
+    expect(yearlyMigration).toContain("PRIMARY KEY (dojo_id, buddhist_year)");
     expect(yearlyMigration).toContain("strftime('%Y', 'now', '+7 hours')");
     expect(yearlyMigration).toContain("MAX(CASE");
     expect(yearlyMigration).not.toMatch(/DROP\s+TABLE|UPDATE\s+students/i);
@@ -282,7 +282,7 @@ describe("multi-dojo data model and workflows", () => {
       expect(source).toContain("aatLastPaidDate");
     }
     expect(file("src/pages/StudentRecordsPage.tsx")).toContain(
-      "Not yet paid or payment date unknown",
+      "AAT membership number",
     );
   });
 

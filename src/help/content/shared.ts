@@ -18,6 +18,7 @@ export type LocalizedArticle = {
   troubleshooting: HelpTroubleshooting[];
   related: string[];
   keywords: string[];
+  action: { label: string; href: string };
   screenshots?: HelpScreenshot[];
 };
 

@@ -10,7 +10,6 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-import { useNavigate } from "react-router";
 import { adminApi } from "./adminApi";
 import type {
   AdminDojo,
@@ -28,14 +27,11 @@ type AdminSessionContextValue = {
   name: string;
   password: string;
   busy: boolean;
-  selecting: string;
   error: string;
   setName(value: string): void;
   setPassword(value: string): void;
   setError(value: string): void;
   login(event: FormEvent): Promise<void>;
-  selectDojo(dojoId: string): Promise<void>;
-  switchDojo(): Promise<void>;
   logout(): Promise<void>;
   refresh(preserveView?: boolean): Promise<void>;
 };
@@ -45,14 +41,12 @@ const AdminSessionContext = createContext<AdminSessionContextValue | null>(
 );
 
 export function AdminSessionProvider({ children }: { children: ReactNode }) {
-  const navigate = useNavigate();
   const [status, setStatus] = useState<SessionStatus>("loading");
   const [admin, setAdmin] = useState<AdminIdentity | null>(null);
   const [dojos, setDojos] = useState<AdminDojo[]>([]);
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [selecting, setSelecting] = useState("");
   const [error, setError] = useState("");
   const generation = useRef(0);
   const bootstrapController = useRef<AbortController | null>(null);
@@ -63,7 +57,6 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
     setAdmin(null);
     setDojos([]);
     setPassword("");
-    setSelecting("");
     setStatus("unauthenticated");
   }, []);
 
@@ -134,44 +127,6 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
     [name, password, refresh],
   );
 
-  const selectDojo = useCallback(
-    async (dojoId: string) => {
-      const currentGeneration = generation.current;
-      setSelecting(dojoId);
-      setError("");
-      try {
-        const result = await adminApi<{ admin: AdminIdentity }>(
-          "/api/admin/select-dojo",
-          { method: "POST", body: JSON.stringify({ dojoId }) },
-        );
-        if (currentGeneration !== generation.current) return;
-        setAdmin(result.admin);
-        setStatus("authenticated");
-        navigate("/admin/dashboard", { replace: true });
-      } catch (reason) {
-        if (currentGeneration === generation.current)
-          setError(
-            reason instanceof Error
-              ? reason.message
-              : "The dojo could not be selected.",
-          );
-      } finally {
-        if (currentGeneration === generation.current) setSelecting("");
-      }
-    },
-    [navigate],
-  );
-
-  const switchDojo = useCallback(async () => {
-    const currentGeneration = generation.current;
-    setError("");
-    const result = await adminApi<{ admin: AdminIdentity }>(
-      "/api/admin/switch-dojo",
-      { method: "POST" },
-    );
-    if (currentGeneration === generation.current) setAdmin(result.admin);
-  }, []);
-
   const logout = useCallback(async () => {
     clearSharedSession();
     setName("");
@@ -192,32 +147,15 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
       name,
       password,
       busy,
-      selecting,
       error,
       setName,
       setPassword,
       setError,
       login,
-      selectDojo,
-      switchDojo,
       logout,
       refresh,
     }),
-    [
-      admin,
-      busy,
-      dojos,
-      error,
-      login,
-      logout,
-      name,
-      password,
-      refresh,
-      selectDojo,
-      selecting,
-      status,
-      switchDojo,
-    ],
+    [admin, busy, dojos, error, login, logout, name, password, refresh, status],
   );
 
   return createElement(AdminSessionContext.Provider, { value }, children);

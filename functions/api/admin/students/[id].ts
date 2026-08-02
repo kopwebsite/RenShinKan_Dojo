@@ -181,7 +181,13 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, params })
     if (adminNotes.length > 5_000 || aatNotes.length > 2_000 || practiceDuration.length > 120) return jsonResponse({ error: "One or more text fields are too long." }, 400);
     if (!Number.isFinite(currentTrainingHours) || currentTrainingHours < 0 || currentTrainingHours > 1_000_000) return jsonResponse({ error: "Current training hours must be zero or a positive number." }, 400);
     if (image === undefined) return jsonResponse({ error: "The profile image location is invalid." }, 400);
-    if (studentId !== existing.public_student_id && !isValidStudentId(studentId)) return jsonResponse({ error: "Student ID must use a format such as RSK-2601." }, 400);
+    if (studentId !== existing.public_student_id &&
+      !isValidStudentId(studentId)
+    )
+      return jsonResponse(
+        { error: "Student ID must use a format such as RSK-6901." },
+        400,
+      );
     if (studentId !== existing.public_student_id) {
       const duplicate = await db.prepare(`SELECT id FROM students
         WHERE UPPER(public_student_id) = ? AND id <> ?

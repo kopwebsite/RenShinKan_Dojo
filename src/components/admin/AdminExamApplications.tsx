@@ -6,6 +6,7 @@ import {
 import { adminApi, adminStatusLabel, formatAdminDate } from "./adminApi";
 import type { AdminDojo, AdminIdentity } from "./AdminAccess";
 import { GregorianDateTimeInput } from "../GregorianDateInput";
+import { RANKS } from "../../../shared/ranks";
 
 type ExamStatus = "not_signed_up" | "unpaid" | "paid";
 type Cycle = { id: string; name: string; title: string; status: "active" | "closed"; lifecycle_status: string; rank_category: string; examination_type: string; application_opens_at: string | null; application_closes_at: string | null; examination_at: string | null; venue: string; instructions: string; rank_fee_config_json: string; annual_fee_config_json: string; created_at: string; closed_at: string | null };
@@ -146,10 +147,15 @@ export function AdminExamApplications({ report, admin, dojos, mode = "applicatio
   const [loading, setLoading] = useState(true);
   const [queryInput, setQueryInput] = useState("");
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState(() => {
-    const value = new URLSearchParams(window.location.search).get("status") || "";
-    return value === "not_signed_up" || value === "unpaid" || value === "paid" ? value : "";
+  const [paymentStatus, setPaymentStatus] = useState(() => {
+    const value =
+      new URLSearchParams(window.location.search).get("status") || "";
+    return value === "unpaid" || value === "paid" ? value : "";
   });
+  const [examinationStatus, setExaminationStatus] = useState("");
+  const [rank, setRank] = useState("");
+  const [dojoId, setDojoId] = useState("");
+  const [sort, setSort] = useState("name");
   const [cycleId, setCycleId] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -170,7 +176,11 @@ export function AdminExamApplications({ report, admin, dojos, mode = "applicatio
     try {
       const params = new URLSearchParams({ page: String(page) });
       if (query) params.set("query", query);
-      if (status) params.set("status", status);
+      if (paymentStatus) params.set("paymentStatus", paymentStatus);
+      if (examinationStatus) params.set("examinationStatus", examinationStatus);
+      if (rank) params.set("rank", rank);
+      if (dojoId && superAdmin) params.set("dojoId", dojoId);
+      params.set("sort", sort);
       if (cycleId) params.set("cycleId", cycleId);
       if (mode === "records") params.set("recordsOnly", "1");
       const body = await adminApi<Response>(`/api/admin/examinations?${params}`);
@@ -184,7 +194,19 @@ export function AdminExamApplications({ report, admin, dojos, mode = "applicatio
     }
   }
 
-  useEffect(() => { void load(); }, [page, query, status, cycleId, mode]);
+  useEffect(() => {
+    void load();
+  }, [
+    page,
+    query,
+    paymentStatus,
+    examinationStatus,
+    rank,
+    dojoId,
+    sort,
+    cycleId,
+    mode,
+  ]);
 
   const isHistorical = data.selectedCycle?.status === "closed";
   const readOnly = mode === "records" || isHistorical;
@@ -317,9 +339,107 @@ export function AdminExamApplications({ report, admin, dojos, mode = "applicatio
     </div>
 
     <form className="admin-record-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(queryInput.trim()); }}>
-      <label className="admin-search-wide">Search students<div><Search size={17} /><input value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="Name or Student ID" /><button className="btn-secondary">Search</button></div></label>
-      <label>Status<select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="">All statuses</option><option value="not_signed_up">Not signed up</option><option value="unpaid">Unpaid</option><option value="paid">Paid</option></select></label>
-      {(query || status) ? <button type="button" className="btn-secondary" onClick={() => { setQueryInput(""); setQuery(""); setStatus(""); setPage(1); }}>Clear filters</button> : null}
+      <label className="admin-search-wide">Search students<div><Search size={17} /><input value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="Name or Student ID" /><button className="btn-secondary">Search</button></div>
+        </label>
+        <label>
+          Current rank
+          <select
+            value={rank}
+            onChange={(event) => {
+              setRank(event.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">All ranks</option>
+            {RANKS.map((value) => (
+              <option key={value}>{value}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Examination status
+          <select
+            value={examinationStatus}
+            onChange={(event) => {
+              setExaminationStatus(event.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">All examination statuses</option>
+            <option value="not_signed_up">Not applied</option>
+            <option value="applied">Applied</option>
+          </select>
+        </label>
+        <label>
+          Examination payment
+          <select
+            value={paymentStatus}
+            onChange={(event) => {
+              setPaymentStatus(event.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">All payment statuses</option>
+            <option value="unpaid">Unpaid</option><option value="paid">Paid</option>
+          </select>
+        </label>
+        <label>
+          Sort order
+          <select
+            value={sort}
+            onChange={(event) => {
+              setSort(event.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="name">Name</option>
+            <option value="studentId">Student ID</option>
+            <option value="rank">Current rank</option>
+            <option value="submitted">Application date</option>
+          </select>
+        </label>
+        {superAdmin ? (
+          <label>
+            Dojo
+            <select
+              value={dojoId}
+              onChange={(event) => {
+                setDojoId(event.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All dojos</option>
+              {dojos.map((dojo) => (
+                <option key={dojo.id} value={dojo.id}>
+                  {dojo.official_name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        {query ||
+        paymentStatus ||
+        examinationStatus ||
+        rank ||
+        dojoId ||
+        sort !== "name" ? (
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => {
+              setQueryInput("");
+              setQuery("");
+              setPaymentStatus("");
+              setExaminationStatus("");
+              setRank("");
+              setDojoId("");
+              setSort("name");
+              setPage(1);
+            }}
+          >
+            Clear filters
+          </button>
+        ) : null}
     </form>
 
     {!readOnly && selected.size ? <aside className="admin-bulk-toolbar">

@@ -75,8 +75,12 @@ export type PassportAatSummary = {
 
 export type PassportPaymentAlert = {
   id: string;
-  type: "monthly_contribution" | "aat_membership" | "examination_payment";
-  status: "action_required" | "under_review";
+  type:
+    | "monthly_missing"
+    | "aat_number_missing"
+    | "aat_contribution_due"
+    | "examination_application";
+  status: "action_required";
   period: string | null;
   attemptedRank: string | null;
   proof: PassportPaymentProof | null;

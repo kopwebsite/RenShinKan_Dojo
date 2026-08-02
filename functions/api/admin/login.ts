@@ -6,6 +6,7 @@ import {
   isSameOriginRequest,
   jsonResponse,
   recordFailedAdminLoginAttempt,
+  RENSHINKAN_DOJO_ID,
 } from "../../_lib/auth";
 import {
   auditStatement,
@@ -111,7 +112,23 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
     failureStage = "rate_limit_clear";
     await clearAdminLoginAttempts(request, env);
-    let authenticatedName = access.displayName;
+    if (access.role !== "central") {
+      await auditLoginFailure(
+        request,
+        env,
+        adminName,
+        "Blocked a non-RenShinKan credential from the administration area",
+      );
+      return jsonResponse(
+        {
+          ok: false,
+          error:
+            "This administration area is limited to authorized RenShinKan administrators.",
+        },
+        403,
+      );
+    }
+    const authenticatedName = access.displayName;
     if (env.STUDENT_DB) {
       failureStage = "account_lookup";
       const existingAccount = await env.STUDENT_DB.prepare(
@@ -132,25 +149,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         );
       }
     }
-    if (access.role === "dojo" && env.STUDENT_DB) {
-      const active = await env.STUDENT_DB.prepare(
-        `SELECT id, official_name FROM dojos
-        WHERE id IN (${access.allowedDojoIds.map(() => "?").join(",")}) AND active = 1`,
-      )
-        .bind(...access.allowedDojoIds)
-        .all<{ id: string; official_name: string }>();
-      if ((active.results || []).length !== access.allowedDojoIds.length) {
-        return jsonResponse(
-          {
-            ok: false,
-            error: "This dojo administrator account is not active.",
-          },
-          403,
-        );
-      }
-      authenticatedName = `${active.results?.[0]?.official_name || "Dojo"} administrator`;
-    }
-    const selectedDojoId = null;
+    const selectedDojoId = RENSHINKAN_DOJO_ID;
     const sessionId = crypto.randomUUID();
     if (env.STUDENT_DB) {
       failureStage = "account_and_audit_write";
@@ -196,20 +195,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           (request.headers.get("User-Agent") || "").slice(0, 500),
         ),
       ];
-      if (access.role === "dojo") {
-        statements.splice(
-          1,
-          0,
-          ...access.allowedDojoIds.map((dojoId) =>
-            env
-              .STUDENT_DB!.prepare(
-                `INSERT OR IGNORE INTO admin_account_dojos
-          (account_id, dojo_id, created_at) VALUES (?, ?, ?)`,
-              )
-              .bind(access.accountId, dojoId, now),
-          ),
-        );
-      }
       await env.STUDENT_DB.batch(statements);
     }
     failureStage = "session_cookie";

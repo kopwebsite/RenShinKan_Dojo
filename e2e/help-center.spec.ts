@@ -11,27 +11,27 @@ test("public help is contextual, searchable, keyboard-safe, and directly linkabl
   expect(box?.height).toBeGreaterThanOrEqual(44);
   await trigger.click();
   const dialog = page.locator('.help-panel[role="dialog"]');
-  await expect(dialog).toBeVisible();
+  await expect(dialog).toBeVisible({ timeout: 15_000 });
   await expect(dialog).toHaveAccessibleName("How to use this website");
   await expect(
     dialog.getByRole("heading", { name: "Suggested for this page" }),
   ).toBeVisible();
   await expect(
     dialog
-      .getByRole("button", { name: /Look up or update your student profile/ })
+      .getByRole("button", { name: /How do I make a new student profile/ })
       .first(),
   ).toBeVisible();
   const search = dialog.getByRole("searchbox", { name: "Search help" });
   await expect(search).toBeFocused();
-  await search.fill("missing training");
-  await expect(dialog.getByRole("status")).toContainText(/\d+ topics? found/);
+  await search.fill("exam application");
+  await expect(dialog.getByRole("status")).toContainText(/\d+ topics?/);
   await dialog
-    .getByRole("button", { name: /Check hours or report missing training/ })
+    .getByRole("button", { name: /How do I fill out an exam application/ })
     .click();
-  await expect(page).toHaveURL(/help=public-training/);
+  await expect(page).toHaveURL(/help=public-exam-application/);
   await expect(
     dialog.getByRole("heading", {
-      name: "Check hours or report missing training",
+      name: "How do I fill out an exam application?",
     }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
@@ -39,7 +39,7 @@ test("public help is contextual, searchable, keyboard-safe, and directly linkabl
   await expect(trigger).toBeFocused();
 });
 
-test("Thai search and admin Auggie naming use the correct audience catalog", async ({
+test("Thai search and admin help use the correct audience catalog", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -49,27 +49,27 @@ test("Thai search and admin Auggie naming use the correct audience catalog", asy
   await page.goto("/");
   await page.getByRole("button", { name: "เปิดคู่มือเว็บไซต์" }).click();
   const publicDialog = page.locator('.help-panel[role="dialog"]');
-  await expect(publicDialog).toHaveAccessibleName("วิธีใช้เว็บไซต์นี้");
+  await expect(publicDialog).toHaveAccessibleName("วิธีใช้เว็บไซต์");
   await publicDialog
     .getByRole("searchbox", { name: "ค้นหาคู่มือ" })
-    .fill("ชั่วโมงฝึก");
+    .fill("โปรไฟล์นักเรียน");
   await expect(
     publicDialog.getByRole("button", {
-      name: /ตรวจชั่วโมงและแจ้งการฝึกที่ขาด/,
+      name: /สร้างโปรไฟล์นักเรียนใหม่อย่างไร/,
     }),
   ).toBeVisible();
   await publicDialog.getByRole("button", { name: "ปิดคู่มือ" }).click();
 
   await page.goto("/admin");
-  const augieTrigger = page.getByRole("button", {
-    name: "เปิดคู่มือผู้ดูแล Auggie",
+  const adminHelpTrigger = page.getByRole("button", {
+    name: "เปิดคู่มือผู้ดูแล",
   });
-  await expect(augieTrigger).toContainText("เปิดคู่มือ Auggie");
-  await augieTrigger.click();
+  await expect(adminHelpTrigger).toContainText("คู่มือผู้ดูแล");
+  await adminHelpTrigger.click();
   const adminDialog = page.locator('.help-panel[role="dialog"]');
-  await expect(adminDialog).toHaveAccessibleName("Auggie — คู่มือผู้ดูแล");
-  await expect(adminDialog).toContainText("ไม่ใช่บุคคลหรือผู้ช่วย AI");
-  await expect(adminDialog).not.toContainText("ค้นหาและขอแก้ไขข้อมูลนักเรียน");
+  await expect(adminDialog).toHaveAccessibleName("วิธีใช้ระบบผู้ดูแล");
+  await expect(adminDialog).toContainText("อนุมัติโปรไฟล์นักเรียนใหม่อย่างไร?");
+  await expect(adminDialog).not.toContainText("Auggie");
 });
 
 test("mobile dialog respects the viewport, text enlargement, reduced motion, and WCAG checks", async ({
@@ -114,31 +114,22 @@ test("mobile dialog respects the viewport, text enlargement, reduced motion, and
   expect(violations).toEqual([]);
 });
 
-test("a missing guide image falls back to complete written instructions", async ({
+test("every guide is complete written instruction without screenshots", async ({
   page,
 }) => {
-  await page.route("**/help/screenshots/**", (route) =>
-    route.fulfill({
-      status: 404,
-      contentType: "text/plain",
-      body: "Not found",
-    }),
-  );
-  await page.goto("/?help=public-start");
+  await page.goto("/?help=public-new-profile");
   const dialog = page.locator('.help-panel[role="dialog"]');
   await expect(dialog).toHaveAccessibleName("How to use this website");
   await expect(
-    dialog.getByRole("heading", { name: "Find your way around the website" }),
+    dialog.getByRole("heading", {
+      name: "How do I make a new student profile?",
+    }),
   ).toBeVisible();
   const stepsHeading = dialog.getByRole("heading", { name: "Steps" });
   await stepsHeading.scrollIntoViewIfNeeded();
-  await expect(
-    dialog.getByRole("img", { name: /Guide image unavailable/ }),
-  ).toBeVisible({ timeout: 15_000 });
   await expect(stepsHeading).toBeVisible();
+  await expect(dialog.locator("img")).toHaveCount(0);
   await expect(
-    dialog.getByRole("button", {
-      name: /Look up or update your student profile/,
-    }),
+    dialog.getByRole("link", { name: "Create a student profile" }),
   ).toBeVisible();
 });

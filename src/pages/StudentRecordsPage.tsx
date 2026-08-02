@@ -32,7 +32,7 @@ import {
 } from "../components/GregorianDateInput";
 import type { StudentPassportRecord } from "../types/studentRecord";
 import { prepareProfilePhoto } from "../utils/profilePhoto";
-import { useTranslation, type Language } from "../i18n";
+import { useTranslation } from "../i18n";
 import { useEditableContent } from "../lib/content";
 import { formatGregorianMonth } from "../../shared/date";
 import { useScopedRecordTranslations } from "../i18n/scopedRecords";
@@ -122,31 +122,6 @@ const EMPTY_EXAM: ExamDraft = {
   gamesExperience: "",
   applicantSignature: "",
   promiseAccepted: false,
-};
-
-const AAT_PAYMENT_HELP: Record<
-  Language,
-  { status: string; explanation: string }
-> = {
-  en: {
-    status: "Not yet paid or payment date unknown.",
-    explanation:
-      "Aikido members from all participating dojos are requested to make an annual contribution to the Aikido Association of Thailand.",
-  },
-  th: {
-    status: "ยังไม่ได้ชำระหรือไม่ทราบวันที่ชำระ",
-    explanation:
-      "สมาชิกไอคิโดจากโดโจที่เข้าร่วมทุกแห่งได้รับการขอความร่วมมือให้ชำระเงินสนับสนุนรายปีแก่สมาคมไอคิโดแห่งประเทศไทย",
-  },
-  ja: {
-    status: "未納、または支払日が不明です。",
-    explanation:
-      "参加するすべての道場の合気道会員には、タイ合気道協会への年会費の納付をお願いしています。",
-  },
-  "zh-CN": {
-    status: "尚未缴费或缴费日期未知。",
-    explanation: "所有参与道场的合气道会员均需每年向泰国合气道协会缴纳会费。",
-  },
 };
 
 const PHONE_COUNTRIES = [
@@ -529,13 +504,17 @@ function LookupWorkflow({ initialResult = null }: { initialResult?: LookupResult
           </label>
           <label htmlFor="record-student-id">
             Student ID{" "}
-            <small id="record-student-id-format">Example: RSK-2601.</small>
+            <small id="record-student-id-format">Example: RSK-6901.</small>
             <input
               id="record-student-id"
               name="studentId"
               value={studentId}
-              onChange={(event) => { setStudentId(event.target.value.toUpperCase()); setFieldErrors((current) => ({ ...current, studentId: undefined })); }}
-              placeholder="RSK-2601"
+              onChange={(event) => { setStudentId(event.target.value.toUpperCase()); setFieldErrors((current) => ({
+                  ...current,
+                  studentId: undefined,
+                }));
+              }}
+              placeholder="RSK-6901"
               aria-invalid={Boolean(fieldErrors.studentId)}
               aria-describedby={`record-student-id-format${fieldErrors.studentId ? " record-student-id-error" : ""}`}
               required
@@ -633,10 +612,6 @@ function LookupWorkflow({ initialResult = null }: { initialResult?: LookupResult
           >
             <div className="admin-span-2">
               <h3>Submit additional training hours</h3>
-              <p>
-                A sensei will review the source and date before the approved
-                total changes.
-              </p>
             </div>
             <label>
               Training date
@@ -750,8 +725,6 @@ function ProfileWorkflow({ onOpenRecord, onBack }: {
   onOpenRecord: (result: LookupResult) => void;
   onBack: () => void;
 }) {
-  const { language } = useTranslation();
-  const aatHelp = AAT_PAYMENT_HELP[language];
   const [draft, setDraft] = useState({
     englishName: "",
     thaiName: "",
@@ -1104,8 +1077,9 @@ function ProfileWorkflow({ onOpenRecord, onBack }: {
               <div className="student-aat-note">
                 <Info aria-hidden="true" />
                 <div>
-                  <strong title={aatHelp.status}>No membership yet?</strong>
-                  <p>You can finish the AAT application after creating your profile.</p>
+                  <strong>No membership yet?</strong>
+                  <p>
+                    You can finish the AAT application after creating your profile.</p>
                 </div>
               </div>
             )}
@@ -1246,9 +1220,7 @@ function ExamWorkflow() {
         <p className="eyebrow">Application {applicationId.slice(0, 8)}</p>
         <h2>Application submitted · payment still required</h2>
         <p>
-          The application and payment are separate statuses. Your application is
-          recorded; the payment remains pending until a sensei approves the
-          uploaded proof.
+          Your application is recorded. Upload payment proof below to continue.
         </p>
         <div className="exam-fee-summary">
           <span>Examination fee snapshot</span>
@@ -1412,7 +1384,7 @@ function ExamWorkflow() {
           />
         </label>
         <label>
-          <ExamFieldCopy label="Student ID" help="Example: RSK-2601." />
+          <ExamFieldCopy label="Student ID" help="Example: RSK-6901." />
           <input
             name="studentId"
             value={draft.studentId}

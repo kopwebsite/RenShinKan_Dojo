@@ -120,6 +120,10 @@ export function bangkokGregorianYear(value = new Date()) {
   return Number(bangkokCanonicalDate(value).slice(0, 4));
 }
 
+export function bangkokBuddhistYear(value = new Date()) {
+  return bangkokGregorianYear(value) + 543;
+}
+
 export function currentBangkokMonthKey(value = new Date()) {
   return bangkokCanonicalDate(value).slice(0, 7);
 }

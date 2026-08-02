@@ -69,13 +69,41 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   const query = cleanText(url.searchParams.get("query"), 120);
-  const status = cleanText(url.searchParams.get("status"), 30);
-  const page = Math.max(1, Number.parseInt(url.searchParams.get("page") || "1", 10) || 1);
+  const paymentStatus = cleanText(
+    url.searchParams.get("paymentStatus") || url.searchParams.get("status"),
+    30,
+  );
+  const examinationStatus = cleanText(
+    url.searchParams.get("examinationStatus"),
+    30,
+  );
+  const rank = cleanText(url.searchParams.get("rank"), 80);
+  const dojoId = cleanText(url.searchParams.get("dojoId"), 80);
+  const sort = cleanText(url.searchParams.get("sort"), 30);
+  const page = Math.max(
+    1,
+    Number.parseInt(url.searchParams.get("page") || "1", 10) || 1,
+  );
   const pageSize = 50;
   const conditions: string[] = [];
   const filterBindings: unknown[] = [];
   if (recordsOnly) conditions.push("application_id IS NOT NULL");
-  if (status) { conditions.push("status = ?"); filterBindings.push(status); }
+  if (paymentStatus === "paid" || paymentStatus === "unpaid") {
+    conditions.push("status = ?");
+    filterBindings.push(paymentStatus);
+  }
+  if (examinationStatus === "not_signed_up")
+    conditions.push("status = 'not_signed_up'");
+  if (examinationStatus === "applied")
+    conditions.push("status IN ('unpaid', 'paid')");
+  if (rank) {
+    conditions.push("current_rank = ? COLLATE NOCASE");
+    filterBindings.push(rank);
+  }
+  if (dojoId && isRenShinKanSuperAdmin(session)) {
+    conditions.push("dojo_id = ?");
+    filterBindings.push(dojoId);
+  }
   if (query) {
     const prefix = `${escapeLike(query)}%`;
     conditions.push("(student_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR public_student_id LIKE ? ESCAPE '\\' COLLATE NOCASE)");
@@ -129,10 +157,33 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const total = Number((countResult.results?.[0] as { total?: number } | undefined)?.total || 0);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, totalPages);
-  const students = ((await db.prepare(`${base} SELECT * FROM roster ${filteredWhere}
-    ORDER BY student_name COLLATE NOCASE, public_student_id COLLATE NOCASE LIMIT ? OFFSET ?`)
-    .bind(...rosterBindings, ...filterBindings, pageSize, (safePage - 1) * pageSize).all<RosterRow>()).results || []);
-  const summaryRow = (summaryResult.results?.[0] || {}) as Record<string, unknown>;
+  const orderBy =
+    sort === "studentId"
+      ? "public_student_id COLLATE NOCASE"
+      : sort === "rank"
+        ? "current_rank COLLATE NOCASE, student_name COLLATE NOCASE"
+        : sort === "submitted"
+          ? "application_date DESC, student_name COLLATE NOCASE"
+          : "student_name COLLATE NOCASE, public_student_id COLLATE NOCASE";
+  const students =
+    (
+      await db
+        .prepare(
+          `${base} SELECT * FROM roster ${filteredWhere}
+    ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
+        )
+        .bind(
+          ...rosterBindings,
+          ...filterBindings,
+          pageSize,
+          (safePage - 1) * pageSize,
+        )
+        .all<RosterRow>()
+    ).results || [];
+  const summaryRow = (summaryResult.results?.[0] || {}) as Record<
+    string,
+    unknown
+  >;
   const summary = {
     total: Number(summaryRow.total || 0),
     not_signed_up: Number(summaryRow.not_signed_up || 0),

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, ChevronLeft, ChevronRight, LoaderCircle, ReceiptText, Search, UserRound, X } from "lucide-react";
 import { adminApi, adminStatusLabel, formatAdminDate } from "./adminApi";
 import { formatGregorianMonth } from "../../../shared/date";
+import { RANKS } from "../../../shared/ranks";
 
 type ContributionStatus = "no_submission" | "awaiting_payment" | "paid";
 type Contribution = {
@@ -53,8 +54,14 @@ export function AdminMonthlyContributions({ report }: { report: (message: string
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<ContributionStatus | "">(() => {
     const value = new URLSearchParams(window.location.search).get("status") || "";
-    return value === "no_submission" || value === "awaiting_payment" || value === "paid" ? value : "";
+    return value === "no_submission" || value === "awaiting_payment" ||
+      value === "paid"
+      ? value
+      : "";
   });
+  const [rank, setRank] = useState("");
+  const [lastPaid, setLastPaid] = useState("");
+  const [sort, setSort] = useState("name");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pending, setPending] = useState<PendingChange | null>(null);
@@ -67,7 +74,11 @@ export function AdminMonthlyContributions({ report }: { report: (message: string
       if (month) params.set("month", month);
       if (query) params.set("query", query);
       if (status) params.set("status", status);
-      const body = await adminApi<Response>(`/api/admin/contributions?${params}`);
+      if (rank) params.set("rank", rank);
+      if (lastPaid) params.set("lastPaid", lastPaid);
+      params.set("sort", sort);
+      const body = await adminApi<Response>(
+        `/api/admin/contributions?${params}`);
       setData(body);
       if (!month) setMonth(body.month);
       setSelected((current) => new Set([...current].filter((id) => body.contributions.some((row) => row.student_id === id))));
@@ -78,9 +89,12 @@ export function AdminMonthlyContributions({ report }: { report: (message: string
     }
   }
 
-  useEffect(() => { void load(); }, [page, month, query, status]);
+  useEffect(() => {
+    void load();
+  }, [page, month, query, status, rank, lastPaid, sort]);
 
-  const allVisibleSelected = data.contributions.length > 0 && data.contributions.every((row) => selected.has(row.student_id));
+  const allVisibleSelected =
+    data.contributions.length > 0 && data.contributions.every((row) => selected.has(row.student_id));
   const pendingNames = useMemo(() => data.contributions.filter((row) => pending?.studentIds.includes(row.student_id)), [data.contributions, pending]);
 
   async function updateStatus() {
@@ -130,8 +144,76 @@ export function AdminMonthlyContributions({ report }: { report: (message: string
 
     <form className="admin-record-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(queryInput.trim()); }}>
       <label className="admin-search-wide">Search students<div><Search size={17} /><input value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="Name or Student ID" /><button className="btn-secondary">Search</button></div></label>
-      <label>Status<select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="">All statuses</option><option value="no_submission">No submission</option><option value="awaiting_payment">Awaiting payment</option><option value="paid">Paid</option></select></label>
-      {(query || status) ? <button type="button" className="btn-secondary" onClick={() => { setQueryInput(""); setQuery(""); setStatus(""); setPage(1); }}>Clear filters</button> : null}
+      <label>Status<select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="">All statuses</option><option value="no_submission">No submission</option><option value="awaiting_payment">Awaiting payment</option><option value="paid">Paid</option>
+          </select>
+        </label>
+        <label>
+          Current rank
+          <select
+            value={rank}
+            onChange={(event) => {
+              setRank(event.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">All ranks</option>
+            {RANKS.map((value) => (
+              <option key={value}>{value}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Last paid
+          <select
+            value={lastPaid}
+            onChange={(event) => {
+              setLastPaid(event.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">Any date</option>
+            <option value="recorded">Date recorded</option>
+            <option value="never">Not paid</option>
+          </select>
+        </label>
+        <label>
+          Sort order
+          <select
+            value={sort}
+            onChange={(event) => {
+              setSort(event.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="name">Name</option>
+            <option value="studentId">Student ID</option>
+            <option value="rank">Current rank</option>
+            <option value="lastPaid">Last paid</option>
+          </select>
+        </label>
+        <label>
+          Dojo
+          <select value="dojo-rsk" disabled>
+            <option value="dojo-rsk">RenShinKan Dojo</option>
+          </select>
+        </label>
+        {query || status || rank || lastPaid || sort !== "name" ? (
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => {
+              setQueryInput("");
+              setQuery("");
+              setStatus("");
+              setRank("");
+              setLastPaid("");
+              setSort("name");
+              setPage(1);
+            }}
+          >
+            Clear filters
+          </button>
+        ) : null}
     </form>
 
     {selected.size ? <aside className="admin-bulk-toolbar"><strong>{selected.size} selected</strong>{(["no_submission", "awaiting_payment", "paid"] as ContributionStatus[]).map((value) => <button key={value} className="btn-secondary" onClick={() => setPending({ status: value, studentIds: [...selected], note: "", amount: "", reference: "" })}>{adminStatusLabel(value)}</button>)}<button className="text-link" onClick={() => setSelected(new Set())}>Clear selection</button></aside> : null}

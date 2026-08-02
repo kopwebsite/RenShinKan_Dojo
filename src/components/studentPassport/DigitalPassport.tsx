@@ -6,6 +6,8 @@ import {
   Camera,
   CalendarDays,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   CircleX,
   Clock3,
   ExternalLink,
@@ -195,36 +197,115 @@ function TrainingPage({ record, owner }: { record: PublicStudentRecord | Student
   const [page, setPage] = useState(1);
   const pageSize = 10;
   const pageCount = Math.max(1, Math.ceil(entries.length / pageSize));
-  const visibleEntries = fullHistory ? entries.slice((page - 1) * pageSize, page * pageSize) : entries.slice(0, 5);
-  return <div className={styles.spread}>
-    <PassportPage folio="03" eyebrow="稽古記録 / TRAINING" title="Verified Training">
-      <div className={styles.hoursHero}><Clock3 aria-hidden="true" /><strong>{record.totalVerifiedTrainingHours}</strong><span>verified hours</span></div>
-      <div className={styles.officialNote}><CheckCircle2 aria-hidden="true" /><p>Only hours approved by an authorized dojo administrator are included in this total.</p></div>
-      {owner?.practiceDuration ? <dl className={styles.printedFields}><div><dt>PRACTICE DURATION</dt><dd>{owner.practiceDuration}</dd></div></dl> : null}
-    </PassportPage>
-    <PassportPage folio="04" eyebrow="LEDGER / 台帳" title={fullHistory ? "Full Training History" : "Recent Entries"}>
-      {entries.length ? <div className={styles.ledger} role="table" aria-label="Verified training entries">
-        <div className={styles.ledgerHead} role="row"><span role="columnheader">Date</span><span role="columnheader">Hours</span><span role="columnheader">Details</span><span role="columnheader">Status</span></div>
-        {visibleEntries.map((entry) => <div className={styles.ledgerRow} role="row" key={entry.id}>
-          <time role="cell">{date(entry.entryDate)}</time><strong role="cell">{entry.hours} hr</strong>
-          <span role="cell">{trainingDetails(entry)}</span><span role="cell" className={styles.verifiedInk}><CheckCircle2 aria-hidden="true" /> Verified</span>
-        </div>)}
-      </div> : <EmptyState Icon={Clock3}
-        title={owner ? "No individual entries yet" : "Verified total only"}
-        copy={owner
-          ? "The verified total is still official. Detailed entries will appear here when the dojo records them."
-          : "This shared profile shows the approved total without private entry details."} />}
-      {entries.length > 5 ? <div className={styles.historyControls}>
-        <p>{fullHistory ? `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, entries.length)} of ${entries.length}` : `Showing 5 most recent of ${entries.length}`}</p>
-        {fullHistory ? <div>
-          <button type="button" disabled={page === 1} onClick={() => setPage((value) => value - 1)}>Previous</button>
-          <span>Page {page} of {pageCount}</span>
-          <button type="button" disabled={page === pageCount} onClick={() => setPage((value) => value + 1)}>Next</button>
-          <button type="button" onClick={() => { setFullHistory(false); setPage(1); }}>Back to recent</button>
-        </div> : <button type="button" onClick={() => setFullHistory(true)}>View full training history</button>}
-      </div> : null}
-    </PassportPage>
-  </div>;
+  const visibleEntries = fullHistory
+    ? entries.slice((page - 1) * pageSize, page * pageSize)
+    : entries.slice(0, 5);
+  return (
+    <div className={styles.spread}>
+      <PassportPage
+        folio="03"
+        eyebrow="稽古記録 / TRAINING"
+        title="Verified Training"
+      >
+        <div className={styles.hoursHero}>
+          <Clock3 aria-hidden="true" />
+          <strong>{record.totalVerifiedTrainingHours}</strong>
+          <span>verified hours</span>
+        </div>
+        {owner?.practiceDuration ? (
+          <dl className={styles.printedFields}>
+            <div>
+              <dt>PRACTICE DURATION</dt>
+              <dd>{owner.practiceDuration}</dd>
+            </div>
+          </dl>
+        ) : null}
+      </PassportPage>
+      <PassportPage
+        folio="04"
+        eyebrow="LEDGER / 台帳"
+        title={fullHistory ? "Full Training History" : "Recent Entries"}
+      >
+        {entries.length ? (
+          <div
+            className={styles.ledger}
+            role="table"
+            aria-label="Verified training entries"
+          >
+            <div className={styles.ledgerHead} role="row">
+              <span role="columnheader">Date</span>
+              <span role="columnheader">Hours</span>
+              <span role="columnheader">Details</span>
+              <span role="columnheader">Status</span>
+            </div>
+            {visibleEntries.map((entry) => (
+              <div className={styles.ledgerRow} role="row" key={entry.id}>
+                <time role="cell">{date(entry.entryDate)}</time>
+                <strong role="cell">{entry.hours} hr</strong>
+                <span role="cell">{trainingDetails(entry)}</span>
+                <span role="cell" className={styles.verifiedInk}>
+                  <CheckCircle2 aria-hidden="true" /> Verified
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            Icon={Clock3}
+            title={owner ? "No individual entries yet" : "Verified total only"}
+            copy={
+              owner
+                ? "The verified total is still official. Detailed entries will appear here when the dojo records them."
+                : "This shared profile shows the approved total without private entry details."
+            }
+          />
+        )}
+        {entries.length > 5 ? (
+          <div className={styles.historyControls}>
+            <p>
+              {fullHistory
+                ? `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, entries.length)} of ${entries.length}`
+                : `Showing 5 most recent of ${entries.length}`}
+            </p>
+            {fullHistory ? (
+              <div>
+                <button
+                  type="button"
+                  disabled={page === 1}
+                  onClick={() => setPage((value) => value - 1)}
+                >
+                  Previous
+                </button>
+                <span>
+                  Page {page} of {pageCount}
+                </span>
+                <button
+                  type="button"
+                  disabled={page === pageCount}
+                  onClick={() => setPage((value) => value + 1)}
+                >
+                  Next
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFullHistory(false);
+                    setPage(1);
+                  }}
+                >
+                  Back to recent
+                </button>
+              </div>
+            ) : (
+              <button type="button" onClick={() => setFullHistory(true)}>
+                View full training history
+              </button>
+            )}
+          </div>
+        ) : null}
+      </PassportPage>
+    </div>
+  );
 }
 
 function ExaminationPage({ record }: { record: PublicStudentRecord }) {
@@ -238,40 +319,145 @@ function ExaminationPage({ record }: { record: PublicStudentRecord }) {
   const visibleExams = fullHistory ? exams.slice((page - 1) * pageSize, page * pageSize) : exams.slice(0, 5);
   const latest = exams[0];
   const latestResult = latest ? examinationResult(latest) : null;
-  return <div className={styles.spread}>
-    <PassportPage folio="05" eyebrow="審査記録 / EXAMINATION" title="Rank Progression">
-      {latest ? <div className={styles.latestRank}>
-        <p className={styles.microLabel}>LATEST RECORDED RESULT</p><BeltMark rank={rankLabel(latest)} legacyColor={latest.belt_color} />
-        <h4>{rankLabel(latest)}</h4><p>{date(latest.examination_date)}</p>
-        {latestResult ? <span className={latestResult.className}>{latestResult.label}</span> : null}
-      </div> : <EmptyState Icon={GraduationCap} title="No examinations recorded" copy="Approved examination results will appear in the official ledger." />}
-      <p className={styles.archiveNote}>The ledger follows the student’s recorded progression and does not create missing ranks or dates.</p>
-    </PassportPage>
-    <PassportPage folio="06" eyebrow="KYU / DAN LEDGER" title={fullHistory ? "Full Examination History" : "Recent Examination History"}>
-      {exams.length ? <div className={`${styles.ledger} ${styles.examLedger}`} role="table" aria-label="Examination history">
-        <div className={styles.ledgerHead} role="row"><span role="columnheader">Rank</span><span role="columnheader">Date</span><span role="columnheader">Examiner / place</span><span role="columnheader">Result</span></div>
-        {visibleExams.map((exam, index) => {
-          const result = examinationResult(exam);
-          return <div className={styles.ledgerRow} role="row" key={exam.id || `${exam.examination_date}-${rankLabel(exam)}-${index}`}>
-            <strong role="cell"><BeltMark rank={rankLabel(exam)} legacyColor={exam.belt_color} /> {rankLabel(exam)}</strong>
-            <time role="cell">{date(exam.examination_date)}</time>
-            <span role="cell">{exam.examiner || exam.examination_location || "Not recorded"}</span>
-            <span role="cell" className={result.className}><result.Icon aria-hidden="true" />{result.label}</span>
-            {exam.public_notes ? <p className={styles.rowNote}>{exam.public_notes}</p> : null}
-          </div>;
-        })}
-      </div> : <EmptyState Icon={GraduationCap} title="No examination history" copy="There are no approved examination entries on this record yet." />}
-      {exams.length > 5 ? <div className={styles.historyControls}>
-        <p>{fullHistory ? `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, exams.length)} of ${exams.length}` : `Showing 5 most recent of ${exams.length}`}</p>
-        {fullHistory ? <div>
-          <button type="button" disabled={page === 1} onClick={() => setPage((value) => value - 1)}>Previous</button>
-          <span>Page {page} of {pageCount}</span>
-          <button type="button" disabled={page === pageCount} onClick={() => setPage((value) => value + 1)}>Next</button>
-          <button type="button" onClick={() => { setFullHistory(false); setPage(1); }}>Back to recent</button>
-        </div> : <button type="button" onClick={() => setFullHistory(true)}>View full examination history</button>}
-      </div> : null}
-    </PassportPage>
-  </div>;
+  return (
+    <div className={styles.spread}>
+      <PassportPage
+        folio="05"
+        eyebrow="審査記録 / EXAMINATION"
+        title="Rank Progression"
+      >
+        {latest ? (
+          <div className={styles.latestRank}>
+            <p className={styles.microLabel}>LATEST RECORDED RESULT</p>
+            <BeltMark
+              rank={rankLabel(latest)}
+              legacyColor={latest.belt_color}
+            />
+            <h4>{rankLabel(latest)}</h4>
+            <p>{date(latest.examination_date)}</p>
+            {latestResult ? (
+              <span className={latestResult.className}>
+                {latestResult.label}
+              </span>
+            ) : null}
+          </div>
+        ) : (
+          <EmptyState
+            Icon={GraduationCap}
+            title="No examinations recorded"
+            copy="Approved examination results will appear in the official ledger."
+          />
+        )}
+      </PassportPage>
+      <PassportPage
+        folio="06"
+        eyebrow="KYU / DAN LEDGER"
+        title={
+          fullHistory
+            ? "Full Examination History"
+            : "Recent Examination History"
+        }
+      >
+        {exams.length ? (
+          <div
+            className={`${styles.ledger} ${styles.examLedger}`}
+            role="table"
+            aria-label="Examination history"
+          >
+            <div className={styles.ledgerHead} role="row">
+              <span role="columnheader">Rank</span>
+              <span role="columnheader">Date</span>
+              <span role="columnheader">Examiner / place</span>
+              <span role="columnheader">Result</span>
+            </div>
+            {visibleExams.map((exam, index) => {
+              const result = examinationResult(exam);
+              return (
+                <div
+                  className={styles.ledgerRow}
+                  role="row"
+                  key={
+                    exam.id ||
+                    `${exam.examination_date}-${rankLabel(exam)}-${index}`
+                  }
+                >
+                  <strong role="cell">
+                    <BeltMark
+                      rank={rankLabel(exam)}
+                      legacyColor={exam.belt_color}
+                    />{" "}
+                    {rankLabel(exam)}
+                  </strong>
+                  <time role="cell">{date(exam.examination_date)}</time>
+                  <span role="cell">
+                    {exam.examiner ||
+                      exam.examination_location ||
+                      "Not recorded"}
+                  </span>
+                  <span role="cell" className={result.className}>
+                    <result.Icon aria-hidden="true" />
+                    {result.label}
+                  </span>
+                  {exam.public_notes ? (
+                    <p className={styles.rowNote}>{exam.public_notes}</p>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <EmptyState
+            Icon={GraduationCap}
+            title="No examination history"
+            copy="There are no approved examination entries on this record yet."
+          />
+        )}
+        {exams.length > 5 ? (
+          <div className={styles.historyControls}>
+            <p>
+              {fullHistory
+                ? `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, exams.length)} of ${exams.length}`
+                : `Showing 5 most recent of ${exams.length}`}
+            </p>
+            {fullHistory ? (
+              <div>
+                <button
+                  type="button"
+                  disabled={page === 1}
+                  onClick={() => setPage((value) => value - 1)}
+                >
+                  Previous
+                </button>
+                <span>
+                  Page {page} of {pageCount}
+                </span>
+                <button
+                  type="button"
+                  disabled={page === pageCount}
+                  onClick={() => setPage((value) => value + 1)}
+                >
+                  Next
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFullHistory(false);
+                    setPage(1);
+                  }}
+                >
+                  Back to recent
+                </button>
+              </div>
+            ) : (
+              <button type="button" onClick={() => setFullHistory(true)}>
+                View full examination history
+              </button>
+            )}
+          </div>
+        ) : null}
+      </PassportPage>
+    </div>
+  );
 }
 
 function aatStatus(entry: PassportAatContribution) {
@@ -354,88 +540,361 @@ const AAT_ONLINE_REGISTRATION_URL = "https://thaiaikikai-registration.com/forms"
 function PaymentAlerts({ record, openTab }: { record: StudentPassportRecord; openTab: (tab: PassportTab) => void }) {
   const { t } = useTranslation();
   const alerts = record.paymentAlerts || [];
-  if (!alerts.length) {
-    return <section className={`${styles.paymentAlerts} ${styles.paymentAlertsClear}`} aria-label={t("studentAlerts.title")}>
-      <CheckCircle2 aria-hidden="true" />
-      <p><strong>{t("studentAlerts.clearTitle")}</strong><span>{t("studentAlerts.clearCopy")}</span></p>
-    </section>;
-  }
+  const [index, setIndex] = useState(0);
+  useEffect(
+    () => setIndex((value) => Math.min(value, Math.max(0, alerts.length - 1))),
+    [alerts.length],
+  );
+  if (!alerts.length) return null;
+  const alert = alerts[index];
 
   function alertCopy(alert: PassportPaymentAlert) {
-    if (alert.type === "monthly_contribution") return {
-      title: t("studentAlerts.monthlyTitle"),
-      copy: alert.status === "under_review" ? t("studentAlerts.monthlyReview") : t("studentAlerts.monthlyCopy"),
-      label: alert.period ? formatGregorianMonth(alert.period, alert.period) : "",
-    };
-    if (alert.type === "aat_membership") return {
-      title: t("studentAlerts.aatTitle"),
-      copy: alert.status === "under_review" ? t("studentAlerts.aatReview") : t("studentAlerts.aatCopy"),
-      label: "",
-    };
+    if (alert.type === "monthly_missing")
+      return {
+        title: t("studentAlerts.monthlyTitle"),
+        copy: t("studentAlerts.monthlyCopy"),
+        label: alert.period
+          ? formatGregorianMonth(alert.period, alert.period)
+          : "",
+      };
+    if (alert.type === "aat_number_missing")
+      return {
+        title: t("studentAlerts.aatNumberTitle"),
+        copy: t("studentAlerts.aatNumberCopy"),
+        label: "",
+      };
+    if (alert.type === "aat_contribution_due")
+      return {
+        title: t("studentAlerts.aatTitle"),
+        copy: t("studentAlerts.aatCopy"),
+        label: "",
+      };
     return {
-      title: t("studentAlerts.examTitle"),
-      copy: alert.status === "under_review" ? t("studentAlerts.examReview") : t("studentAlerts.examCopy"),
+      title: t("studentAlerts.examApplicationTitle"),
+      copy: t("studentAlerts.examApplicationCopy"),
       label: alert.attemptedRank || "",
     };
   }
 
-  return <section className={styles.paymentAlerts} aria-labelledby="student-payment-alerts-title">
-    <header><AlertTriangle aria-hidden="true" /><div><p>{t("studentAlerts.eyebrow")}</p><h2 id="student-payment-alerts-title">{t("studentAlerts.title")}</h2></div><span>{alerts.length}</span></header>
-    <div>{alerts.map((alert) => {
-      const copy = alertCopy(alert);
-      const paymentLabel = alert.type === "monthly_contribution"
-        ? `${copy.label} monthly contribution`
-        : alert.type === "aat_membership" ? "AAT annual contribution" : `${copy.label} examination`;
-      return <article key={`${alert.type}:${alert.id}`}>
-        <div className={styles.paymentAlertCopy}><span className={alert.status === "under_review" ? styles.alertReview : styles.alertAction}>{alert.status === "under_review" ? t("studentAlerts.underReview") : t("studentAlerts.actionRequired")}</span><h3>{copy.title}{copy.label ? `: ${copy.label}` : ""}</h3><p>{copy.copy}</p></div>
-        <div className={styles.paymentAlertActions}>
-          {alert.type === "monthly_contribution" ? <><button type="button" onClick={() => openTab("contributions")}>{t("studentAlerts.openContributions")}</button><a href="/support#monthly-contribution">{t("studentAlerts.payOnline")}</a></> : null}
-          {alert.type === "aat_membership" ? <><button type="button" onClick={() => openTab("contributions")}>{t("studentAlerts.openContributions")}</button><a href="/support#monthly-contribution">{t("studentAlerts.payOnline")}</a><a href="/downloads/aat-membership-application-en-th-2026.pdf" download>{t("studentAlerts.downloadForm")}</a><a href={AAT_ONLINE_REGISTRATION_URL} target="_blank" rel="noopener noreferrer">{t("studentAlerts.registerOnline")}<span className="sr-only"> ({t("studentAlerts.opensNewWindow")})</span></a></> : null}
-          {alert.type === "examination_payment" ? <button type="button" onClick={() => openTab("requests")}>{t("studentAlerts.openRequests")}</button> : null}
+  const copy = alertCopy(alert);
+  const paymentLabel =
+    alert.type === "monthly_missing"
+      ? `${copy.label} monthly contribution`
+      : "AAT annual contribution";
+  function move(direction: number) {
+    setIndex((value) => (value + direction + alerts.length) % alerts.length);
+  }
+
+  return (
+    <section
+      className={styles.paymentAlerts}
+      aria-labelledby="student-payment-alerts-title"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          move(-1);
+        }
+        if (event.key === "ArrowRight") {
+          event.preventDefault();
+          move(1);
+        }
+      }}
+    >
+      <header>
+        <AlertTriangle aria-hidden="true" />
+        <div>
+          <p>{t("studentAlerts.eyebrow")}</p>
+          <h2 id="student-payment-alerts-title">{t("studentAlerts.title")}</h2>
         </div>
-        <ProofActions proof={alert.proof} record={record} paymentLabel={paymentLabel} />
-      </article>;
-    })}</div>
-  </section>;
+        <span>
+          {index + 1} / {alerts.length}
+        </span>
+      </header>
+      <div>
+        <article key={`${alert.type}:${alert.id}`}>
+          <div className={styles.paymentAlertCopy}>
+            <span className={styles.alertAction}>
+              {t("studentAlerts.actionRequired")}
+            </span>
+            <h3>
+              {copy.title}
+              {copy.label ? `: ${copy.label}` : ""}
+            </h3>
+            <p>{copy.copy}</p>
+          </div>
+          <div className={styles.paymentAlertActions}>
+            {alert.type === "monthly_missing" ? (
+              <>
+                <button type="button" onClick={() => openTab("contributions")}>
+                  {t("studentAlerts.openContributions")}
+                </button>
+                <a href="/support#monthly-contribution">
+                  {t("studentAlerts.payOnline")}
+                </a>
+              </>
+            ) : null}
+            {alert.type === "aat_number_missing" ? (
+              <>
+                <a
+                  href="/downloads/aat-membership-application-en-th-2026.pdf"
+                  download
+                >
+                  {t("studentAlerts.downloadForm")}
+                </a>
+                <a
+                  href={AAT_ONLINE_REGISTRATION_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {t("studentAlerts.registerOnline")}
+                  <span className="sr-only">
+                    {" "}
+                    ({t("studentAlerts.opensNewWindow")})
+                  </span>
+                </a>
+              </>
+            ) : null}
+            {alert.type === "aat_contribution_due" ? (
+              <>
+                <button type="button" onClick={() => openTab("contributions")}>
+                  {t("studentAlerts.openContributions")}
+                </button>
+                <a href="/support#monthly-contribution">
+                  {t("studentAlerts.payOnline")}
+                </a>
+              </>
+            ) : null}
+            {alert.type === "examination_application" ? (
+              <a href="/student-records?task=exam">
+                {t("studentAlerts.applyForExam")}
+              </a>
+            ) : null}
+          </div>
+          {alert.proof ? (
+            <ProofActions
+              proof={alert.proof}
+              record={record}
+              paymentLabel={paymentLabel}
+            />
+          ) : null}
+        </article>
+      </div>
+      {alerts.length > 1 ? (
+        <nav
+          className={styles.paymentAlertNavigation}
+          aria-label={t("studentAlerts.navigation")}
+        >
+          <button type="button" onClick={() => move(-1)}>
+            <ChevronLeft aria-hidden="true" /> {t("studentAlerts.previous")}
+          </button>
+          <span>
+            {t("studentAlerts.position", {
+              current: index + 1,
+              total: alerts.length,
+            })}
+          </span>
+          <button type="button" onClick={() => move(1)}>
+            {t("studentAlerts.next")} <ChevronRight aria-hidden="true" />
+          </button>
+        </nav>
+      ) : null}
+    </section>
+  );
 }
 
 function aatSummaryText(record: StudentPassportRecord) {
   const labels: Record<StudentPassportRecord["aatSummary"]["state"], string> = {
     up_to_date: "Your AAT annual membership payment is up to date.",
     due_soon: "Your next AAT annual contribution is due soon.",
-    payment_record_missing: "A current verified AAT annual payment is not recorded yet.",
-    payslip_needed: "Please upload a payment proof so the dojo can review this AAT contribution.",
-    submitted_for_review: "Your AAT payment proof is under review.",
+    payment_record_missing:
+      "A current verified AAT annual payment is not recorded yet.",
+    payslip_needed:
+      "Please upload a payment proof so the dojo can review this AAT contribution.",
+    submitted_for_review:
+      "A current AAT annual contribution has been submitted.",
     verified: "Your AAT annual contribution has been verified.",
   };
   return labels[record.aatSummary.state];
 }
 
+function HistoryPagination({
+  page,
+  pageCount,
+  total,
+  onChange,
+}: {
+  page: number;
+  pageCount: number;
+  total: number;
+  onChange: (page: number) => void;
+}) {
+  if (pageCount <= 1) return null;
+  const start = (page - 1) * 5 + 1;
+  const end = Math.min(page * 5, total);
+  return (
+    <nav className={styles.historyControls} aria-label="History pages">
+      <p>
+        Showing {start}–{end} of {total}
+      </p>
+      <div>
+        <button
+          type="button"
+          disabled={page <= 1}
+          onClick={() => onChange(page - 1)}
+        >
+          Previous
+        </button>
+        <span>
+          Page {page} of {pageCount}
+        </span>
+        <button
+          type="button"
+          disabled={page >= pageCount}
+          onClick={() => onChange(page + 1)}
+        >
+          Next
+        </button>
+      </div>
+    </nav>
+  );
+}
+
 function ContributionsPage({ record }: { record: StudentPassportRecord }) {
   const showMonthlyContributions = record.monthlyContributions !== null;
-  return <div className={`${styles.spread} ${showMonthlyContributions ? "" : styles.singlePageSpread}`}>
-    <PassportPage folio="07" eyebrow="AAT / 年会費" title="AAT Annual Contribution">
-      <p className={styles.sectionIntro}>Annual Aikido Association of Thailand records are kept separately from dojo monthly contributions.</p>
-      <div className={styles.officialNote}><ShieldCheck aria-hidden="true" /><p>{aatSummaryText(record)}{record.aatSummary.lastVerifiedPayment ? ` Last verified ${date(record.aatSummary.lastVerifiedPayment)}.` : ""}{record.aatSummary.nextDueDate ? ` Next due ${date(record.aatSummary.nextDueDate)}.` : ""}</p></div>
-      {record.aatContributions.length ? <div className={styles.stampGrid}>
-        {record.aatContributions.map((entry) => { const status = aatStatus(entry); return <article key={entry.id}>
-          <div><span>{entry.paymentDate.slice(0, 4)}</span><strong>{date(entry.paymentDate)}</strong></div>
-          <span className={status.className}><status.Icon aria-hidden="true" /> {status.label}</span>
-          <small>{entry.renewalDueDate ? `Renewal due ${date(entry.renewalDueDate)}` : "Renewal date not recorded"}{entry.amount !== null ? ` · ${entry.amount.toLocaleString()} ${entry.currency}` : ""}</small>
-          <ProofActions proof={entry.proof} record={record} paymentLabel="AAT annual contribution" />
-        </article>; })}
-      </div> : <EmptyState Icon={ReceiptText} title="No annual contribution history" copy="No approved or pending AAT annual contribution records are stored for this student." />}
-    </PassportPage>
-    {showMonthlyContributions ? <PassportPage folio="08" eyebrow="RENSHINKAN / 月謝" title="RenShinKan Monthly Contribution">
-      {record.monthlyContributions.length
-        ? <div className={styles.monthGrid}>{record.monthlyContributions.map((entry) => { const status = monthlyStatus(entry); return <article key={entry.id}>
-          <time>{month(entry.month)}</time><span className={status.className}><status.Icon aria-hidden="true" /> {status.label}</span>
-          <small>{entry.paidAt ? `Confirmed ${date(entry.paidAt)}` : entry.submittedAt ? `Submitted ${date(entry.submittedAt)}` : entry.expected ? "Payment is expected for this month" : "No payment submitted"}</small>
-          <ProofActions proof={entry.proof} record={record} paymentLabel={`${month(entry.month)} monthly contribution`} />
-        </article>; })}</div>
-        : <EmptyState Icon={CalendarDays} title="No monthly contribution history" copy="No RenShinKan monthly contribution records are stored for this student." />}
-    </PassportPage> : null}
-  </div>;
+  const pageSize = 5;
+  const [aatPage, setAatPage] = useState(1);
+  const [monthlyPage, setMonthlyPage] = useState(1);
+  const aatPageCount = Math.max(
+    1,
+    Math.ceil(record.aatContributions.length / pageSize),
+  );
+  const monthly = record.monthlyContributions || [];
+  const monthlyPageCount = Math.max(1, Math.ceil(monthly.length / pageSize));
+  const visibleAat = record.aatContributions.slice(
+    (aatPage - 1) * pageSize,
+    aatPage * pageSize,
+  );
+  const visibleMonthly = monthly.slice(
+    (monthlyPage - 1) * pageSize,
+    monthlyPage * pageSize,
+  );
+  return (
+    <div
+      className={`${styles.spread} ${showMonthlyContributions ? "" : styles.singlePageSpread}`}
+    >
+      <PassportPage
+        folio="07"
+        eyebrow="AAT / 年会費"
+        title="AAT Annual Contribution"
+      >
+        <div className={styles.officialNote}>
+          <ShieldCheck aria-hidden="true" />
+          <p>
+            {aatSummaryText(record)}
+            {record.aatSummary.lastVerifiedPayment
+              ? ` Last verified ${date(record.aatSummary.lastVerifiedPayment)}.`
+              : ""}
+            {record.aatSummary.nextDueDate
+              ? ` Next due ${date(record.aatSummary.nextDueDate)}.`
+              : ""}
+          </p>
+        </div>
+        {record.aatContributions.length ? (
+          <div className={styles.stampGrid}>
+            {visibleAat.map((entry) => {
+              const status = aatStatus(entry);
+              return (
+                <article key={entry.id}>
+                  <div>
+                    <span>{entry.paymentDate.slice(0, 4)}</span>
+                    <strong>{date(entry.paymentDate)}</strong>
+                  </div>
+                  <span className={status.className}>
+                    <status.Icon aria-hidden="true" /> {status.label}
+                  </span>
+                  <small>
+                    {entry.renewalDueDate
+                      ? `Renewal due ${date(entry.renewalDueDate)}`
+                      : "Renewal date not recorded"}
+                    {entry.amount !== null
+                      ? ` · ${entry.amount.toLocaleString()} ${entry.currency}`
+                      : ""}
+                  </small>
+                  <ProofActions
+                    proof={entry.proof}
+                    record={record}
+                    paymentLabel="AAT annual contribution"
+                  />
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <EmptyState
+            Icon={ReceiptText}
+            title="No annual contribution history"
+            copy="No approved or pending AAT annual contribution records are stored for this student."
+          />
+        )}
+        <HistoryPagination
+          page={aatPage}
+          pageCount={aatPageCount}
+          total={record.aatContributions.length}
+          onChange={setAatPage}
+        />
+      </PassportPage>
+      {showMonthlyContributions ? (
+        <PassportPage
+          folio="08"
+          eyebrow="RENSHINKAN / 月謝"
+          title="RenShinKan Monthly Contribution"
+        >
+          {monthly.length ? (
+            <div className={styles.monthGrid}>
+              {visibleMonthly.map((entry) => {
+                const status = monthlyStatus(entry);
+                return (
+                  <article key={entry.id}>
+                    <time>{month(entry.month)}</time>
+                    <span className={status.className}>
+                      <status.Icon aria-hidden="true" /> {status.label}
+                    </span>
+                    <small>
+                      {entry.paidAt
+                        ? `Confirmed ${date(entry.paidAt)}`
+                        : entry.submittedAt
+                          ? `Submitted ${date(entry.submittedAt)}`
+                          : entry.expected
+                            ? "Payment is expected for this month"
+                            : "No payment submitted"}
+                    </small>
+                    <ProofActions
+                      proof={entry.proof}
+                      record={record}
+                      paymentLabel={`${month(entry.month)} monthly contribution`}
+                    />
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState
+              Icon={CalendarDays}
+              title="No monthly contribution history"
+              copy="No RenShinKan monthly contribution records are stored for this student."
+            />
+          )}
+          <HistoryPagination
+            page={monthlyPage}
+            pageCount={monthlyPageCount}
+            total={monthly.length}
+            onChange={setMonthlyPage}
+          />
+        </PassportPage>
+      ) : null}
+    </div>
+  );
 }
 
 function requestStatus(request: PassportRequest) {
@@ -444,37 +903,136 @@ function requestStatus(request: PassportRequest) {
   return { label: "Denied", className: styles.statusDenied, Icon: CircleX };
 }
 
-function RequestsPage({ record, openContributions }: { record: StudentPassportRecord; openContributions: () => void }) {
-  const counts = record.requests.reduce((result, request) => ({ ...result, [request.status]: result[request.status] + 1 }), { approved: 0, pending: 0, denied: 0 });
-  const monthlyNotices = (record.monthlyContributions || []).filter((entry) => entry.status !== "paid").slice(0, 3);
-  return <div className={styles.spread}>
-    <PassportPage folio="09" eyebrow="申請状況 / REQUESTS" title="Payment & Record Notices">
-      <p className={styles.sectionIntro}>Profile, training, examination, contribution, and payment-proof workflows are listed newest first with the dojo’s current decision.</p>
-      <dl className={styles.requestSummary}>
-        <div><dt><CheckCircle2 aria-hidden="true" /> Approved</dt><dd>{counts.approved}</dd></div>
-        <div><dt><FileClock aria-hidden="true" /> Pending review</dt><dd>{counts.pending}</dd></div>
-        <div><dt><CircleX aria-hidden="true" /> Denied</dt><dd>{counts.denied}</dd></div>
-      </dl>
-      <div className={styles.officialNote}><ShieldCheck aria-hidden="true" /><p>Notes shown here are written for the student. Private administrator notes are never included in this passport.</p></div>
-      <div className={styles.noticeList}>
-        <article><strong>AAT annual contribution</strong><p>{aatSummaryText(record)}</p>{record.aatSummary.nextDueDate ? <small>Next expected date: {date(record.aatSummary.nextDueDate)}</small> : null}</article>
-        {record.monthlyContributions !== null ? monthlyNotices.length ? monthlyNotices.map((entry) => <article key={entry.id}><strong>{month(entry.month)} monthly contribution</strong><p>{entry.proof?.status === "pending_review" ? "A payment proof has been submitted and is waiting for review." : entry.proof?.status === "denied" ? "The payment proof needs to be replaced. Please review the note from your sensei." : "We do not currently have a verified payment proof for this month. You may add one if you have already contributed."}</p></article>) : <article><strong>RenShinKan monthly contribution</strong><p>Your contribution record appears complete.</p></article> : null}
-        <button type="button" onClick={openContributions}><ReceiptText aria-hidden="true" /> Open contribution details</button>
-      </div>
-    </PassportPage>
-    <PassportPage folio="10" eyebrow="REVIEW LEDGER" title="Request & Notice History">
-      {record.requests.length ? <div className={styles.requestList}>{record.requests.map((request) => { const status = requestStatus(request); return <article key={request.id}>
-        <header><div><p className={styles.microLabel}>{request.type.replace(/_/g, " ")}</p><h4>{request.title}</h4></div><span className={status.className}><status.Icon aria-hidden="true" /> {status.label}</span></header>
-        {request.previousValue || request.requestedValue ? <dl><div><dt>Previous / reference</dt><dd>{request.previousValue || "Not applicable"}</dd></div><div><dt>Requested / period</dt><dd>{request.requestedValue || request.period || "Not applicable"}</dd></div></dl> : null}
-        <p>Submitted {date(request.submittedAt)}{request.decisionAt ? ` · Decision ${date(request.decisionAt)}` : ""}</p>
-        <p>{request.explanation}</p>
-        {request.studentVisibleNote ? <blockquote><strong>Note from your sensei</strong><br />{request.studentVisibleNote}</blockquote> : null}
-        {request.status === "approved" ? <footer><CheckCircle2 aria-hidden="true" /> This workflow is approved or complete.</footer> : null}
-        {request.status === "pending" ? <footer><FileClock aria-hidden="true" /> This item is waiting for a sensei to review it.</footer> : null}
-        {request.status === "denied" ? <footer className={styles.deniedMessage}><CircleX aria-hidden="true" /> Please speak with a sensei if you have questions or need help.</footer> : null}
-      </article>; })}</div> : <EmptyState Icon={History} title="No requests or notices" copy="Requests submitted from this verified student record will appear here." />}
-    </PassportPage>
-  </div>;
+function RequestsPage({
+  record,
+  openContributions,
+}: {
+  record: StudentPassportRecord;
+  openContributions: () => void;
+}) {
+  const counts = record.requests.reduce(
+    (result, request) => ({
+      ...result,
+      [request.status]: result[request.status] + 1,
+    }),
+    { approved: 0, pending: 0, denied: 0 },
+  );
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(record.requests.length / 5));
+  const visibleRequests = record.requests.slice((page - 1) * 5, page * 5);
+  return (
+    <div className={styles.spread}>
+      <PassportPage
+        folio="09"
+        eyebrow="申請状況 / REQUESTS"
+        title="Request Summary"
+      >
+        <dl className={styles.requestSummary}>
+          <div>
+            <dt>
+              <CheckCircle2 aria-hidden="true" /> Approved
+            </dt>
+            <dd>{counts.approved}</dd>
+          </div>
+          <div>
+            <dt>
+              <FileClock aria-hidden="true" /> Pending review
+            </dt>
+            <dd>{counts.pending}</dd>
+          </div>
+          <div>
+            <dt>
+              <CircleX aria-hidden="true" /> Denied
+            </dt>
+            <dd>{counts.denied}</dd>
+          </div>
+        </dl>
+        <div className={styles.noticeList}>
+          <button type="button" onClick={openContributions}>
+            <ReceiptText aria-hidden="true" /> Open contribution history
+          </button>
+        </div>
+      </PassportPage>
+      <PassportPage
+        folio="10"
+        eyebrow="REVIEW LEDGER"
+        title="Request & Notice History"
+      >
+        {record.requests.length ? (
+          <div className={styles.requestList}>
+            {visibleRequests.map((request) => {
+              const status = requestStatus(request);
+              return (
+                <article key={request.id}>
+                  <header>
+                    <div>
+                      <p className={styles.microLabel}>
+                        {request.type.replace(/_/g, " ")}
+                      </p>
+                      <h4>{request.title}</h4>
+                    </div>
+                    <span className={status.className}>
+                      <status.Icon aria-hidden="true" /> {status.label}
+                    </span>
+                  </header>
+                  <p>
+                    Submitted {date(request.submittedAt)}
+                    {request.decisionAt
+                      ? ` · Decision ${date(request.decisionAt)}`
+                      : ""}
+                  </p>
+                  {request.previousValue ||
+                  request.requestedValue ||
+                  request.explanation ||
+                  request.studentVisibleNote ? (
+                    <details>
+                      <summary>View details</summary>
+                      {request.previousValue || request.requestedValue ? (
+                        <dl>
+                          <div>
+                            <dt>Previous / reference</dt>
+                            <dd>{request.previousValue || "Not applicable"}</dd>
+                          </div>
+                          <div>
+                            <dt>Requested / period</dt>
+                            <dd>
+                              {request.requestedValue ||
+                                request.period ||
+                                "Not applicable"}
+                            </dd>
+                          </div>
+                        </dl>
+                      ) : null}
+                      <p>{request.explanation}</p>
+                      {request.studentVisibleNote ? (
+                        <blockquote>
+                          <strong>Note from your sensei</strong>
+                          <br />
+                          {request.studentVisibleNote}
+                        </blockquote>
+                      ) : null}
+                    </details>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <EmptyState
+            Icon={History}
+            title="No requests or notices"
+            copy="Requests submitted from this verified student record will appear here."
+          />
+        )}
+        <HistoryPagination
+          page={page}
+          pageCount={pageCount}
+          total={record.requests.length}
+          onChange={setPage}
+        />
+      </PassportPage>
+    </div>
+  );
 }
 
 export function DigitalPassport({ record, onRecordChange }: {

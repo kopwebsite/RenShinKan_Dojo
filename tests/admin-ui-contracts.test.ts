@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const file = (path: string) => readFileSync(resolve(root, path), "utf8");
+const compact = (value: string) => value.replace(/\s+/g, " ");
 
 describe("unified administration UI contracts", () => {
   it("uses the role-aware shell for every administration route", () => {
@@ -13,15 +14,23 @@ describe("unified administration UI contracts", () => {
 
     expect(app).toContain("<AdminShell>");
     expect(app).toContain('path="/admin" element={<AdminDashboardPage />}');
-    expect(app).toContain('path="/admin/dashboard" element={<AdminDashboardPage />}');
+    expect(app).toContain(
+      'path="/admin/dashboard" element={<AdminDashboardPage />}',
+    );
     expect(app).toContain('path="/admin/website" element={<AdminPage />}');
-    expect(app).toContain('path="/admin/profile-requests" element={<AdminStudentsPage mode="profileRequests" />}');
-    expect(app).toContain('path="/admin/examination-records" element={<AdminWorkflowPage kind="examination-records" />}');
-    expect(shell).toContain("permissionLevel === \"renshinkan_super_admin\"");
+    expect(compact(app)).toContain(
+      'path="/admin/profile-requests" element={<AdminStudentsPage mode="profileRequests" />}',
+    );
+    expect(compact(app)).toContain(
+      'path="/admin/examination-records" element={<AdminWorkflowPage kind="examination-records" />}',
+    );
+    expect(shell).toContain('permissionLevel === "renshinkan_super_admin"');
     expect(shell).toContain("centralOnly");
     expect(shell).toContain('href: "/admin/profile-requests"');
     expect(shell).not.toContain("renshinkanVerificationRequired");
-    expect(shell).toContain("session.admin?.selectedDojoId");
+    expect(shell).toContain("<strong>All dojos</strong>");
+    expect(shell).toContain('href: "/admin/exam-payslips"');
+    expect(shell).not.toContain("changeDojo");
   });
 
   it("keeps student workflows task-first and preserves browser history", () => {
@@ -35,9 +44,20 @@ describe("unified administration UI contracts", () => {
     expect(students).toContain("No payment records yet");
     expect(students).toContain("Review and record examination");
     expect(students).toContain("window.confirm");
-    expect(students).toContain("<th>Student</th><th>Student ID</th><th>Rank</th><th>Status</th><th>Training hours</th><th>Action</th>");
+    for (const heading of [
+      "Student",
+      "Student ID",
+      "Rank",
+      "Status",
+      "Training hours",
+      "Action",
+    ]) {
+      expect(students).toContain(`<th>${heading}</th>`);
+    }
     expect(students).toContain("<Eye size={14} /> Open record");
-    expect(students).toContain('if (admin && admin.permissionLevel !== "renshinkan_super_admin"');
+    expect(students).toContain(
+      'admin.permissionLevel !== "renshinkan_super_admin"',
+    );
     expect(records).toContain("window.history.pushState");
     expect(records).toContain('window.addEventListener("popstate"');
     expect(passport).toContain('role="tablist"');

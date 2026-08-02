@@ -15,14 +15,34 @@ export type AdminWorkflowKind =
   | "examination-records"
   | "monthly-contributions"
   | "aat-contributions"
-  | "payment-proofs";
+  | "payment-proofs"
+  | "exam-payslips";
 
 const PAGE_COPY: Record<AdminWorkflowKind, [string, string]> = {
-  "exam-applications": ["Exam applications", "Review the current cycle, application details, payment status, and decisions."],
-  "examination-records": ["Examination records", "Search permanent applications and results independently from the live application queue."],
-  "monthly-contributions": ["Monthly contributions", "Review the monthly ledger and its contribution trend graph."],
-  "aat-contributions": ["AAT annual contributions", "Review annual membership status and permanent payment history."],
-  "payment-proofs": ["Payment proofs", "Review private payment files and record a clear decision."],
+  "exam-applications": [
+    "Exam applications",
+    "Review the current cycle, application details, payment status, and decisions.",
+  ],
+  "examination-records": [
+    "Examination records",
+    "Search permanent applications and results independently from the live application queue.",
+  ],
+  "monthly-contributions": [
+    "Monthly contributions",
+    "Review the monthly ledger and its contribution trend graph.",
+  ],
+  "aat-contributions": [
+    "AAT annual contributions",
+    "Review annual membership status and permanent payment history.",
+  ],
+  "payment-proofs": [
+    "Payment proofs",
+    "Review private payment files and record a clear decision.",
+  ],
+  "exam-payslips": [
+    "Exam payment proofs",
+    "Review examination fee proofs and record a clear decision.",
+  ],
 };
 
 export function AdminWorkflowPage({ kind }: { kind: AdminWorkflowKind }) {
@@ -49,20 +69,58 @@ export function AdminWorkflowPage({ kind }: { kind: AdminWorkflowKind }) {
   };
   const [title, copy] = PAGE_COPY[kind];
 
-  return <section className="container-shell student-admin student-admin--table admin-independent-page">
-    <header className="student-admin__header">
-      <div><p className="eyebrow">Administration</p><h1>{title}</h1><p>{copy}</p></div>
-    </header>
-    {notice ? <div className="admin-notice" role="status"><CheckCircle2 size={18} /><span>{notice}</span></div> : null}
-    {error ? <div className="admin-page-error" role="alert"><AlertCircle size={18} /><span>{error}</span></div> : null}
-    {kind === "exam-applications"
-      ? <AdminExamApplications admin={session.admin} dojos={session.dojos} report={report} mode="applications" />
-      : kind === "examination-records"
-        ? <AdminExamApplications admin={session.admin} dojos={session.dojos} report={report} mode="records" />
-        : kind === "monthly-contributions"
-          ? <AdminMonthlyContributions report={report} />
-          : kind === "aat-contributions"
-            ? <AdminAatMemberships admin={session.admin} dojos={session.dojos} report={report} />
-            : <AdminPaymentProofs showAllDojos={session.admin.permissionLevel === "renshinkan_super_admin"} report={report} />}
-  </section>;
+  return (
+    <section className="container-shell student-admin student-admin--table admin-independent-page">
+      <header className="student-admin__header">
+        <div>
+          <p className="eyebrow">Administration</p>
+          <h1>{title}</h1>
+          <p>{copy}</p>
+        </div>
+      </header>
+      {notice ? (
+        <div className="admin-notice" role="status">
+          <CheckCircle2 size={18} />
+          <span>{notice}</span>
+        </div>
+      ) : null}
+      {error ? (
+        <div className="admin-page-error" role="alert">
+          <AlertCircle size={18} />
+          <span>{error}</span>
+        </div>
+      ) : null}
+      {kind === "exam-applications" ? (
+        <AdminExamApplications
+          admin={session.admin}
+          dojos={session.dojos}
+          report={report}
+          mode="applications"
+        />
+      ) : kind === "examination-records" ? (
+        <AdminExamApplications
+          admin={session.admin}
+          dojos={session.dojos}
+          report={report}
+          mode="records"
+        />
+      ) : kind === "monthly-contributions" ? (
+        <AdminMonthlyContributions report={report} />
+      ) : kind === "aat-contributions" ? (
+        <AdminAatMemberships
+          admin={session.admin}
+          dojos={session.dojos}
+          report={report}
+        />
+      ) : (
+        <AdminPaymentProofs
+          showAllDojos={
+            session.admin.permissionLevel === "renshinkan_super_admin"
+          }
+          report={report}
+          scope={kind === "exam-payslips" ? "exam" : "contributions"}
+        />
+      )}
+    </section>
+  );
 }

@@ -9,6 +9,7 @@ const EXACT_ROUTES = new Map<string, AdminRouteAccess>([
   ["/admin/training-requests", "authenticated"],
   ["/admin/exam-applications", "authenticated"],
   ["/admin/examination-records", "authenticated"],
+  ["/admin/exam-payslips", "central"],
   ["/admin/aat-contributions", "authenticated"],
   ["/admin/payment-proofs", "authenticated"],
   ["/admin/memberships", "authenticated"],

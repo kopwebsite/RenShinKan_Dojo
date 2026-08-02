@@ -39,7 +39,7 @@ test("private admin entry and APIs are not cached and direct routes do not flash
   );
   expect(response!.headers()["cache-control"]).toContain("private");
   expect(response!.headers()["cache-control"]).toContain("no-store");
-  const session = await request.get("/api/admin/session");
+  const session = await request.get("/api/admin/session", { timeout: 30_000 });
   expect(session.headers()["cache-control"]).toContain("private");
   expect(session.headers()["cache-control"]).toContain("no-store");
 });

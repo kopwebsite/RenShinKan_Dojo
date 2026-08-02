@@ -1,6 +1,9 @@
 import { ChevronLeft, ChevronRight, History, Search } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
-import { AdminCheckingSession, AdminDojoSelector, AdminLoginFields } from "../components/admin/AdminAccess";
+import {
+  AdminCheckingSession,
+  AdminLoginFields,
+} from "../components/admin/AdminAccess";
 import { useAdminSession } from "../components/admin/useAdminSession";
 import { GregorianDateInput, GregorianMonthInput } from "../components/GregorianDateInput";
 import { formatGregorianDateTime } from "../../shared/date";
@@ -41,8 +44,21 @@ export function AdminAuditPage() {
   }, [session.admin?.selectedDojoId, page, applied]);
   function submit(event: FormEvent) { event.preventDefault(); setPage(1); setApplied(filters); }
   if (!session.checked) return <AdminCheckingSession />;
-  if (!session.admin) return <main className="admin-gate"><form onSubmit={session.login}><AdminLoginFields name={session.name} password={session.password} error={session.error} busy={session.busy} setName={session.setName} setPassword={session.setPassword} /></form></main>;
-  if (!session.admin.selectedDojoId) return <AdminDojoSelector dojos={session.dojos} admin={session.admin} busyId={session.selecting} error={session.error} onSelect={(id) => void session.selectDojo(id)} />;
+  if (!session.admin)
+    return (
+      <main className="admin-gate">
+        <form onSubmit={session.login}>
+          <AdminLoginFields
+            name={session.name}
+            password={session.password}
+            error={session.error}
+            busy={session.busy}
+            setName={session.setName}
+            setPassword={session.setPassword}
+          />
+        </form>
+      </main>
+    );
   const superAdmin = session.admin.permissionLevel === "renshinkan_super_admin";
   const dojos = session.dojos;
   return <section className="container-shell admin-audit-page"><header><div><p className="eyebrow">Permanent history</p><h1>Audit log</h1><p>{superAdmin ? "All dojo and student changes, with before-and-after values retained for investigation." : "Changes to this dojo and its students, with before-and-after values retained for investigation."}</p></div></header>

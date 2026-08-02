@@ -74,22 +74,22 @@ const publicCopy: Record<Language, LauncherCopy> = {
 
 const adminCopy: Record<AdminLanguage, LauncherCopy> = {
   en: {
-    trigger: "Open Auggie help",
-    aria: "Open Auggie admin help",
-    heading: "Auggie — Admin help",
-    close: "Close Auggie help",
-    loading: "Loading Auggie help",
+    trigger: "Admin help",
+    aria: "Open admin help",
+    heading: "How to use administration",
+    close: "Close admin help",
+    loading: "Loading admin help",
     unavailable:
-      "Auggie help could not be loaded. Administration remains available.",
+      "Admin help could not be loaded. Administration remains available.",
     retry: "Try again",
   },
   th: {
-    trigger: "เปิดคู่มือ Auggie",
-    aria: "เปิดคู่มือผู้ดูแล Auggie",
-    heading: "Auggie — คู่มือผู้ดูแล",
-    close: "ปิดคู่มือ Auggie",
-    loading: "กำลังโหลดคู่มือ Auggie",
-    unavailable: "โหลดคู่มือ Auggie ไม่ได้ แต่ส่วนผู้ดูแลยังใช้งานได้",
+    trigger: "คู่มือผู้ดูแล",
+    aria: "เปิดคู่มือผู้ดูแล",
+    heading: "วิธีใช้ระบบผู้ดูแล",
+    close: "ปิดคู่มือผู้ดูแล",
+    loading: "กำลังโหลดคู่มือผู้ดูแล",
+    unavailable: "โหลดคู่มือผู้ดูแลไม่ได้ แต่ส่วนผู้ดูแลยังใช้งานได้",
     retry: "ลองอีกครั้ง",
   },
 };

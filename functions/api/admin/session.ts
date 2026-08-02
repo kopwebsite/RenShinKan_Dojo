@@ -1,13 +1,13 @@
 import {
   effectivePermissionLevel,
-  getAdminSession,
+  getAuthorizedAdminSession,
   jsonResponse,
   RENSHINKAN_DOJO_ID,
 } from "../../_lib/auth";
 import type { StudentEnv } from "../../_lib/studentRecords";
 type Env = StudentEnv & { SESSION_SECRET?: string };
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
-  const session = await getAdminSession(request, env);
+  const session = await getAuthorizedAdminSession(request, env);
   if (!session)
     return jsonResponse({ authenticated: false, admin: null, dojos: [] }, 200, {
       "Cache-Control": "private, no-store",

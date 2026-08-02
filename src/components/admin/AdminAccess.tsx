@@ -1,4 +1,4 @@
-import { CheckCircle2, LoaderCircle, LockKeyhole } from "lucide-react";
+import { LoaderCircle, LockKeyhole } from "lucide-react";
 import { useAdminTranslation } from "../../i18n";
 
 export type AdminDojo = {
@@ -47,31 +47,4 @@ export function AdminLoginFields({
     {error ? <p className="form-error" role="alert">{error}</p> : null}
     <button className="btn-primary" disabled={busy || !name.trim() || !password}><LockKeyhole size={17} /> {busy ? t("adminAccess.signingIn") : t("adminAccess.signIn")}</button>
   </>;
-}
-
-export function AdminDojoSelector({
-  dojos, admin, busyId, error, onSelect,
-}: {
-  dojos: AdminDojo[]; admin: AdminIdentity; busyId?: string; error?: string;
-  onSelect: (dojoId: string) => void;
-}) {
-  const { t } = useAdminTranslation();
-  return <section className="container-shell admin-dojo-selection">
-    <AdminLanguageSelector />
-    <header><p className="eyebrow">{t("adminAccess.welcome", { name: admin.name })}</p><h1>{t("adminAccess.chooseDojo")}</h1><p>{t("adminAccess.chooseDojoCopy")}</p></header>
-    {error ? <p className="form-error" role="alert">{error}</p> : null}
-    <div className="admin-dojo-grid">
-      {[...dojos].sort((left, right) => left.id === "dojo-rsk" ? -1 : right.id === "dojo-rsk" ? 1 : left.sort_order - right.sort_order || left.official_name.localeCompare(right.official_name)).map((dojo) => {
-        const allowed = admin.role === "central" || (dojo.id !== "dojo-rsk" && admin.allowedDojoIds.includes(dojo.id));
-        return <article className={`admin-dojo-card${allowed ? "" : " is-locked"}`} key={dojo.id}>
-          <img src={dojo.logo_url} alt={`${dojo.official_name} logo`} />
-          <div><span>{dojo.code}</span><h2>{dojo.official_name}</h2></div>
-          <button className={allowed ? "btn-primary" : "btn-secondary"} disabled={!allowed || busyId === dojo.id} onClick={() => onSelect(dojo.id)}>
-            {busyId === dojo.id ? <LoaderCircle className="spin" size={18} /> : allowed ? <CheckCircle2 size={18} /> : <LockKeyhole size={18} />}
-            {allowed ? t("adminAccess.select", { dojo: dojo.short_name }) : t("adminAccess.noAccess")}
-          </button>
-        </article>;
-      })}
-    </div>
-  </section>;
 }

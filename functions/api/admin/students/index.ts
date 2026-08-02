@@ -354,7 +354,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const requestedId = normalizeStudentId(String(body.studentId || ""));
     if (manualStudentId && !isValidStudentId(requestedId))
       return jsonResponse(
-        { error: "Student ID must use a format such as RSK-2601." },
+        { error: "Student ID must use a format such as RSK-6901." },
         400,
       );
     const id = crypto.randomUUID();

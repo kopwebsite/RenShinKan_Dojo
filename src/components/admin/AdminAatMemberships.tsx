@@ -1,9 +1,25 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, History, LoaderCircle, ReceiptText, RotateCcw, Search, UserRound, X } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  History,
+  LoaderCircle,
+  ReceiptText,
+  RotateCcw,
+  Search,
+  UserRound,
+  X,
+} from "lucide-react";
 import type { AdminDojo, AdminIdentity } from "./AdminAccess";
 import { adminApi } from "./adminApi";
 import { GregorianDateInput } from "../GregorianDateInput";
-import { bangkokCanonicalDate, formatGregorianDate } from "../../../shared/date";
+import {
+  bangkokCanonicalDate,
+  formatGregorianDate,
+} from "../../../shared/date";
+import { RANKS } from "../../../shared/ranks";
 
 type PaymentEntry = {
   id: string;
@@ -22,18 +38,29 @@ type Membership = {
   profile_image_url: string | null;
   dojo_id: string;
   dojo_name: string;
+  current_belt: string;
   aatDisplay: string;
   aat_number: string | null;
   aat_last_paid_date: string | null;
   aat_notes: string;
   payment_awaiting_review: number;
-  membership: { state: "new" | "unpaid" | "current" | "expiring" | "expired"; label: string; dueDate: string | null; days: number | null };
+  membership: {
+    state: "new" | "unpaid" | "current" | "expiring" | "expired";
+    label: string;
+    dueDate: string | null;
+    days: number | null;
+  };
   history: PaymentEntry[];
 };
 
 type Response = {
   memberships: Membership[];
-  pagination: { page: number; pageSize: number; total: number; totalPages: number };
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
 };
 
 function MembershipSummary({ row }: { row: Membership }) {
@@ -65,21 +92,47 @@ export function AdminAatMemberships({
   report: (message: string, isError?: boolean) => void;
 }) {
   const [rows, setRows] = useState<Membership[]>([]);
-  const [pagination, setPagination] = useState({ page: 1, pageSize: 40, total: 0, totalPages: 1 });
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: 40,
+    total: 0,
+    totalPages: 1,
+  });
   const [queryInput, setQueryInput] = useState("");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState(() => {
-    const value = new URLSearchParams(window.location.search).get("status") || "";
+    const value =
+      new URLSearchParams(window.location.search).get("status") || "";
     if (value === "new" || value === "unpaid") return "payment_required";
-    return ["pending_payment", "payment_required", "current", "expiring", "expired"].includes(value) ? value : "";
+    return [
+      "pending_payment",
+      "payment_required",
+      "current",
+      "expiring",
+      "expired",
+    ].includes(value)
+      ? value
+      : "";
   });
   const [dojoId, setDojoId] = useState("");
+  const [rank, setRank] = useState("");
+  const [lastPaid, setLastPaid] = useState("");
+  const [sort, setSort] = useState("name");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [paymentTargets, setPaymentTargets] = useState<Membership[]>([]);
-  const [payment, setPayment] = useState({ paymentDate: "", aatNumber: "", amount: "", notes: "" });
-  const [reversal, setReversal] = useState<{ row: Membership; entry: PaymentEntry; reason: string } | null>(null);
+  const [payment, setPayment] = useState({
+    paymentDate: "",
+    aatNumber: "",
+    amount: "",
+    notes: "",
+  });
+  const [reversal, setReversal] = useState<{
+    row: Membership;
+    entry: PaymentEntry;
+    reason: string;
+  } | null>(null);
   const [saving, setSaving] = useState(false);
   const reversalDialogRef = useRef<HTMLElement>(null);
   const reversalTriggerRef = useRef<HTMLElement | null>(null);
@@ -125,18 +178,35 @@ export function AdminAatMemberships({
       if (query) params.set("query", query);
       if (status) params.set("status", status);
       if (dojoId && superAdmin) params.set("dojoId", dojoId);
+      if (rank) params.set("rank", rank);
+      if (lastPaid) params.set("lastPaid", lastPaid);
+      params.set("sort", sort);
       const body = await adminApi<Response>(`/api/admin/memberships?${params}`);
       setRows(body.memberships);
       setPagination(body.pagination);
-      setSelectedIds((current) => new Set([...current].filter((id) => body.memberships.some((row) => row.id === id))));
+      setSelectedIds(
+        (current) =>
+          new Set(
+            [...current].filter((id) =>
+              body.memberships.some((row) => row.id === id),
+            ),
+          ),
+      );
     } catch (reason) {
-      report(reason instanceof Error ? reason.message : "Membership records could not be loaded.", true);
+      report(
+        reason instanceof Error
+          ? reason.message
+          : "Membership records could not be loaded.",
+        true,
+      );
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => { void load(); }, [admin.selectedDojoId, query, status, dojoId, page]);
+  useEffect(() => {
+    void load();
+  }, [admin.selectedDojoId, query, status, dojoId, rank, lastPaid, sort, page]);
 
   function openPayment(targets: Membership[]) {
     if (!targets.length) return;
@@ -209,11 +279,125 @@ export function AdminAatMemberships({
     <header className="admin-workspace-heading"><div><p className="eyebrow">Annual membership</p><h2>AAT Annual Membership</h2><p>Review membership status, renewal dates, expiration warnings, and permanent payment history.</p></div></header>
     <form className="admin-record-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(queryInput.trim()); }}>
       <label className="admin-search-wide">Search<div><Search size={17} /><input value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="Name, Student ID, or AAT number" /><button className="btn-secondary">Search</button></div></label>
-      <label>Membership status<select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="">All statuses</option><option value="pending_payment">Payment awaiting approval</option><option value="payment_required">Payment required</option><option value="current">Current</option><option value="expiring">Expiring soon</option><option value="expired">Expired</option></select></label>
-      {superAdmin ? <label>Dojo<select value={dojoId} onChange={(event) => { setDojoId(event.target.value); setPage(1); }}><option value="">All dojos</option>{dojos.map((dojo) => <option key={dojo.id} value={dojo.id}>{dojo.official_name}</option>)}</select></label> : null}
-    </form>
-    {selectedRows.length ? <aside className="admin-aat-bulk-bar"><strong>{selectedRows.length} selected</strong><button className="btn-secondary" onClick={() => openPayment(selectedRows)}><ReceiptText size={15} /> Record payment</button><button className="text-link" onClick={() => setSelectedIds(new Set())}>Clear selection</button></aside> : null}
-    <div className="admin-table-scroll"><table className="admin-record-table admin-aat-table"><thead><tr><th><label className="admin-select-box"><input type="checkbox" aria-label="Select all visible AAT memberships" checked={rows.length > 0 && rows.every((row) => selectedIds.has(row.id))} onChange={(event) => setSelectedIds(event.target.checked ? new Set(rows.map((row) => row.id)) : new Set())} /><span aria-hidden="true" /></label></th><th>Student</th>{superAdmin ? <th>Dojo</th> : null}<th>Membership</th><th>Last paid</th><th>Renewal</th><th>History</th><th>Actions</th></tr></thead><tbody>
+      <label>
+          Membership status
+          <select
+            value={status}
+            onChange={(event) => {
+              setStatus(event.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">All statuses</option>
+            <option value="pending_payment">Payment awaiting approval</option>
+            <option value="payment_required">Payment required</option>
+            <option value="current">Current</option>
+            <option value="expiring">Expiring soon</option>
+            <option value="expired">Expired</option>
+          </select>
+        </label>
+        <label>
+          Current rank
+          <select
+            value={rank}
+            onChange={(event) => {
+              setRank(event.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">All ranks</option>
+            {RANKS.map((value) => (
+              <option key={value}>{value}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Last paid
+          <select
+            value={lastPaid}
+            onChange={(event) => {
+              setLastPaid(event.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">Any date</option>
+            <option value="recorded">Date recorded</option>
+            <option value="never">Never paid</option>
+          </select>
+        </label>
+        <label>
+          Sort order
+          <select
+            value={sort}
+            onChange={(event) => {
+              setSort(event.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="name">Name</option>
+            <option value="studentId">Student ID</option>
+            <option value="rank">Current rank</option>
+            <option value="lastPaid">Last paid</option>
+          </select>
+        </label>
+        {superAdmin ? (
+          <label>
+            Dojo
+            <select
+              value={dojoId}
+              onChange={(event) => {
+                setDojoId(event.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All dojos</option>
+              {dojos.map((dojo) => (
+                <option key={dojo.id} value={dojo.id}>
+                  {dojo.official_name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        {query || status || dojoId || rank || lastPaid || sort !== "name" ? (
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => {
+              setQueryInput("");
+              setQuery("");
+              setStatus("");
+              setDojoId("");
+              setRank("");
+              setLastPaid("");
+              setSort("name");
+              setPage(1);
+            }}
+          >
+            Clear filters
+          </button>
+        ) : null}
+      </form>
+      {selectedRows.length ? (
+        <aside className="admin-aat-bulk-bar">
+          <strong>{selectedRows.length} selected</strong>
+          <button
+            className="btn-secondary"
+            onClick={() => openPayment(selectedRows)}
+          >
+            <ReceiptText size={15} /> Record payment
+          </button>
+          <button
+            className="text-link"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            Clear selection
+          </button>
+        </aside>
+      ) : null}
+      <div className="admin-table-scroll">
+        <table className="admin-record-table admin-aat-table">
+          <thead><tr><th><label className="admin-select-box"><input type="checkbox" aria-label="Select all visible AAT memberships" checked={rows.length > 0 && rows.every((row) => selectedIds.has(row.id))} onChange={(event) => setSelectedIds(event.target.checked ? new Set(rows.map((row) => row.id)) : new Set())} /><span aria-hidden="true" /></label></th><th>Student</th>{superAdmin ? <th>Dojo</th> : null}<th>Membership</th><th>Last paid</th><th>Renewal</th><th>History</th><th>Actions</th></tr></thead><tbody>
       {rows.map((row) => <tr key={row.id} className={selectedIds.has(row.id) ? "is-selected" : ""}><td><label className="admin-select-box"><input type="checkbox" aria-label={`Select AAT membership for ${row.display_name}`} checked={selectedIds.has(row.id)} onChange={(event) => setSelectedIds((current) => { const next = new Set(current); if (event.target.checked) next.add(row.id); else next.delete(row.id); return next; })} /><span aria-hidden="true" /></label></td><th><span className="admin-student-identity">{row.profile_image_url ? <img src={row.profile_image_url} alt="" /> : <span aria-hidden="true"><UserRound size={18} /></span>}<span>{row.display_name}<code className="admin-table-subline">{row.public_student_id}</code></span></span></th>{superAdmin ? <td>{row.dojo_name}</td> : null}<td><MembershipSummary row={row} /></td><td>{formatGregorianDate(row.aat_last_paid_date, "Not yet paid")}</td><td>{formatGregorianDate(row.membership.dueDate, "Unknown")}{row.membership.days != null ? <small className="admin-table-subline">{Math.abs(row.membership.days)} day{Math.abs(row.membership.days) === 1 ? "" : "s"} {row.membership.days < 0 ? "overdue" : "remaining"}</small> : null}</td><td>{row.history.length ? <details className="admin-aat-history"><summary><History size={14} /> {row.history.length} payment{row.history.length === 1 ? "" : "s"}</summary><ol>{row.history.map((entry) => <li key={entry.id} className={entry.paymentStatus !== "paid" ? "is-reversed" : ""}><strong>{formatGregorianDate(entry.paymentDate, entry.paymentDate)}</strong> · {entry.amount == null ? "Amount not recorded" : `${entry.amount.toLocaleString()} ${entry.currency}`} · by {entry.recordedBy}<span className={`admin-status ${entry.paymentStatus === "paid" ? "is-active" : "is-neutral"}`}>{entry.paymentStatus === "paid" ? "Paid" : "Paid status removed"}</span>{entry.notes ? <div>{entry.notes}</div> : null}{entry.paymentStatus === "paid" ? <button type="button" className="text-link" onClick={(event) => { reversalTriggerRef.current = event.currentTarget; setReversal({ row, entry, reason: "" }); }}><RotateCcw size={13} /> Mark as unpaid</button> : null}</li>)}</ol></details> : <span className="admin-aat-history-empty">No payments</span>}</td><td><div className="admin-row-actions"><button type="button" onClick={() => openPayment([row])}><ReceiptText size={14} /> {row.payment_awaiting_review ? "Review payment" : "Record payment"}</button></div></td></tr>)}
       {!rows.length && !loading ? <tr><td colSpan={superAdmin ? 8 : 7}>No membership records match these filters.</td></tr> : null}
     </tbody></table></div>

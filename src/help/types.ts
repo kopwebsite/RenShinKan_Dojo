@@ -41,6 +41,7 @@ export type HelpArticle = {
   related: string[];
   screenshots: HelpScreenshot[];
   keywords: string[];
+  action: { label: string; href: string };
   locale: HelpLocale;
   version: string;
 };

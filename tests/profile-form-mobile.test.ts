@@ -37,7 +37,7 @@ describe("student profile form on desktop and mobile", () => {
   it("keeps the optional AAT status full-width and stacks controls on small screens", () => {
     expect(page).toContain("I already have a current AAT membership");
     expect(page).toContain("No membership yet?");
-    expect(page).toContain(
+    expect(compact(page)).toContain(
       "You can finish the AAT application after creating your profile.",
     );
     expect(page).toContain("Self-reported until an administrator confirms it.");

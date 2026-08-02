@@ -13,10 +13,7 @@ import {
   ExternalLink,
   X,
 } from "lucide-react";
-import {
-  AdminDojoSelector,
-  AdminLoginFields,
-} from "../components/admin/AdminAccess";
+import { AdminLoginFields } from "../components/admin/AdminAccess";
 import { adminApi } from "../components/admin/adminApi";
 import { AdminGalleryDashboard } from "../components/admin/AdminGalleryDashboard";
 import { useAdminSession } from "../components/admin/useAdminSession";
@@ -498,15 +495,10 @@ export function AdminPage() {
   const {
     admin,
     dojos,
-    name: adminName,
-    password,
-    error: authError,
-  } = session;
-  const selectingDojo = session.selecting;
+    name: adminName, password, error: authError } = session;
   const setAdminName = session.setName;
   const setPassword = session.setPassword;
   const login = session.login;
-  const selectDojo = session.selectDojo;
   const setSessionError = session.setError;
   const [draft, setDraft] = useState<EditableContent>(emptyEditableContent);
   const [baseline, setBaseline] =
@@ -1328,18 +1320,6 @@ export function AdminPage() {
           />
         </form>
       </section>
-    );
-  }
-
-  if (admin && !admin.selectedDojoId) {
-    return (
-      <AdminDojoSelector
-        dojos={dojos}
-        admin={admin}
-        busyId={selectingDojo}
-        error={authError}
-        onSelect={(dojoId) => void selectDojo(dojoId)}
-      />
     );
   }
 

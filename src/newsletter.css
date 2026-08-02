@@ -35,6 +35,37 @@
 .home-journal__header .text-link {
   color: hsl(var(--color-paper));
 }
+.home-journal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem 1.25rem;
+}
+.home-journal__empty {
+  display: grid;
+  min-height: 15rem;
+  place-items: center;
+  gap: 1.5rem;
+  padding: clamp(2rem, 5vw, 4rem);
+  border: 1px solid hsl(var(--color-paper) / 0.18);
+  text-align: center;
+}
+.home-journal__empty > p {
+  max-width: 42rem;
+  color: hsl(var(--color-paper) / 0.72);
+  font-size: clamp(1rem, 2vw, 1.3rem);
+  line-height: 1.7;
+}
+.home-journal__empty > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+.home-journal__empty .btn-secondary {
+  color: hsl(var(--color-paper));
+  border-color: hsl(var(--color-paper) / 0.35);
+}
 
 .home-journal__layout {
   display: grid;

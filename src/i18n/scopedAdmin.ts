@@ -2,6 +2,26 @@ import { useEffect, type RefObject } from "react";
 import { translateEnglishLiteral, type AdminLanguage } from "./index";
 
 const thaiPhrases: Record<string, string> = {
+  "Exam payment proofs": "หลักฐานชำระค่าสอบ",
+  "Contribution payment proofs": "หลักฐานชำระเงินสมทบ",
+  "Review retained examination fee proofs.":
+    "ตรวจสอบหลักฐานค่าธรรมเนียมการสอบที่เก็บไว้",
+  "Review retained AAT annual and monthly contribution proofs.":
+    "ตรวจสอบหลักฐานเงินสมทบ AAT รายปีและรายเดือนที่เก็บไว้",
+  "View proof": "ดูหลักฐาน",
+  "Open full-size proof": "เปิดหลักฐานขนาดเต็ม",
+  "Profile status": "สถานะคำขอโปรไฟล์",
+  "Training status": "สถานะชั่วโมงฝึก",
+  "Examination status": "สถานะการสอบ",
+  "Examination payment": "การชำระค่าสอบ",
+  "All examination statuses": "สถานะการสอบทั้งหมด",
+  "All payment statuses": "สถานะการชำระทั้งหมด",
+  "Not applied": "ยังไม่สมัคร",
+  Applied: "สมัครแล้ว",
+  "Any date": "ทุกวันที่",
+  "Date recorded": "มีวันที่บันทึก",
+  "Never paid": "ยังไม่เคยชำระ",
+  "Not paid": "ยังไม่ชำระ",
   "Edit the website": "แก้ไขเว็บไซต์",
   "Publish newsletters and community events, update the photo library, or replace the payment QR.": "เผยแพร่จดหมายข่าวและกิจกรรมชุมชน อัปเดตคลังรูปภาพ หรือเปลี่ยนคิวอาร์ชำระเงิน",
   "Student management": "การจัดการนักเรียน",

@@ -4,7 +4,6 @@ import {
   ChevronDown,
   ClipboardCheck,
   Database,
-  ExternalLink,
   FileImage,
   FileText,
   GraduationCap,
@@ -32,6 +31,7 @@ import { canAccessAdminPath } from "../../../shared/adminPermissions";
 import { AdminCheckingSession } from "./AdminAccess";
 import { AccessibleDialog } from "../AccessibleDialog";
 import { useAdminSession } from "./useAdminSession";
+import { HelpLauncher } from "../../help/HelpLauncher";
 
 type NavigationItem = {
   label: string;
@@ -273,7 +273,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               ><span>{option.label}</span>{language === option.code ? <Check size={16} aria-hidden="true" /> : null}</button>)}
             </div> : null}
           </div>
-          <a href="/" target="_blank" rel="noopener noreferrer"><ExternalLink size={18} aria-hidden="true" /> {t("adminShell.viewPublicWebsite")}</a>
+          <HelpLauncher audience="admin" placement="inline" />
           <button type="button" onClick={() => void signOut()}><LogOut size={18} aria-hidden="true" /> {t("adminShell.signOut")}</button>
         </div>
       </header>

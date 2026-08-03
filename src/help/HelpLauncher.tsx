@@ -160,7 +160,13 @@ function LauncherDialog({
   );
 }
 
-export function HelpLauncher({ audience }: { audience: HelpAudience }) {
+export function HelpLauncher({
+  audience,
+  placement = "floating",
+}: {
+  audience: HelpAudience;
+  placement?: "floating" | "inline";
+}) {
   const { language: publicLanguage } = useTranslation();
   const { language: adminLanguage } = useAdminTranslation();
   const location = useLocation();
@@ -202,7 +208,7 @@ export function HelpLauncher({ audience }: { audience: HelpAudience }) {
     <>
       <button
         ref={triggerRef}
-        className={`help-launcher help-launcher--${audience}`}
+        className={`help-launcher help-launcher--${audience}${placement === "inline" ? " help-launcher--inline" : ""}`}
         type="button"
         aria-label={copy.aria}
         aria-haspopup="dialog"

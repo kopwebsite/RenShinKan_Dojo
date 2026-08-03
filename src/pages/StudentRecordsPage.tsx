@@ -1378,6 +1378,7 @@ function ExamWorkflow() {
           title="Verify your student record"
           copy="These details must match your active student profile."
         />
+        <div className="exam-application-fields">
         <label>
           <ExamFieldCopy
             label="Student name in English"
@@ -1436,12 +1437,14 @@ function ExamWorkflow() {
             ))}
           </select>
         </label>
+        </div>
       </details>
       <details className="exam-application-section" open>
         <ExamSectionLegend
           title="Applicant details"
           copy="Personal details used for the association application."
         />
+        <div className="exam-application-fields">
         <label>
           <ExamFieldCopy
             label="AAT membership number"
@@ -1506,12 +1509,14 @@ function ExamWorkflow() {
             required
           />
         </label>
+        </div>
       </details>
       <details className="exam-application-section" open>
         <ExamSectionLegend
           title="Address and contact"
           copy="How the association or dojo can identify and contact you."
         />
+        <div className="exam-application-fields">
         <label>
           <ExamFieldCopy
             label="Permanent (registered) address"
@@ -1581,6 +1586,7 @@ function ExamWorkflow() {
             required
           />
         </label>
+        </div>
       </details>
       <details className="exam-application-section exam-occupation-section" open>
         <ExamSectionLegend
@@ -1680,6 +1686,7 @@ function ExamWorkflow() {
           title="Qualifications and experience"
           copy="A short summary helps the examiners understand your background."
         />
+        <div className="exam-application-fields">
         <label>
           <ExamFieldCopy
             label="Relevant certificates or qualifications"
@@ -1706,12 +1713,14 @@ function ExamWorkflow() {
           />
           <FreeTextPreference />
         </label>
+        </div>
       </details>
       <details className="exam-application-section" open>
         <ExamSectionLegend
           title="Declaration and signature"
           copy="Confirm the application is accurate before review."
         />
+        <div className="exam-application-fields">
         <p>
           I promise to observe the rules of the Aikido Association Thailand and
           confirm that the information in this application is accurate.
@@ -1742,6 +1751,7 @@ function ExamWorkflow() {
             <small>Required to submit this examination application.</small>
           </span>
         </label>
+        </div>
       </details>
       {error ? <p className="form-error">{error}</p> : null}
       <button className="btn-primary">Review every answer</button>

@@ -8739,16 +8739,13 @@ html.admin-route .admin-drawer {
   width: min(64rem, 100%);
 }
 .exam-application-form .exam-application-section {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  display: block;
   margin-top: 1.3rem;
   padding: 1.2rem;
   border: 1px solid hsl(var(--color-ink) / 0.16);
 }
 .exam-application-form .exam-application-section > summary {
   display: flex;
-  grid-column: 1 / -1;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
@@ -8769,7 +8766,7 @@ html.admin-route .admin-drawer {
 .exam-application-form .exam-application-section:not([open]) > summary svg {
   transform: rotate(-90deg);
 }
-.exam-application-form .exam-application-section > p,
+.exam-application-fields > p,
 .exam-application-form .exam-promise {
   grid-column: 1 / -1;
 }
@@ -9031,12 +9028,12 @@ html.admin-route .admin-drawer {
   }
   .student-hours-form,
   .student-long-form .student-form-grid,
-  .exam-application-form .exam-application-section,
+  .exam-application-fields,
   .exam-review > dl {
     grid-template-columns: 1fr;
   }
   .student-hours-form > div,
-  .exam-application-form .exam-application-section > p,
+  .exam-application-fields > p,
   .exam-application-form .exam-promise {
     grid-column: auto;
   }
@@ -10821,7 +10818,7 @@ html.admin-route .admin-drawer {
 .student-form-grid > label > :is(input, select) {
   align-self: end;
 }
-.exam-application-form .exam-application-section > label {
+.exam-application-fields > label {
   align-content: start;
 }
 
@@ -10871,7 +10868,6 @@ html.admin-route .admin-drawer {
   background: #e8edf2;
 }
 .exam-application-form .exam-application-section {
-  gap: 1rem 1.15rem;
   margin-top: 1.4rem;
   padding: 1.25rem;
   border-color: hsl(var(--color-ink) / 0.14);
@@ -10881,6 +10877,13 @@ html.admin-route .admin-drawer {
     hsl(var(--color-paper) / 0.55),
     hsl(var(--color-paper) / 0.28)
   );
+}
+.exam-application-fields {
+  display: grid;
+  width: min(54rem, 100%);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem 1.35rem;
+  margin: 1rem auto 0;
 }
 .exam-application-form .exam-application-section > summary {
   max-width: calc(100% - 1rem);
@@ -10899,7 +10902,7 @@ html.admin-route .admin-drawer {
   font-weight: 500;
   line-height: 1.4;
 }
-.exam-application-form .exam-application-section > label,
+.exam-application-fields > label,
 .exam-occupation-fields > label {
   display: grid;
   grid-template-rows: 3.7rem auto;
@@ -10933,15 +10936,15 @@ html.admin-route .admin-drawer {
   font-weight: 500;
   line-height: 1.4;
 }
-.exam-application-form .exam-application-section > label > :is(input, select, textarea),
+.exam-application-fields > label > :is(input, select, textarea),
 .exam-occupation-fields > label > :is(input, select, textarea) {
   align-self: start;
 }
-.exam-application-form .exam-application-section > label > :is(input, select),
+.exam-application-fields > label > :is(input, select),
 .exam-occupation-fields > label > :is(input, select) {
   height: 2.8rem;
 }
-.exam-application-form .exam-application-section > label > textarea {
+.exam-application-fields > label > textarea {
   height: 6rem;
   min-height: 6rem;
 }
@@ -11492,7 +11495,7 @@ html.admin-route .admin-drawer {
   .exam-application-form .exam-application-section {
     padding: 1rem;
   }
-  .exam-application-form .exam-application-section > label,
+  .exam-application-fields > label,
   .exam-occupation-fields > label {
     grid-template-rows: auto auto;
   }
@@ -12504,6 +12507,12 @@ html.admin-route .admin-drawer {
   .admin-drawer__body[data-section="history"]
   > .admin-history-grid {
   display: block;
+}
+
+.admin-student-workspace
+  .admin-drawer__body[data-section="overview"]
+  > .admin-overview-status {
+  display: grid;
 }
 
 .admin-student-workspace

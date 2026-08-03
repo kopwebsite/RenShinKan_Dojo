@@ -2,7 +2,8 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(10rem, 0.45fr) auto;
   align-items: end;
-  gap: 0.8rem;
+  column-gap: 1.5rem;
+  row-gap: 1rem;
   margin-top: 1rem;
 }
 

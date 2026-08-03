@@ -7,6 +7,7 @@ import { Seo } from "./components/Seo";
 import { ManagedRoute } from "./components/ManagedRoute";
 import { AdminShell } from "./components/admin/AdminShell";
 import { AdminSessionProvider } from "./components/admin/useAdminSession";
+import { AdminAuggieLauncher } from "./components/admin/AdminAuggieLauncher";
 import { AdminLanguageProvider, useAdminTranslation, useTranslation } from "./i18n";
 import { DojoPage } from "./pages/DojoPage";
 import { HelpLauncher } from "./help/HelpLauncher";
@@ -89,7 +90,7 @@ function AdminRouteFrame() {
           </Suspense>
         </AdminShell>
       </main>
-      <HelpLauncher audience="admin" />
+      <AdminAuggieLauncher />
     </>
   );
 }

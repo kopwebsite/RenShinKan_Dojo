@@ -36,6 +36,8 @@ export function AccessibleDialog({
   children,
 }: AccessibleDialogProps) {
   const panelRef = useRef<HTMLElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open || !panelRef.current) return;
@@ -59,7 +61,7 @@ export function AccessibleDialog({
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (event.key !== "Tab") return;
@@ -90,7 +92,7 @@ export function AccessibleDialog({
       }
       triggerRef?.current?.focus();
     };
-  }, [initialFocusRef, onClose, open, triggerRef]);
+  }, [initialFocusRef, open, triggerRef]);
 
   if (!open) return null;
   const Panel = panelAs;

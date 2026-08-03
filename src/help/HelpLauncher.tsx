@@ -4,7 +4,6 @@ import {
   lazy,
   Suspense,
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -166,7 +165,7 @@ export function HelpLauncher({ audience }: { audience: HelpAudience }) {
   const { language: adminLanguage } = useAdminTranslation();
   const location = useLocation();
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
+  const [manuallyOpen, setManuallyOpen] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const locale = audience === "admin" ? adminLanguage : publicLanguage;
@@ -181,13 +180,10 @@ export function HelpLauncher({ audience }: { audience: HelpAudience }) {
       ),
     [retryKey],
   );
-
-  useEffect(() => {
-    if (new URLSearchParams(location.search).has("help")) setOpen(true);
-  }, [location.search]);
+  const open = manuallyOpen || new URLSearchParams(location.search).has("help");
 
   const close = useCallback(() => {
-    setOpen(false);
+    setManuallyOpen(false);
     const params = new URLSearchParams(location.search);
     if (params.delete("help")) {
       const nextSearch = params.toString();
@@ -211,7 +207,7 @@ export function HelpLauncher({ audience }: { audience: HelpAudience }) {
         aria-label={copy.aria}
         aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={() => setOpen(true)}
+        onClick={() => setManuallyOpen(true)}
       >
         <CircleHelp size={21} aria-hidden="true" />
         <span>{copy.trigger}</span>

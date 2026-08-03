@@ -6,6 +6,9 @@ import {
   canonicalDateToDisplay,
   displayDateTimeToCanonical,
   displayDateToCanonical,
+  formatDisplayDateInput,
+  formatDisplayDateTimeInput,
+  formatDisplayMonthInput,
   formatGregorianDate,
   formatGregorianDateTime,
   isCanonicalDate,
@@ -46,6 +49,12 @@ describe("strict Gregorian date boundaries", () => {
     expect(formatGregorianDateTime("2026-10-12T15:14")).toBe("12/10/2026 15:14");
     expect(displayDateTimeToCanonical("02/01/2026 10:04")).toBe("2026-01-02T10:04");
     expect(displayDateTimeToCanonical("31/02/2026 10:04")).toBeNull();
+  });
+
+  it("inserts date separators while a user types digits", () => {
+    expect(formatDisplayDateInput("01012002")).toBe("01/01/2002");
+    expect(formatDisplayMonthInput("012026")).toBe("01/2026");
+    expect(formatDisplayDateTimeInput("010120021405")).toBe("01/01/2002 14:05");
   });
 });
 

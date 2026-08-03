@@ -45,6 +45,36 @@
   justify-content: center;
 }
 
+.admin-student-name-stack {
+  display: grid;
+  gap: 0.08rem;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.admin-student-name-stack > strong {
+  color: #172033;
+  font-size: 0.78rem;
+}
+
+.admin-student-name-stack > small {
+  display: block;
+  margin: 0;
+  font-size: 0.64rem;
+  line-height: 1.25;
+}
+
+.admin-student-name-stack__thai,
+.admin-student-name-stack__id {
+  color: #172033;
+  font-weight: 550;
+}
+
+.admin-student-name-stack__pending {
+  color: #a34422;
+  font-weight: 750;
+}
+
 @media (max-width: 680px) {
   .admin-overview-status {
     grid-template-columns: 1fr;

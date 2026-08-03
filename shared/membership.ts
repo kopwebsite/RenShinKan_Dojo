@@ -1,4 +1,7 @@
+import { isCanonicalDate } from "./date";
+
 export type AatMembershipState = "new" | "unpaid" | "current" | "expiring" | "expired";
+export type MonthlyContributionState = "not_paid" | "current" | "overdue";
 
 function isoDate(value: string | null | undefined) {
   return isCanonicalDate(value) ? value : null;
@@ -13,6 +16,26 @@ export function addOneCalendarYear(value: string) {
   return next.toISOString().slice(0, 10);
 }
 
+export function addCalendarDays(value: string, days: number) {
+  const parsed = isoDate(value);
+  if (!parsed || !Number.isSafeInteger(days)) return null;
+  const [year, month, day] = parsed.split("-").map(Number);
+  const next = new Date(Date.UTC(year, month - 1, day + days));
+  return next.toISOString().slice(0, 10);
+}
+
+export function monthlyContributionStatus(lastPaidDate: string | null | undefined, today = new Date()) {
+  const paid = isoDate(lastPaidDate);
+  if (!paid) return { state: "not_paid" as const, label: "Payment required", dueDate: null, days: null };
+  const dueDate = addCalendarDays(paid, 30)!;
+  const todayUtc = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+  const dueUtc = Date.parse(`${dueDate}T00:00:00Z`);
+  const days = Math.ceil((dueUtc - todayUtc) / 86_400_000);
+  return days < 0
+    ? { state: "overdue" as const, label: "Renewal overdue", dueDate, days }
+    : { state: "current" as const, label: "Paid and current", dueDate, days };
+}
+
 export function aatMembershipStatus(aatNumber: string | null | undefined, lastPaidDate: string | null | undefined, today = new Date()) {
   const membershipNumber = typeof aatNumber === "string" && aatNumber.trim() ? aatNumber.trim() : null;
   const paid = isoDate(lastPaidDate);
@@ -25,4 +48,3 @@ export function aatMembershipStatus(aatNumber: string | null | undefined, lastPa
   if (days <= 45) return { state: "expiring" as const, label: "Renewal due soon", dueDate, days };
   return { state: "current" as const, label: "Paid and current", dueDate, days };
 }
-import { isCanonicalDate } from "./date";

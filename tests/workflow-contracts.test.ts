@@ -791,20 +791,21 @@ describe("UI and responsive workflow contracts", () => {
     }
   });
 
-  it("offers dojo-aware AAT payments with kind payment-history reminders", () => {
+  it("infers contribution dojos from student records and keeps payment-history reminders", () => {
     const form = file("src/components/ContributionForm.tsx");
     const api = file("functions/api/contributions.ts");
     const css = file("src/index.css");
     expect(form).toContain('fetch("/api/contributions"');
     expect(form).toContain("monthlyContributionAmount");
-    expect(form).toContain("contribution.chooseDojo");
-    expect(form).toContain('fetch("/api/dojos"');
+    expect(form).not.toContain("contribution.chooseDojo");
+    expect(form).not.toContain('fetch("/api/dojos"');
     expect(form).toContain("PaymentReminder");
     expect(form).toContain("contribution.monthlyReminder");
     expect(form).toContain("contribution.aatNoHistoryMessage");
-    expect(api).toContain("submitted.dojoId");
+    expect(api).not.toContain("submitted.dojoId");
     expect(api).toContain("configuredAatAnnualContributionAmount");
-    expect(api).toContain("s.dojo_id = ?");
+    expect(api).toContain("student_id_aliases");
+    expect(api).toContain('student.dojo_id !== DEFAULT_DOJO_ID');
     expect(api).toContain("aat_last_paid_date");
     expect(api).toContain("lastPayment");
     expect(api).toContain("previousMonthKey");

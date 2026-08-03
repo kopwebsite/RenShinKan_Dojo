@@ -51,10 +51,10 @@ async function auditLoginFailure(
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!isSameOriginRequest(request))
     return jsonResponse({ ok: false, error: "Forbidden" }, 403);
-  let body: { adminName?: unknown; password?: unknown };
+  let body: { adminName?: unknown; dojoId?: unknown; password?: unknown };
   let failureStage = "validate_input";
   try {
-    body = await request.json<{ adminName?: unknown; password?: unknown }>();
+    body = await request.json<{ adminName?: unknown; dojoId?: unknown; password?: unknown }>();
   } catch {
     return jsonResponse({ ok: false, error: "Invalid request body" }, 400);
   }
@@ -71,6 +71,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         },
         400,
       );
+    const selectedDojoId =
+      typeof body.dojoId === "string" && /^dojo-[a-z0-9-]+$/.test(body.dojoId.trim())
+        ? body.dojoId.trim()
+        : "";
+    if (!selectedDojoId)
+      return jsonResponse({ ok: false, error: "Choose a dojo." }, 400);
     if (typeof body.password !== "string")
       return jsonResponse({ ok: false, error: "Password is required" }, 400);
     failureStage = "rate_limit_check";
@@ -112,30 +118,34 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
     failureStage = "rate_limit_clear";
     await clearAdminLoginAttempts(request, env);
-    if (access.role !== "central") {
+    const credentialMayUseDojo = access.role === "central"
+      || (selectedDojoId !== RENSHINKAN_DOJO_ID && access.allowedDojoIds.includes(selectedDojoId));
+    if (!credentialMayUseDojo) {
       await auditLoginFailure(
         request,
         env,
         adminName,
-        "Blocked a non-RenShinKan credential from the administration area",
+        "Blocked an administrator credential from a dojo it does not manage",
       );
       return jsonResponse(
         {
           ok: false,
-          error:
-            "This administration area is limited to authorized RenShinKan administrators.",
+          error: "That password does not provide access to the selected dojo.",
         },
         403,
       );
     }
-    const authenticatedName = access.displayName;
+    const authenticatedName = adminName;
     if (env.STUDENT_DB) {
       failureStage = "account_lookup";
-      const existingAccount = await env.STUDENT_DB.prepare(
-        "SELECT disabled FROM admin_accounts WHERE credential_id = ? LIMIT 1",
-      )
-        .bind(access.credentialId)
-        .first<{ disabled: number }>();
+      const [existingAccount, selectedDojo] = await Promise.all([
+        env.STUDENT_DB.prepare(
+          "SELECT disabled FROM admin_accounts WHERE credential_id = ? LIMIT 1",
+        ).bind(access.credentialId).first<{ disabled: number }>(),
+        env.STUDENT_DB.prepare(
+          "SELECT id FROM dojos WHERE id = ? AND active = 1 LIMIT 1",
+        ).bind(selectedDojoId).first<{ id: string }>(),
+      ]);
       if (existingAccount?.disabled === 1) {
         await auditLoginFailure(
           request,
@@ -148,8 +158,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           403,
         );
       }
+      if (!selectedDojo)
+        return jsonResponse({ ok: false, error: "The selected dojo is not active." }, 403);
     }
-    const selectedDojoId = RENSHINKAN_DOJO_ID;
     const sessionId = crypto.randomUUID();
     if (env.STUDENT_DB) {
       failureStage = "account_and_audit_write";
@@ -195,6 +206,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           (request.headers.get("User-Agent") || "").slice(0, 500),
         ),
       ];
+      if (access.role === "dojo") {
+        statements.splice(1, 0, env.STUDENT_DB.prepare(
+          `INSERT OR IGNORE INTO admin_account_dojos
+          (account_id, dojo_id, created_at) VALUES (?, ?, ?)`,
+        ).bind(access.accountId, selectedDojoId, now));
+      }
       await env.STUDENT_DB.batch(statements);
     }
     failureStage = "session_cookie";

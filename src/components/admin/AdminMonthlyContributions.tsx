@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ChevronLeft, ChevronRight, LoaderCircle, ReceiptText, Search, UserRound, X } from "lucide-react";
-import { adminApi, adminStatusLabel, formatAdminDate } from "./adminApi";
-import { formatGregorianMonth } from "../../../shared/date";
+import { CheckCircle2, ChevronLeft, ChevronRight, History, LoaderCircle, ReceiptText, Search, UserRound, X } from "lucide-react";
+import { adminApi, adminStatusLabel } from "./adminApi";
+import { formatGregorianDate, formatGregorianMonth } from "../../../shared/date";
 import { RANKS } from "../../../shared/ranks";
 
 type ContributionStatus = "no_submission" | "awaiting_payment" | "paid";
@@ -17,6 +17,11 @@ type Contribution = {
   paid_at: string | null;
   paid_by: string | null;
   status_updated_at: string | null;
+  last_paid_month: string | null;
+  last_paid_at: string | null;
+  consecutiveMonths: number;
+  renewal: { state: "not_paid" | "current" | "overdue"; label: string; dueDate: string | null; days: number | null };
+  history: Array<{ id: string; month_key: string; paid_at: string | null; paid_by: string | null }>;
 };
 type GraphPoint = { month: string; totalActive: number; paid: number; paidPercentage: number };
 type Response = {
@@ -36,13 +41,21 @@ const EMPTY: Response = {
   summary: { total: 0, submitted: 0, awaiting: 0, paid: 0, paidPercentage: 0 }, graph: [],
 };
 
-function Status({ value }: { value: ContributionStatus }) {
-  const tone = value === "paid" ? "is-active" : value === "awaiting_payment" ? "is-pending" : "is-neutral";
-  return <span className={`admin-status ${tone}`}>{adminStatusLabel(value)}</span>;
-}
-
 function monthLabel(value: string) {
   return formatGregorianMonth(value, value);
+}
+
+function contributionStatus(value: string): ContributionStatus | "" {
+  return value === "no_submission" || value === "awaiting_payment" || value === "paid"
+    ? value
+    : "";
+}
+
+function MonthlySummary({ row, month }: { row: Contribution; month: string }) {
+  return <span className="admin-aat-membership-cell">
+    <span className={`admin-status ${row.status === "paid" ? "is-active" : row.status === "awaiting_payment" ? "is-pending" : "is-neutral"}`}>{row.status === "paid" ? <CheckCircle2 size={13} /> : <ReceiptText size={13} />}{adminStatusLabel(row.status)}</span>
+    <small className="admin-table-subline">{monthLabel(month)}</small>
+  </span>;
 }
 
 export function AdminMonthlyContributions({ report }: { report: (message: string, isError?: boolean) => void }) {
@@ -143,7 +156,7 @@ export function AdminMonthlyContributions({ report }: { report: (message: string
 
     <form className="admin-record-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(queryInput.trim()); }}>
       <label className="admin-search-wide">Search students<div><Search size={17} /><input value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="Name or Student ID" /><button className="btn-secondary">Search</button></div></label>
-      <label>Status<select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}><option value="">All statuses</option><option value="no_submission">No submission</option><option value="awaiting_payment">Awaiting payment</option><option value="paid">Paid</option>
+      <label>Status<select value={status} onChange={(event) => { setStatus(contributionStatus(event.target.value)); setPage(1); }}><option value="">All statuses</option><option value="no_submission">No submission</option><option value="awaiting_payment">Awaiting payment</option><option value="paid">Paid</option>
           </select>
         </label>
         <label>
@@ -190,12 +203,6 @@ export function AdminMonthlyContributions({ report }: { report: (message: string
             <option value="lastPaid">Last paid</option>
           </select>
         </label>
-        <label>
-          Dojo
-          <select value="dojo-rsk" disabled>
-            <option value="dojo-rsk">RenShinKan Dojo</option>
-          </select>
-        </label>
         {query || status || rank || lastPaid || sort !== "name" ? (
           <button
             type="button"
@@ -219,12 +226,12 @@ export function AdminMonthlyContributions({ report }: { report: (message: string
 
     <div className="admin-table-scroll"><table className="admin-record-table"><thead><tr>
       <th><label className="admin-select-box"><input type="checkbox" aria-label="Select all visible students" checked={allVisibleSelected} onChange={(event) => setSelected(event.target.checked ? new Set(data.contributions.map((row) => row.student_id)) : new Set())} /><span aria-hidden="true" /></label></th>
-      <th>Student</th><th>Student ID</th><th>Month</th><th>Submission date</th><th>Status</th><th>Paid at</th><th>Confirmed by</th><th>Actions</th>
+      <th>Student</th><th>Contribution</th><th>Last paid</th><th>Renewal</th><th>Consecutive</th><th>History</th><th>Actions</th>
     </tr></thead><tbody>{data.contributions.map((row) => <tr key={row.student_id} className={selected.has(row.student_id) ? "is-selected" : ""}>
       <td><label className="admin-select-box"><input type="checkbox" aria-label={`Select ${row.student_name}`} checked={selected.has(row.student_id)} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(row.student_id); else next.delete(row.student_id); return next; })} /><span aria-hidden="true" /></label></td>
-      <th><span className="admin-student-identity">{row.profile_image_url ? <img src={row.profile_image_url} alt="" /> : <span aria-hidden="true"><UserRound size={18} /></span>}<span>{row.student_name}<small className="admin-table-subline">{row.current_rank}</small></span></span></th><td><code>{row.public_student_id}</code></td><td>{data.month}</td><td>{formatAdminDate(row.submitted_at)}</td><td><Status value={row.status} /></td><td>{formatAdminDate(row.paid_at)}</td><td>{row.paid_by || "—"}</td>
+      <th><span className="admin-student-identity">{row.profile_image_url ? <img src={row.profile_image_url} alt="" /> : <span aria-hidden="true"><UserRound size={18} /></span>}<span>{row.student_name}<code className="admin-table-subline">{row.public_student_id}</code><small className="admin-table-subline">{row.current_rank}</small></span></span></th><td><MonthlySummary row={row} month={data.month} /></td><td>{row.last_paid_month ? monthLabel(row.last_paid_month) : "Not yet paid"}{row.last_paid_at ? <small className="admin-table-subline">{formatGregorianDate(row.last_paid_at, row.last_paid_at)}</small> : null}</td><td>{row.renewal.dueDate ? formatGregorianDate(row.renewal.dueDate, row.renewal.dueDate) : "Unknown"}{row.renewal.days != null ? <small className="admin-table-subline">{Math.abs(row.renewal.days)} day{Math.abs(row.renewal.days) === 1 ? "" : "s"} {row.renewal.days < 0 ? "overdue" : "remaining"}</small> : <small className="admin-table-subline">30 days after payment</small>}</td><td><strong>{row.consecutiveMonths}</strong><small className="admin-table-subline">month{row.consecutiveMonths === 1 ? "" : "s"} paid</small></td><td>{row.history.length ? <details className="admin-aat-history"><summary><History size={14} /> {row.history.length} payment{row.history.length === 1 ? "" : "s"}</summary><ol>{row.history.map((entry) => <li key={entry.id}><strong>{monthLabel(entry.month_key)}</strong> · {entry.paid_at ? formatGregorianDate(entry.paid_at, entry.paid_at) : "Date unavailable"}{entry.paid_by ? ` · by ${entry.paid_by}` : ""}<span className="admin-status is-active">Paid</span></li>)}</ol></details> : <span className="admin-aat-history-empty">No payments</span>}</td>
       <td><select className="admin-row-action-select" aria-label={`Set contribution status for ${row.student_name}`} value={row.status} onChange={(event) => setPending({ status: event.target.value as ContributionStatus, studentIds: [row.student_id], amount: "", reference: "" })}>{(["no_submission", "awaiting_payment", "paid"] as ContributionStatus[]).map((value) => <option key={value} value={value}>{adminStatusLabel(value)}</option>)}</select></td>
-    </tr>)}{!data.contributions.length && !loading ? <tr><td colSpan={9}><div className="admin-empty-inline"><ReceiptText size={22} /> No contribution records match these filters.</div></td></tr> : null}</tbody></table></div>
+    </tr>)}{!data.contributions.length && !loading ? <tr><td colSpan={8}><div className="admin-empty-inline"><ReceiptText size={22} /> No contribution records match these filters.</div></td></tr> : null}</tbody></table></div>
 
     <footer className="admin-pagination"><span>{data.pagination.total} record{data.pagination.total === 1 ? "" : "s"}</span><div><button className="btn-secondary" disabled={page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))}><ChevronLeft size={16} /> Previous</button><span>Page {data.pagination.page} of {data.pagination.totalPages}</span><button className="btn-secondary" disabled={page >= data.pagination.totalPages || loading} onClick={() => setPage((value) => value + 1)}>Next <ChevronRight size={16} /></button></div></footer>
     {loading ? <div className="admin-loading-overlay"><LoaderCircle className="spin" /><span>Loading contributions</span></div> : null}

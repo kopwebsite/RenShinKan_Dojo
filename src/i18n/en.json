@@ -1565,7 +1565,7 @@
     "addStudent": "Add another student",
     "chooseDojo": "Choose dojo",
     "studentId": "Student ID",
-    "studentName": "Student name on the record",
+    "studentName": "Student's name on record",
     "removeStudent": "Remove student {{number}}",
     "calculatedTotal": "Calculated contribution total",
     "totalToPay": "Total to pay",

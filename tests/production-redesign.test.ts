@@ -216,13 +216,15 @@ describe("interface and downloadable assets", () => {
     }
   });
 
-  it("uses accessible slash-typed Gregorian date fields", () => {
+  it("uses accessible slash-typed Gregorian date fields with calendar controls", () => {
     const source = file("src/components/GregorianDateInput.tsx");
     for (const value of ['type="text"', 'inputMode="numeric"', 'placeholder="DD/MM/YYYY"', 'placeholder="MM/YYYY"', 'placeholder="DD/MM/YYYY HH:MM"', 'displayDateToCanonical', 'displayMonthToCanonical', 'displayDateTimeToCanonical']) {
       expect(source).toContain(value);
     }
-    expect(source).not.toContain('type="date"');
-    expect(source).not.toContain('type="datetime-local"');
+    expect(source).toContain('type="date"');
+    expect(source).toContain('type="datetime-local"');
+    expect(source).toContain("CalendarDays");
+    expect(source).toContain("formatDisplayDateInput");
     expect(source).not.toContain("showPicker");
   });
 

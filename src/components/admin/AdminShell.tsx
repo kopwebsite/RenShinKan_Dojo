@@ -214,6 +214,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   const ready = Boolean(session.checked && session.admin);
   const central = session.admin?.permissionLevel === "renshinkan_super_admin";
+  const selectedDojoName = session.dojos.find((dojo) => dojo.id === session.admin?.selectedDojoId)?.official_name;
+  const dataScope = central ? "All dojos" : selectedDojoName || "Selected dojo";
 
   async function signOut() {
     await session.logout();
@@ -236,6 +238,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
       ? <>{children}</>
       : <Navigate to="/admin/dashboard" replace />;
   }
+  if (!canAccessAdminPath(location.pathname, session.admin?.permissionLevel)) {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
 
   return <div ref={translationScopeRef} className="admin-shell">
     <aside className="admin-shell__sidebar">
@@ -253,7 +258,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </button>
         <div className="admin-shell__dojo-context">
           <span>Data scope</span>
-            <strong>All dojos</strong>
+            <strong>{dataScope}</strong>
           </div>
           <div className="admin-shell__account">
             <span><strong>{session.admin.name}</strong><small>{central ? t("adminShell.centralAdministrator") : t("adminShell.dojoAdministrator")}</small></span>
@@ -278,7 +283,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     <AccessibleDialog open={menuOpen} onClose={closeMenu} triggerRef={menuTriggerRef} titleId="admin-mobile-menu-title" backdropClassName="admin-shell__overlay" panelClassName="admin-shell__mobile-panel" panelAs="aside">
         <header><div><strong id="admin-mobile-menu-title">RenShinKan</strong><span>{t("adminShell.administration")}</span></div><button type="button" onClick={closeMenu} aria-label={t("adminShell.closeMenu")}><X /></button></header>
         <div className="admin-shell__mobile-context"><span>Data scope</span>
-          <strong>All dojos</strong>
+          <strong>{dataScope}</strong>
         </div>
         <Navigation
           central={central}

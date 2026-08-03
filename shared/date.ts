@@ -34,6 +34,33 @@ export function displayDateToCanonical(value: string) {
   return isCanonicalDate(canonical) ? canonical : null;
 }
 
+function inputDigits(value: string, limit: number) {
+  return value.replace(/\D/g, "").slice(0, limit);
+}
+
+/** Formats a numeric date draft as DD/MM/YYYY while the user types. */
+export function formatDisplayDateInput(value: string) {
+  const digits = inputDigits(value, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+/** Formats a numeric month draft as MM/YYYY while the user types. */
+export function formatDisplayMonthInput(value: string) {
+  const digits = inputDigits(value, 6);
+  return digits.length <= 2 ? digits : `${digits.slice(0, 2)}/${digits.slice(2)}`;
+}
+
+/** Formats a numeric local date/time draft as DD/MM/YYYY HH:MM. */
+export function formatDisplayDateTimeInput(value: string) {
+  const digits = inputDigits(value, 12);
+  const date = formatDisplayDateInput(digits.slice(0, 8));
+  if (digits.length <= 8) return date;
+  const time = digits.slice(8);
+  return `${date} ${time.length <= 2 ? time : `${time.slice(0, 2)}:${time.slice(2)}`}`;
+}
+
 export function canonicalDateToDisplay(value: unknown) {
   if (!isCanonicalDate(value)) return "";
   const [year, month, day] = value.split("-");

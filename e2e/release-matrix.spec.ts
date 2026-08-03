@@ -65,6 +65,9 @@ async function signInAsSyntheticAdministrator(page: Page) {
   const password = page.getByLabel("Administrative password");
   await expect(password).toHaveValue("", { timeout: 30_000 });
   await page.getByLabel("Your name").fill(fixture.adminName);
+  const dojo = page.locator("#admin-dojo");
+  await expect(dojo).toBeVisible({ timeout: 30_000 });
+  await dojo.selectOption("dojo-rsk");
   await password.fill(fixture.password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/admin(?:\/dashboard)?$/);
@@ -304,6 +307,17 @@ test("admin workflows bootstrap once, remain scoped, and do not retain passwords
     await expect(
       page.getByRole("heading", { name: heading, exact: true, level: 1 }),
     ).toBeVisible({ timeout: 15_000 });
+    if (link === "Monthly contributions") {
+      await expect(
+        page.getByRole("columnheader", { name: "Renewal" }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("columnheader", { name: "Consecutive" }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("columnheader", { name: "History" }),
+      ).toBeVisible();
+    }
   }
 
   await page

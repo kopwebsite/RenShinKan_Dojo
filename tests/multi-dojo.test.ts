@@ -18,7 +18,11 @@ import {
   studentIdSequenceForCurrentYear,
 } from "../functions/_lib/studentRecords";
 import { bangkokBuddhistYear } from "../shared/date";
-import { aatMembershipStatus, addOneCalendarYear } from "../shared/membership";
+import {
+  aatMembershipStatus,
+  addOneCalendarYear,
+  monthlyContributionStatus,
+} from "../shared/membership";
 import {
   onRequestGet as getStudent,
   onRequestPut as putStudent,
@@ -123,6 +127,7 @@ describe("multi-dojo authentication and authorization", () => {
         },
         body: JSON.stringify({
           adminName: "Central Admin",
+          dojoId: "dojo-rsk",
           password: "central-pass",
         }),
       }),
@@ -137,7 +142,7 @@ describe("multi-dojo authentication and authorization", () => {
 
   it("keeps legacy dojo scopes safe while retiring dojo-selection endpoints", () => {
     const central = session("central");
-    const centralAtCmu = session("central", [], "dojo-cmu", false);
+    const centralAtCmu = session("central", [], "dojo-cmu");
     const cmu = session("dojo", ["dojo-cmu"]);
     expect(requiresCentralAdmin(central)).toBe(true);
     expect(requiresCentralAdmin(cmu)).toBe(false);
@@ -173,7 +178,7 @@ describe("multi-dojo authentication and authorization", () => {
     });
   });
 
-  it("rejects non-RenShinKan sessions at the shared admin authorization boundary", async () => {
+  it("authorizes dojo sessions but rejects access to another dojo's student", async () => {
     const authEnv = { SESSION_SECRET: "direct-api-scope-secret" };
     const cookie = await createSessionCookie(authEnv, {
       adminName: "CMU Admin",
@@ -200,9 +205,9 @@ describe("multi-dojo authentication and authorization", () => {
       env,
       params: { id: "nu-student" },
     } as never);
-    expect(getResponse.status).toBe(401);
+    expect(getResponse.status).toBe(403);
     expect(await getResponse.json()).toMatchObject({
-      error: expect.stringContaining("Unauthorized"),
+      error: expect.stringContaining("do not have access"),
     });
     const putResponse = await putStudent({
       request: new Request(
@@ -220,7 +225,7 @@ describe("multi-dojo authentication and authorization", () => {
       env,
       params: { id: "nu-student" },
     } as never);
-    expect(putResponse.status).toBe(401);
+    expect(putResponse.status).toBe(403);
   });
 });
 
@@ -322,6 +327,21 @@ describe("multi-dojo data model and workflows", () => {
     expect(addOneCalendarYear("2024-02-29")).toBe("2025-02-28");
   });
 
+  it("renews monthly contributions exactly 30 days after payment", () => {
+    expect(
+      monthlyContributionStatus(
+        "2026-07-15",
+        new Date("2026-08-01T00:00:00Z"),
+      ),
+    ).toMatchObject({ state: "current", dueDate: "2026-08-14", days: 13 });
+    expect(
+      monthlyContributionStatus(
+        "2026-07-01",
+        new Date("2026-08-01T00:00:00Z"),
+      ),
+    ).toMatchObject({ state: "overdue", dueDate: "2026-07-31", days: -1 });
+  });
+
   it("keeps AAT payments immutable and monthly contributions RenShinKan-only", () => {
     const memberships = file("functions/api/admin/memberships.ts");
     const publicContribution = file("functions/api/contributions.ts");
@@ -331,12 +351,15 @@ describe("multi-dojo data model and workflows", () => {
     );
     expect(memberships).toContain("INSERT INTO aat_membership_payments");
     expect(memberships).toContain("INSERT INTO payment_history");
-    expect(publicContribution.replace(/\s+/g, " ")).toContain(
-      'contributionType === "renshinkan_monthly" ? DEFAULT_DOJO_ID',
+    expect(publicContribution).toContain(
+      'contributionType === "renshinkan_monthly" && student.dojo_id !== DEFAULT_DOJO_ID',
     );
     expect(publicContribution).toContain("configuredMonthlyContributionAmount");
-    expect(publicContribution).toContain("s.dojo_id = ?");
+    expect(publicContribution).toContain("student_id_aliases");
+    expect(publicContribution).not.toContain("submitted.dojoId");
     expect(adminContribution).toContain("requiresCentralAdmin");
+    expect(adminContribution).toContain("consecutivePaidMonths");
+    expect(adminContribution).toContain("monthlyContributionStatus");
     expect(adminContribution).toContain(
       "JOIN students s ON s.id = r.student_id AND s.dojo_id = 'dojo-rsk'",
     );

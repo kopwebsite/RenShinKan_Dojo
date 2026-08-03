@@ -495,7 +495,7 @@ export function AdminPage() {
   const {
     admin,
     dojos,
-    name: adminName, password, error: authError } = session;
+    name: adminName, dojoId: loginDojoId, password, error: authError } = session;
   const setAdminName = session.setName;
   const setPassword = session.setPassword;
   const login = session.login;
@@ -1313,9 +1313,12 @@ export function AdminPage() {
         <form onSubmit={login} className="admin-login-card">
           <AdminLoginFields
             name={adminName}
+            dojoId={loginDojoId}
+            dojos={dojos}
             password={password}
             error={authError}
             setName={setAdminName}
+            setDojoId={session.setDojoId}
             setPassword={setPassword}
           />
         </form>

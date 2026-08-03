@@ -137,9 +137,10 @@ describe("newsletter migration and backward compatibility", () => {
     });
   });
 
-  it("defaults legacy newsletters to articles and validates presentation source and PDF references", () => {
+  it("requires an explicit format and validates presentation source and PDF references", () => {
     const legacy = validateEditableContent(contentWith([legacyEvent()])).recentEvents[0];
-    expect(legacy.newsletterFormat).toBe("article");
+    expect(legacy.newsletterFormat).toBeUndefined();
+    expect(newsletterPublicationIssues(legacy)).toContain("Choose a newsletter format.");
     expect(legacy.presentation).toEqual({ originalMediaId: null, pdfMediaId: null, viewerTitle: legacy.title, slideCount: null, outline: [] });
 
     const presentation = validateEditableContent(contentWith([legacyEvent({

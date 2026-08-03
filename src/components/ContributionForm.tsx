@@ -1,4 +1,4 @@
-import { CalendarClock, CheckCircle2, HandCoins, Landmark, LoaderCircle, Plus, QrCode, ReceiptText, ShieldCheck, Trash2, UsersRound } from "lucide-react";
+import { CalendarClock, CheckCircle2, HandCoins, LoaderCircle, Plus, QrCode, ReceiptText, ShieldCheck, Trash2, UsersRound } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "../i18n";
 import { useEditableContent } from "../lib/content";
@@ -9,7 +9,6 @@ import { currentBangkokMonthKey, formatGregorianDate, formatGregorianMonth } fro
 
 const MAX_MONTHLY_STUDENTS = 10;
 
-type Dojo = { id: string; official_name: string; short_name: string; code: string };
 type AatReminder = { kind: "aat"; state: "not_recorded" | "current" | "due_soon" | "overdue"; lastPaidDate: string | null; dueDate: string | null; days: number | null };
 type MonthlyReminder = { kind: "monthly"; state: "not_recorded" | "current" | "check_in"; lastPaidMonth: string | null; lastPaidDate: string | null };
 type SubmissionResult = {
@@ -27,14 +26,14 @@ type SubmissionResult = {
   unitAmount?: number;
   totalAmount?: number;
 } & PaymentProofAccess;
-type ContributionStudent = { key: string; studentId: string; studentName: string; dojoId: string };
+type ContributionStudent = { key: string; studentId: string; studentName: string };
 type ContributionConfiguration = {
   monthlyContribution?: { amount?: number | null; currency?: string; available?: boolean };
   aatAnnualContribution?: { amount?: number | null; currency?: string; available?: boolean };
 };
 
 function emptyContributionStudent(): ContributionStudent {
-  return { key: crypto.randomUUID(), studentId: "", studentName: "", dojoId: "" };
+  return { key: crypto.randomUUID(), studentId: "", studentName: "" };
 }
 
 function baht(value: number, locale?: string) {
@@ -88,7 +87,6 @@ export function ContributionForm() {
   const { content } = useEditableContent();
   const [monthlyStudents, setMonthlyStudents] = useState<ContributionStudent[]>(() => [emptyContributionStudent()]);
   const [contributionType, setContributionType] = useState<"aat_annual" | "renshinkan_monthly">("renshinkan_monthly");
-  const [dojos, setDojos] = useState<Dojo[]>([]);
   const [monthlyContributionAmount, setMonthlyContributionAmount] = useState<number | null>(null);
   const [aatContributionAmount, setAatContributionAmount] = useState<number | null>(null);
   const [configurationLoaded, setConfigurationLoaded] = useState(false);
@@ -103,7 +101,7 @@ export function ContributionForm() {
   const contributionTotal = unitAmount === null ? null : monthlyStudents.length * unitAmount;
   const formatAmount = (value: number) => baht(value, language);
 
-  function updateMonthlyStudent(key: string, field: "studentId" | "studentName" | "dojoId", value: string) {
+  function updateMonthlyStudent(key: string, field: "studentId" | "studentName", value: string) {
     setMonthlyStudents((students) => students.map((student) => student.key === key
       ? { ...student, [field]: field === "studentId" ? value.toUpperCase() : value }
       : student));
@@ -111,11 +109,6 @@ export function ContributionForm() {
 
   useEffect(() => {
     let active = true;
-    fetch("/api/dojos", { cache: "force-cache" }).then(async (response) => {
-      if (!response.ok) throw new Error("The dojo list is unavailable.");
-      const body = await response.json() as { dojos?: Dojo[] };
-      if (active) setDojos(body.dojos || []);
-    }).catch(() => { if (active) setDojos([]); });
     fetch("/api/contributions", { cache: "no-store" }).then(async (response) => {
       if (!response.ok) throw new Error("The contribution configuration is unavailable.");
       const body = await response.json() as ContributionConfiguration;
@@ -131,8 +124,7 @@ export function ContributionForm() {
     event.preventDefault();
     setError("");
     const studentDetailsComplete = monthlyStudents.every((student) =>
-      student.studentId.trim() && student.studentName.trim()
-      && (contributionType === "renshinkan_monthly" || student.dojoId));
+      student.studentId.trim() && student.studentName.trim());
     if (contributionType === "renshinkan_monthly" && monthlyContributionAmount === null) {
       setError(t("contribution.errorMonthlyConfig"));
       return;
@@ -152,9 +144,7 @@ export function ContributionForm() {
         headers: { "Content-Type": "application/json", "X-Request-ID": crypto.randomUUID() },
         body: JSON.stringify({
           month, contributionType, turnstileToken,
-          students: monthlyStudents.map(({ studentId, studentName, dojoId }) => ({
-            studentId, studentName, dojoId: contributionType === "renshinkan_monthly" ? undefined : dojoId,
-          })),
+          students: monthlyStudents.map(({ studentId, studentName }) => ({ studentId, studentName })),
         }),
       });
       const body = await response.json() as SubmissionResult & { error?: string };
@@ -224,15 +214,11 @@ export function ContributionForm() {
         </div>
       </fieldset>
       <div className="contribution-fields-grid">
-        {contributionType === "renshinkan_monthly" ? <div className="contribution-dojo-note contribution-field--wide"><Landmark aria-hidden="true" /><span><small>{t("contribution.dojo")}</small><strong>RenShinKan Dojo</strong></span></div> : null}
         <section className="contribution-student-list contribution-field--wide" aria-labelledby="contribution-students-title">
           <header><div><UsersRound aria-hidden="true" /><span><strong id="contribution-students-title">{t("contribution.who")}</strong><small>{t("contribution.coveredRows")}</small></span></div>{monthlyStudents.length < MAX_MONTHLY_STUDENTS ? <button className="btn-secondary" type="button" onClick={() => setMonthlyStudents((students) => [...students, emptyContributionStudent()])}><Plus size={16} /> {t("contribution.addStudent")}</button> : null}</header>
-          <div className="contribution-student-list__rows">{monthlyStudents.map((student, index) => <div className={`contribution-student-row${contributionType === "aat_annual" ? " contribution-student-row--aat" : ""}`} key={student.key}>
+          <div className="contribution-student-list__rows">{monthlyStudents.map((student, index) => <div className="contribution-student-row" key={student.key}>
             <span className="contribution-student-row__number">{String(index + 1).padStart(2, "0")}</span>
-            {contributionType === "aat_annual" ? <label><span>{t("contribution.dojo")} <b aria-hidden="true">*</b></span><select value={student.dojoId} onChange={(event) => updateMonthlyStudent(student.key, "dojoId", event.target.value)} required><option value="">{t("contribution.chooseDojo")}</option>{dojos.map((dojo) => <option key={dojo.id} value={dojo.id}>{dojo.official_name}</option>)}</select></label> : null}
-            <label><span>{t("contribution.studentId")} <b aria-hidden="true">*</b></span><input value={student.studentId} onChange={(event) => updateMonthlyStudent(student.key, "studentId", event.target.value)} placeholder={contributionType === "aat_annual" ? `${dojos.find((dojo) => dojo.id === student.dojoId)?.code || "DOJO"}-6901`
-                          : "RSK-6901"
-                      }
+            <label><span>{t("contribution.studentId")} <b aria-hidden="true">*</b></span><input value={student.studentId} onChange={(event) => updateMonthlyStudent(student.key, "studentId", event.target.value)} placeholder={contributionType === "aat_annual" ? "DOJO-6901" : "RSK-6901"}
                       autoComplete="off"
                       required
                     />

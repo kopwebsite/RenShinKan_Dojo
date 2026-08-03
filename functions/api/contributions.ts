@@ -93,7 +93,6 @@ function aatReminder(student: StudentRow) {
 async function lookupStudent(
   db: ReturnType<typeof requireStudentDb>,
   publicStudentId: string,
-  dojoId: string,
   submittedName: string,
 ) {
   const student = await db
@@ -104,11 +103,11 @@ async function lookupStudent(
     WHERE (UPPER(s.public_student_id) = ? OR EXISTS (
       SELECT 1 FROM student_id_aliases a WHERE a.student_id = s.id
       AND UPPER(a.alias_public_student_id) = ?
-    )) AND s.dojo_id = ? AND s.active = 1
+    )) AND s.active = 1
       AND s.profile_status IN ('pending_admin_approval', 'approved')
       AND s.deleted_at IS NULL LIMIT 1`,
     )
-    .bind(publicStudentId, publicStudentId, dojoId)
+    .bind(publicStudentId, publicStudentId)
     .first<StudentRow>();
   return student && namesLikelyMatch(submittedName, student.display_name)
     ? student
@@ -155,7 +154,6 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({
           {
             studentId: body.studentId,
             studentName: body.studentName,
-            dojoId: body.dojoId,
           },
         ];
     const submittedStudents = rawStudents.map((entry) => {
@@ -166,10 +164,6 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({
       return {
         publicStudentId: normalizeStudentId(clean(item.studentId, 40)),
         submittedName: clean(item.studentName, 120),
-        dojoId:
-          contributionType === "renshinkan_monthly"
-            ? DEFAULT_DOJO_ID
-            : clean(item.dojoId, 80),
       };
     });
     if (!contributionType || !isMonthKey(month) || month !== currentMonth) {
@@ -184,12 +178,12 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({
       submittedStudents.length > MAX_CONTRIBUTION_STUDENTS ||
       submittedStudents.some(
         (student) =>
-          !student.publicStudentId || !student.submittedName || !student.dojoId,
+          !student.publicStudentId || !student.submittedName,
       )
     ) {
       return jsonResponse(
         {
-          error: `Add between 1 and ${MAX_CONTRIBUTION_STUDENTS} students with a dojo, Student ID, and name for each person.`,
+          error: `Add between 1 and ${MAX_CONTRIBUTION_STUDENTS} students with a Student ID and name for each person.`,
         },
         400,
         headers,
@@ -245,13 +239,12 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({
       const student = await lookupStudent(
         db,
         submitted.publicStudentId,
-        submitted.dojoId,
         submitted.submittedName,
       );
-      if (!student) {
+      if (!student || (contributionType === "renshinkan_monthly" && student.dojo_id !== DEFAULT_DOJO_ID)) {
         return jsonResponse(
           {
-            error: `We could not verify ${submitted.publicStudentId} with that dojo and name. Check the row or ask a sensei for help.`,
+            error: `We could not verify ${submitted.publicStudentId} with that name for this contribution. Check the row or ask a sensei for help.`,
           },
           404,
           headers,

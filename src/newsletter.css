@@ -963,8 +963,7 @@
   position: relative;
   display: grid;
   grid-template-columns:
-    1.15rem 5.5rem minmax(13rem, 1fr) minmax(10rem, 0.65fr)
-    auto auto;
+    1.15rem 5.5rem minmax(13rem, 1fr) 10rem 7.5rem 13.5rem;
   gap: 1rem;
   align-items: center;
   padding-block: 1rem;
@@ -1022,7 +1021,10 @@
 
 .admin-newsletter-row__statuses {
   display: grid;
+  width: 100%;
+  min-width: 10rem;
   justify-items: start;
+  align-content: center;
   gap: 0.3rem;
 }
 
@@ -1448,6 +1450,16 @@
 .admin-newsletter-format strong,
 .admin-newsletter-format small {
   display: block;
+}
+
+.admin-newsletter-format-required {
+  display: grid;
+  justify-items: start;
+  gap: 0.8rem;
+  margin-top: 1.3rem;
+  padding: 1.1rem;
+  border: 1px solid hsl(var(--color-wood) / 0.35);
+  background: hsl(var(--color-wood) / 0.08);
 }
 .admin-newsletter-format strong {
   font-size: 1rem;

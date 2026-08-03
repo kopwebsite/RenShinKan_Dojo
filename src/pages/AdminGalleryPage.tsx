@@ -536,7 +536,7 @@ export function AdminGalleryPage() {
   if (!session.checked) return <section className="container-shell py-20" aria-live="polite" />;
   if (!session.admin) {
     return <section className="container-shell py-20"><form onSubmit={session.login} className="admin-login-card">
-      <AdminLoginFields name={session.name} password={session.password} error={session.error} setName={session.setName} setPassword={session.setPassword} />
+      <AdminLoginFields name={session.name} dojoId={session.dojoId} dojos={session.dojos} password={session.password} error={session.error} setName={session.setName} setDojoId={session.setDojoId} setPassword={session.setPassword} />
     </form></section>;
   }
   if (session.admin.permissionLevel !== "renshinkan_super_admin")

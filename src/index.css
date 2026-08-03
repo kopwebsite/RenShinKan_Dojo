@@ -7379,11 +7379,13 @@ html.admin-route :is(input, select, textarea, button, a):focus-visible {
   gap: 0.45rem;
   font-weight: 700;
 }
-.admin-login-card input {
+.admin-login-card input,
+.admin-login-card select {
   min-height: 2.8rem;
   padding: 0.65rem 0.75rem;
   border: 1px solid #aeb8c6;
   border-radius: 0.35rem;
+  background: #fff;
 }
 .admin-dojo-selection {
   max-width: 1180px;
@@ -8653,6 +8655,55 @@ html.admin-route .admin-drawer {
   display: block;
   margin-top: 0.25rem;
   font-size: 0.78rem;
+}
+
+.gregorian-date-control {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.gregorian-date-control > input[type="text"] {
+  width: 100%;
+  padding-right: 3.15rem;
+}
+
+.student-practice-start .gregorian-date-control {
+  margin-top: 0.25rem;
+}
+
+.gregorian-date-picker {
+  position: absolute;
+  top: 50%;
+  right: 0.35rem;
+  display: grid;
+  width: 2.35rem;
+  height: 2.35rem;
+  translate: 0 -50%;
+  place-items: center;
+  overflow: hidden;
+  border-left: 1px solid hsl(var(--color-ink) / 0.16);
+  color: hsl(var(--color-bamboo));
+}
+
+.gregorian-date-picker:focus-within {
+  border-radius: 0.3rem;
+  outline: 3px solid #2563eb;
+  outline-offset: 1px;
+}
+
+.gregorian-date-picker > input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.gregorian-date-picker:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .admin-entry-language {

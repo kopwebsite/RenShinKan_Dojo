@@ -654,7 +654,7 @@ function validateRecentEvent(value: unknown, index: number): RecentEvent {
     : "active";
   const newsletterFormat = allowedNewsletterFormats.has(value.newsletterFormat as NewsletterFormat)
     ? value.newsletterFormat as NewsletterFormat
-    : "article";
+    : undefined;
 
   return {
     id,

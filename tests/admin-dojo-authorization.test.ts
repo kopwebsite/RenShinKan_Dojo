@@ -10,6 +10,7 @@ import {
   isRenShinKanSuperAdmin,
   type AdminSession,
 } from "../functions/_lib/auth";
+import { canAccessAdminPath } from "../shared/adminPermissions";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const file = (path: string) => readFileSync(resolve(root, path), "utf8");
@@ -40,7 +41,7 @@ function session(
 describe("RenShinKan administrator authorization", () => {
   const env = { SESSION_SECRET: "authorization-test-session-secret" };
 
-  it("authorizes only a central session in the RenShinKan context", async () => {
+  it("authorizes central and dojo sessions only in their selected dojo context", async () => {
     const centralCookie = await createSessionCookie(
       env,
       session("central", "dojo-rsk"),
@@ -57,11 +58,30 @@ describe("RenShinKan administrator authorization", () => {
     });
     expect(isRenShinKanSuperAdmin(central)).toBe(true);
 
-    for (const candidate of [
-      session("central", null),
+    const centralAtCmuCookie = await createSessionCookie(
+      env,
       session("central", "dojo-cmu"),
-      session("dojo", "dojo-rsk"),
-    ]) {
+    );
+    const centralAtCmu = await getAuthorizedAdminSession(
+      new Request("https://example.test/api/admin/session", {
+        headers: { Cookie: centralAtCmuCookie.split(";")[0] },
+      }),
+      env,
+    );
+    expect(centralAtCmu).toMatchObject({ role: "central", selectedDojoId: "dojo-cmu" });
+    expect(isRenShinKanSuperAdmin(centralAtCmu)).toBe(false);
+
+    const cmuCookie = await createSessionCookie(env, session("dojo", "dojo-cmu"));
+    await expect(
+      getAuthorizedAdminSession(
+        new Request("https://example.test/api/admin/session", {
+          headers: { Cookie: cmuCookie.split(";")[0] },
+        }),
+        env,
+      ),
+    ).resolves.toMatchObject({ role: "dojo", selectedDojoId: "dojo-cmu" });
+
+    for (const candidate of [session("central", null), session("dojo", "dojo-rsk")]) {
       const cookie = await createSessionCookie(env, candidate);
       await expect(
         getAuthorizedAdminSession(
@@ -92,11 +112,12 @@ describe("RenShinKan administrator authorization", () => {
     expect(clearSessionCookie()).toContain("Max-Age=0");
   });
 
-  it("blocks non-RenShinKan credentials during login and starts central sessions at RenShinKan", () => {
+  it("requires a dojo at login and restricts dojo credentials to their own dojo", () => {
     const login = file("functions/api/admin/login.ts");
-    expect(login).toContain('access.role !== "central"');
-    expect(login).toContain("limited to authorized RenShinKan administrators");
-    expect(login).toContain("const selectedDojoId = RENSHINKAN_DOJO_ID");
+    expect(login).toContain("body.dojoId");
+    expect(login).toContain("Choose a dojo.");
+    expect(login).toContain("credentialMayUseDojo");
+    expect(login).toContain("access.allowedDojoIds.includes(selectedDojoId)");
     expect(login).toContain("allowAdminLoginAttempt");
     expect(login).toContain("recordFailedAdminLoginAttempt");
   });
@@ -107,7 +128,12 @@ describe("RenShinKan administrator authorization", () => {
     );
     const pageGuard = file("functions/admin/[[path]].ts");
     expect(pageGuard).toContain("getAuthorizedAdminSession");
+    expect(pageGuard).toContain("canAccessAdminPath");
     expect(pageGuard).toContain("withPrivateNoIndex");
+    expect(canAccessAdminPath("/admin/students", "dojo_admin")).toBe(true);
+    expect(canAccessAdminPath("/admin/website", "dojo_admin")).toBe(false);
+    expect(canAccessAdminPath("/admin/monthly-contributions", "dojo_admin")).toBe(false);
+    expect(canAccessAdminPath("/admin/website", "renshinkan_super_admin")).toBe(true);
   });
 
   it("retires dojo switching without deleting dojo affiliations or filters", () => {
@@ -146,11 +172,25 @@ describe("RenShinKan administrator authorization", () => {
 });
 
 describe("RenShinKan administration interface", () => {
-  it("shows one all-dojo scope with no workspace switcher", () => {
+  it("shows the signed-in administrator's selected dojo scope", () => {
     const shell = file("src/components/admin/AdminShell.tsx");
-    expect(shell).toContain("<strong>All dojos</strong>");
+    expect(shell).toContain('const dataScope = central ? "All dojos" : selectedDojoName');
+    expect(shell).toContain("<strong>{dataScope}</strong>");
     expect(shell).not.toContain("changeDojo");
     expect(shell).not.toContain("AdminDojoSelector");
+  });
+
+  it("asks for a name, dojo, and password and loads every active dojo", () => {
+    const access = file("src/components/admin/AdminAccess.tsx");
+    const sessionApi = file("functions/api/admin/session.ts");
+    const sessionHook = file("src/components/admin/useAdminSession.ts");
+    expect(access).toContain('htmlFor="admin-name"');
+    expect(access).toContain('htmlFor="admin-dojo"');
+    expect(access).toContain('htmlFor="admin-password"');
+    expect(access).toContain("dojos.map");
+    expect(sessionApi).toContain("FROM dojos WHERE active = 1");
+    expect(sessionHook).toContain("setDojos(result.dojos || [])");
+    expect(sessionHook).toContain("adminName: name.trim(), dojoId, password");
   });
 
   it("keeps all three examination destinations", () => {

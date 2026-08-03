@@ -50,10 +50,13 @@ export function AdminAuditPage() {
         <form onSubmit={session.login}>
           <AdminLoginFields
             name={session.name}
+            dojoId={session.dojoId}
+            dojos={session.dojos}
             password={session.password}
             error={session.error}
             busy={session.busy}
             setName={session.setName}
+            setDojoId={session.setDojoId}
             setPassword={session.setPassword}
           />
         </form>

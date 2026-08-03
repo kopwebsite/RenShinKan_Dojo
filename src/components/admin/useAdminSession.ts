@@ -25,10 +25,12 @@ type AdminSessionContextValue = {
   admin: AdminIdentity | null;
   dojos: AdminDojo[];
   name: string;
+  dojoId: string;
   password: string;
   busy: boolean;
   error: string;
   setName(value: string): void;
+  setDojoId(value: string): void;
   setPassword(value: string): void;
   setError(value: string): void;
   login(event: FormEvent): Promise<void>;
@@ -45,6 +47,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
   const [admin, setAdmin] = useState<AdminIdentity | null>(null);
   const [dojos, setDojos] = useState<AdminDojo[]>([]);
   const [name, setName] = useState("");
+  const [dojoId, setDojoId] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -76,6 +79,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
         return;
       setAdmin(result.admin);
       setDojos(result.dojos || []);
+      if (result.admin?.selectedDojoId) setDojoId(result.admin.selectedDojoId);
       setStatus(
         result.authenticated && result.admin
           ? "authenticated"
@@ -114,7 +118,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
       try {
         await adminApi("/api/admin/login", {
           method: "POST",
-          body: JSON.stringify({ adminName: name.trim(), password }),
+          body: JSON.stringify({ adminName: name.trim(), dojoId, password }),
         });
         setPassword("");
         await refresh(true);
@@ -124,12 +128,13 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
         setBusy(false);
       }
     },
-    [name, password, refresh],
+    [dojoId, name, password, refresh],
   );
 
   const logout = useCallback(async () => {
     clearSharedSession();
     setName("");
+    setDojoId("");
     try {
       await adminApi("/api/admin/logout", { method: "POST" });
     } catch {
@@ -145,17 +150,19 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
       admin,
       dojos,
       name,
+      dojoId,
       password,
       busy,
       error,
       setName,
+      setDojoId,
       setPassword,
       setError,
       login,
       logout,
       refresh,
     }),
-    [admin, busy, dojos, error, login, logout, name, password, refresh, status],
+    [admin, busy, dojoId, dojos, error, login, logout, name, password, refresh, status],
   );
 
   return createElement(AdminSessionContext.Provider, { value }, children);

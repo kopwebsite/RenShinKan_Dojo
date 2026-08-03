@@ -541,7 +541,7 @@ export async function getAuthorizedAdminSession(
   env: AuthEnv,
 ) {
   const session = await getAdminSession(request, env);
-  return isRenShinKanSuperAdmin(session) ? session : null;
+  return hasSelectedDojoAccess(session) ? session : null;
 }
 
 export function canAccessDojo(

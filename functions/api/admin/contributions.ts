@@ -1,4 +1,5 @@
 import { getAuthorizedAdminSession, isSameOriginRequest, jsonResponse, requiresCentralAdmin, type AdminSession } from "../../_lib/auth";
+import { monthlyContributionStatus } from "../../../shared/membership";
 import {
   adminAuditMetadata,
   auditStatement,
@@ -26,6 +27,15 @@ type ContributionRow = {
   paid_by: string | null;
   status_updated_at: string | null;
   internal_note: string | null;
+  last_paid_month: string | null;
+  last_paid_at: string | null;
+};
+type ContributionHistoryRow = {
+  id: string;
+  student_id: string;
+  month_key: string;
+  paid_at: string | null;
+  paid_by: string | null;
 };
 
 function clean(value: unknown, max: number) {
@@ -34,6 +44,27 @@ function clean(value: unknown, max: number) {
 
 function escapeLike(value: string) {
   return value.replace(/[\\%_]/g, "\\$&");
+}
+
+function latestPaidColumns(studentIdSql: string) {
+  return `(SELECT previous.month_key FROM monthly_contributions previous
+      WHERE previous.student_id = ${studentIdSql} AND previous.status = 'paid'
+      ORDER BY previous.month_key DESC LIMIT 1) AS last_paid_month,
+    (SELECT previous.paid_at FROM monthly_contributions previous
+      WHERE previous.student_id = ${studentIdSql} AND previous.status = 'paid'
+      ORDER BY previous.month_key DESC LIMIT 1) AS last_paid_at`;
+}
+
+function consecutivePaidMonths(history: ContributionHistoryRow[]) {
+  if (!history.length) return 0;
+  let expected = history[0].month_key;
+  let count = 0;
+  for (const entry of history) {
+    if (entry.month_key !== expected) break;
+    count += 1;
+    expected = previousMonthKey(expected);
+  }
+  return count;
 }
 
 async function ensureCurrentPeriod(db: D1Database, month: string, requestId: string, session: AdminSession, request: Request) {
@@ -95,7 +126,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         c.paid_at,
         c.paid_by,
         c.status_updated_at,
-        c.internal_note
+        c.internal_note,
+        ${latestPaidColumns("r.student_id")}
       FROM contribution_period_students r
       JOIN students s ON s.id = r.student_id AND s.dojo_id = 'dojo-rsk'
       LEFT JOIN monthly_contributions c ON c.student_id = r.student_id AND c.month_key = r.month_key
@@ -115,7 +147,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         NULL AS paid_at,
         NULL AS paid_by,
         NULL AS status_updated_at,
-        NULL AS internal_note
+        NULL AS internal_note,
+        ${latestPaidColumns("s.id")}
       FROM students s
       WHERE s.active = 1 AND s.profile_status IN ('pending_admin_approval', 'approved') AND s.dojo_id = 'dojo-rsk'
       `;
@@ -123,7 +156,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     rosterSql = `SELECT s.id AS student_id, s.display_name AS student_name, s.public_student_id,
       s.profile_image_url, s.current_belt AS current_rank, NULL AS contribution_id,
       'no_submission' AS status, NULL AS submitted_at, NULL AS paid_at, NULL AS paid_by,
-      NULL AS status_updated_at, NULL AS internal_note FROM students s WHERE 0`;
+      NULL AS status_updated_at, NULL AS internal_note,
+      ${latestPaidColumns("s.id")} FROM students s WHERE 0`;
   }
   const query = clean(url.searchParams.get("query"), 120);
   const status = clean(url.searchParams.get("status"), 30);
@@ -140,8 +174,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     filters.push("current_rank = ? COLLATE NOCASE");
     filterBindings.push(rank);
   }
-  if (lastPaid === "recorded") filters.push("paid_at IS NOT NULL");
-  if (lastPaid === "never") filters.push("paid_at IS NULL");
+  if (lastPaid === "recorded") filters.push("last_paid_at IS NOT NULL");
+  if (lastPaid === "never") filters.push("last_paid_at IS NULL");
   if (query) {
     const prefix = `${escapeLike(query)}%`;
     filters.push("(student_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR public_student_id LIKE ? ESCAPE '\\' COLLATE NOCASE)");
@@ -167,7 +201,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       : sort === "rank"
         ? "current_rank COLLATE NOCASE, student_name COLLATE NOCASE"
         : sort === "lastPaid"
-          ? "paid_at DESC, student_name COLLATE NOCASE"
+          ? "last_paid_at DESC, student_name COLLATE NOCASE"
           : "student_name COLLATE NOCASE, public_student_id COLLATE NOCASE";
   const contributions =
     (
@@ -184,6 +218,29 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         )
         .all<ContributionRow>()
     ).results || [];
+  const studentIds = contributions.map((row) => row.student_id);
+  const historyRows = studentIds.length
+    ? ((await db.prepare(`SELECT id, student_id, month_key, paid_at, paid_by
+        FROM monthly_contributions WHERE status = 'paid'
+        AND student_id IN (${studentIds.map(() => "?").join(",")})
+        ORDER BY student_id, month_key DESC`).bind(...studentIds).all<ContributionHistoryRow>()).results || [])
+    : [];
+  const historyByStudent = new Map<string, ContributionHistoryRow[]>();
+  for (const entry of historyRows) {
+    const history = historyByStudent.get(entry.student_id) || [];
+    history.push(entry);
+    historyByStudent.set(entry.student_id, history);
+  }
+  const contributionRecords = contributions.map((row) => {
+    const history = historyByStudent.get(row.student_id) || [];
+    const lastPaidDate = row.last_paid_at?.slice(0, 10) || null;
+    return {
+      ...row,
+      history,
+      consecutiveMonths: consecutivePaidMonths(history),
+      renewal: monthlyContributionStatus(lastPaidDate),
+    };
+  });
   const summaryRow = (summaryResult.results?.[0] || {}) as Record<
     string,
     unknown
@@ -217,7 +274,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     month,
     currentMonth,
     months,
-    contributions,
+    contributions: contributionRecords,
     pagination: { page: safePage, pageSize, total, totalPages },
     summary: { ...summary, paidPercentage: summary.total > 0 ? Math.round((summary.paid / summary.total) * 100) : 0 },
     graph,

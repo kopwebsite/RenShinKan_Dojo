@@ -28,7 +28,7 @@ describe("unified administration UI contracts", () => {
     expect(shell).toContain("centralOnly");
     expect(shell).toContain('href: "/admin/profile-requests"');
     expect(shell).not.toContain("renshinkanVerificationRequired");
-    expect(shell).toContain("<strong>All dojos</strong>");
+    expect(shell).toContain("<strong>{dataScope}</strong>");
     expect(shell).toContain('href: "/admin/exam-payslips"');
     expect(shell).not.toContain("changeDojo");
   });

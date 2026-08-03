@@ -147,7 +147,6 @@ function makeNewsletter(contentType: NewsletterContentType): RecentEvent {
     category: contentType === "event" ? "Events" : "Dojo News",
     tags: [],
     lifecycleStatus: "active",
-    newsletterFormat: "article",
     presentation: {
       originalMediaId: null,
       pdfMediaId: null,
@@ -1386,15 +1385,14 @@ export function AdminNewsletterManager({
       ? "complete"
       : "attention",
     editorEvent.newsletterFormat === "presentation" ||
-    editorEvent.newsletterFormat === "article" ||
-    !editorEvent.newsletterFormat
+    editorEvent.newsletterFormat === "article"
       ? "complete"
       : "attention",
-    (editorEvent.newsletterFormat ?? "article") === "presentation"
+    editorEvent.newsletterFormat === "presentation"
       ? presentationReady
         ? "complete"
         : "attention"
-      : collectNewsletterDocumentText(
+      : editorEvent.newsletterFormat === "article" && collectNewsletterDocumentText(
             editorEvent.bodyContent ??
               plainTextNewsletterDocument(editorEvent.body),
           ).trim()
@@ -2151,7 +2149,7 @@ export function AdminNewsletterManager({
                       name="newsletter-format"
                       value={format}
                       checked={
-                        (editorEvent.newsletterFormat ?? "article") === format
+                        editorEvent.newsletterFormat === format
                       }
                       onChange={() =>
                         updateEditor((current) => ({
@@ -2182,14 +2180,14 @@ export function AdminNewsletterManager({
                 <p className="eyebrow">Section 3 of 5</p>
                 <h3 id="newsletter-media-heading">Create content</h3>
                 <p>
-                  {(editorEvent.newsletterFormat ?? "article") ===
-                  "presentation"
+                  {editorEvent.newsletterFormat === "presentation"
                     ? "Add both presentation files, then check the public viewer details."
-                    : "Write the newsletter, then place images, videos, and documents in the body."}
+                    : editorEvent.newsletterFormat === "article"
+                      ? "Write the newsletter, then place images, videos, and documents in the body."
+                      : "Choose a newsletter format before creating its content."}
                 </p>
               </header>
-              {(editorEvent.newsletterFormat ?? "article") ===
-              "presentation" ? (
+              {editorEvent.newsletterFormat === "presentation" ? (
                 <fieldset className="admin-newsletter-presentation">
                   <legend>Presentation files</legend>
                   <div className="admin-newsletter-presentation__files">
@@ -2338,7 +2336,7 @@ export function AdminNewsletterManager({
                     download.
                   </p>
                 </fieldset>
-              ) : (
+              ) : editorEvent.newsletterFormat === "article" ? (
                 <>
                   <Suspense
                     fallback={
@@ -2370,6 +2368,11 @@ export function AdminNewsletterManager({
                     <Laptop size={17} /> Preview webpage
                   </button>
                 </>
+              ) : (
+                <div className="admin-newsletter-format-required">
+                  <p>Select Normal newsletter or Presentation newsletter first.</p>
+                  <button type="button" className="btn-primary" onClick={() => setActiveSection(1)}>Choose format</button>
+                </div>
               )}
               <fieldset className="admin-newsletter-subsection">
                 <legend>Cover image</legend>
@@ -2850,14 +2853,14 @@ export function AdminNewsletterManager({
                   ],
                   [
                     "Format",
-                    true,
-                    (editorEvent.newsletterFormat ?? "article") ===
-                    "presentation"
+                    Boolean(editorEvent.newsletterFormat),
+                    editorEvent.newsletterFormat === "presentation"
                       ? "Presentation newsletter"
-                      : "Normal newsletter",
+                      : editorEvent.newsletterFormat === "article"
+                        ? "Normal newsletter"
+                        : "Missing",
                   ],
-                  ...((editorEvent.newsletterFormat ?? "article") ===
-                  "presentation"
+                  ...(editorEvent.newsletterFormat === "presentation"
                     ? [
                         [
                           "Presentation files",

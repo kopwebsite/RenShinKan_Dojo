@@ -227,6 +227,9 @@ export function newsletterPublicationIssues(
   if (!newsletter.category) issues.push("Choose a category.");
   if (!newsletter.slug.trim()) issues.push("Create a web address.");
   if (!newsletter.date.trim()) issues.push("Choose a publication or event date.");
+  if (newsletter.newsletterFormat !== "article" && newsletter.newsletterFormat !== "presentation") {
+    issues.push("Choose a newsletter format.");
+  }
   if (newsletter.newsletterFormat === "presentation") {
     const media = newsletter.media ?? [];
     const original = media.find((item) => item.id === newsletter.presentation?.originalMediaId);

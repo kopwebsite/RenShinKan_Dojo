@@ -1,0 +1,52 @@
+.admin-overview-status {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(10rem, 0.45fr) auto;
+  align-items: end;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.admin-overview-status label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.admin-record-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 1rem;
+  border-bottom: 1px solid #d8dee7;
+}
+
+.admin-record-tabs button {
+  min-height: 2.7rem;
+  padding: 0.55rem 1rem;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  color: #667085;
+  background: transparent;
+  font-weight: 800;
+}
+
+.admin-record-tabs button.is-active {
+  border-bottom-color: #c93f2d;
+  color: #172033;
+  background: #fff;
+}
+
+.admin-card-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+}
+
+.admin-card-actions button {
+  justify-content: center;
+}
+
+@media (max-width: 680px) {
+  .admin-overview-status {
+    grid-template-columns: 1fr;
+  }
+}

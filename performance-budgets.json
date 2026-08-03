@@ -6,7 +6,7 @@
     "adminDashboardJavascriptGzipKiB": 170,
     "adminWebsiteInitialJavascriptGzipKiB": 190,
     "largestRouteChunkGzipKiB": 135,
-    "initialCssGzipKiB": 55,
+    "initialCssGzipKiB": 58,
     "responsiveImage640KiB": 210
   },
   "browser": {

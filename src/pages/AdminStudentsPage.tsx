@@ -15,6 +15,7 @@ import { useAdminSession } from "../components/admin/useAdminSession";
 import { prepareProfilePhoto } from "../utils/profilePhoto";
 import { bangkokCanonicalDate, formatGregorianDate, formatGregorianDateTime, isCanonicalDate } from "../../shared/date";
 import { GregorianDateInput } from "../components/GregorianDateInput";
+import "./AdminStudentsPage.css";
 
 type StudentSummary = {
   id: string; public_student_id: string; display_name: string; english_name: string | null; thai_name: string | null;

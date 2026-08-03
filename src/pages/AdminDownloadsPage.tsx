@@ -1,6 +1,7 @@
 import { Archive, FilePlus2, LoaderCircle, RefreshCw, Save, Trash2 } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { adminApi } from "../components/admin/adminApi";
+import "./AdminDownloadsPage.css";
 
 type AdminDownload = {
   id: string;

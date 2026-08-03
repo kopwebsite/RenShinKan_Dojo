@@ -7,6 +7,7 @@ import { ResponsiveImage } from "../components/ResponsiveImage";
 import { useTranslation, type TranslationKey } from "../i18n";
 import { useEditableContent } from "../lib/content";
 import { assetPath } from "../utils/assetPath";
+import "./SupportPage.css";
 
 const dojoExpenses = [
   {

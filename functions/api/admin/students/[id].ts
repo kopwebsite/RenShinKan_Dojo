@@ -272,7 +272,9 @@ export const onRequestDelete: PagesFunction<Env> = async ({ request, env, params
     deleted_at, profile_image_url, pending_profile_image_key FROM students WHERE id = ?`).bind(id)
     .first<{ public_student_id: string; display_name: string; active: number; public_visible: number; archived_at: string | null; deleted_at: string | null; profile_image_url: string | null; pending_profile_image_key: string | null }>();
   if (!existing) return jsonResponse({ error: "Student not found" }, 404);
-  const body = await request.json<{ action?: unknown; confirmed?: unknown; studentId?: unknown; confirmationText?: unknown }>().catch(() => ({}));
+  const body = await request
+    .json<{ action?: unknown; confirmed?: unknown; studentId?: unknown; confirmationText?: unknown }>()
+    .catch((): { action?: unknown; confirmed?: unknown; studentId?: unknown; confirmationText?: unknown } => ({}));
   const requestId = requestIdentifier(request);
   const now = new Date().toISOString();
 
@@ -382,7 +384,9 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params 
     public_visible_before_archive, archived_at, deleted_at, dojo_id FROM students WHERE id = ?`).bind(id)
     .first<{ public_student_id: string; display_name: string; current_belt: string; active: number; profile_status: string; public_visible_before_archive: number | null; archived_at: string | null; deleted_at: string | null; dojo_id: string }>();
   if (!existing) return jsonResponse({ error: "Student not found" }, 404);
-  const body = await request.json<{ action?: unknown; confirmed?: unknown; studentId?: unknown }>().catch(() => ({}));
+  const body = await request
+    .json<{ action?: unknown; confirmed?: unknown; studentId?: unknown }>()
+    .catch((): { action?: unknown; confirmed?: unknown; studentId?: unknown } => ({}));
   if (body.action !== "restore" || body.confirmed !== true || normalizeStudentId(String(body.studentId || "")) !== existing.public_student_id) {
     return jsonResponse({ error: `Confirm the restore action with Student ID ${existing.public_student_id}.` }, 400);
   }

@@ -210,7 +210,7 @@ export async function activateEditableContentVersion(env: StorageEnv, payloadKey
   });
 }
 
-function isFile(value: FormDataEntryValue): value is File {
+function isFile(value: string | File): value is File {
   return typeof value === "object" && value !== null && "arrayBuffer" in value && "name" in value && "type" in value && "size" in value;
 }
 

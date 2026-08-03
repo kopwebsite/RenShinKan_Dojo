@@ -7,7 +7,7 @@ import { uploadsEnabled } from "../_lib/operationalControls";
 
 type Env = StudentEnv & { MEDIA_BUCKET?: R2Bucket; UPLOADS_ENABLED?: string };
 
-function isFile(value: FormDataEntryValue | null): value is File {
+function isFile(value: string | File | null): value is File {
   return typeof value === "object" && value !== null && "arrayBuffer" in value && "size" in value && "type" in value;
 }
 

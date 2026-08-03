@@ -242,9 +242,9 @@ async function contentConsistency(env: DiagnosticsEnv, db: D1Database) {
     const content = rawContent
       ? validateEditableContent(JSON.parse(rawContent))
       : null;
-    const translations = content?.siteSettings?.translations || {};
+    const translations = content?.siteSettings.translations;
     const missingTranslations = EXPECTED_LOCALES.filter(
-      (locale) => !translations[locale],
+      (locale) => !translations?.[locale],
     ).length;
     let kvWithoutD1Revision = false;
     if (pointer) {

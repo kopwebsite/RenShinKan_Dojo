@@ -13,7 +13,7 @@ import {
   type D1Database,
 } from "./studentRecords";
 import { consumeRateLimit } from "./rateLimit";
-import { operationalEvent } from "./observability";
+import { operationalEvent, type OperationalEnv } from "./observability";
 
 type PublishRow = {
   id: string;
@@ -122,7 +122,7 @@ async function markFailed(db: D1Database, operationId: string, stage: string) {
 }
 
 export async function publishEditableContent(input: {
-  env: StorageEnv & { SESSION_SECRET?: string; STUDENT_LOOKUP_PEPPER?: string };
+  env: StorageEnv & OperationalEnv & { SESSION_SECRET?: string; STUDENT_LOOKUP_PEPPER?: string };
   db: D1Database;
   request: Request;
   session: AdminSession;

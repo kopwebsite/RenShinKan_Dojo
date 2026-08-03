@@ -55,6 +55,13 @@ function latestPaidColumns(studentIdSql: string) {
       ORDER BY previous.month_key DESC LIMIT 1) AS last_paid_at`;
 }
 
+function previousMonthKey(monthKey: string) {
+  const [year, month] = monthKey.split("-").map(Number);
+  const previousYear = month === 1 ? year - 1 : year;
+  const previousMonth = month === 1 ? 12 : month - 1;
+  return `${previousYear}-${String(previousMonth).padStart(2, "0")}`;
+}
+
 function consecutivePaidMonths(history: ContributionHistoryRow[]) {
   if (!history.length) return 0;
   let expected = history[0].month_key;

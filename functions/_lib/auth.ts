@@ -8,19 +8,18 @@ const COOKIE_NAME = "rsk_admin_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 export const RENSHINKAN_DOJO_ID = "dojo-rsk";
 
+type AuthStatement = {
+  bind(...values: unknown[]): AuthStatement;
+  first<T>(): Promise<T | null>;
+  run(): Promise<unknown>;
+};
+
 type AuthEnv = {
   ADMIN_PASSWORD_HASH?: string;
   DOJO_ADMIN_PASSWORD_HASHES?: string;
   SESSION_SECRET?: string;
   STUDENT_LOOKUP_PEPPER?: string;
-  STUDENT_DB?: {
-    prepare(query: string): {
-      bind(...values: unknown[]): {
-        first<T>(): Promise<T | null>;
-        run(): Promise<unknown>;
-      };
-    };
-  };
+  STUDENT_DB?: { prepare(query: string): AuthStatement };
 };
 
 export type AdminRole = "central" | "dojo";
@@ -259,6 +258,8 @@ async function verifyStoredPassword(
           ["sign"],
         );
         const derived = await crypto.subtle.exportKey("raw", derivedKey);
+        if (!(derived instanceof ArrayBuffer))
+          throw new Error("PBKDF2 produced an invalid key format");
         return timingSafeEqualBytes(new Uint8Array(derived), expected);
       } catch (deriveKeyError) {
         const deriveKeyErrorName =

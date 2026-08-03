@@ -46,10 +46,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         const previous = Number(student.total_hours || 0);
         const next = previous + hours;
         statements.push(
-          db.prepare(`INSERT INTO request_decisions
-            (id, request_type, request_id, decision, reviewer_identifier, decided_at)
-            VALUES (?, 'training_hours', ?, 'approved', ?, ?)`)
-            .bind(crypto.randomUUID(), pending.id, session.adminName, now),
           db.prepare(`INSERT INTO training_hours
             (id, student_id, entry_date, verified_hours, source, internal_note, training_location, created_at)
             VALUES (?, ?, ?, ?, 'admin_bulk_hours', NULL, ?, ?)`)
@@ -84,6 +80,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         approved.hours += Number(pending.submitted_hours);
         approvedByStudent.set(student.id, approved);
         statements.push(
+          db.prepare(`INSERT INTO request_decisions
+            (id, request_type, request_id, decision, reviewer_identifier, decided_at)
+            VALUES (?, 'training_hours', ?, 'approved', ?, ?)`)
+            .bind(crypto.randomUUID(), pending.id, session.adminName, now),
           db.prepare(`INSERT INTO training_hours
             (id, student_id, entry_date, verified_hours, source, internal_note, created_at, hour_request_id)
             VALUES (?, ?, ?, ?, 'student_self_service_bulk_approved', 'Approved through the administrator bulk review', ?, ?)`)

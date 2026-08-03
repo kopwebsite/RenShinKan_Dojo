@@ -14,7 +14,9 @@ function summary(event: RecentEvent): RecentEvent {
     body: "",
     bodyContent: undefined,
     media: (event.media || []).filter((item) => item.id === event.coverImageId || item.id === event.image?.id).slice(0, 1),
-    presentation: event.newsletterFormat === "presentation" ? { ...event.presentation, outline: [] } : undefined,
+    presentation: event.newsletterFormat === "presentation" && event.presentation
+      ? { ...event.presentation, outline: [] }
+      : undefined,
   };
 }
 

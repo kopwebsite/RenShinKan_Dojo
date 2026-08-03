@@ -16,6 +16,7 @@ public/uploads/generated/
 !.dev.vars.example
 
 # Local tool output and scratch files
+artifacts/
 .claude/
 .codex-logs/
 .tools/

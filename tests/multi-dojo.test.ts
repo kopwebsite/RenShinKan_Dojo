@@ -395,7 +395,7 @@ describe("multi-dojo data model and workflows", () => {
 });
 
 describe("examination reports and website editor", () => {
-  it("creates a real XLSX package with frozen headers, filters, numeric fees, formulas, and a summary sheet", () => {
+  it("creates a real XLSX package with frozen headers, page setup, numeric fees, and formulas", () => {
     const bytes = buildExamXlsx(
       {
         title: "Exam",
@@ -413,39 +413,40 @@ describe("examination reports and website editor", () => {
           dojo_code: "CMU",
           aat_number: null,
           aat_last_paid_date: null,
+          aat_member_since: null,
+          aat_renewal_due_date: null,
           current_rank: "5 Kyu",
           attempted_rank: "4 Kyu",
           last_examination_date: null,
-          practice_period: "90 days",
           grade_given: "",
           exam_fee: 500,
-          aat_annual_fee: 200,
-          other_fees: 0,
-          total_fee: 700,
-          notes: "",
-          answers_json: '{"age":24}',
+          practice_hours: 90,
+          answers_json: '{"dob":"2002-01-04"}',
         },
       ],
       "CMU",
     );
     expect([...bytes.slice(0, 2)]).toEqual([80, 75]);
     const files = unzipSync(bytes);
-    expect(Object.keys(files)).toContain("xl/worksheets/sheet2.xml");
+    expect(Object.keys(files)).toContain("xl/worksheets/sheet1.xml");
+    expect(Object.keys(files)).toContain("xl/styles.xml");
     const sheet = strFromU8(files["xl/worksheets/sheet1.xml"]);
     expect(sheet).toContain('state="frozen"');
-    expect(sheet).toContain("<autoFilter");
+    expect(sheet).toContain('<pageSetUpPr fitToPage="1"/>');
+    expect(sheet).toContain('paperSize="9"');
     expect(sheet).toContain("<f>SUM(");
     expect(sheet).toContain("ทดสอบ Student");
+    expect(strFromU8(files["xl/workbook.xml"])).toContain("_xlnm.Print_Area");
   });
 
   it("scopes both PDF and Excel on the server and embeds a Unicode Thai font", () => {
     const endpoint = file("functions/api/admin/examinations/export.ts");
-    const exporter = file("functions/_lib/examExports.ts");
+    const renderer = file("functions/_lib/reports/examReportPdf.ts");
     expect(endpoint).toContain("canAccessDojo");
     expect(endpoint).toContain('format === "xlsx"');
     expect(endpoint).toContain("NotoSansThai.ttf");
-    expect(exporter).toContain("registerFontkit");
-    expect(exporter).toContain("Page ${pageNumber}");
+    expect(renderer).toContain("registerFontkit");
+    expect(renderer).toContain("Page ${index + 1} of ${pages.length}");
     expect(endpoint).toContain("All Dojos");
   });
 
@@ -457,17 +458,15 @@ describe("examination reports and website editor", () => {
       dojo_code: "CMU",
       aat_number: "AAT-7",
       aat_last_paid_date: "2026-01-01",
+      aat_member_since: "2019-01-01",
+      aat_renewal_due_date: "2027-01-01",
       current_rank: "5 Kyu",
       attempted_rank: "4 Kyu",
       last_examination_date: "2025-11-30",
-      practice_period: "90 days",
       grade_given: "Pass",
       exam_fee: 500,
-      aat_annual_fee: 200,
-      other_fees: 0,
-      total_fee: 700,
-      notes: "พร้อม",
-      answers_json: '{"age":24}',
+      practice_hours: 90.5,
+      answers_json: '{"dob":"2002-01-04"}',
     };
     const bytes = await buildExamPdf(
       {

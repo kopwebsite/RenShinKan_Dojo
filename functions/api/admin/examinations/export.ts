@@ -1,5 +1,11 @@
 import { canAccessDojo, getAuthorizedAdminSession, isRenShinKanSuperAdmin, jsonResponse } from "../../../_lib/auth";
-import { buildExamPdf, buildExamXlsx, type ExamExportCycle, type ExamExportRow } from "../../../_lib/examExports";
+import {
+  buildExamReportModel,
+  renderExamReportPdf,
+  renderExamReportXlsx,
+  type ExamExportCycle,
+  type ExamExportRow,
+} from "../../../_lib/examExports";
 import { adminAuditMetadata, auditStatement, requestIdentifier, requireStudentDb, type StudentEnv } from "../../../_lib/studentRecords";
 
 type Env = StudentEnv & { SESSION_SECRET?: string; ASSETS?: { fetch(request: Request | string): Promise<Response> } };
@@ -12,6 +18,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const url = new URL(request.url);
   const format = url.searchParams.get("format") === "xlsx" ? "xlsx" : url.searchParams.get("format") === "pdf" ? "pdf" : "";
   if (!format) return jsonResponse({ error: "Choose PDF or Excel format." }, 400);
+  const printFriendly = url.searchParams.get("monochrome") === "1";
   const db = requireStudentDb(env);
   const cycleId = clean(url.searchParams.get("cycleId"));
   const cycle = cycleId
@@ -26,10 +33,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   if (dojoId && !scope) return jsonResponse({ error: "Dojo not found." }, 404);
   const rows = ((await db.prepare(`SELECT s.public_student_id, s.display_name AS student_name,
       d.official_name AS dojo_name, d.code AS dojo_code, s.aat_number, s.aat_last_paid_date,
+      (SELECT MIN(ap.payment_date) FROM aat_membership_payments ap WHERE ap.student_id = s.id) AS aat_member_since,
+      (SELECT ap.renewal_due_date FROM aat_membership_payments ap WHERE ap.student_id = s.id
+        ORDER BY ap.payment_date DESC LIMIT 1) AS aat_renewal_due_date,
       ea.current_rank, ea.attempted_rank, COALESCE(ea.last_examination_date,
         (SELECT MAX(be.examination_date) FROM belt_examinations be WHERE be.student_id = s.id)) AS last_examination_date,
-      ea.practice_period, ea.grade_given, ea.exam_fee, ea.aat_annual_fee, ea.other_fees, ea.total_fee,
-      COALESCE(NULLIF(ea.application_notes, ''), ea.administrator_notes) AS notes, ea.answers_json
+      ea.grade_given, ea.exam_fee,
+      (SELECT SUM(th.verified_hours) FROM training_hours th WHERE th.student_id = s.id) AS practice_hours,
+      ea.answers_json
     FROM examination_applications ea
     JOIN students s ON s.id = ea.student_id
     JOIN dojos d ON d.id = s.dojo_id
@@ -38,22 +49,30 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     ORDER BY ea.attempted_rank COLLATE NOCASE, s.display_name COLLATE NOCASE`)
     .bind(cycleId, cycleId, cycleId, ...(dojoId ? [dojoId] : [])).all<ExamExportRow>()).results || []);
   const scopeLabel = scope?.official_name || "All Dojos";
-  let bytes: Uint8Array; let contentType: string; let extension: string;
+  // One normalized model feeds every format, so the exports cannot disagree.
+  const model = buildExamReportModel(cycle, rows, scopeLabel);
+  let bytes: Uint8Array; let contentType: string; let extension: string; let variant = format;
   if (format === "xlsx") {
-    bytes = buildExamXlsx(cycle, rows, scopeLabel); contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"; extension = "xlsx";
+    bytes = renderExamReportXlsx(model); contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"; extension = "xlsx";
   } else {
     const fontRequest = new Request(new URL("/fonts/NotoSansThai.ttf", request.url));
     const fontResponse = env.ASSETS ? await env.ASSETS.fetch(fontRequest) : await fetch(fontRequest);
     if (!fontResponse.ok) return jsonResponse({ error: "The Unicode report font is unavailable." }, 503);
-    bytes = await buildExamPdf(cycle, rows, scopeLabel, new Uint8Array(await fontResponse.arrayBuffer()), url.searchParams.get("monochrome") === "1");
-    contentType = "application/pdf"; extension = "pdf";
+    bytes = await renderExamReportPdf(model, { fontBytes: new Uint8Array(await fontResponse.arrayBuffer()), printFriendly });
+    contentType = "application/pdf"; extension = "pdf"; variant = printFriendly ? "pdf-print-friendly" : "pdf";
   }
+  const downloadName = [
+    filename(cycle.title || cycle.name),
+    filename(scopeLabel),
+    model.reportDate,
+    printFriendly ? "print-friendly" : "",
+  ].filter(Boolean).join("-");
   const now = new Date().toISOString();
   await auditStatement(db, {
     actorType: "administrator", ...adminAuditMetadata(session, request), action: "exam_report_exported",
     entityType: "examination_cycle", entityId: cycleId || "active", examCycleId: cycleId || null,
-    newValues: { format, dojoId: dojoId || null, rowCount: rows.length }, source: "admin_exam_export",
-    requestId: requestIdentifier(request), summary: `Exported ${format.toUpperCase()} report for ${scopeLabel} (${rows.length} applications)`, createdAt: now,
+    newValues: { format: variant, dojoId: dojoId || null, rowCount: rows.length }, source: "admin_exam_export",
+    requestId: requestIdentifier(request), summary: `Exported ${variant.toUpperCase()} report for ${scopeLabel} (${rows.length} applications)`, createdAt: now,
   }).run();
-  return new Response(bytes, { headers: { "Content-Type": contentType, "Content-Disposition": `attachment; filename="${filename(cycle.title || cycle.name)}-${filename(scopeLabel)}.${extension}"`, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });
+  return new Response(bytes, { headers: { "Content-Type": contentType, "Content-Disposition": `attachment; filename="${downloadName}.${extension}"`, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });
 };

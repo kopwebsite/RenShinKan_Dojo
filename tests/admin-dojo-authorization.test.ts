@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
@@ -136,11 +136,11 @@ describe("RenShinKan administrator authorization", () => {
     for (const path of sourceFiles(apiRoot).filter((path) =>
       path.endsWith(".ts"),
     )) {
-      const relative = path.replace(`${apiRoot}\\`, "").replace(/\\/g, "/");
-      if (exempt.has(relative)) continue;
+      const relativePath = relative(apiRoot, path).replace(/\\/g, "/");
+      if (exempt.has(relativePath)) continue;
       const source = readFileSync(path, "utf8");
       if (!source.includes("onRequest")) continue;
-      expect(source, relative).toContain("getAuthorizedAdminSession");
+      expect(source, relativePath).toContain("getAuthorizedAdminSession");
     }
   });
 });

@@ -59,7 +59,7 @@ describe("help center content contracts", () => {
     const expectedIds = getAdminHelpCatalog("en")
       .articles.map((article) => article.id)
       .sort();
-    expect(expectedIds).toHaveLength(22);
+    expect(expectedIds).toHaveLength(24);
     for (const locale of adminLocales) {
       const catalog = getAdminHelpCatalog(locale);
       expect(catalog.articles.map((article) => article.id).sort()).toEqual(
@@ -77,6 +77,69 @@ describe("help center content contracts", () => {
     expect(getAdminHelpCatalog("en").ui.heading).toBe(
       "How to use administration",
     );
+  });
+
+  it("marks the place or control to select in bold, using its real name", () => {
+    const catalogs = [
+      ...publicLocales.map(getPublicHelpCatalog),
+      ...adminLocales.map(getAdminHelpCatalog),
+    ];
+    for (const catalog of catalogs) {
+      for (const article of catalog.articles) {
+        // Titles and summaries are plain prose; only steps carry markers.
+        expect(article.title).not.toContain("**");
+        expect(article.summary).not.toContain("**");
+        let bolded = 0;
+        for (const step of article.steps) {
+          const markers = step.instruction.match(/\*\*/g)?.length || 0;
+          expect(markers % 2, step.instruction).toBe(0);
+          bolded += markers / 2;
+          // The bolded run is the control name itself, with no stray spaces.
+          for (const [, name] of step.instruction.matchAll(/\*\*(.*?)\*\*/g)) {
+            expect(name, step.instruction).toBe(name.trim());
+            expect(name.length, step.instruction).toBeGreaterThan(0);
+          }
+        }
+        // Every topic names at least one place or control the reader selects.
+        expect(bolded, `${catalog.locale} ${article.id}`).toBeGreaterThan(0);
+      }
+    }
+    // Admin steps must use the real administration menu names.
+    const adminSteps = getAdminHelpCatalog("en")
+      .articles.flatMap((article) => article.steps)
+      .map((step) => step.instruction)
+      .join(" ");
+    for (const name of [
+      "**Student database**",
+      "**Profile requests**",
+      "**Training hour requests**",
+      "**Exam applications**",
+      "**Application records**",
+      "**Payment proofs**",
+      "**Monthly contributions**",
+      "**AAT annual contributions**",
+      "**Edit the website**",
+      "**Downloads**",
+      "**Dojo settings**",
+      "**Audit log**",
+      "**Set record status**",
+      "**Open record**",
+    ]) {
+      expect(adminSteps, name).toContain(name);
+    }
+    // The old generic wording must not come back.
+    expect(adminSteps).not.toContain("Open Students ");
+    expect(adminSteps).not.toContain("the Students table");
+  });
+
+  it("answers the AAT number and Student ID questions", () => {
+    const ids = getAdminHelpCatalog("en").articles.map((article) => article.id);
+    expect(ids).toContain("admin-aat-number");
+    expect(ids).toContain("admin-student-id");
+    expect(ids).toContain("admin-exam-payment");
+    const english = JSON.stringify(getAdminHelpCatalog("en")).toLowerCase();
+    expect(english).toContain("aat number");
+    expect(english).toContain("student’s student id");
   });
 
   it("covers the required student and administration workflows", () => {

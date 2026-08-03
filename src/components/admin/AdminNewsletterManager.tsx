@@ -1876,8 +1876,9 @@ export function AdminNewsletterManager({
               </header>
               <div className="admin-newsletter-fields">
                 <label>
-                  Title <span aria-hidden="true">*</span>
+                  <span className="admin-newsletter-field-label">Title <b aria-hidden="true">*</b></span>
                   <input
+                    aria-required="true"
                     value={editorEvent.title}
                     onChange={(event) =>
                       updateEditor((current) => {
@@ -1910,8 +1911,9 @@ export function AdminNewsletterManager({
                   Example: Summer training schedule and dojo news
                 </p>
                 <label>
-                  Short summary <span aria-hidden="true">*</span>
+                  <span className="admin-newsletter-field-label">Short summary <b aria-hidden="true">*</b></span>
                   <textarea
+                    aria-required="true"
                     value={editorEvent.summary}
                     maxLength={1000}
                     onChange={(event) =>
@@ -1940,6 +1942,7 @@ export function AdminNewsletterManager({
                   <label>
                     <span className="admin-newsletter-field-label">Category <b aria-hidden="true">*</b></span>
                     <select
+                      aria-required="true"
                       value={editorEvent.category}
                       onChange={(event) =>
                         updateEditor((current) => ({

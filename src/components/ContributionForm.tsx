@@ -1,5 +1,5 @@
 import { CalendarClock, CheckCircle2, HandCoins, LoaderCircle, Plus, QrCode, ReceiptText, ShieldCheck, Trash2, UsersRound } from "lucide-react";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "../i18n";
 import { useEditableContent } from "../lib/content";
 import { assetPath } from "../utils/assetPath";
@@ -96,6 +96,7 @@ export function ContributionForm() {
   const [result, setResult] = useState<SubmissionResult | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const confirmationPanel = useRef<HTMLElement>(null);
   const onToken = useCallback((value: string) => setTurnstileToken(value), []);
   const unitAmount = contributionType === "aat_annual" ? aatContributionAmount : monthlyContributionAmount;
   const contributionTotal = unitAmount === null ? null : monthlyStudents.length * unitAmount;
@@ -119,6 +120,11 @@ export function ContributionForm() {
     }).catch(() => { if (active) { setMonthlyContributionAmount(null); setAatContributionAmount(null); } }).finally(() => { if (active) setConfigurationLoaded(true); });
     return () => { active = false; };
   }, []);
+
+  // The confirmation replaces the form, so focus has to follow it.
+  useEffect(() => {
+    if (result) requestAnimationFrame(() => confirmationPanel.current?.focus());
+  }, [result]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -166,12 +172,12 @@ export function ContributionForm() {
     const confirmedTotalAmount = typeof result.totalAmount === "number" ? result.totalAmount : null;
     const studentCount = result.studentCount || 1;
     const studentCountLabel = t(studentCount === 1 ? "contribution.oneStudent" : "contribution.manyStudents", { count: studentCount });
-    return <article className="surface contribution-confirmation" aria-live="polite">
+    return <article ref={confirmationPanel} className="surface contribution-confirmation" tabIndex={-1} aria-labelledby="contribution-confirmation-title">
       <header className="contribution-confirmation__header">
         <div className="contribution-confirmation__mark"><CheckCircle2 aria-hidden="true" /></div>
         <div>
           <p className="eyebrow">{isAat ? t("contribution.aatFee") : t("contribution.monthlyDues")} · {result.dojoName}</p>
-          <h3>{t("contribution.completePromptPay")}</h3>
+          <h3 id="contribution-confirmation-title">{t("contribution.completePromptPay")}</h3>
           <p>{t("contribution.readyCopy")}</p>
         </div>
       </header>

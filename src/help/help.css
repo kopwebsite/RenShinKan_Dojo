@@ -317,6 +317,14 @@
   font-size: 0.82em;
   line-height: 1.58;
 }
+/* Names the exact control a step asks the reader to select. */
+.help-step-target {
+  color: #3f1720;
+  font-weight: 850;
+}
+.help-panel--admin .help-step-target {
+  color: #1d3a2a;
+}
 .help-step-result {
   padding: 0.55rem 0.65rem;
   border-left: 3px solid #5f856c;

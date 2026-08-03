@@ -277,7 +277,7 @@ export function AdminAatMemberships({
 
   return <section className="admin-workspace-section admin-aat-memberships" aria-busy={loading}>
     <header className="admin-workspace-heading"><div><p className="eyebrow">Annual membership</p><h2>AAT Annual Membership</h2><p>Review membership status, renewal dates, expiration warnings, and permanent payment history.</p></div></header>
-    <form className="admin-record-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(queryInput.trim()); }}>
+    <form className="admin-record-filters" role="search" aria-label="Search and filter AAT annual contributions" onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(queryInput.trim()); }}>
       <label className="admin-search-wide">Search<div><Search size={17} /><input value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="Name, Student ID, or AAT number" /><button className="btn-secondary">Search</button></div></label>
       <label>
           Membership status
@@ -359,24 +359,25 @@ export function AdminAatMemberships({
             </select>
           </label>
         ) : null}
-        {query || status || dojoId || rank || lastPaid || sort !== "name" ? (
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => {
-              setQueryInput("");
-              setQuery("");
-              setStatus("");
-              setDojoId("");
-              setRank("");
-              setLastPaid("");
-              setSort("name");
-              setPage(1);
-            }}
-          >
-            Clear filters
-          </button>
-        ) : null}
+        <button
+          type="button"
+          className="btn-secondary admin-clear"
+          disabled={
+            !query && !status && !dojoId && !rank && !lastPaid && sort === "name"
+          }
+          onClick={() => {
+            setQueryInput("");
+            setQuery("");
+            setStatus("");
+            setDojoId("");
+            setRank("");
+            setLastPaid("");
+            setSort("name");
+            setPage(1);
+          }}
+        >
+          Clear filters
+        </button>
       </form>
       {selectedRows.length ? (
         <aside className="admin-aat-bulk-bar">

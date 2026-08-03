@@ -35,8 +35,9 @@ type FixtureInput = {
   dojoCode: string;
   dojoName: string;
   aatNumber: string | null;
-  /** Original AAT membership date, shown in the Member Date column. */
+  /** Date the student account was created, shown in the Member Date column. */
   memberDate: string | null;
+  /** The AAT. Date column shows the payment one year before this renewal. */
   renewalDue: string | null;
   currentRank: string;
   attemptedRank: string;
@@ -54,9 +55,8 @@ function toRow(input: FixtureInput): ExamExportRow {
     dojo_name: input.dojoName,
     dojo_code: input.dojoCode,
     aat_number: input.aatNumber,
-    aat_member_since: input.memberDate,
+    account_created_date: input.memberDate,
     aat_last_paid_date: paymentBehind(input.renewalDue),
-    aat_renewal_due_date: input.renewalDue,
     current_rank: input.currentRank,
     attempted_rank: input.attemptedRank,
     last_examination_date: input.lastExam,
@@ -73,8 +73,8 @@ function toRow(input: FixtureInput): ExamExportRow {
 
 /**
  * Fourteen rows matching the reference report's density, covering merged rank
- * groups, several dojo codes, a missing AAT number, a long name, wrapped AAT
- * notes, birthdays either side of the report date, and partial practice hours.
+ * groups, several dojo codes, a missing AAT number, a long name, a missing AAT
+ * payment date, birthdays either side of the report date, and partial hours.
  */
 const FIXTURE_INPUTS: FixtureInput[] = [
   {

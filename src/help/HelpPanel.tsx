@@ -30,6 +30,26 @@ import type {
 } from "./types";
 import "./help.css";
 
+/**
+ * Renders `**…**` as bold so a step can name the exact button, tab, or menu the
+ * reader has to select. Everything else stays plain text; no HTML is parsed.
+ */
+function StepText({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/\*\*(.+?)\*\*/g).map((part, index) =>
+        index % 2 ? (
+          <strong key={index} className="help-step-target">
+            {part}
+          </strong>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+}
+
 function TopicButton({
   article,
   onSelect,
@@ -267,7 +287,9 @@ export function HelpPanel({
               <ol className="help-steps">
                 {selected.steps.map((step, index) => (
                   <li key={`${selected.id}-${index}`}>
-                    <p>{step.instruction}</p>
+                    <p>
+                      <StepText text={step.instruction} />
+                    </p>
                   </li>
                 ))}
               </ol>

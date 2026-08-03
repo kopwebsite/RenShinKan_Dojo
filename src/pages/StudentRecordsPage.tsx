@@ -1150,6 +1150,7 @@ function ExamWorkflow() {
   const [proofAccess, setProofAccess] = useState<PaymentProofAccess | null>(
     null,
   );
+  const stagePanel = useRef<HTMLDivElement>(null);
   const onToken = useCallback((value: string) => setToken(value), []);
   useEffect(() => {
     fetch("/api/dojos")
@@ -1159,6 +1160,11 @@ function ExamWorkflow() {
         setError("The dojo list could not be loaded. Please try again."),
       );
   }, []);
+  // Each stage replaces the page, so focus has to follow it or keyboard and
+  // screen-reader users are left where the previous stage used to be.
+  useEffect(() => {
+    if (stage !== "form") requestAnimationFrame(() => stagePanel.current?.focus());
+  }, [stage]);
   function set<K extends keyof ExamDraft>(key: K, value: ExamDraft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
   }
@@ -1217,10 +1223,10 @@ function ExamWorkflow() {
   }
   if (stage === "done")
     return (
-      <div className="exam-payment-panel">
+      <div ref={stagePanel} className="exam-payment-panel" tabIndex={-1} aria-labelledby="exam-submitted-title">
         <AlertMark />
         <p className="eyebrow">Application {applicationId.slice(0, 8)}</p>
-        <h2>Application submitted · payment still required</h2>
+        <h2 id="exam-submitted-title">Application submitted · payment still required</h2>
         <p>
           Your application is recorded. Upload payment proof below to continue.
         </p>
@@ -1287,11 +1293,11 @@ function ExamWorkflow() {
       phone: `${draft.phoneCallingCode} ${draft.phone}`,
     };
     return (
-      <div className="student-long-form exam-review">
+      <div ref={stagePanel} className="student-long-form exam-review" tabIndex={-1} aria-labelledby="exam-review-title">
         <header>
           <div>
             <p className="eyebrow">Step 2 of 2</p>
-            <h2>Review your application</h2>
+            <h2 id="exam-review-title">Review your application</h2>
             <p>Check each answer before submitting it to the dojo.</p>
           </div>
           <button className="btn-secondary" onClick={() => setStage("form")}>

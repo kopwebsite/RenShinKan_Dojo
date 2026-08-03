@@ -24,7 +24,6 @@ import {
   ageOnReportDate,
   normalizePracticeHours,
   reportCellText,
-  totalBahtForFees,
 } from "../functions/_lib/reports/examReportModel";
 import { wrapCellText } from "../functions/_lib/reports/examReportPdf";
 import {
@@ -180,6 +179,7 @@ describe("columns and fees", () => {
       "testForDan",
       "groupCount",
       "aatNumber",
+      "studentIdNumber",
       "memberDate",
       "studentName",
       "age",
@@ -190,7 +190,6 @@ describe("columns and fees", () => {
       "practiceHours",
       "gradeGiven",
       "examFee",
-      "totalBaht",
       "aatDate",
     ]);
     expect(
@@ -200,11 +199,61 @@ describe("columns and fees", () => {
     ).toContain("Practice Hours");
   });
 
-  it("has no Annual Fee, Yen, or Practice Days column anywhere", () => {
+  it("shows the database Student ID directly after the AAT number", () => {
+    expect(columnKeys.indexOf("studentIdNumber")).toBe(
+      columnKeys.indexOf("aatNumber") + 1,
+    );
+    const column = EXAM_REPORT_COLUMNS.find(
+      (entry) => entry.key === "studentIdNumber",
+    );
+    expect(`${column?.headerTop} ${column?.headerBottom}`).toBe(
+      "Student ID No.",
+    );
+    expect(rowByName("Narumol Thammapruksa").studentIdNumber).toBe("RSK-6914");
+    expect(
+      reportCellText(rowByName("Kanapod Konsri"), "studentIdNumber", ""),
+    ).toBe("ZZZ-6904");
+  });
+
+  it("takes Member Date from the account creation date", () => {
+    expect(rowByName("Sukanya Kaewsangdee").memberDate).toBe("2016-05-16");
+    expect(
+      reportCellText(rowByName("Sukanya Kaewsangdee"), "memberDate", ""),
+    ).toBe("16/05/2016");
+    // No account creation date recorded: the missing-value marker, not a guess.
+    expect(rowByName("Kanapod Konsri").memberDate).toBeNull();
+  });
+
+  it("shows the last AAT annual membership payment date in AAT. Date", () => {
+    // Renewal falls on 16/05/2027, so the payment behind it is 16/05/2026.
+    expect(rowByName("Sukanya Kaewsangdee").aatDate).toBe("2026-05-16");
+    expect(
+      reportCellText(rowByName("Sukanya Kaewsangdee"), "aatDate", ""),
+    ).toBe("16/05/2026");
+    expect(rowByName("Kanapod Konsri").aatDate).toBeNull();
+    expect(reportCellText(rowByName("Kanapod Konsri"), "aatDate", "")).toBe(
+      EXAM_REPORT_MISSING_VALUE,
+    );
+  });
+
+  it("keeps Grade Given matching Hereby Rank", () => {
+    for (const row of model.rows) expect(row.gradeGiven).toBe(row.herebyRank);
+    // An application with no recorded grade still prints the requested rank.
+    const [row] = buildExamReportModel(
+      sampleExamCycle,
+      [{ ...sampleExamRows[0], grade_given: "" }],
+      "All Dojos",
+    ).rows;
+    expect(row.gradeGiven).toBe(row.herebyRank);
+    expect(row.gradeGiven).toBe("SHO Dan-Ho");
+  });
+
+  it("has no Annual Fee, Yen, TOTAL (Baht), or Practice Days column anywhere", () => {
     const configuration = file("functions/_lib/reports/examReportConfig.ts");
     for (const removed of [
       "Annual",
       "Yen",
+      "TOTAL",
       "Practice Days",
       "aat_annual_fee",
       "other_fees",
@@ -222,16 +271,22 @@ describe("columns and fees", () => {
 
   it("totals only the fee fields the report still includes", () => {
     expect(EXAM_REPORT_INCLUDED_FEE_FIELDS).toEqual(["examFee"]);
-    expect(totalBahtForFees({ examFee: 3500 })).toBe(3500);
-    // Removed fields cannot contribute even if a caller passes them.
-    expect(
-      totalBahtForFees({ examFee: 3500, annualFee: 2400, yen: 20000 } as never),
-    ).toBe(3500);
-    for (const row of model.rows) expect(row.totalBaht).toBe(row.examFee);
+    expect(Object.keys(model.totals)).toEqual(["examFee"]);
     const expected = sampleExamRows.reduce((sum, row) => sum + row.exam_fee, 0);
     expect(model.totals.examFee).toBe(expected);
-    expect(model.totals.totalBaht).toBe(expected);
-    expect(model.totals.totalBaht).toBe(50_500);
+    expect(model.totals.examFee).toBe(50_500);
+  });
+
+  it("falls back to the standard fee when no application fee was stored", () => {
+    // A student marked paid on the roster has no application fee snapshot.
+    const [row] = buildExamReportModel(
+      sampleExamCycle,
+      [{ ...sampleExamRows[0], attempted_rank: "1 Kyu", exam_fee: 0 }],
+      "All Dojos",
+    ).rows;
+    expect(row.examFee).toBe(1400);
+    // A stored fee always wins over the standard fee.
+    expect(rowByName("Sukanya Kaewsangdee").examFee).toBe(2000);
   });
 
   it("groups repeated requested ranks with a reference-style count", () => {
@@ -259,10 +314,20 @@ describe("report scope", () => {
       "CMU",
     ]);
     expect(scopedModel.rows.length).toBeLessThan(model.rows.length);
-    expect(scopedModel.totals.totalBaht).toBeLessThan(model.totals.totalBaht);
+    expect(scopedModel.totals.examFee).toBeLessThan(model.totals.examFee);
     expect(scopedModel.titleLines[1]).toContain(
       "Chiang Mai University Aikido Club",
     );
+  });
+
+  it("exports only students marked paid for the selected cycle", () => {
+    const endpoint = file("functions/api/admin/examinations/export.ts");
+    expect(endpoint).toContain("FROM exam_cycle_student_status ecs");
+    expect(endpoint).toContain("ecs.status = 'paid'");
+    expect(endpoint).toContain("WHERE ecs.cycle_id = ?");
+    // A paid student without a submitted application still has to appear.
+    expect(endpoint).toContain("LEFT JOIN examination_applications ea");
+    expect(endpoint).not.toContain("FROM examination_applications ea\n");
   });
 
   it("keeps the endpoint's authorization and dojo filter intact", () => {
@@ -300,12 +365,11 @@ describe("layout safeguards", () => {
     expect(rowByName("Kanyaphat").studentName).toBe(name);
   });
 
-  it("wraps a long AAT Date note and keeps every Thai mark attached", () => {
-    const note = rowByName("Sukanya Kaewsangdee").aatDate;
-    expect(note).toContain("ต่ออายุถึง");
-    const lines = wrapCellText(note, (text) => text.length * 4, 40);
+  it("wraps a long Thai value and keeps every Thai mark attached", () => {
+    const heading = model.titleLines[0];
+    const lines = wrapCellText(heading, (text) => text.length * 4, 40);
     expect(lines.length).toBeGreaterThan(1);
-    expect(lines.join(" ")).toBe(note);
+    expect(lines.join("")).toBe(heading);
     // A Thai vowel or tone mark must never start a wrapped line.
     for (const line of lines) expect(/^[ัิ-ฺ็-๎]/.test(line)).toBe(false);
   });
@@ -351,7 +415,6 @@ describe("PDF exports", () => {
     expect(text).toContain("จากกลุ่มไอคิโดภาคเหนือ");
     expect(text).toContain("มหาวิทยาลัยเชียงใหม่");
     expect(text).toContain("คน");
-    expect(text).toContain("ต่ออายุถึง");
     // No replacement characters, missing-glyph boxes, or question-mark fallbacks.
     expect(text).not.toMatch(/[�□]/);
   });
@@ -431,21 +494,29 @@ describe("Excel export", () => {
       .map((cell) => cell.value.replace("\n", " "));
     expect(header).toContain("Practice Hours");
     expect(header).toContain("AAT. No");
-    expect(header).toContain("TOTAL (Baht)");
+    expect(header).toContain("Student ID No.");
     expect(header).toContain("Name & Surname");
-    for (const removed of ["Annual Fee", "Yen", "Practice Days"]) {
+    for (const removed of [
+      "Annual Fee",
+      "Yen",
+      "TOTAL (Baht)",
+      "Practice Days",
+    ]) {
       expect(workbook.sheetXml).not.toContain(removed);
     }
   });
 
   it("stores dates, ages, hours, and money as numbers with number formats", () => {
-    // E5 is the first Member Date: a real Excel date serial, not text.
-    expect(workbook.cells.get("E5")?.type).toBe("");
-    expect(Number(workbook.cells.get("E5")?.value)).toBeGreaterThan(40_000);
-    expect(workbook.cells.get("G5")?.value).toBe("55");
-    expect(workbook.cells.get("L5")?.value).toBe("412");
-    expect(workbook.cells.get("L6")?.value).toBe("268.5");
-    expect(workbook.cells.get("N5")?.value).toBe("2000");
+    // F5 is the first Member Date: a real Excel date serial, not text.
+    expect(workbook.cells.get("F5")?.type).toBe("");
+    expect(Number(workbook.cells.get("F5")?.value)).toBeGreaterThan(40_000);
+    expect(workbook.cells.get("E5")?.value).toBe("AG-6901");
+    expect(workbook.cells.get("H5")?.value).toBe("55");
+    expect(workbook.cells.get("M5")?.value).toBe("412");
+    expect(workbook.cells.get("M6")?.value).toBe("268.5");
+    expect(workbook.cells.get("O5")?.value).toBe("2000");
+    // P5 is the first AAT. Date: also a real Excel date serial.
+    expect(Number(workbook.cells.get("P5")?.value)).toBeGreaterThan(40_000);
     expect(workbook.stylesXml).toContain('formatCode="dd/mm/yyyy"');
     expect(workbook.stylesXml).toContain('formatCode="#,##0"');
     expect(workbook.stylesXml).toContain('formatCode="#,##0.0"');
@@ -464,17 +535,13 @@ describe("Excel export", () => {
 
   it("totals with formulas that match the computed values", () => {
     const totalsRow = 4 + model.rows.length + 1;
-    expect(workbook.cells.get(`M${totalsRow}`)?.value).toBe("TOTAL");
-    const examFee = workbook.cells.get(`N${totalsRow}`);
-    const totalBaht = workbook.cells.get(`O${totalsRow}`);
-    expect(examFee?.formula).toBe(`SUM(N5:N${totalsRow - 1})`);
-    expect(totalBaht?.formula).toBe(`SUM(O5:O${totalsRow - 1})`);
+    expect(workbook.cells.get(`N${totalsRow}`)?.value).toBe("TOTAL");
+    const examFee = workbook.cells.get(`O${totalsRow}`);
+    expect(examFee?.formula).toBe(`SUM(O5:O${totalsRow - 1})`);
     expect(Number(examFee?.value)).toBe(model.totals.examFee);
-    expect(Number(totalBaht?.value)).toBe(model.totals.totalBaht);
     // No formula may reference a column that was removed from the report.
     for (const cell of workbook.cells.values()) {
-      if (cell.formula)
-        expect(cell.formula).toMatch(/^SUM\([NO]\d+:[NO]\d+\)$/);
+      if (cell.formula) expect(cell.formula).toMatch(/^SUM\(O\d+:O\d+\)$/);
     }
   });
 
@@ -541,9 +608,9 @@ describe("all three exports agree", () => {
     // Both formats report the identical grand total.
     const totalsRow = 4 + model.rows.length + 1;
     expect(Number(workbook.cells.get(`O${totalsRow}`)?.value)).toBe(
-      model.totals.totalBaht,
+      model.totals.examFee,
     );
-    expect(pdfText).toContain(model.totals.totalBaht.toLocaleString("en-US"));
+    expect(pdfText).toContain(model.totals.examFee.toLocaleString("en-US"));
   });
 
   it("returns non-empty valid files for all three download actions", async () => {

@@ -213,7 +213,11 @@ function cellValue(
 ): CellValue {
   if (column.kind === "date") {
     const canonical =
-      column.key === "memberDate" ? row.memberDate : row.lastTestDate;
+      column.key === "memberDate"
+        ? row.memberDate
+        : column.key === "aatDate"
+          ? row.aatDate
+          : row.lastTestDate;
     if (isCanonicalDate(canonical)) {
       const serial = excelDateSerial(canonical);
       if (serial !== null) return numberCell(serial);
@@ -221,7 +225,6 @@ function cellValue(
     return textCell(EXAM_REPORT_MISSING_VALUE);
   }
   if (column.key === "examFee") return numberCell(row.examFee);
-  if (column.key === "totalBaht") return numberCell(row.totalBaht);
   if (column.key === "age")
     return row.age === null
       ? textCell(EXAM_REPORT_MISSING_VALUE)
@@ -440,7 +443,7 @@ export function renderExamReportXlsx(model: ExamReportModel) {
           horizontal: column.align,
           wrap: false,
         });
-        const total = model.totals[column.key as "examFee" | "totalBaht"];
+        const total = model.totals[column.key as "examFee"];
         return `<c r="${reference}" s="${totalStyle}"><f>SUM(${letter}${FIRST_DATA_ROW}:${letter}${lastDataRow})</f><v>${total}</v></c>`;
       })
       .join("");

@@ -326,7 +326,7 @@ export function AdminExamApplications({ report, admin, dojos, mode = "applicatio
       <div><strong>{data.summary.paid}</strong><span>Paid</span></div>
     </div>
 
-    <form className="admin-record-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(queryInput.trim()); }}>
+    <form className="admin-record-filters" role="search" aria-label={mode === "records" ? "Search and filter application records" : "Search and filter exam applications"} onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(queryInput.trim()); }}>
       <label className="admin-search-wide">Search students<div><Search size={17} /><input value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="Name or Student ID" /><button className="btn-secondary">Search</button></div>
         </label>
         <label>
@@ -405,29 +405,30 @@ export function AdminExamApplications({ report, admin, dojos, mode = "applicatio
             </select>
           </label>
         ) : null}
-        {query ||
-        paymentStatus ||
-        examinationStatus ||
-        rank ||
-        dojoId ||
-        sort !== "name" ? (
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => {
-              setQueryInput("");
-              setQuery("");
-              setPaymentStatus("");
-              setExaminationStatus("");
-              setRank("");
-              setDojoId("");
-              setSort("name");
-              setPage(1);
-            }}
-          >
-            Clear filters
-          </button>
-        ) : null}
+        <button
+          type="button"
+          className="btn-secondary admin-clear"
+          disabled={
+            !query &&
+            !paymentStatus &&
+            !examinationStatus &&
+            !rank &&
+            !dojoId &&
+            sort === "name"
+          }
+          onClick={() => {
+            setQueryInput("");
+            setQuery("");
+            setPaymentStatus("");
+            setExaminationStatus("");
+            setRank("");
+            setDojoId("");
+            setSort("name");
+            setPage(1);
+          }}
+        >
+          Clear filters
+        </button>
     </form>
 
     {!readOnly && selected.size ? <aside className="admin-bulk-toolbar">

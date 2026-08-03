@@ -10,9 +10,8 @@ import {
   canonicalDateToDisplay,
   isCanonicalDate,
 } from "../../../shared/date";
-import { addOneCalendarYear } from "../../../shared/membership";
+import { examinationFeeThb } from "../../../shared/examFees";
 import {
-  EXAM_REPORT_AAT_RENEWAL_PREFIX,
   EXAM_REPORT_FORMATS,
   EXAM_REPORT_GROUP_COUNT_SUFFIX,
   EXAM_REPORT_MISSING_VALUE,
@@ -29,14 +28,13 @@ export type ExamReportSourceRow = {
   /** Canonical `dojos.code`, the abbreviation the student ID system uses. */
   dojo_code: string;
   aat_number: string | null;
-  /** Most recent AAT payment date, used when no membership history exists. */
+  /** Latest AAT annual membership payment: the AAT. Date column shows this. */
   aat_last_paid_date: string | null;
-  /** Earliest recorded AAT payment: the Member Date column shows member-since. */
-  aat_member_since?: string | null;
-  /** Renewal date recorded against the newest AAT membership payment. */
-  aat_renewal_due_date: string | null;
+  /** When the student account was created: the Member Date column shows this. */
+  account_created_date?: string | null;
   current_rank: string;
   attempted_rank: string;
+  /** Date of the student's most recent completed examination. */
   last_examination_date: string | null;
   grade_given: string;
   exam_fee: number;
@@ -60,6 +58,8 @@ export type ExamReportRow = {
   attemptedRank: string;
   aatNumber: string;
   isNewAat: boolean;
+  /** The dojo-issued public Student ID, for example "RSK-6905". */
+  studentIdNumber: string;
   memberDate: string | null;
   studentName: string;
   age: number | null;
@@ -70,8 +70,8 @@ export type ExamReportRow = {
   practiceHours: number | null;
   gradeGiven: string;
   examFee: number;
-  totalBaht: number;
-  aatDate: string;
+  /** Date of the newest AAT annual membership payment. */
+  aatDate: string | null;
 };
 
 /** A run of consecutive rows that share the same requested rank. */
@@ -99,25 +99,13 @@ export type ExamReportModel = {
 };
 
 /**
- * Fee fields that contribute to TOTAL (Baht). Annual Fee and Yen were removed
- * from the report, so they are deliberately not listed and cannot be summed.
+ * Fee fields the report still totals. Annual Fee, Yen, and TOTAL (Baht) were
+ * removed, so they are deliberately not listed and cannot be summed.
  */
 export const EXAM_REPORT_INCLUDED_FEE_FIELDS = ["examFee"] as const;
 
 export type ExamReportIncludedFeeField =
   (typeof EXAM_REPORT_INCLUDED_FEE_FIELDS)[number];
-
-/** Sums only the fee fields this report still includes. */
-export function totalBahtForFees(
-  fees: Partial<Record<ExamReportIncludedFeeField, number>>,
-) {
-  return EXAM_REPORT_INCLUDED_FEE_FIELDS.reduce((total, field) => {
-    const value = fees[field];
-    return (
-      total + (typeof value === "number" && Number.isFinite(value) ? value : 0)
-    );
-  }, 0);
-}
 
 /**
  * Completed years between a date of birth and the report date. Both values are
@@ -184,28 +172,22 @@ export function normalizeDojoCode(value: unknown) {
   return code || EXAM_REPORT_MISSING_VALUE;
 }
 
-/** Builds the Thai renewal note shown in the AAT Date column. */
-export function aatRenewalNote(
-  row: Pick<ExamReportSourceRow, "aat_renewal_due_date" | "aat_last_paid_date">,
+/** AAT. Date is the day the student last paid their AAT annual membership. */
+export function aatLastPaidDate(
+  row: Pick<ExamReportSourceRow, "aat_last_paid_date">,
 ) {
-  const due = isCanonicalDate(row.aat_renewal_due_date)
-    ? row.aat_renewal_due_date
-    : isCanonicalDate(row.aat_last_paid_date)
-      ? addOneCalendarYear(row.aat_last_paid_date)
-      : null;
-  return due
-    ? `${EXAM_REPORT_AAT_RENEWAL_PREFIX} ${canonicalDateToDisplay(due)}`
-    : "";
-}
-
-/** Member Date is the earliest AAT payment, falling back to the latest one. */
-export function memberSinceDate(
-  row: Pick<ExamReportSourceRow, "aat_member_since" | "aat_last_paid_date">,
-) {
-  if (isCanonicalDate(row.aat_member_since)) return row.aat_member_since;
   return isCanonicalDate(row.aat_last_paid_date)
     ? row.aat_last_paid_date
     : null;
+}
+
+/** Member Date is the day the student's account was created. */
+export function memberSinceDate(
+  row: Pick<ExamReportSourceRow, "account_created_date">,
+) {
+  // Stored values may be full timestamps, so only the calendar date is kept.
+  const value = (row.account_created_date || "").slice(0, 10);
+  return isCanonicalDate(value) ? value : null;
 }
 
 export function formatReportDate(value: string | null) {
@@ -307,13 +289,21 @@ function buildRow(
       `${studentName}: no verified training hours are recorded, so Practice Hours is blank.`,
     );
   }
-  const examFee = Number.isFinite(source.exam_fee) ? source.exam_fee : 0;
   const { aatNumber, isNewAat } = normalizeAatNumber(source.aat_number);
+  const herebyRank = source.attempted_rank?.trim() || EXAM_REPORT_MISSING_VALUE;
+  // A student confirmed as paid without a submitted application has no stored
+  // fee snapshot, so the standard fee for the requested rank stands in.
+  const examFee =
+    Number.isFinite(source.exam_fee) && source.exam_fee > 0
+      ? source.exam_fee
+      : (examinationFeeThb(herebyRank) ?? 0);
   return {
     index: index + 1,
-    attemptedRank: source.attempted_rank?.trim() || EXAM_REPORT_MISSING_VALUE,
+    attemptedRank: herebyRank,
     aatNumber,
     isNewAat,
+    studentIdNumber:
+      source.public_student_id?.trim() || EXAM_REPORT_MISSING_VALUE,
     memberDate: memberSinceDate(source),
     studentName,
     age,
@@ -322,12 +312,13 @@ function buildRow(
     lastTestDate: isCanonicalDate(source.last_examination_date)
       ? source.last_examination_date
       : null,
-    herebyRank: source.attempted_rank?.trim() || EXAM_REPORT_MISSING_VALUE,
+    herebyRank,
     practiceHours,
-    gradeGiven: source.grade_given?.trim() || "",
+    // Grade Given always matches Hereby Rank unless an examiner recorded a
+    // different result for this application.
+    gradeGiven: source.grade_given?.trim() || herebyRank,
     examFee,
-    totalBaht: totalBahtForFees({ examFee }),
-    aatDate: aatRenewalNote(source),
+    aatDate: aatLastPaidDate(source),
   };
 }
 
@@ -353,7 +344,6 @@ export function buildExamReportModel(
   );
   const totals = {
     examFee: rows.reduce((sum, row) => sum + row.examFee, 0),
-    totalBaht: rows.reduce((sum, row) => sum + row.totalBaht, 0),
   };
   return {
     titleLines: buildReportTitleLines(cycle, scopeLabel, now),
@@ -382,6 +372,8 @@ export function reportCellText(
       return groupCountLabel;
     case "aatNumber":
       return row.aatNumber;
+    case "studentIdNumber":
+      return row.studentIdNumber;
     case "memberDate":
       return formatReportDate(row.memberDate);
     case "studentName":
@@ -402,10 +394,8 @@ export function reportCellText(
       return row.gradeGiven;
     case "examFee":
       return formatReportMoney(row.examFee);
-    case "totalBaht":
-      return formatReportMoney(row.totalBaht);
     case "aatDate":
-      return row.aatDate;
+      return formatReportDate(row.aatDate);
     default:
       return "";
   }

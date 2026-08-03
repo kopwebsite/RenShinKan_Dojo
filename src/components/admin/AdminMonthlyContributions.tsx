@@ -154,7 +154,7 @@ export function AdminMonthlyContributions({ report }: { report: (message: string
       <table className="sr-only"><caption>Accessible monthly contribution totals</caption><thead><tr><th>Month</th><th>Paid</th><th>Active roster</th><th>Paid percentage</th></tr></thead><tbody>{data.graph.map((point) => <tr key={point.month}><td>{monthLabel(point.month)}</td><td>{point.paid}</td><td>{point.totalActive}</td><td>{point.paidPercentage}%</td></tr>)}</tbody></table>
     </section>
 
-    <form className="admin-record-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(queryInput.trim()); }}>
+    <form className="admin-record-filters" role="search" aria-label="Search and filter monthly contributions" onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(queryInput.trim()); }}>
       <label className="admin-search-wide">Search students<div><Search size={17} /><input value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="Name or Student ID" /><button className="btn-secondary">Search</button></div></label>
       <label>Status<select value={status} onChange={(event) => { setStatus(contributionStatus(event.target.value)); setPage(1); }}><option value="">All statuses</option><option value="no_submission">No submission</option><option value="awaiting_payment">Awaiting payment</option><option value="paid">Paid</option>
           </select>
@@ -203,23 +203,22 @@ export function AdminMonthlyContributions({ report }: { report: (message: string
             <option value="lastPaid">Last paid</option>
           </select>
         </label>
-        {query || status || rank || lastPaid || sort !== "name" ? (
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => {
-              setQueryInput("");
-              setQuery("");
-              setStatus("");
-              setRank("");
-              setLastPaid("");
-              setSort("name");
-              setPage(1);
-            }}
-          >
-            Clear filters
-          </button>
-        ) : null}
+        <button
+          type="button"
+          className="btn-secondary admin-clear"
+          disabled={!query && !status && !rank && !lastPaid && sort === "name"}
+          onClick={() => {
+            setQueryInput("");
+            setQuery("");
+            setStatus("");
+            setRank("");
+            setLastPaid("");
+            setSort("name");
+            setPage(1);
+          }}
+        >
+          Clear filters
+        </button>
     </form>
 
     {selected.size ? <aside className="admin-bulk-toolbar"><strong>{selected.size} selected</strong>{(["no_submission", "awaiting_payment", "paid"] as ContributionStatus[]).map((value) => <button key={value} className="btn-secondary" onClick={() => setPending({ status: value, studentIds: [...selected], amount: "", reference: "" })}>{adminStatusLabel(value)}</button>)}<button className="text-link" onClick={() => setSelected(new Set())}>Clear selection</button></aside> : null}

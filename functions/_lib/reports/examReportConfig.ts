@@ -11,6 +11,7 @@ export type ExamReportColumnKey =
   | "testForDan"
   | "groupCount"
   | "aatNumber"
+  | "studentIdNumber"
   | "memberDate"
   | "studentName"
   | "age"
@@ -21,7 +22,6 @@ export type ExamReportColumnKey =
   | "practiceHours"
   | "gradeGiven"
   | "examFee"
-  | "totalBaht"
   | "aatDate";
 
 export type ExamReportAlignment = "left" | "center" | "right";
@@ -45,8 +45,8 @@ export type ExamReportColumn = {
 };
 
 /**
- * Column order and labels. Annual Fee and Yen are intentionally absent: they
- * were removed from the report, its totals, and its formulas.
+ * Column order and labels. Annual Fee, Yen, and TOTAL (Baht) are intentionally
+ * absent: they were removed from the report, its totals, and its formulas.
  */
 export const EXAM_REPORT_COLUMNS: readonly ExamReportColumn[] = [
   {
@@ -86,6 +86,15 @@ export const EXAM_REPORT_COLUMNS: readonly ExamReportColumn[] = [
     kind: "text",
   },
   {
+    key: "studentIdNumber",
+    headerTop: "Student ID",
+    headerBottom: "No.",
+    pdfWidth: 56,
+    excelWidth: 10.7,
+    align: "center",
+    kind: "text",
+  },
+  {
     key: "memberDate",
     headerTop: "Member Date",
     headerBottom: "(D/M/Y)",
@@ -98,8 +107,8 @@ export const EXAM_REPORT_COLUMNS: readonly ExamReportColumn[] = [
     key: "studentName",
     headerTop: "Name & Surname",
     headerBottom: "",
-    pdfWidth: 150,
-    excelWidth: 28.6,
+    pdfWidth: 140,
+    excelWidth: 26.7,
     align: "left",
     kind: "text",
   },
@@ -176,33 +185,20 @@ export const EXAM_REPORT_COLUMNS: readonly ExamReportColumn[] = [
     kind: "money",
   },
   {
-    key: "totalBaht",
-    headerTop: "TOTAL",
-    headerBottom: "(Baht)",
-    pdfWidth: 46,
-    excelWidth: 8.8,
-    align: "center",
-    kind: "money",
-  },
-  {
     key: "aatDate",
     headerTop: "AAT. Date",
-    headerBottom: "",
+    headerBottom: "(D/M/Y)",
     pdfWidth: 76,
     excelWidth: 14.5,
     align: "center",
-    kind: "text",
+    kind: "date",
   },
 ];
 
 /** Columns whose values are summed into the totals row, in report order. */
-export type ExamReportTotalKey = Extract<
-  ExamReportColumnKey,
-  "examFee" | "totalBaht"
->;
+export type ExamReportTotalKey = Extract<ExamReportColumnKey, "examFee">;
 export const EXAM_REPORT_TOTAL_COLUMNS: readonly ExamReportTotalKey[] = [
   "examFee",
-  "totalBaht",
 ];
 
 /** The column that carries the "TOTAL" caption on the totals row. */
@@ -210,7 +206,7 @@ export const EXAM_REPORT_TOTAL_LABEL_COLUMN: ExamReportColumnKey = "gradeGiven";
 
 /** The totals cell that is highlighted the way the reference highlights it. */
 export const EXAM_REPORT_TOTAL_HIGHLIGHT_COLUMN: ExamReportColumnKey =
-  "totalBaht";
+  "examFee";
 
 export const EXAM_REPORT_TOTAL_LABEL = "TOTAL";
 
@@ -225,9 +221,6 @@ export const EXAM_REPORT_TITLE = {
   dateFallback: "Examination date not set",
   venueFallback: "Venue not set",
 } as const;
-
-/** Prefix for the Thai AAT renewal note shown in the AAT Date column. */
-export const EXAM_REPORT_AAT_RENEWAL_PREFIX = "ต่ออายุถึง";
 
 /** Suffix that turns a group size into the reference's "N คน" count label. */
 export const EXAM_REPORT_GROUP_COUNT_SUFFIX = "คน";

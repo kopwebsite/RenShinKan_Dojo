@@ -35,23 +35,47 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
   const session = await getAuthorizedAdminSession(request, env);
   if (!requiresCentralAdmin(session)) return jsonResponse({ error: "Only the RenShinKan administrator may edit the website." }, session ? 403 : 401);
   try {
-    const body = await request.json<{ content?: unknown }>();
-    const base = await currentOrEmpty(env);
+    const body = await request.json<{ content?: unknown; expectedUpdatedAt?: unknown }>();
+    const db = requireStudentDb(env);
+    const [base, existing] = await Promise.all([
+      currentOrEmpty(env),
+      db.prepare("SELECT updated_at FROM site_content_drafts WHERE id = 'current'").first<{ updated_at: string }>(),
+    ]);
+    const expected = typeof body.expectedUpdatedAt === "string" ? body.expectedUpdatedAt : null;
+    const hasExpected = Object.prototype.hasOwnProperty.call(body, "expectedUpdatedAt");
+    if (hasExpected && existing && expected !== existing.updated_at) {
+      return jsonResponse({ error: "This website draft changed in another session. Reload before saving." }, 409);
+    }
+    if (hasExpected && !existing && expected) {
+      return jsonResponse({ error: "This website draft no longer matches the saved version. Reload before saving." }, 409);
+    }
     const content = mergeSiteContent(base, body.content);
     const serialized = JSON.stringify(content);
     if (serialized.length > 900_000) return jsonResponse({ error: "The site draft is too large. Reduce block text or gallery items." }, 413);
-    const db = requireStudentDb(env);
     const now = new Date().toISOString();
-    await db.batch([
-      db.prepare(`INSERT INTO site_content_drafts (id, content_json, updated_by, updated_at)
-        VALUES ('current', ?, ?, ?) ON CONFLICT(id) DO UPDATE SET content_json = excluded.content_json,
-        updated_by = excluded.updated_by, updated_at = excluded.updated_at`).bind(serialized, session!.adminName, now),
-      auditStatement(db, {
-        actorType: "administrator", ...adminAuditMetadata(session!, request), action: "site_draft_saved",
-        entityType: "site_content", entityId: "current", newValues: { pageCount: content.sitePages.length },
-        source: "admin_site_editor", requestId: requestIdentifier(request), summary: "Saved website content draft", createdAt: now,
-      }),
-    ]);
+    const audit = auditStatement(db, {
+      actorType: "administrator", ...adminAuditMetadata(session!, request), action: "site_draft_saved",
+      entityType: "site_content", entityId: "current", newValues: { pageCount: content.sitePages.length },
+      source: "admin_site_editor", requestId: requestIdentifier(request), summary: "Saved website content draft", createdAt: now,
+    });
+    if (hasExpected) {
+      const saved = existing
+        ? await db.prepare(`UPDATE site_content_drafts SET content_json = ?, updated_by = ?, updated_at = ?
+            WHERE id = 'current' AND updated_at = ?`).bind(serialized, session!.adminName, now, expected).run()
+        : await db.prepare(`INSERT OR IGNORE INTO site_content_drafts (id, content_json, updated_by, updated_at)
+            VALUES ('current', ?, ?, ?)`).bind(serialized, session!.adminName, now).run();
+      if (Number(saved.meta?.changes || 0) !== 1) {
+        return jsonResponse({ error: "This website draft changed in another session. Reload before saving." }, 409);
+      }
+      await audit.run();
+    } else {
+      await db.batch([
+        db.prepare(`INSERT INTO site_content_drafts (id, content_json, updated_by, updated_at)
+          VALUES ('current', ?, ?, ?) ON CONFLICT(id) DO UPDATE SET content_json = excluded.content_json,
+          updated_by = excluded.updated_by, updated_at = excluded.updated_at`).bind(serialized, session!.adminName, now),
+        audit,
+      ]);
+    }
     return jsonResponse({ ok: true, updatedAt: now, content }, 200, { "Cache-Control": "no-store" });
   } catch (error) {
     return jsonResponse({ error: error instanceof Error ? error.message : "The site draft could not be saved." }, 400);

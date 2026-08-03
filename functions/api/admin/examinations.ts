@@ -273,6 +273,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         venue: cleanText(body.venue, 240), instructions: typeof body.instructions === "string" ? body.instructions.trim().slice(0, 4_000) : "", lifecycleStatus: lifecycle,
         rankFees: FIXED_RANK_FEES, annualFees: FIXED_ANNUAL_FEES,
       };
+      const response = { ok: true, action, cycleId };
       await db.batch([
         db.prepare(`UPDATE examination_cycles SET name = ?, title = ?, examination_type = ?, rank_category = ?,
           application_opens_at = ?, application_closes_at = ?, examination_at = ?, venue = ?, instructions = ?,
@@ -282,8 +283,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         auditStatement(db, { actorType: "administrator", ...adminAuditMetadata(session, request), action: "exam_cycle_updated",
           entityType: "examination_cycle", entityId: cycleId, previousValues: before, newValues: next,
           source: "admin_exam_cycles", requestId, examCycleId: cycleId, summary: `Updated examination cycle ${name}`, createdAt: now }),
+        db.prepare("INSERT INTO mutation_requests (request_id, actor_type, action, response_json, created_at) VALUES (?, 'administrator', 'update_exam_cycle', ?, ?)")
+          .bind(requestId, JSON.stringify(response), now),
       ]);
-      return jsonResponse({ ok: true, action, cycleId }, 200, { "Cache-Control": "no-store" });
+      return jsonResponse(response, 200, { "Cache-Control": "no-store" });
     }
 
     if (action !== "update_status") return jsonResponse({ error: "Choose an examination action." }, 400);

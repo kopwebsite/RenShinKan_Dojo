@@ -169,26 +169,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       action: "galleries_published", source: "admin_gallery_manager",
       note: "Published gallery albums",
     });
-    await db.batch([
-      db.prepare("UPDATE gallery_drafts SET albums_json = ?, updated_by = ?, updated_at = ? WHERE id = 'current'")
-        .bind(JSON.stringify(galleryAlbums), session!.adminName, now),
-      auditStatement(db, {
-        actorType: "administrator",
-        ...adminAuditMetadata(session!, request),
-        action: "galleries_published",
-        entityType: "site_content",
-        entityId: "gallery-albums",
-        previousValues: { lastPublishedAt: current.lastPublishedAt },
-        newValues: {
-          lastPublishedAt: now,
-          albumCount: Object.values(galleryAlbums).reduce((sum, entries) => sum + entries.length, 0),
-        },
-        source: "admin_gallery_manager",
-        requestId: requestIdentifier(request),
-        summary: "Published gallery albums",
-        createdAt: now,
-      }),
-    ]);
 
     const requestedGalleryId = typeof body.galleryId === "string" ? body.galleryId : "";
     const galleryId = GALLERY_IDS.includes(requestedGalleryId as GalleryId) ? requestedGalleryId as GalleryId : null;
@@ -196,7 +176,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       ok: true,
       albums: galleryId ? scopedAlbums(galleryAlbums as GalleryAlbums, galleryId) : galleryAlbums as GalleryAlbums,
       publishedAt: now,
-      updatedAt: now,
+      updatedAt: draft.updated_at,
       publishOperation: published,
     }, 200, { "Cache-Control": "no-store" });
   } catch (error) {

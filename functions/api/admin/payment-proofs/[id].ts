@@ -22,8 +22,6 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
   if (!proof) return jsonResponse({ error: "Payslip not found or outside your dojo." }, 404);
   const object = await env.MEDIA_BUCKET.get(proof.object_key);
   if (!object) {
-    const now = new Date().toISOString();
-    await db.prepare("UPDATE payment_proofs SET object_key = NULL, purged_at = ?, updated_at = ? WHERE id = ?").bind(now, now, proof.id).run();
     return jsonResponse({ error: "This payslip file is unavailable." }, 410);
   }
   const download = new URL(request.url).searchParams.get("download") === "1";

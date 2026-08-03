@@ -257,6 +257,34 @@ describe("student and administrator security", () => {
             return this;
           },
           async first<T>() {
+            if (query.includes("INSERT INTO security_rate_limits")) {
+              const actor = `${bindings[0]}:${bindings[1]}`;
+              const existing = rows.get(actor);
+              const now = String(bindings[5]);
+              const cutoff = String(bindings[6]);
+              let next: Row;
+              if (!existing || existing.window_started_at <= cutoff) {
+                next = {
+                  window_started_at: String(bindings[2]),
+                  attempts: 1,
+                  locked_until: null,
+                };
+              } else if (existing.locked_until && existing.locked_until > now) {
+                next = existing;
+              } else {
+                const attempts = existing.attempts + 1;
+                next = {
+                  ...existing,
+                  attempts,
+                  locked_until:
+                    attempts > Number(bindings[11])
+                      ? String(bindings[20])
+                      : null,
+                };
+              }
+              rows.set(actor, next);
+              return next as T;
+            }
             return (rows.get(`${bindings[0]}:${bindings[1]}`) ||
               null) as T | null;
           },
@@ -266,12 +294,6 @@ describe("student and administrator security", () => {
               query.includes("DELETE FROM security_rate_limits WHERE endpoint")
             )
               rows.delete(actor);
-            else if (query.includes("INSERT INTO security_rate_limits"))
-              rows.set(actor, {
-                window_started_at: String(bindings[2]),
-                attempts: Number(bindings[3]),
-                locked_until: bindings[4] ? String(bindings[4]) : null,
-              });
             return { success: true };
           },
         };

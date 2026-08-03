@@ -8,6 +8,7 @@ import {
   recentMonthKeys,
   requestIdentifier,
   requireStudentDb,
+  scopedAdminMutationRequestId,
   type D1Database,
   type D1PreparedStatement,
   type StudentEnv,
@@ -295,10 +296,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const db = requireStudentDb(env);
   const requestId = requestIdentifier(request);
   try {
-    const replay = await db.prepare("SELECT response_json FROM mutation_requests WHERE request_id = ? LIMIT 1")
-      .bind(requestId).first<{ response_json: string | null }>();
-    if (replay?.response_json) return jsonResponse(JSON.parse(replay.response_json), 200, { "Cache-Control": "no-store" });
     const body = await request.json<Record<string, unknown>>();
+    const mutationRequestId = await scopedAdminMutationRequestId(env, session!, requestId, "admin/contributions", body);
+    const replay = await db.prepare("SELECT response_json FROM mutation_requests WHERE request_id = ? LIMIT 1")
+      .bind(mutationRequestId).first<{ response_json: string | null }>();
+    if (replay?.response_json) return jsonResponse(JSON.parse(replay.response_json), 200, { "Cache-Control": "no-store" });
     if (body.contributionType !== "renshinkan_monthly") return jsonResponse({ error: "Choose Monthly RenShinKan Student Contribution." }, 400);
     if (body.action !== "update_status" || body.confirmed !== true) return jsonResponse({ error: "Confirm the contribution status change." }, 400);
     const month = clean(body.month, 7);
@@ -375,7 +377,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
     const response = { ok: true, month, status: newStatus, count: rows.length, bulkOperationId };
     statements.push(db.prepare("INSERT INTO mutation_requests (request_id, actor_type, action, response_json, created_at) VALUES (?, 'administrator', 'contribution_status_update', ?, ?)")
-      .bind(requestId, JSON.stringify(response), now));
+      .bind(mutationRequestId, JSON.stringify(response), now));
     await db.batch(statements);
     return jsonResponse(response, 200, { "Cache-Control": "no-store" });
   } catch (error) {

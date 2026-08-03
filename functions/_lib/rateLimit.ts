@@ -83,56 +83,96 @@ export async function consumeRateLimit(
   env: RateLimitEnv,
   rule: RateLimitRule,
 ) {
-  const { keyHash, row } = await rateLimitRow(request, env, rule);
+  if (
+    !Number.isSafeInteger(rule.limit) ||
+    !Number.isSafeInteger(rule.windowSeconds) ||
+    !Number.isSafeInteger(rule.lockSeconds) ||
+    rule.limit < 1 ||
+    rule.windowSeconds < 1 ||
+    rule.lockSeconds < 1
+  ) {
+    throw new Error("Rate-limit rule is invalid");
+  }
+  if (!env.STUDENT_DB) throw new Error("Rate-limit storage is not configured");
+  const keyHash = await actorHash(request, env, rule);
   const now = Date.now();
-  if (row?.locked_until && Date.parse(row.locked_until) > now) return false;
-  const expired =
-    !row ||
-    now - Date.parse(row.window_started_at) >= rule.windowSeconds * 1000;
-  const attempts = expired ? 1 : Number(row.attempts || 0) + 1;
-  const excess = Math.max(0, attempts - rule.limit);
-  const lockMs =
-    excess > 0
-      ? Math.min(
-          rule.lockSeconds * 1000 * 2 ** Math.min(excess - 1, 4),
-          60 * 60 * 1000,
-        )
-      : 0;
-  const startedAt = expired
-    ? new Date(now).toISOString()
-    : row!.window_started_at;
-  const lockedUntil = lockMs ? new Date(now + lockMs).toISOString() : null;
+  const nowIso = new Date(now).toISOString();
+  const windowCutoff = new Date(now - rule.windowSeconds * 1000).toISOString();
+  const lockDeadlines = [1, 2, 4, 8, 16].map((factor) =>
+    new Date(
+      now + Math.min(rule.lockSeconds * 1000 * factor, 60 * 60 * 1000),
+    ).toISOString(),
+  );
   const expiresAt = new Date(
-    now + Math.max(rule.windowSeconds * 2, rule.lockSeconds * 2) * 1000,
+    now +
+      Math.max(
+        rule.windowSeconds * 2,
+        Math.min(rule.lockSeconds * 16, 60 * 60) * 2,
+      ) *
+        1000,
   ).toISOString();
-  await env
-    .STUDENT_DB!.prepare(
-      `INSERT INTO security_rate_limits
-    (endpoint, key_hash, window_started_at, attempts, locked_until, expires_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(endpoint, key_hash) DO UPDATE SET window_started_at = excluded.window_started_at,
-      attempts = excluded.attempts, locked_until = excluded.locked_until,
-      expires_at = excluded.expires_at, updated_at = excluded.updated_at`,
-    )
+  const row = await env.STUDENT_DB.prepare(
+    `INSERT INTO security_rate_limits
+      (endpoint, key_hash, window_started_at, attempts, locked_until, expires_at, updated_at)
+    VALUES (?, ?, ?, 1, NULL, ?, ?)
+    ON CONFLICT(endpoint, key_hash) DO UPDATE SET
+      window_started_at = CASE
+        WHEN security_rate_limits.locked_until > ? THEN security_rate_limits.window_started_at
+        WHEN security_rate_limits.window_started_at <= ? THEN excluded.window_started_at
+        ELSE security_rate_limits.window_started_at
+      END,
+      attempts = CASE
+        WHEN security_rate_limits.locked_until > ? THEN security_rate_limits.attempts
+        WHEN security_rate_limits.window_started_at <= ? THEN 1
+        ELSE security_rate_limits.attempts + 1
+      END,
+      locked_until = CASE
+        WHEN security_rate_limits.locked_until > ? THEN security_rate_limits.locked_until
+        WHEN security_rate_limits.window_started_at <= ? THEN NULL
+        WHEN security_rate_limits.attempts + 1 <= ? THEN NULL
+        WHEN security_rate_limits.attempts + 1 - ? >= 5 THEN ?
+        WHEN security_rate_limits.attempts + 1 - ? = 4 THEN ?
+        WHEN security_rate_limits.attempts + 1 - ? = 3 THEN ?
+        WHEN security_rate_limits.attempts + 1 - ? = 2 THEN ?
+        ELSE ?
+      END,
+      expires_at = excluded.expires_at,
+      updated_at = excluded.updated_at
+    RETURNING window_started_at, attempts, locked_until`,
+  )
     .bind(
       rule.endpoint,
       keyHash,
-      startedAt,
-      attempts,
-      lockedUntil,
+      nowIso,
       expiresAt,
-      new Date(now).toISOString(),
+      nowIso,
+      nowIso,
+      windowCutoff,
+      nowIso,
+      windowCutoff,
+      nowIso,
+      windowCutoff,
+      rule.limit,
+      rule.limit,
+      lockDeadlines[4],
+      rule.limit,
+      lockDeadlines[3],
+      rule.limit,
+      lockDeadlines[2],
+      rule.limit,
+      lockDeadlines[1],
+      lockDeadlines[0],
     )
-    .run();
+    .first<RateLimitRow>();
+  if (!row) throw new Error("Rate-limit update failed");
   if (crypto.getRandomValues(new Uint8Array(1))[0] < 8) {
-    await env
-      .STUDENT_DB!.prepare(
-        "DELETE FROM security_rate_limits WHERE expires_at < ?",
-      )
-      .bind(new Date(now).toISOString())
+    await env.STUDENT_DB.prepare(
+      "DELETE FROM security_rate_limits WHERE expires_at < ?",
+    )
+      .bind(nowIso)
       .run();
   }
-  return !lockedUntil;
+  return !(row.locked_until && Date.parse(row.locked_until) > now);
 }
 
 export async function clearRateLimit(

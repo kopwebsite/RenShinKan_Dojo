@@ -40,7 +40,7 @@ function healthyDb() {
       if (query.includes("SELECT 1 AS available"))
         return statement({ available: 1 });
       if (query.includes("FROM d1_migrations"))
-        return statement({ name: "0027_remove_review_notes.sql" });
+        return statement({ name: "0028_admin_auggie_operations.sql" });
       if (
         query.includes("FROM publish_operations") &&
         query.includes("problems")

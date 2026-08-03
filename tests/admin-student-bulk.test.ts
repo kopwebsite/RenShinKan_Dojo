@@ -102,7 +102,13 @@ async function postBulk(body: Row, db: ReturnType<typeof createDb>["db"]) {
       body: JSON.stringify(body),
     },
   );
-  return onRequestPost({ request, env: { STUDENT_DB: db } } as never);
+  return onRequestPost({
+    request,
+    env: {
+      STUDENT_DB: db,
+      SESSION_SECRET: "test-only-bulk-session-secret-000000000000",
+    },
+  } as never);
 }
 
 describe("administrator student bulk training-hour mutations", () => {

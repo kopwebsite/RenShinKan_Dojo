@@ -132,7 +132,10 @@ describe("administrator mutation replay safety", () => {
 
     const response = await updateExaminations({
       request,
-      env: { STUDENT_DB: db },
+      env: {
+        STUDENT_DB: db,
+        SESSION_SECRET: "test-only-mutation-session-secret-00000000",
+      },
     } as never);
 
     expect(response.status).toBe(200);
@@ -140,7 +143,8 @@ describe("administrator mutation replay safety", () => {
       item.query.includes("INSERT INTO mutation_requests"),
     );
     expect(replay).toBeDefined();
-    expect(replay?.values[0]).toBe("cycle-update-request");
+    expect(replay?.values[0]).toMatch(/^[a-f0-9]{64}$/);
+    expect(replay?.values[0]).not.toBe("cycle-update-request");
     expect(JSON.parse(String(replay?.values[1]))).toEqual({
       ok: true,
       action: "update_cycle",

@@ -108,6 +108,24 @@ export function requestIdentifier(request: Request) {
     : crypto.randomUUID();
 }
 
+export async function scopedAdminMutationRequestId(
+  env: StudentEnv,
+  session: AdminSession,
+  requestId: string,
+  routeKey: string,
+  payload: unknown,
+) {
+  const secret = env.SESSION_SECRET?.trim() || "";
+  const dojoId = session.selectedDojoId || "";
+  if (secret.length < 32 || !dojoId || !/^[a-z0-9/_-]{3,100}$/.test(routeKey))
+    throw new Error("Administrator mutation replay protection is unavailable");
+  const payloadHash = await sha256Hex(JSON.stringify(payload));
+  return hmacHex(
+    secret,
+    `admin-mutation-v1\n${session.accountId}\n${effectivePermissionLevel(session)}\n${dojoId}\n${routeKey}\n${requestId}\n${payloadHash}`,
+  );
+}
+
 export function normalizeVerifiedName(value: string) {
   return value
     .normalize("NFKC")
@@ -1258,8 +1276,7 @@ export async function ownerStudentRecord(db: D1Database, student: StudentRow) {
 export function genericLookupFailure(status = 404) {
   return jsonResponse(
     {
-      error:
-        "Check the name and Student ID and try again.",
+      error: "Check the name and Student ID and try again.",
     },
     status,
     { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" },

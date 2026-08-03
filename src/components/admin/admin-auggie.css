@@ -15,12 +15,400 @@
   color: #fff;
   background: #284e39;
   box-shadow: 0 0.65rem 1.8rem rgb(25 17 16 / 0.28);
+  cursor: pointer;
   font:
     750 0.83rem/1.2 Inter,
     "Noto Sans Thai",
     sans-serif;
 }
 
-.admin-auggie-launcher--placeholder {
-  cursor: default;
+.admin-auggie-launcher:hover,
+.admin-auggie-launcher:focus-visible {
+  background: #1f3f2e;
+  outline: 3px solid rgb(170 204 181 / 0.65);
+  outline-offset: 2px;
+}
+
+.admin-route .admin-shell__content {
+  padding-bottom: max(6rem, calc(env(safe-area-inset-bottom) + 5rem));
+}
+
+body:has(.admin-unsaved-bar) .admin-auggie-launcher,
+body:has(.admin-drawer-actions) .admin-auggie-launcher {
+  bottom: max(6rem, calc(env(safe-area-inset-bottom) + 5rem));
+}
+
+.admin-auggie__backdrop {
+  position: fixed;
+  z-index: 1500;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 1rem;
+  background: rgb(20 18 17 / 0.48);
+  backdrop-filter: blur(2px);
+}
+
+.admin-auggie__panel {
+  display: grid;
+  width: min(31rem, calc(100vw - 2rem));
+  max-height: min(49rem, calc(100dvh - 2rem));
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  border: 1px solid rgb(40 78 57 / 0.22);
+  border-radius: 1.15rem;
+  background: #fbfaf7;
+  box-shadow: 0 1.4rem 4rem rgb(18 16 14 / 0.34);
+  color: #292523;
+  font-family: Inter, "Noto Sans Thai", sans-serif;
+}
+
+.admin-auggie__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1rem 0.9rem;
+  border-bottom: 1px solid rgb(40 78 57 / 0.14);
+  background: linear-gradient(135deg, #edf4ee, #f9f6ef);
+}
+
+.admin-auggie__header h2,
+.admin-auggie__response h3 {
+  margin: 0;
+  color: #213d2d;
+  font-family: Inter, "Noto Sans Thai", sans-serif;
+}
+
+.admin-auggie__header h2 {
+  font-size: 1.12rem;
+}
+.admin-auggie__header p {
+  margin: 0.15rem 0 0;
+  color: #5c5550;
+  font-size: 0.78rem;
+}
+
+.admin-auggie__eyebrow,
+.admin-auggie__manual {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #386346;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.admin-auggie__close {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #3f3935;
+  cursor: pointer;
+}
+
+.admin-auggie__close:hover,
+.admin-auggie__close:focus-visible {
+  background: rgb(40 78 57 / 0.1);
+}
+
+.admin-auggie__log {
+  overflow-y: auto;
+  padding: 1rem;
+  overscroll-behavior: contain;
+}
+
+.admin-auggie__intro,
+.admin-auggie__response {
+  margin: 0 0 0.9rem;
+  border: 1px solid rgb(40 78 57 / 0.15);
+  border-radius: 0.85rem;
+  background: #fff;
+  padding: 0.85rem;
+}
+
+.admin-auggie__intro p,
+.admin-auggie__response p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+.admin-auggie__intro small {
+  display: block;
+  margin-top: 0.65rem;
+  color: #6c625c;
+  line-height: 1.45;
+}
+
+.admin-auggie__user-message {
+  width: fit-content;
+  max-width: 88%;
+  margin: 0 0 0.9rem auto;
+  border-radius: 0.85rem 0.85rem 0.2rem;
+  background: #284e39;
+  color: #fff;
+  padding: 0.65rem 0.8rem;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.admin-auggie__response-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.35rem;
+}
+.admin-auggie__response h3 {
+  font-size: 0.92rem;
+}
+.admin-auggie__manual {
+  margin-top: 0.65rem !important;
+}
+
+.admin-auggie__counts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0.75rem 0 0;
+}
+
+.admin-auggie__counts div {
+  border-radius: 0.65rem;
+  background: #f2f5f0;
+  padding: 0.6rem;
+}
+.admin-auggie__counts dt {
+  color: #655d58;
+  font-size: 0.7rem;
+}
+.admin-auggie__counts dd {
+  margin: 0.12rem 0 0;
+  color: #213d2d;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.admin-auggie__records {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+}
+.admin-auggie__record {
+  display: grid;
+  gap: 0.08rem;
+  border-left: 3px solid #7a9d80;
+  background: #f7f6f2;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.75rem;
+}
+.admin-auggie__record strong {
+  overflow-wrap: anywhere;
+  color: #302b28;
+}
+.admin-auggie__record span {
+  color: #6a625c;
+}
+
+.admin-auggie__operation {
+  margin-top: 0.75rem;
+  border-top: 1px solid rgb(40 78 57 / 0.13);
+  padding-top: 0.75rem;
+}
+.admin-auggie__operation-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+  gap: 0.45rem;
+  margin: 0 0 0.7rem;
+}
+.admin-auggie__operation-summary div {
+  border-radius: 0.55rem;
+  background: #f3f4ee;
+  padding: 0.5rem;
+}
+.admin-auggie__operation-summary dt {
+  color: #6a625c;
+  font-size: 0.68rem;
+}
+.admin-auggie__operation-summary dd {
+  margin: 0.15rem 0 0;
+  color: #302b28;
+  font-size: 0.78rem;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+.admin-auggie__warning {
+  color: #6b4f21;
+  font-size: 0.76rem !important;
+}
+
+.admin-auggie__warning--high-impact {
+  border: 2px solid #a33d2b;
+  border-radius: 0.55rem;
+  background: #fff0ec;
+  color: #7b241d;
+  padding: 0.65rem;
+  font-weight: 800;
+}
+.admin-auggie__operation form {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.7rem;
+}
+.admin-auggie__operation label {
+  display: grid;
+  gap: 0.3rem;
+  color: #504944;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.admin-auggie__operation code {
+  width: fit-content;
+  border-radius: 0.35rem;
+  background: #f0ece2;
+  padding: 0.3rem 0.42rem;
+  color: #5c2d22;
+  font-weight: 800;
+}
+.admin-auggie__operation input,
+.admin-auggie__composer textarea {
+  width: 100%;
+  border: 1px solid #a9aaa1;
+  border-radius: 0.6rem;
+  background: #fff;
+  color: #292523;
+  padding: 0.62rem;
+  font: inherit;
+}
+
+.admin-auggie__operation button,
+.admin-auggie__open,
+.admin-auggie__undo,
+.admin-auggie__composer button {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 0;
+  border-radius: 0.6rem;
+  background: #284e39;
+  color: #fff;
+  padding: 0.55rem 0.75rem;
+  cursor: pointer;
+  font:
+    750 0.76rem/1.2 Inter,
+    "Noto Sans Thai",
+    sans-serif;
+}
+
+.admin-auggie__operation button,
+.admin-auggie__open,
+.admin-auggie__undo {
+  margin-top: 0.65rem;
+}
+.admin-auggie__operation button:disabled,
+.admin-auggie__composer button:disabled,
+.admin-auggie__undo:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.admin-auggie__undo {
+  background: #695634;
+}
+
+.admin-auggie__status,
+.admin-auggie__error {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.65rem 0;
+  border-radius: 0.65rem;
+  padding: 0.65rem;
+  font-size: 0.78rem;
+}
+.admin-auggie__status {
+  background: #eef4ed;
+  color: #284e39;
+}
+.admin-auggie__error {
+  background: #fceae7;
+  color: #8b2f24;
+}
+
+.admin-auggie__composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.55rem;
+  align-items: stretch;
+  padding: 0.8rem;
+  border-top: 1px solid rgb(40 78 57 / 0.14);
+  background: #f5f2eb;
+}
+
+.admin-auggie__composer textarea {
+  min-height: 3.2rem;
+  max-height: 8rem;
+  resize: vertical;
+}
+.admin-auggie__composer button {
+  min-width: 4.5rem;
+}
+.admin-auggie__spin {
+  animation: admin-auggie-spin 0.8s linear infinite;
+}
+
+@keyframes admin-auggie-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-auggie__backdrop {
+    padding: 0;
+  }
+  .admin-auggie__panel {
+    width: 100vw;
+    max-height: 100dvh;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+  .admin-auggie__header {
+    padding-top: max(1rem, env(safe-area-inset-top));
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-left: max(1rem, env(safe-area-inset-left));
+  }
+  .admin-auggie__log {
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-left: max(1rem, env(safe-area-inset-left));
+  }
+  .admin-auggie__composer {
+    padding-right: max(0.8rem, env(safe-area-inset-right));
+    padding-bottom: max(0.8rem, env(safe-area-inset-bottom));
+    padding-left: max(0.8rem, env(safe-area-inset-left));
+  }
+  .admin-auggie-launcher span:not(.sr-only) {
+    display: none;
+  }
+  .admin-auggie-launcher {
+    width: 3rem;
+    height: 3rem;
+    padding: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-auggie__spin {
+    animation: none;
+  }
 }

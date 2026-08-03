@@ -1,6 +1,6 @@
 import { promoteRank } from "../../../../shared/ranks";
 import { canAccessDojo, getAuthorizedAdminSession, isSameOriginRequest, jsonResponse } from "../../../_lib/auth";
-import { adminAuditMetadata, auditStatement, rankColor, requestIdentifier, requireStudentDb, type D1PreparedStatement, type StudentEnv } from "../../../_lib/studentRecords";
+import { adminAuditMetadata, auditStatement, rankColor, requestIdentifier, requireStudentDb, scopedAdminMutationRequestId, type D1PreparedStatement, type StudentEnv } from "../../../_lib/studentRecords";
 
 type Env = StudentEnv & { SESSION_SECRET?: string };
 type Student = { id: string; display_name: string; current_belt: string; total_hours: number; dojo_id: string; active: number; profile_status: string; archived_at: string | null };
@@ -13,11 +13,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const requestId = requestIdentifier(request);
   const bulkOperationId = crypto.randomUUID();
   const db = requireStudentDb(env);
+  let mutationRequestId = "";
   try {
-    const replay = await db.prepare("SELECT response_json FROM mutation_requests WHERE request_id = ? LIMIT 1").bind(requestId)
+    const body = await request.json<{ action?: unknown; studentIds?: unknown; hours?: unknown; levels?: unknown; location?: unknown; examinationDate?: unknown }>();
+    mutationRequestId = await scopedAdminMutationRequestId(env, session, requestId, "admin/students/bulk", body);
+    const replay = await db.prepare("SELECT response_json FROM mutation_requests WHERE request_id = ? LIMIT 1").bind(mutationRequestId)
       .first<{ response_json: string | null }>();
     if (replay?.response_json) return jsonResponse(JSON.parse(replay.response_json), 200);
-    const body = await request.json<{ action?: unknown; studentIds?: unknown; hours?: unknown; levels?: unknown; location?: unknown; examinationDate?: unknown }>();
     const action = body.action === "add_hours" || body.action === "approve_pending_hours" || body.action === "mass_rank_change" || body.action === "mass_promotion" ? body.action : "";
     const studentIds = Array.isArray(body.studentIds)
       ? Array.from(new Set(body.studentIds.filter((value): value is string => typeof value === "string" && value.length >= 8))).slice(0, 50)
@@ -158,13 +160,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       hoursApproved: action === "approve_pending_hours" ? results.reduce((total, result) => total + Number(result.hoursApproved || 0), 0) : undefined,
     };
     statements.push(db.prepare("INSERT INTO mutation_requests (request_id, actor_type, action, response_json, created_at) VALUES (?, 'administrator', ?, ?, ?)")
-      .bind(requestId, action, JSON.stringify(response), now));
+      .bind(mutationRequestId, action, JSON.stringify(response), now));
     await db.batch(statements);
     return jsonResponse(response, 201);
   } catch (error) {
     const message = error instanceof Error ? error.message : "The bulk operation failed.";
     if (message.includes("UNIQUE")) {
-      const replay = await db.prepare("SELECT response_json FROM mutation_requests WHERE request_id = ? LIMIT 1").bind(requestId)
+      const replay = await db.prepare("SELECT response_json FROM mutation_requests WHERE request_id = ? LIMIT 1").bind(mutationRequestId)
         .first<{ response_json: string | null }>();
       if (replay?.response_json) return jsonResponse(JSON.parse(replay.response_json), 200);
       return jsonResponse({ error: "This bulk operation was already applied." }, 409);

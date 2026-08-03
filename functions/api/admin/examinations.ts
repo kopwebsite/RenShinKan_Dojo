@@ -4,6 +4,7 @@ import {
   auditStatement,
   requestIdentifier,
   requireStudentDb,
+  scopedAdminMutationRequestId,
   type D1PreparedStatement,
   type StudentEnv,
 } from "../../_lib/studentRecords";
@@ -199,11 +200,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const db = requireStudentDb(env);
   const requestId = requestIdentifier(request);
   try {
+    const body = await request.json<Record<string, unknown>>();
+    const mutationRequestId = await scopedAdminMutationRequestId(env, session, requestId, "admin/examinations", body);
     const replay = await db.prepare("SELECT response_json FROM mutation_requests WHERE request_id = ? LIMIT 1")
-      .bind(requestId).first<{ response_json: string | null }>();
+      .bind(mutationRequestId).first<{ response_json: string | null }>();
     const replayBody = replayResponse(replay?.response_json);
     if (replayBody) return jsonResponse(replayBody, 200, { "Cache-Control": "no-store" });
-    const body = await request.json<Record<string, unknown>>();
     const action = body.action;
     if (action === "start_cycle") {
       if (!requiresCentralAdmin(session)) return jsonResponse({ error: "Only the RenShinKan administrator may start an examination cycle." }, 403);
@@ -251,7 +253,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           summary: `Started ${name}; the previous cycle is read-only history`, createdAt: now,
         }),
         db.prepare("INSERT INTO mutation_requests (request_id, actor_type, action, response_json, created_at) VALUES (?, 'administrator', 'start_exam_cycle', ?, ?)")
-          .bind(requestId, JSON.stringify(response), now),
+          .bind(mutationRequestId, JSON.stringify(response), now),
       );
       await db.batch(statements);
       return jsonResponse(response, 201, { "Cache-Control": "no-store" });
@@ -284,7 +286,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           entityType: "examination_cycle", entityId: cycleId, previousValues: before, newValues: next,
           source: "admin_exam_cycles", requestId, examCycleId: cycleId, summary: `Updated examination cycle ${name}`, createdAt: now }),
         db.prepare("INSERT INTO mutation_requests (request_id, actor_type, action, response_json, created_at) VALUES (?, 'administrator', 'update_exam_cycle', ?, ?)")
-          .bind(requestId, JSON.stringify(response), now),
+          .bind(mutationRequestId, JSON.stringify(response), now),
       ]);
       return jsonResponse(response, 200, { "Cache-Control": "no-store" });
     }
@@ -371,7 +373,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
     const response = { ok: true, action, cycleId, status: newStatus, count: students.length, bulkOperationId };
     statements.push(db.prepare("INSERT INTO mutation_requests (request_id, actor_type, action, response_json, created_at) VALUES (?, 'administrator', 'exam_status_update', ?, ?)")
-      .bind(requestId, JSON.stringify(response), now));
+      .bind(mutationRequestId, JSON.stringify(response), now));
     await db.batch(statements);
     return jsonResponse(response, 200, { "Cache-Control": "no-store" });
   } catch (error) {

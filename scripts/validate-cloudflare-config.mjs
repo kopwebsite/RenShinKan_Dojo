@@ -26,6 +26,11 @@ function value(block, pattern, label) {
 function resources(name) {
   const block = environmentBlock(name);
   return {
+    ai: value(
+      block,
+      new RegExp(`\\[env\\.${name}\\.ai\\][\\s\\S]*?binding\\s*=\\s*"([^"]+)"`),
+      `${name} Workers AI binding`,
+    ),
     kv: value(
       block,
       /\[\[env\.[^.]+\.kv_namespaces\]\][\s\S]*?binding\s*=\s*"CONTENT_KV"[\s\S]*?id\s*=\s*"([^"]+)"/,
@@ -54,6 +59,16 @@ function resources(name) {
 
 const preview = resources("preview");
 const production = resources("production");
+const localBlock = config.slice(0, config.indexOf("[env.preview.vars]"));
+const localAi = value(
+  localBlock,
+  /\[ai\][\s\S]*?binding\s*=\s*"([^"]+)"/,
+  "local Workers AI binding",
+);
+if (localAi !== "AI" || preview.ai !== "AI" || production.ai !== "AI")
+  throw new Error(
+    "Workers AI must use the AI binding in local, preview, and production",
+  );
 for (const key of ["kv", "d1", "r2"]) {
   if (preview[key] === production[key])
     throw new Error(

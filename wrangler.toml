@@ -17,6 +17,9 @@ AAT_ANNUAL_CONTRIBUTION_AMOUNT = "1200"
 UPLOADS_ENABLED = "true"
 NEWSLETTER_PUBLISHING_ENABLED = "true"
 
+[ai]
+binding = "AI"
+
 [[kv_namespaces]]
 binding = "CONTENT_KV"
 # Local bindings are emulated by Wrangler and never target remote resources.
@@ -47,6 +50,9 @@ AAT_ANNUAL_CONTRIBUTION_AMOUNT = "1200"
 UPLOADS_ENABLED = "true"
 NEWSLETTER_PUBLISHING_ENABLED = "true"
 
+[env.preview.ai]
+binding = "AI"
+
 [[env.preview.kv_namespaces]]
 binding = "CONTENT_KV"
 id = "55a61dbde66c48729ebc9495b112fe4e"
@@ -72,6 +78,9 @@ RENSHINKAN_MONTHLY_CONTRIBUTION_AMOUNT = "1800"
 AAT_ANNUAL_CONTRIBUTION_AMOUNT = "1200"
 UPLOADS_ENABLED = "true"
 NEWSLETTER_PUBLISHING_ENABLED = "true"
+
+[env.production.ai]
+binding = "AI"
 
 [[env.production.kv_namespaces]]
 binding = "CONTENT_KV"

@@ -1,7 +1,5 @@
-import type { AdminLanguage, Language } from "../i18n";
-
 export type HelpAudience = "public" | "admin";
-export type HelpLocale = Language | AdminLanguage;
+export type HelpLocale = "en" | "th" | "ja" | "zh-CN";
 export type HelpCategory =
   | "getting-started"
   | "student-records"

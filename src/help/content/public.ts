@@ -1,6 +1,7 @@
-import type { Language } from "../../i18n";
 import type { HelpCatalog, HelpCategory, HelpUiCopy } from "../types";
 import { buildArticles, categories, type LocalizedArticle } from "./shared";
+
+type Language = "en" | "th" | "ja" | "zh-CN";
 
 type Topic = {
   id: string;
@@ -271,7 +272,8 @@ const en: Topic[] = [
     route: "/student-records",
     href: "/student-records",
     title: "How to request training hours",
-    summary: "Ask a sensei to verify training completed outside your current total.",
+    summary:
+      "Ask a sensei to verify training completed outside your current total.",
     steps: [
       "Open **My passport** in the student workspace and find your record.",
       "Go to **Submit additional training hours** below your passport.",

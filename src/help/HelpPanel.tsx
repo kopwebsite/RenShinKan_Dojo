@@ -21,6 +21,11 @@ import { AccessibleDialog } from "../components/AccessibleDialog";
 import { getAdminHelpCatalog } from "./content/admin";
 import { getPublicHelpCatalog } from "./content/public";
 import { suggestedHelpArticles, validHelpArticle } from "./context";
+import {
+  parsePublicHelpAssistantResponse,
+  publicHelpAssistantCopy,
+  type PublicHelpAssistantLocale,
+} from "./publicAssistant";
 import { searchHelpArticles } from "./search";
 import type {
   HelpArticle,
@@ -103,9 +108,20 @@ export function HelpPanel({
   const [query, setQuery] = useState("");
   const [fontScale, setFontScale] = useState(1);
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
+  const [assistantState, setAssistantState] = useState<
+    "idle" | "loading" | "unknown" | "private" | "rate-limited" | "unavailable"
+  >("idle");
   const searchRef = useRef<HTMLInputElement>(null);
   const articleTitleRef = useRef<HTMLHeadingElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const assistantAbortRef = useRef<AbortController | null>(null);
+  const assistantLocale: PublicHelpAssistantLocale | null =
+    audience === "public" && (locale === "en" || locale === "th")
+      ? locale
+      : null;
+  const assistantCopy = assistantLocale
+    ? publicHelpAssistantCopy[assistantLocale]
+    : null;
   const selected = validHelpArticle(catalog.articles, selectedId);
   const suggestions = useMemo(
     () => suggestedHelpArticles(audience, location.pathname, catalog.articles),
@@ -138,6 +154,13 @@ export function HelpPanel({
     articleTitleRef.current?.focus();
   }, [selected?.id]);
 
+  useEffect(
+    () => () => {
+      assistantAbortRef.current?.abort();
+    },
+    [],
+  );
+
   function updateDirectLink(id: string | null) {
     const params = new URLSearchParams(location.search);
     if (id) params.set("help", id);
@@ -157,12 +180,14 @@ export function HelpPanel({
     setSelectedId(article.id);
     setQuery("");
     setCopyState("idle");
+    setAssistantState("idle");
     updateDirectLink(article.id);
   }
 
   function showIndex() {
     setSelectedId(null);
     setCopyState("idle");
+    setAssistantState("idle");
     updateDirectLink(null);
     requestAnimationFrame(() => searchRef.current?.focus());
   }
@@ -178,6 +203,72 @@ export function HelpPanel({
       setCopyState("idle");
     }
   }
+
+  async function askPublicAssistant() {
+    const question = query.trim();
+    if (!assistantLocale || question.length < 2) return;
+
+    assistantAbortRef.current?.abort();
+    const controller = new AbortController();
+    assistantAbortRef.current = controller;
+    setAssistantState("loading");
+    try {
+      const response = await fetch("/api/help/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, locale: assistantLocale }),
+        cache: "no-store",
+        credentials: "omit",
+        referrerPolicy: "no-referrer",
+        signal: controller.signal,
+      });
+      if (assistantAbortRef.current !== controller) return;
+      if (response.status === 429) {
+        setAssistantState("rate-limited");
+        return;
+      }
+      if (!response.ok) {
+        setAssistantState("unavailable");
+        return;
+      }
+
+      const result = parsePublicHelpAssistantResponse(await response.json());
+      if (!result) {
+        setAssistantState("unavailable");
+        return;
+      }
+      if (result.outcome === "match") {
+        const article = validHelpArticle(catalog.articles, result.topicId);
+        if (!article || article.audience !== "public") {
+          setAssistantState("unavailable");
+          return;
+        }
+        selectArticle(article);
+        return;
+      }
+      setAssistantState(result.outcome);
+    } catch {
+      if (!controller.signal.aborted) setAssistantState("unavailable");
+    } finally {
+      if (assistantAbortRef.current === controller) {
+        assistantAbortRef.current = null;
+      }
+    }
+  }
+
+  const assistantMessage = assistantCopy
+    ? assistantState === "loading"
+      ? assistantCopy.asking
+      : assistantState === "private"
+        ? assistantCopy.private
+        : assistantState === "unknown"
+          ? assistantCopy.unknown
+          : assistantState === "rate-limited"
+            ? assistantCopy.rateLimited
+            : assistantState === "unavailable"
+              ? assistantCopy.unavailable
+              : ""
+    : "";
 
   const titleId = `${audience}-help-title`;
   const descriptionId = `${audience}-help-description`;
@@ -234,18 +325,46 @@ export function HelpPanel({
               ref={searchRef}
               autoFocus
               type="search"
+              maxLength={500}
               value={query}
               placeholder={catalog.ui.searchPlaceholder}
               onChange={(event) => {
                 setQuery(event.target.value);
+                setAssistantState("idle");
                 if (selectedId) showIndex();
               }}
             />
           </span>
         </label>
+        {assistantCopy ? (
+          <div className="help-assistant">
+            <button
+              type="button"
+              onClick={() => void askPublicAssistant()}
+              disabled={query.trim().length < 2 || assistantState === "loading"}
+              aria-describedby="public-help-assistant-privacy"
+            >
+              {assistantState === "loading"
+                ? assistantCopy.asking
+                : assistantCopy.ask}
+            </button>
+            <p id="public-help-assistant-privacy">
+              {assistantCopy.privacyNotice}
+            </p>
+          </div>
+        ) : null}
         <p className="help-search-status" role="status" aria-live="polite">
           {catalog.ui.searchStatus(results.length)}
         </p>
+        {assistantMessage ? (
+          <p
+            className={`help-assistant-status help-assistant-status--${assistantState}`}
+            role="status"
+            aria-live="polite"
+          >
+            {assistantMessage}
+          </p>
+        ) : null}
       </div>
 
       <div

@@ -133,12 +133,52 @@
   background: transparent;
   font: inherit;
 }
+.help-assistant {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 0.35rem;
+}
+.help-assistant > button {
+  width: fit-content;
+  min-height: 44px;
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.45rem;
+  color: #fff;
+  background: #702b35;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+.help-assistant > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.help-assistant > p {
+  margin: 0;
+  color: #59635c;
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
 .help-search-status {
   grid-column: 1 / -1;
   min-height: 1.1rem;
   margin: -0.35rem 0 0 !important;
   color: #59635c !important;
   font-size: 0.7rem !important;
+}
+.help-assistant-status {
+  grid-column: 1 / -1;
+  margin: -0.25rem 0 0 !important;
+  padding: 0.55rem 0.65rem;
+  border-left: 3px solid #8c6a2d;
+  color: #4e4230 !important;
+  background: #fff7e7;
+  font-size: 0.72rem !important;
+  line-height: 1.45 !important;
+}
+.help-assistant-status--loading {
+  border-left-color: #315c43;
+  color: #2c4b37 !important;
+  background: #eef4ee;
 }
 .help-panel__body {
   min-height: 0;

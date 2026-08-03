@@ -239,7 +239,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (body.action !== "update_status" || body.confirmed !== true) return jsonResponse({ error: "Confirm the contribution status change." }, 400);
     const month = clean(body.month, 7);
     const newStatus = body.status === "no_submission" || body.status === "awaiting_payment" || body.status === "paid" ? body.status : "";
-    const note = clean(body.note, 2000);
     const reference = clean(body.reference, 200);
     const amount = body.amount === "" || body.amount == null ? null : Number(body.amount);
     if (amount !== null && (!Number.isFinite(amount) || amount < 0 || amount > 1_000_000)) return jsonResponse({ error: "Enter a valid contribution amount." }, 400);
@@ -282,23 +281,23 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           status_updated_at = excluded.status_updated_at, status_updated_by = excluded.status_updated_by,
           internal_note = excluded.internal_note, updated_at = excluded.updated_at`)
           .bind(contributionId, row.student_id, month, row.student_name_snapshot, row.student_public_id_snapshot,
-            newStatus, submittedAt, paidAt, paidBy, now, session!.adminName, note || row.internal_note || "", now, now),
+            newStatus, submittedAt, paidAt, paidBy, now, session!.adminName, "", now, now),
         db.prepare(`INSERT INTO contribution_status_history (
           id, contribution_id, previous_status, new_status, actor_identifier, bulk_operation_id, request_id, note, created_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-          .bind(crypto.randomUUID(), contributionId, row.current_status, newStatus, session!.adminName, bulkOperationId, requestId, note || null, now),
+          .bind(crypto.randomUUID(), contributionId, row.current_status, newStatus, session!.adminName, bulkOperationId, requestId, null, now),
         db.prepare(`INSERT INTO payments (id, student_id, dojo_id, payment_type, amount, currency, payment_date,
           status, reference, notes, recorded_by, created_at, updated_at)
           VALUES (?, ?, 'dojo-rsk', 'renshinkan_monthly', ?, 'THB', ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET amount = excluded.amount, payment_date = excluded.payment_date,
             status = excluded.status, reference = excluded.reference, notes = excluded.notes,
             recorded_by = excluded.recorded_by, updated_at = excluded.updated_at`)
-          .bind(contributionId, row.student_id, amount, paidAt, generalizedStatus, reference, note, session!.adminName, now, now),
+          .bind(contributionId, row.student_id, amount, paidAt, generalizedStatus, reference, "", session!.adminName, now, now),
         db.prepare(`INSERT INTO payment_history (id, payment_id, previous_status, new_status, changed_by, notes, created_at)
           VALUES (?, ?, ?, ?, ?, ?, ?)`)
           .bind(crypto.randomUUID(), contributionId,
             row.current_status === "paid" ? "paid" : row.current_status === "awaiting_payment" ? "awaiting_payment" : null,
-            generalizedStatus, session!.adminName, note || null, now),
+            generalizedStatus, session!.adminName, null, now),
         auditStatement(db, {
           actorType: "administrator", ...adminAuditMetadata(session!, request),
           action: newStatus === "paid" ? "contribution_manually_marked_paid" : rows.length > 1 ? "contribution_status_changed_bulk" : "contribution_status_changed",
@@ -306,7 +305,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           studentPublicId: row.student_public_id_snapshot, studentNameSnapshot: row.student_name_snapshot,
           previousValues: { status: row.current_status }, newValues: { contributionType: "renshinkan_monthly", status: newStatus, amount, reference, paidAt },
           source: "admin_monthly_contributions", bulkOperationId, requestId, contributionMonth: month,
-          administratorNote: note || null,
           summary: `${row.student_public_id_snapshot}: ${row.current_status.replace(/_/g, " ")} to ${newStatus.replace(/_/g, " ")}`, createdAt: now,
         }),
       );

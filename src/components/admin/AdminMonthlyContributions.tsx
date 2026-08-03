@@ -17,7 +17,6 @@ type Contribution = {
   paid_at: string | null;
   paid_by: string | null;
   status_updated_at: string | null;
-  internal_note: string | null;
 };
 type GraphPoint = { month: string; totalActive: number; paid: number; paidPercentage: number };
 type Response = {
@@ -29,7 +28,7 @@ type Response = {
   summary: { total: number; submitted: number; awaiting: number; paid: number; paidPercentage: number };
   graph: GraphPoint[];
 };
-type PendingChange = { status: ContributionStatus; studentIds: string[]; note: string; amount: string; reference: string };
+type PendingChange = { status: ContributionStatus; studentIds: string[]; amount: string; reference: string };
 
 const EMPTY: Response = {
   month: "", currentMonth: "", months: [], contributions: [],
@@ -103,7 +102,7 @@ export function AdminMonthlyContributions({ report }: { report: (message: string
     try {
       await adminApi("/api/admin/contributions", {
         method: "POST",
-        body: JSON.stringify({ action: "update_status", confirmed: true, contributionType: "renshinkan_monthly", month: data.month, status: pending.status, studentIds: pending.studentIds, note: pending.note, amount: pending.amount, reference: pending.reference }),
+        body: JSON.stringify({ action: "update_status", confirmed: true, contributionType: "renshinkan_monthly", month: data.month, status: pending.status, studentIds: pending.studentIds, amount: pending.amount, reference: pending.reference }),
       });
       report(`${pending.studentIds.length} contribution record${pending.studentIds.length === 1 ? "" : "s"} marked ${adminStatusLabel(pending.status).toLowerCase()} for ${monthLabel(data.month)}.`);
       setPending(null);
@@ -216,16 +215,16 @@ export function AdminMonthlyContributions({ report }: { report: (message: string
         ) : null}
     </form>
 
-    {selected.size ? <aside className="admin-bulk-toolbar"><strong>{selected.size} selected</strong>{(["no_submission", "awaiting_payment", "paid"] as ContributionStatus[]).map((value) => <button key={value} className="btn-secondary" onClick={() => setPending({ status: value, studentIds: [...selected], note: "", amount: "", reference: "" })}>{adminStatusLabel(value)}</button>)}<button className="text-link" onClick={() => setSelected(new Set())}>Clear selection</button></aside> : null}
+    {selected.size ? <aside className="admin-bulk-toolbar"><strong>{selected.size} selected</strong>{(["no_submission", "awaiting_payment", "paid"] as ContributionStatus[]).map((value) => <button key={value} className="btn-secondary" onClick={() => setPending({ status: value, studentIds: [...selected], amount: "", reference: "" })}>{adminStatusLabel(value)}</button>)}<button className="text-link" onClick={() => setSelected(new Set())}>Clear selection</button></aside> : null}
 
     <div className="admin-table-scroll"><table className="admin-record-table"><thead><tr>
       <th><label className="admin-select-box"><input type="checkbox" aria-label="Select all visible students" checked={allVisibleSelected} onChange={(event) => setSelected(event.target.checked ? new Set(data.contributions.map((row) => row.student_id)) : new Set())} /><span aria-hidden="true" /></label></th>
-      <th>Student</th><th>Student ID</th><th>Month</th><th>Submission date</th><th>Status</th><th>Paid at</th><th>Confirmed by</th><th>Internal note</th><th>Actions</th>
+      <th>Student</th><th>Student ID</th><th>Month</th><th>Submission date</th><th>Status</th><th>Paid at</th><th>Confirmed by</th><th>Actions</th>
     </tr></thead><tbody>{data.contributions.map((row) => <tr key={row.student_id} className={selected.has(row.student_id) ? "is-selected" : ""}>
       <td><label className="admin-select-box"><input type="checkbox" aria-label={`Select ${row.student_name}`} checked={selected.has(row.student_id)} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(row.student_id); else next.delete(row.student_id); return next; })} /><span aria-hidden="true" /></label></td>
-      <th><span className="admin-student-identity">{row.profile_image_url ? <img src={row.profile_image_url} alt="" /> : <span aria-hidden="true"><UserRound size={18} /></span>}<span>{row.student_name}<small className="admin-table-subline">{row.current_rank}</small></span></span></th><td><code>{row.public_student_id}</code></td><td>{data.month}</td><td>{formatAdminDate(row.submitted_at)}</td><td><Status value={row.status} /></td><td>{formatAdminDate(row.paid_at)}</td><td>{row.paid_by || "—"}</td><td className="admin-note-cell">{row.internal_note || "—"}</td>
-      <td><select className="admin-row-action-select" aria-label={`Set contribution status for ${row.student_name}`} value={row.status} onChange={(event) => setPending({ status: event.target.value as ContributionStatus, studentIds: [row.student_id], note: row.internal_note || "", amount: "", reference: "" })}>{(["no_submission", "awaiting_payment", "paid"] as ContributionStatus[]).map((value) => <option key={value} value={value}>{adminStatusLabel(value)}</option>)}</select></td>
-    </tr>)}{!data.contributions.length && !loading ? <tr><td colSpan={10}><div className="admin-empty-inline"><ReceiptText size={22} /> No contribution records match these filters.</div></td></tr> : null}</tbody></table></div>
+      <th><span className="admin-student-identity">{row.profile_image_url ? <img src={row.profile_image_url} alt="" /> : <span aria-hidden="true"><UserRound size={18} /></span>}<span>{row.student_name}<small className="admin-table-subline">{row.current_rank}</small></span></span></th><td><code>{row.public_student_id}</code></td><td>{data.month}</td><td>{formatAdminDate(row.submitted_at)}</td><td><Status value={row.status} /></td><td>{formatAdminDate(row.paid_at)}</td><td>{row.paid_by || "—"}</td>
+      <td><select className="admin-row-action-select" aria-label={`Set contribution status for ${row.student_name}`} value={row.status} onChange={(event) => setPending({ status: event.target.value as ContributionStatus, studentIds: [row.student_id], amount: "", reference: "" })}>{(["no_submission", "awaiting_payment", "paid"] as ContributionStatus[]).map((value) => <option key={value} value={value}>{adminStatusLabel(value)}</option>)}</select></td>
+    </tr>)}{!data.contributions.length && !loading ? <tr><td colSpan={9}><div className="admin-empty-inline"><ReceiptText size={22} /> No contribution records match these filters.</div></td></tr> : null}</tbody></table></div>
 
     <footer className="admin-pagination"><span>{data.pagination.total} record{data.pagination.total === 1 ? "" : "s"}</span><div><button className="btn-secondary" disabled={page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))}><ChevronLeft size={16} /> Previous</button><span>Page {data.pagination.page} of {data.pagination.totalPages}</span><button className="btn-secondary" disabled={page >= data.pagination.totalPages || loading} onClick={() => setPage((value) => value + 1)}>Next <ChevronRight size={16} /></button></div></footer>
     {loading ? <div className="admin-loading-overlay"><LoaderCircle className="spin" /><span>Loading contributions</span></div> : null}
@@ -237,7 +236,6 @@ export function AdminMonthlyContributions({ report }: { report: (message: string
       <label>Contribution type<select value="renshinkan_monthly" disabled><option value="renshinkan_monthly">Monthly RenShinKan Student Contribution</option></select></label>
       <label>Amount in THB <small>Optional.</small><input type="number" min="0" step="0.01" value={pending.amount} onChange={(event) => setPending({ ...pending, amount: event.target.value })} /></label>
       <label>Payment reference <small>Optional.</small><input maxLength={200} value={pending.reference} onChange={(event) => setPending({ ...pending, reference: event.target.value })} /></label>
-      <label>Internal note <small>Private admin-only note. Only authorized administrators can see it; it is never shown to students or the public.</small><textarea value={pending.note} maxLength={2000} onChange={(event) => setPending({ ...pending, note: event.target.value })} /></label>
       <footer><button className="btn-secondary" onClick={() => setPending(null)}>Cancel</button><button className="btn-primary" disabled={saving} onClick={() => void updateStatus()}>{saving ? <LoaderCircle className="spin" size={16} /> : <CheckCircle2 size={16} />} Confirm status change</button></footer>
     </section></div> : null}
   </section>;

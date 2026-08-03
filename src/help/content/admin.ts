@@ -278,11 +278,11 @@ const en: Topic[] = [
     title: "How do I enter or update examination records?",
     summary: "Record a completed examination in the permanent history.",
     steps: [
-      "Open Examination records and find the student.",
+      "Open Application records and find the student.",
       "Open the record and enter the result, rank, date, and location.",
       "Review and save the examination.",
     ],
-    action: "Open examination records",
+    action: "Open application records",
   },
   {
     id: "admin-students",

@@ -27,7 +27,7 @@ This runbook is intentionally not executed by the hardening task. Replace every 
 
 ## 4. Apply and deploy
 
-1. Back up D1, then apply migrations through 0026 before deploying code. Migration 0026 adds Student ID aliases and retires the obsolete challenge tables without deleting student or workflow records.
+1. Back up D1, then apply migrations through 0027 before deploying code. Migration 0026 adds Student ID aliases and retires the obsolete challenge tables; migration 0027 erases retired review-note values while preserving the audit trail and retains deprecated columns for a safe forward-only D1 migration.
 2. Run foreign-key, integrity, duplicate, orphan, status/date, media metadata, and query-plan checks. Stop on any unexpected row.
 3. Deploy the exact tested artifact through the authorized Pages workflow. Do not run the disabled direct `npm run deploy` script.
 4. Keep the writer freeze until build identity, authentication, publishing, and private-file checks pass.

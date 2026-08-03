@@ -24,7 +24,7 @@ const PAGE_COPY: Record<AdminWorkflowKind, [string, string]> = {
     "Review the current cycle, application details, payment status, and decisions.",
   ],
   "examination-records": [
-    "Examination records",
+    "Application records",
     "Search permanent applications and results independently from the live application queue.",
   ],
   "monthly-contributions": [

@@ -49,7 +49,7 @@ const PUBLIC_TABS: TabDefinition[] = [
 const OWNER_TABS: TabDefinition[] = [
   ...PUBLIC_TABS,
   { id: "contributions", label: "Contributions", Icon: ReceiptText },
-  { id: "requests", label: "Requests & Notices", Icon: History },
+  { id: "requests", label: "Requests", Icon: History },
 ];
 
 function isOwnerRecord(record: PublicStudentRecord | StudentPassportRecord): record is StudentPassportRecord {
@@ -193,13 +193,10 @@ function IdentityPage({ record, owner, onRecordChange }: {
 function TrainingPage({ record, owner }: { record: PublicStudentRecord | StudentPassportRecord; owner: StudentPassportRecord | null }) {
   const entries = useMemo(() => [...(owner?.trainingEntries || [])]
     .sort((left, right) => right.entryDate.localeCompare(left.entryDate) || left.id.localeCompare(right.id)), [owner?.trainingEntries]);
-  const [fullHistory, setFullHistory] = useState(false);
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = 3;
   const pageCount = Math.max(1, Math.ceil(entries.length / pageSize));
-  const visibleEntries = fullHistory
-    ? entries.slice((page - 1) * pageSize, page * pageSize)
-    : entries.slice(0, 5);
+  const visibleEntries = entries.slice((page - 1) * pageSize, page * pageSize);
   return (
     <div className={styles.spread}>
       <PassportPage
@@ -224,7 +221,7 @@ function TrainingPage({ record, owner }: { record: PublicStudentRecord | Student
       <PassportPage
         folio="04"
         eyebrow="LEDGER / 台帳"
-        title={fullHistory ? "Full Training History" : "Recent Entries"}
+        title="Training History"
       >
         {entries.length ? (
           <div
@@ -260,49 +257,7 @@ function TrainingPage({ record, owner }: { record: PublicStudentRecord | Student
             }
           />
         )}
-        {entries.length > 5 ? (
-          <div className={styles.historyControls}>
-            <p>
-              {fullHistory
-                ? `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, entries.length)} of ${entries.length}`
-                : `Showing 5 most recent of ${entries.length}`}
-            </p>
-            {fullHistory ? (
-              <div>
-                <button
-                  type="button"
-                  disabled={page === 1}
-                  onClick={() => setPage((value) => value - 1)}
-                >
-                  Previous
-                </button>
-                <span>
-                  Page {page} of {pageCount}
-                </span>
-                <button
-                  type="button"
-                  disabled={page === pageCount}
-                  onClick={() => setPage((value) => value + 1)}
-                >
-                  Next
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFullHistory(false);
-                    setPage(1);
-                  }}
-                >
-                  Back to recent
-                </button>
-              </div>
-            ) : (
-              <button type="button" onClick={() => setFullHistory(true)}>
-                View full training history
-              </button>
-            )}
-          </div>
-        ) : null}
+        <HistoryPagination page={page} pageCount={pageCount} pageSize={pageSize} total={entries.length} onChange={setPage} />
       </PassportPage>
     </div>
   );
@@ -312,11 +267,10 @@ function ExaminationPage({ record }: { record: PublicStudentRecord }) {
   const exams = useMemo(() => [...record.examinations].sort((left, right) =>
     right.examination_date.localeCompare(left.examination_date)
     || String(left.id || rankLabel(left)).localeCompare(String(right.id || rankLabel(right)))), [record.examinations]);
-  const [fullHistory, setFullHistory] = useState(false);
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = 3;
   const pageCount = Math.max(1, Math.ceil(exams.length / pageSize));
-  const visibleExams = fullHistory ? exams.slice((page - 1) * pageSize, page * pageSize) : exams.slice(0, 5);
+  const visibleExams = exams.slice((page - 1) * pageSize, page * pageSize);
   const latest = exams[0];
   const latestResult = latest ? examinationResult(latest) : null;
   return (
@@ -352,11 +306,7 @@ function ExaminationPage({ record }: { record: PublicStudentRecord }) {
       <PassportPage
         folio="06"
         eyebrow="KYU / DAN LEDGER"
-        title={
-          fullHistory
-            ? "Full Examination History"
-            : "Recent Examination History"
-        }
+        title="Examination History"
       >
         {exams.length ? (
           <div
@@ -412,49 +362,7 @@ function ExaminationPage({ record }: { record: PublicStudentRecord }) {
             copy="There are no approved examination entries on this record yet."
           />
         )}
-        {exams.length > 5 ? (
-          <div className={styles.historyControls}>
-            <p>
-              {fullHistory
-                ? `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, exams.length)} of ${exams.length}`
-                : `Showing 5 most recent of ${exams.length}`}
-            </p>
-            {fullHistory ? (
-              <div>
-                <button
-                  type="button"
-                  disabled={page === 1}
-                  onClick={() => setPage((value) => value - 1)}
-                >
-                  Previous
-                </button>
-                <span>
-                  Page {page} of {pageCount}
-                </span>
-                <button
-                  type="button"
-                  disabled={page === pageCount}
-                  onClick={() => setPage((value) => value + 1)}
-                >
-                  Next
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFullHistory(false);
-                    setPage(1);
-                  }}
-                >
-                  Back to recent
-                </button>
-              </div>
-            ) : (
-              <button type="button" onClick={() => setFullHistory(true)}>
-                View full examination history
-              </button>
-            )}
-          </div>
-        ) : null}
+        <HistoryPagination page={page} pageCount={pageCount} pageSize={pageSize} total={exams.length} onChange={setPage} />
       </PassportPage>
     </div>
   );
@@ -526,7 +434,6 @@ function ProofActions({ proof, record, paymentLabel }: { proof: PassportPaymentP
       access={{ proofId: proof.id, uploadToken: proof.uploadToken }} paymentLabel={paymentLabel}
       replacement={proof.status === "denied"} onUploaded={() => setUploaded(true)}
     /> : null}
-    {proof.studentVisibleNote ? <blockquote><strong>Note from your sensei</strong>{proof.studentVisibleNote}</blockquote> : null}
     {objectUrl ? <div className={styles.proofViewer}>
       <div><strong>Private payment proof</strong><button type="button" onClick={() => setObjectUrl("")}>Close</button></div>
       {contentType === "application/pdf" ? <iframe src={objectUrl} title={`${paymentLabel} payment proof`} /> : <img src={objectUrl} alt={`${paymentLabel} payment proof`} />}
@@ -721,17 +628,19 @@ function aatSummaryText(record: StudentPassportRecord) {
 function HistoryPagination({
   page,
   pageCount,
+  pageSize,
   total,
   onChange,
 }: {
   page: number;
   pageCount: number;
+  pageSize: number;
   total: number;
   onChange: (page: number) => void;
 }) {
   if (pageCount <= 1) return null;
-  const start = (page - 1) * 5 + 1;
-  const end = Math.min(page * 5, total);
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, total);
   return (
     <nav className={styles.historyControls} aria-label="History pages">
       <p>
@@ -740,20 +649,22 @@ function HistoryPagination({
       <div>
         <button
           type="button"
+          aria-label="Previous page"
           disabled={page <= 1}
           onClick={() => onChange(page - 1)}
         >
-          Previous
+          <ChevronLeft aria-hidden="true" />
         </button>
         <span>
           Page {page} of {pageCount}
         </span>
         <button
           type="button"
+          aria-label="Next page"
           disabled={page >= pageCount}
           onClick={() => onChange(page + 1)}
         >
-          Next
+          <ChevronRight aria-hidden="true" />
         </button>
       </div>
     </nav>
@@ -762,7 +673,7 @@ function HistoryPagination({
 
 function ContributionsPage({ record }: { record: StudentPassportRecord }) {
   const showMonthlyContributions = record.monthlyContributions !== null;
-  const pageSize = 5;
+  const pageSize = 3;
   const [aatPage, setAatPage] = useState(1);
   const [monthlyPage, setMonthlyPage] = useState(1);
   const aatPageCount = Math.max(
@@ -840,6 +751,7 @@ function ContributionsPage({ record }: { record: StudentPassportRecord }) {
         <HistoryPagination
           page={aatPage}
           pageCount={aatPageCount}
+          pageSize={pageSize}
           total={record.aatContributions.length}
           onChange={setAatPage}
         />
@@ -888,6 +800,7 @@ function ContributionsPage({ record }: { record: StudentPassportRecord }) {
           <HistoryPagination
             page={monthlyPage}
             pageCount={monthlyPageCount}
+            pageSize={pageSize}
             total={monthly.length}
             onChange={setMonthlyPage}
           />
@@ -918,8 +831,9 @@ function RequestsPage({
     { approved: 0, pending: 0, denied: 0 },
   );
   const [page, setPage] = useState(1);
-  const pageCount = Math.max(1, Math.ceil(record.requests.length / 5));
-  const visibleRequests = record.requests.slice((page - 1) * 5, page * 5);
+  const pageSize = 3;
+  const pageCount = Math.max(1, Math.ceil(record.requests.length / pageSize));
+  const visibleRequests = record.requests.slice((page - 1) * pageSize, page * pageSize);
   return (
     <div className={styles.spread}>
       <PassportPage
@@ -956,7 +870,7 @@ function RequestsPage({
       <PassportPage
         folio="10"
         eyebrow="REVIEW LEDGER"
-        title="Request & Notice History"
+        title="Request History"
       >
         {record.requests.length ? (
           <div className={styles.requestList}>
@@ -983,8 +897,7 @@ function RequestsPage({
                   </p>
                   {request.previousValue ||
                   request.requestedValue ||
-                  request.explanation ||
-                  request.studentVisibleNote ? (
+                  request.explanation ? (
                     <details>
                       <summary>View details</summary>
                       {request.previousValue || request.requestedValue ? (
@@ -1004,13 +917,6 @@ function RequestsPage({
                         </dl>
                       ) : null}
                       <p>{request.explanation}</p>
-                      {request.studentVisibleNote ? (
-                        <blockquote>
-                          <strong>Note from your sensei</strong>
-                          <br />
-                          {request.studentVisibleNote}
-                        </blockquote>
-                      ) : null}
                     </details>
                   ) : null}
                 </article>
@@ -1020,13 +926,14 @@ function RequestsPage({
         ) : (
           <EmptyState
             Icon={History}
-            title="No requests or notices"
+            title="No requests"
             copy="Requests submitted from this verified student record will appear here."
           />
         )}
         <HistoryPagination
           page={page}
           pageCount={pageCount}
+          pageSize={pageSize}
           total={record.requests.length}
           onChange={setPage}
         />

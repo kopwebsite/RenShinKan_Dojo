@@ -1,5 +1,6 @@
-import { ChevronDown, Heart, Repeat2, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { ArrowRight, ChevronDown, Download, FileText, Heart, Repeat2, ShieldCheck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import { ContributionForm } from "../components/ContributionForm";
 import { MotionSection } from "../components/MotionSection";
 import { ResponsiveImage } from "../components/ResponsiveImage";
@@ -80,10 +81,28 @@ const BANK_DETAILS = {
   bankName: "Kasikorn Bank",
 };
 
+type SupportDownload = {
+  slug: string;
+  title_en: string;
+  title_th: string;
+  category_label: string;
+  file_kind: string;
+  url: string;
+};
+
 export function SupportPage() {
   const { t } = useTranslation();
   const { content } = useEditableContent();
   const [transferOpen, setTransferOpen] = useState(false);
+  const [downloads, setDownloads] = useState<SupportDownload[]>([]);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/downloads?page=1", { signal: controller.signal })
+      .then(async (response) => response.ok ? response.json() as Promise<{ downloads?: SupportDownload[] }> : { downloads: [] })
+      .then((body) => setDownloads((body.downloads || []).slice(0, 4)))
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
   const localizedTransferDetails = [
     { label: t("support.transfer.accountName"), value: `${t("common.brand")} / Peace Culture Foundation` },
     { label: t("support.transfer.bank"), value: BANK_DETAILS.bankName },
@@ -297,6 +316,10 @@ export function SupportPage() {
             </div>
           </div>
         </div>
+        <section className="support-downloads" aria-labelledby="support-downloads-title">
+          <header><div><p className="eyebrow">DOJO REFERENCE LIBRARY</p><h2 id="support-downloads-title">Downloads</h2><p>Official forms and grading references for students and families.</p></div><Link className="btn-secondary" to="/downloads">View all <ArrowRight size={16} aria-hidden="true" /></Link></header>
+          {downloads.length ? <div>{downloads.map((asset) => <article key={asset.slug}><span><FileText aria-hidden="true" /></span><div><small>{asset.category_label}</small><h3>{asset.title_en}</h3>{asset.title_th ? <p lang="th">{asset.title_th}</p> : null}</div><a className="btn-primary" href={asset.url} target="_blank" rel="noopener noreferrer"><Download size={16} aria-hidden="true" /> Download {asset.file_kind}</a></article>)}</div> : <p className="support-downloads__empty">Published dojo downloads will appear here.</p>}
+        </section>
       </MotionSection>
     </>
   );

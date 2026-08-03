@@ -1327,7 +1327,7 @@
     "profileRequests": "Profile requests",
     "examinations": "Examinations",
     "examApplications": "Exam applications",
-    "examinationRecords": "Examination records",
+    "examinationRecords": "Application records",
     "examPaymentProofs": "Exam payment proofs",
     "payments": "Payments",
     "monthlyContributions": "Monthly contributions",
@@ -1440,9 +1440,9 @@
     "goTo": "Go to photo {{number}}"
   },
   "date": {
-    "gregorianHelp": "Choose a Gregorian calendar date.",
-    "monthHelp": "Choose a Gregorian month and year.",
-    "dateTimeHelp": "Choose a Gregorian calendar date and time.",
+    "gregorianHelp": "Enter a Gregorian date as DD/MM/YYYY.",
+    "monthHelp": "Enter a Gregorian month as MM/YYYY.",
+    "dateTimeHelp": "Enter a Gregorian date and time as DD/MM/YYYY HH:MM.",
     "monthLabel": "Month",
     "yearLabel": "Gregorian year",
     "chooseMonth": "Choose month",

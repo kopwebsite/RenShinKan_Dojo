@@ -197,7 +197,7 @@ describe("database safety and audit contracts", () => {
       "admin_monthly_contributions",
       "student_archived",
       "student_restored",
-      "student_soft_deleted",
+      "student_permanently_deleted",
     ])
       expect(all).toContain(source);
   });
@@ -415,18 +415,17 @@ describe("student workflow contracts", () => {
 });
 
 describe("UI and responsive workflow contracts", () => {
-  it("marks administrator notes as private and never student-facing", () => {
+  it("removes decision explanations and private review-note interfaces", () => {
     const students = file("src/pages/AdminStudentsPage.tsx");
     const contributions = file(
       "src/components/admin/AdminMonthlyContributions.tsx",
     );
     const proofs = file("src/components/admin/AdminPaymentProofs.tsx");
-    expect(
-      students.match(/Private admin-only note/g)?.length,
-    ).toBeGreaterThanOrEqual(3);
-    expect(students).toContain("never shown to students or on public profiles");
-    expect(contributions).toContain("never shown to students or the public");
-    expect(compact(proofs)).toContain("Never shown to students or the public");
+    expect(students).not.toContain("Review explanation");
+    expect(students).not.toContain("Internal review note");
+    expect(contributions).not.toContain("Internal note");
+    expect(proofs).not.toContain("Student-visible explanation");
+    expect(proofs).not.toContain("Internal administrator note");
   });
 
   it("removes the decorative background only from administrator routes", () => {
@@ -469,7 +468,6 @@ describe("UI and responsive workflow contracts", () => {
       "Awaiting payment",
       "Paid rate",
       "Recent periods",
-      "Internal note",
       "Accessible monthly contribution totals",
       "contribution-chart",
     ])
@@ -484,13 +482,15 @@ describe("UI and responsive workflow contracts", () => {
     const exams = file("src/components/admin/AdminExamApplications.tsx");
     const detail = file("functions/api/admin/examinations/[applicationId].ts");
     for (const value of [
-      "View application",
+      "Open record",
+      "Available in Application records",
       "Student answers",
       "Application timeline",
       "Permanent examination record",
       "Private administrator record",
     ])
       expect(exams).toContain(value);
+    expect(exams).not.toContain("View application");
     expect(exams).toContain("applicationDetail.application.answers");
     expect(exams).toContain("applicationDetail.history");
     expect(detail).toContain("answers_json");
@@ -664,12 +664,12 @@ describe("UI and responsive workflow contracts", () => {
       "Training Record",
       "Examination History",
       "Contributions",
-      "Requests & Notices",
+      "Requests",
       "Identity Record",
       "Verified Training",
       "AAT Annual Contribution",
       "RenShinKan Monthly Contribution",
-      "Request & Notice History",
+      "Request History",
     ])
       expect(passport).toContain(label);
     for (const accessibility of [

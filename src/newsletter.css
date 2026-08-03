@@ -1316,6 +1316,7 @@
 
 .admin-newsletter-progress button[aria-current="step"] {
   color: hsl(var(--color-vermilion));
+  background: hsl(var(--color-vermilion) / 0.055);
 }
 
 .admin-newsletter-progress button > span:first-child {
@@ -1325,11 +1326,17 @@
   place-items: center;
   color: hsl(var(--color-paper));
   border-radius: 50%;
-  background: hsl(var(--color-ink));
+  background: #b42318;
 }
 
-.admin-newsletter-progress button[aria-current="step"] > span:first-child {
-  background: hsl(var(--color-vermilion));
+.admin-newsletter-progress button[data-state="attention"] > span:first-child {
+  color: #3e2e11;
+  background: #f2c94c;
+}
+
+.admin-newsletter-progress button[data-state="complete"] > span:first-child {
+  color: #fff;
+  background: #3f7d4b;
 }
 
 .admin-newsletter-editor__panel {
@@ -1365,6 +1372,22 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
+}
+
+.admin-newsletter-field-grid > label {
+  display: grid;
+  grid-template-rows: minmax(1.6rem, auto) auto auto;
+  align-content: start;
+}
+
+.admin-newsletter-field-label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.2rem;
+}
+
+.admin-newsletter-field-label b {
+  color: hsl(var(--color-vermilion));
 }
 
 .admin-help {

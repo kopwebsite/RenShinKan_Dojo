@@ -7,6 +7,7 @@ import {
   type D1PreparedStatement,
   type StudentEnv,
 } from "../../_lib/studentRecords";
+import { EXAM_APPLICATION_RANKS, examinationFeeThb } from "../../../shared/examFees";
 
 type Env = StudentEnv & { SESSION_SECRET?: string };
 type Cycle = { id: string; name: string; title: string; status: "active" | "closed"; lifecycle_status: string; rank_category: string; examination_type: string; application_opens_at: string | null; application_closes_at: string | null; examination_at: string | null; venue: string; instructions: string; rank_fee_config_json: string; annual_fee_config_json: string; created_at: string; closed_at: string | null };
@@ -24,19 +25,11 @@ type RosterRow = {
   dojo_id: string;
 };
 
+const FIXED_RANK_FEES = Object.fromEntries(EXAM_APPLICATION_RANKS.map((rank) => [rank, examinationFeeThb(rank) || 0]));
+const FIXED_ANNUAL_FEES = { default: 0 };
+
 function cleanText(value: unknown, max: number) {
   return typeof value === "string" ? value.normalize("NFKC").trim().replace(/\s+/g, " ").slice(0, max + 1) : "";
-}
-
-function cleanFeeConfig(value: unknown) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  const result: Record<string, number> = {};
-  for (const [key, rawAmount] of Object.entries(value)) {
-    const safeKey = cleanText(key, 40);
-    const amount = Number(rawAmount);
-    if (safeKey && Number.isFinite(amount) && amount >= 0 && amount <= 1_000_000) result[safeKey] = Math.round(amount * 100) / 100;
-  }
-  return result;
 }
 
 function escapeLike(value: string) {
@@ -229,8 +222,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const examinationAt = cleanText(body.examinationAt, 30) || null;
       const venue = cleanText(body.venue, 240);
       const instructions = typeof body.instructions === "string" ? body.instructions.trim().slice(0, 4_000) : "";
-      const rankFees = JSON.stringify(cleanFeeConfig(body.rankFees));
-      const annualFees = JSON.stringify(cleanFeeConfig(body.annualFees));
+      const rankFees = JSON.stringify(FIXED_RANK_FEES);
+      const annualFees = JSON.stringify(FIXED_ANNUAL_FEES);
       const cycleId = crypto.randomUUID();
       const bulkOperationId = crypto.randomUUID();
       const statements: D1PreparedStatement[] = [];
@@ -278,7 +271,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         rankCategory: cleanText(body.rankCategory, 40) || "Kyu and Dan", applicationOpensAt: cleanText(body.applicationOpensAt, 30) || null,
         applicationClosesAt: cleanText(body.applicationClosesAt, 30) || null, examinationAt: cleanText(body.examinationAt, 30) || null,
         venue: cleanText(body.venue, 240), instructions: typeof body.instructions === "string" ? body.instructions.trim().slice(0, 4_000) : "", lifecycleStatus: lifecycle,
-        rankFees: cleanFeeConfig(body.rankFees), annualFees: cleanFeeConfig(body.annualFees),
+        rankFees: FIXED_RANK_FEES, annualFees: FIXED_ANNUAL_FEES,
       };
       await db.batch([
         db.prepare(`UPDATE examination_cycles SET name = ?, title = ?, examination_type = ?, rank_category = ?,

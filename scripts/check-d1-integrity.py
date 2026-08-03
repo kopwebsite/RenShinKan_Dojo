@@ -161,7 +161,7 @@ def main() -> int:
     arguments = parser.parse_args()
     if arguments.upgrade:
         replay_previous_schema(arguments.migrations, arguments.fixture)
-        print("Sanitized previous-production v0023 fixture upgraded through migration 0026 with row preservation, relationship, session, date, status, metadata, integrity, and query-plan checks passing.")
+        print("Sanitized previous-production v0023 fixture upgraded through migration 0027 with row preservation, relationship, session, date, status, metadata, integrity, and query-plan checks passing.")
         return 0
     if not arguments.local_state:
         parser.error("--local-state is required unless --upgrade is used")
@@ -172,7 +172,7 @@ def main() -> int:
         latest = connection.execute("SELECT name FROM d1_migrations ORDER BY id DESC LIMIT 1").fetchone()[0]
     finally:
         connection.close()
-    if latest != "0026_simplify_student_and_admin_access.sql":
+    if latest != "0027_remove_review_notes.sql":
         raise RuntimeError(f"Unexpected latest migration: {latest}")
     print("Empty local D1 replay, foreign keys, integrity checks, data checks, and query plans passed.")
     return 0

@@ -124,15 +124,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const db = requireStudentDb(env);
   const requestId = requestIdentifier(request);
   try {
-    const body = await request.json<{ action?: unknown; proofIds?: unknown; studentVisibleNote?: unknown; internalNote?: unknown }>();
+    const body = await request.json<{ action?: unknown; proofIds?: unknown }>();
     const action = body.action === "approve" || body.action === "deny" ? body.action : "";
-    const studentVisibleNote = clean(body.studentVisibleNote, 2000);
-    const internalNote = clean(body.internalNote, 2000);
     const proofIds = Array.isArray(body.proofIds)
       ? Array.from(new Set(body.proofIds.filter((value): value is string => typeof value === "string" && value.length >= 8))).slice(0, 25)
       : [];
     if (!action || !proofIds.length) return jsonResponse({ error: "Select at least one submitted payslip and choose approve or deny." }, 400);
-    if (action === "deny" && !studentVisibleNote) return jsonResponse({ error: "Add a short explanation that the student can see." }, 400);
     const placeholders = proofIds.map(() => "?").join(",");
     const scope = isRenShinKanSuperAdmin(session) ? "" : `AND s.dojo_id = ? AND p.payment_type <> 'renshinkan_monthly'
       AND (p.payment_type <> 'aat_annual' OR NOT EXISTS (
@@ -173,7 +170,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           db.prepare(`INSERT INTO application_status_history
             (id, application_id, previous_status, new_status, previous_payment_status, new_payment_status,
              actor_identifier, note, bulk_operation_id, request_id, created_at) VALUES (?, ?, ?, ?, ?, 'paid', ?, ?, ?, ?, ?)`)
-            .bind(crypto.randomUUID(), row.payment_reference_id, target.status, target.status, target.payment_status, session.adminName, internalNote || "Payslip approved", bulkOperationId, requestId, now),
+            .bind(crypto.randomUUID(), row.payment_reference_id, target.status, target.status, target.payment_status, session.adminName, "Payslip approved", bulkOperationId, requestId, now),
         );
         if (target.cycle_status_id) statements.push(
           db.prepare("UPDATE exam_cycle_student_status SET status = 'paid', updated_at = ?, updated_by = ? WHERE id = ?")
@@ -200,15 +197,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           db.prepare(`INSERT INTO contribution_status_history
             (id, contribution_id, previous_status, new_status, actor_identifier, bulk_operation_id, request_id, note, created_at)
             VALUES (?, ?, ?, 'paid', ?, ?, ?, ?, ?)`)
-            .bind(crypto.randomUUID(), target.id, target.status, session.adminName, bulkOperationId, requestId, internalNote || "Shared payslip approved", now),
+            .bind(crypto.randomUUID(), target.id, target.status, session.adminName, bulkOperationId, requestId, "Shared payslip approved", now),
           db.prepare(`INSERT INTO payments (id, student_id, dojo_id, payment_type, amount, currency, payment_date,
             status, reference, notes, recorded_by, created_at, updated_at)
             VALUES (?, ?, ?, 'renshinkan_monthly', ?, 'THB', ?, 'paid', ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET amount = excluded.amount, payment_date = excluded.payment_date, status = 'paid',
               notes = excluded.notes, recorded_by = excluded.recorded_by, updated_at = excluded.updated_at`)
-            .bind(target.id, target.student_id, row.dojo_id, Number(target.expected_amount), paymentDate, `Payslip ${row.id}`, internalNote || target.internal_note, session.adminName, now, now),
+            .bind(target.id, target.student_id, row.dojo_id, Number(target.expected_amount), paymentDate, `Payslip ${row.id}`, "", session.adminName, now, now),
           db.prepare("INSERT INTO payment_history (id, payment_id, previous_status, new_status, changed_by, notes, created_at) VALUES (?, ?, ?, 'paid', ?, ?, ?)")
-            .bind(crypto.randomUUID(), target.id, target.status === "paid" ? "paid" : "awaiting_payment", session.adminName, internalNote || "Shared payslip approved", now),
+              .bind(crypto.randomUUID(), target.id, target.status === "paid" ? "paid" : "awaiting_payment", session.adminName, "Shared payslip approved", now),
           );
         }
       } else if (action === "approve" && row.payment_type === "aat_annual") {
@@ -242,18 +239,18 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
                recorded_by, recorded_by_role, recorded_by_dojo_id, created_at)
               VALUES (?, ?, ?, ?, ?, ?, 'THB', ?, ?, ?, ?, ?)`)
               .bind(target.payment_reference_id, target.student_id, target.dojo_id, paymentDate, renewalDueDate, target.amount,
-                internalNote || target.notes, session.adminName, isRenShinKanSuperAdmin(session) ? "central" : "dojo", session.selectedDojoId || target.dojo_id, now),
+                target.notes, session.adminName, isRenShinKanSuperAdmin(session) ? "central" : "dojo", session.selectedDojoId || target.dojo_id, now),
             db.prepare("UPDATE payments SET payment_date = ?, status = 'paid', reference = ?, notes = ?, recorded_by = ?, updated_at = ? WHERE id = ?")
-              .bind(paymentDate, `Payslip ${row.id}`, internalNote || target.notes, session.adminName, now, target.payment_reference_id),
+              .bind(paymentDate, `Payslip ${row.id}`, target.notes, session.adminName, now, target.payment_reference_id),
             db.prepare("INSERT INTO payment_history (id, payment_id, previous_status, new_status, changed_by, notes, created_at) VALUES (?, ?, ?, 'paid', ?, ?, ?)")
-              .bind(crypto.randomUUID(), target.payment_reference_id, target.status, session.adminName, internalNote || "Shared payslip approved", now),
+              .bind(crypto.randomUUID(), target.payment_reference_id, target.status, session.adminName, "Shared payslip approved", now),
             auditStatement(db, {
               actorType: "administrator", ...adminAuditMetadata(session, request), action: "aat_contribution_approved",
               entityType: "payment", entityId: target.payment_reference_id, studentId: target.student_id,
               studentPublicId: target.public_student_id, studentNameSnapshot: target.display_name,
               previousValues: { status: target.status },
               newValues: { status: "paid", amount: target.amount, paymentDate, renewalDueDate, paymentRequestId: target.payment_request_id || null },
-              source: "admin_payment_proofs", bulkOperationId, requestId, administratorNote: internalNote || null,
+              source: "admin_payment_proofs", bulkOperationId, requestId,
               summary: `Approved AAT annual contribution for ${target.public_student_id}`, createdAt: now,
             }),
           );
@@ -287,21 +284,19 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
       statements.push(
         db.prepare(`INSERT INTO request_decisions
-          (id, request_type, request_id, decision, reviewer_identifier, student_visible_note, internal_admin_note, decided_at)
-          VALUES (?, 'payslip', ?, ?, ?, ?, ?, ?)`)
-          .bind(crypto.randomUUID(), row.id, action === "approve" ? "approved" : "denied", session.adminName, studentVisibleNote, internalNote, now),
-        db.prepare(`UPDATE payment_proofs SET status = ?, reviewed_at = ?, reviewed_by = ?, review_note = ?,
-          student_visible_note = ?, internal_admin_note = ?, updated_at = ?
+          (id, request_type, request_id, decision, reviewer_identifier, decided_at)
+          VALUES (?, 'payslip', ?, ?, ?, ?)`)
+          .bind(crypto.randomUUID(), row.id, action === "approve" ? "approved" : "denied", session.adminName, now),
+        db.prepare(`UPDATE payment_proofs SET status = ?, reviewed_at = ?, reviewed_by = ?, updated_at = ?
           WHERE id = ? AND status = 'pending_review'`).bind(
-            action === "approve" ? "approved" : "denied", now, session.adminName, internalNote,
-            studentVisibleNote, internalNote, now, row.id,
+            action === "approve" ? "approved" : "denied", now, session.adminName, now, row.id,
           ),
         auditStatement(db, {
           actorType: "administrator", ...adminAuditMetadata(session, request), action: action === "approve" ? "payment_proof_approved" : "payment_proof_denied",
           entityType: "payment_proof", entityId: row.id, studentId: row.student_id, studentPublicId: row.public_student_id,
           studentNameSnapshot: row.student_name, previousValues: { status: row.status },
-          newValues: { status: action === "approve" ? "approved" : "denied", paymentType: row.payment_type, studentVisibleNote },
-          source: "admin_payment_proofs", bulkOperationId, requestId, administratorNote: internalNote || null,
+          newValues: { status: action === "approve" ? "approved" : "denied", paymentType: row.payment_type },
+          source: "admin_payment_proofs", bulkOperationId, requestId,
           summary: `${action === "approve" ? "Approved" : "Denied"} ${row.payment_type.replace(/_/g, " ")} payslip for ${row.public_student_id}`, createdAt: now,
         }),
       );

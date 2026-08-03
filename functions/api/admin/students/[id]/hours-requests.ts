@@ -9,13 +9,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const operationRequestId = requestIdentifier(request);
   try {
-    const body = await request.json<{ hourRequestId?: unknown; action?: unknown; studentVisibleNote?: unknown; internalNote?: unknown }>();
+    const body = await request.json<{ hourRequestId?: unknown; action?: unknown }>();
     const hourRequestId = typeof body.hourRequestId === "string" ? body.hourRequestId : "";
     const action = body.action === "approve" || body.action === "reject" ? body.action : "";
-    const studentVisibleNote = typeof body.studentVisibleNote === "string" ? body.studentVisibleNote.trim().slice(0, 1000) : "";
-    const internalNote = typeof body.internalNote === "string" ? body.internalNote.trim().slice(0, 1000) : "";
     if (!hourRequestId || !action) return jsonResponse({ error: "Choose a pending request and review action." }, 400);
-    if (action === "reject" && !studentVisibleNote) return jsonResponse({ error: "Add a short explanation that the student can see." }, 400);
     const db = requireStudentDb(env);
     const studentId = String(params.id);
     const access = await assertStudentAccess(db, session, studentId);
@@ -44,29 +41,28 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
            source_type, organization, source_details, notes, hours_quarters)
           VALUES (?, ?, ?, ?, 'student_self_service_approved', ?, ?, ?, ?, ?, ?, ?, ?)`)
           .bind(hourId, studentId, pending.training_date || now.slice(0, 10), pending.submitted_hours,
-            internalNote || null, now, pending.id, pending.source_type, pending.organization,
+            null, now, pending.id, pending.source_type, pending.organization,
             pending.source_details, pending.student_notes, pending.hours_quarters),
         db.prepare("UPDATE students SET updated_at = ? WHERE id = ?").bind(now, studentId),
       );
     }
     statements.push(
       db.prepare(`INSERT INTO request_decisions
-        (id, request_type, request_id, decision, reviewer_identifier, student_visible_note, internal_admin_note, decided_at)
-        VALUES (?, 'training_hours', ?, ?, ?, ?, ?, ?)`)
-        .bind(crypto.randomUUID(), hourRequestId, action === "approve" ? "approved" : "denied", session.adminName, studentVisibleNote, internalNote, now),
-      db.prepare(`UPDATE training_hour_requests SET status = ?, reviewed_at = ?, reviewed_by = ?, review_note = ?,
-        student_visible_note = ?, internal_admin_note = ? WHERE id = ? AND status = 'pending'`)
-        .bind(action === "approve" ? "approved" : "rejected", now, session.adminName, internalNote || null, studentVisibleNote, internalNote, hourRequestId),
+        (id, request_type, request_id, decision, reviewer_identifier, decided_at)
+        VALUES (?, 'training_hours', ?, ?, ?, ?)`)
+        .bind(crypto.randomUUID(), hourRequestId, action === "approve" ? "approved" : "denied", session.adminName, now),
+      db.prepare(`UPDATE training_hour_requests SET status = ?, reviewed_at = ?, reviewed_by = ? WHERE id = ? AND status = 'pending'`)
+        .bind(action === "approve" ? "approved" : "rejected", now, session.adminName, hourRequestId),
       auditStatement(db, {
         actorType: "administrator", ...adminAuditMetadata(session, request), action: action === "approve" ? "student_hours_approved" : "student_hours_rejected",
         entityType: "training_hour_request", entityId: hourRequestId, studentId,
         previousValues: { status: "pending", submittedHours: pending.submitted_hours, previousTotal: pending.previous_total, requestedTotal: pending.requested_total },
         newValues: {
-          status: action === "approve" ? "approved" : "rejected", resultingTotal, studentVisibleNote,
+          status: action === "approve" ? "approved" : "rejected", resultingTotal,
           trainingDate: pending.training_date, sourceType: pending.source_type,
           organization: pending.organization, sourceDetails: pending.source_details,
         }, source: "admin_student_hours_review",
-        requestId: operationRequestId, administratorNote: internalNote || null,
+        requestId: operationRequestId,
         summary: `${action === "approve" ? "Approved" : "Rejected"} ${pending.submitted_hours} student-submitted training hours`, createdAt: now,
       }),
     );

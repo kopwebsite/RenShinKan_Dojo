@@ -276,25 +276,79 @@ export const onRequestDelete: PagesFunction<Env> = async ({ request, env, params
   const requestId = requestIdentifier(request);
   const now = new Date().toISOString();
 
-  if (body.action === "delete_permanently" || body.action === "soft_delete") {
+  if (body.action === "delete_permanently") {
     if (!existing.archived_at) return jsonResponse({ error: "Only an archived student can be deleted." }, 409);
     const expectedConfirmation = `DELETE ${existing.public_student_id}`;
     if (body.confirmed !== true || normalizeStudentId(String(body.studentId || "")) !== existing.public_student_id || String(body.confirmationText || "").trim() !== expectedConfirmation) {
-      return jsonResponse({ error: `Type ${expectedConfirmation} to confirm soft deletion.` }, 400);
+      return jsonResponse({ error: `Type ${expectedConfirmation} to confirm permanent deletion.` }, 400);
     }
+    const removableProofs = (await db.prepare(`SELECT object_key FROM payment_proofs pp
+      WHERE pp.student_id = ? AND NOT EXISTS (
+        SELECT 1 FROM payment_request_items pri
+        WHERE pri.payment_request_id = pp.payment_reference_id AND pri.student_id <> ?
+      )`).bind(id, id).all<{ object_key: string | null }>()).results || [];
+    const profileMedia = (await db.prepare("SELECT object_key FROM student_profile_media WHERE student_id = ?")
+      .bind(id).all<{ object_key: string }>()).results || [];
+    const paymentRequestIds = (await db.prepare("SELECT DISTINCT payment_request_id AS id FROM payment_request_items WHERE student_id = ?")
+      .bind(id).all<{ id: string }>()).results?.map((entry) => entry.id) || [];
+    const objectKeys = Array.from(new Set([
+      ...removableProofs.map((entry) => entry.object_key),
+      ...profileMedia.map((entry) => entry.object_key),
+      profileKey(existing.profile_image_url),
+      existing.pending_profile_image_key,
+    ].filter((value): value is string => Boolean(value))));
     await db.batch([
-      db.prepare(`UPDATE students SET active = 0, public_visible = 0, deleted_at = ?, deleted_by = ?,
-        archived_at = COALESCE(archived_at, ?), archived_by = COALESCE(archived_by, ?), updated_at = ?
-        WHERE id = ? AND deleted_at IS NULL`).bind(now, session.adminName, now, session.adminName, now, id),
       auditStatement(db, {
-        actorType: "administrator", ...adminAuditMetadata(session, request), action: "student_soft_deleted", entityType: "student", entityId: id,
+        actorType: "administrator", ...adminAuditMetadata(session, request), action: "student_permanently_deleted", entityType: "student", entityId: id,
         studentPublicId: existing.public_student_id, studentNameSnapshot: existing.display_name,
-        previousValues: { active: Boolean(existing.active), archived: Boolean(existing.archived_at), deletedAt: existing.deleted_at }, newValues: { active: false, softDeleted: true },
-        source: "admin_student_soft_delete", requestId,
-        summary: `Soft-deleted ${existing.public_student_id}: ${existing.display_name}`, createdAt: now,
+        previousValues: { active: Boolean(existing.active), archived: true }, newValues: { permanentlyDeleted: true, relatedRecordsDeleted: true, filesDeleted: objectKeys.length },
+        source: "admin_student_permanent_delete", requestId,
+        summary: `Permanently deleted ${existing.public_student_id}: ${existing.display_name}; only this audit snapshot remains`, createdAt: now,
       }),
+      db.prepare(`DELETE FROM request_decisions WHERE
+        (request_type = 'profile_information' AND request_id = ?)
+        OR (request_type = 'training_hours' AND request_id IN (SELECT id FROM training_hour_requests WHERE student_id = ?))
+        OR (request_type = 'examination_application' AND request_id IN (SELECT id FROM examination_applications WHERE student_id = ?))
+        OR (request_type IN ('payment_proof', 'payslip') AND request_id IN (SELECT id FROM payment_proofs WHERE student_id = ?))`).bind(id, id, id, id),
+      db.prepare("DELETE FROM application_status_history WHERE application_id IN (SELECT id FROM examination_applications WHERE student_id = ?)").bind(id),
+      db.prepare("DELETE FROM exam_cycle_status_history WHERE cycle_status_id IN (SELECT id FROM exam_cycle_student_status WHERE student_id = ?)").bind(id),
+      db.prepare("DELETE FROM contribution_status_history WHERE contribution_id IN (SELECT id FROM monthly_contributions WHERE student_id = ?)").bind(id),
+      db.prepare("DELETE FROM payment_history WHERE payment_id IN (SELECT id FROM payments WHERE student_id = ?)").bind(id),
+      db.prepare(`UPDATE payment_proofs SET student_id = (
+        SELECT pri.student_id FROM payment_request_items pri
+        WHERE pri.payment_request_id = payment_proofs.payment_reference_id AND pri.student_id <> ? LIMIT 1
+      ) WHERE student_id = ? AND EXISTS (
+        SELECT 1 FROM payment_request_items pri
+        WHERE pri.payment_request_id = payment_proofs.payment_reference_id AND pri.student_id <> ?
+      )`).bind(id, id, id),
+      db.prepare("DELETE FROM payment_proofs WHERE student_id = ?").bind(id),
+      db.prepare("DELETE FROM payment_request_items WHERE student_id = ?").bind(id),
+      ...paymentRequestIds.map((paymentRequestId) => db.prepare("DELETE FROM payment_requests WHERE id = ? AND NOT EXISTS (SELECT 1 FROM payment_request_items WHERE payment_request_id = ?)").bind(paymentRequestId, paymentRequestId)),
+      db.prepare("DELETE FROM student_profile_media WHERE student_id = ?").bind(id),
+      db.prepare("DELETE FROM monthly_contributions WHERE student_id = ?").bind(id),
+      db.prepare("DELETE FROM contribution_period_students WHERE student_id = ?").bind(id),
+      db.prepare("DELETE FROM exam_cycle_student_status WHERE student_id = ?").bind(id),
+      db.prepare("DELETE FROM examination_applications WHERE student_id = ?").bind(id),
+      db.prepare("DELETE FROM training_hour_requests WHERE student_id = ?").bind(id),
+      db.prepare("DELETE FROM student_dojo_history WHERE student_id = ?").bind(id),
+      db.prepare("DELETE FROM aat_membership_payments WHERE student_id = ?").bind(id),
+      db.prepare("DELETE FROM payments WHERE student_id = ?").bind(id),
+      db.prepare("DELETE FROM operation_failures WHERE student_id = ?").bind(id),
+      db.prepare("DELETE FROM students WHERE id = ?").bind(id),
     ]);
-    return jsonResponse({ ok: true, softDeleted: true, recoverable: true });
+    let filesDeleted = objectKeys.length;
+    if (env.MEDIA_BUCKET && objectKeys.length) {
+      try {
+        await env.MEDIA_BUCKET.delete(objectKeys);
+      } catch (error) {
+        filesDeleted = 0;
+        await db.prepare(`INSERT INTO operation_failures
+          (id, action, entity_type, entity_id, student_id, request_id, error_summary, created_at)
+          VALUES (?, 'delete_student_files', 'student', ?, ?, ?, ?, ?)`)
+          .bind(crypto.randomUUID(), id, id, requestId, error instanceof Error ? error.message.slice(0, 500) : "R2 cleanup failed", now).run();
+      }
+    }
+    return jsonResponse({ ok: true, permanentlyDeleted: true, recoverable: false, filesDeleted });
   }
 
   if (body.confirmed !== true || normalizeStudentId(String(body.studentId || "")) !== existing.public_student_id) {

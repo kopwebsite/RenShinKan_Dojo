@@ -123,20 +123,22 @@ export function AdminDownloadsPage() {
     <header className="student-admin__header"><div><p className="eyebrow">WEBSITE / DOWNLOADS</p><h1>Downloads</h1><p>Upload PDFs, maintain bilingual labels, and control what appears in the public reference library.</p></div><a className="btn-secondary" href="/downloads" target="_blank" rel="noreferrer">View public page</a></header>
     {error ? <p className="form-error" role="alert">{error}</p> : null}
     {notice ? <p className="admin-notice" role="status">{notice}</p> : null}
-    <form className="rounded-3xl bg-paper/75 p-6 ring-1 ring-ink/10" onSubmit={upload}>
-      <h2><FilePlus2 size={20} aria-hidden="true" /> Upload PDF draft</h2>
-      <div className="mt-5 grid gap-4 md:grid-cols-2">
-        <label>English title<input name="titleEn" required maxLength={160} /></label>
-        <label>Thai title<input name="titleTh" lang="th" maxLength={160} /></label>
-        <label>URL slug<input name="slug" required pattern="[a-z0-9-]+" placeholder="grading-requirements-2026" /></label>
-        <label>Page count<input name="pageCount" required type="number" min={1} max={999} /></label>
-        <label>Category<input name="categoryLabel" required maxLength={120} placeholder="Examination forms and syllabi" /></label>
-        <label>Rank or audience (optional)<input name="rankLabel" maxLength={120} placeholder="Kyu and Dan ranks" /></label>
-        <label className="md:col-span-2">English description<textarea name="descriptionEn" maxLength={600} /></label>
-        <label className="md:col-span-2">Thai description<textarea name="descriptionTh" lang="th" maxLength={600} /></label>
-        <label className="md:col-span-2">PDF file · maximum 20 MB<input name="file" type="file" accept="application/pdf,.pdf" required /></label>
-      </div>
-      <button className="btn-primary mt-5" disabled={Boolean(busy)}>{busy === "upload" ? <LoaderCircle className="spin" aria-hidden="true" /> : <FilePlus2 aria-hidden="true" />} Upload private draft</button>
+    <form className="admin-download-upload" onSubmit={upload}>
+      <header><div><h2><FilePlus2 size={20} aria-hidden="true" /> Upload a new PDF</h2><p>Create a private draft first. You can review and publish it below.</p></div><span>Step 1 of 2 · Draft</span></header>
+      <fieldset><legend>Document identity</legend><div>
+        <label><span>English title <b>Required</b></span><input name="titleEn" required maxLength={160} placeholder="AAT grading requirements" /></label>
+        <label><span>Thai title <b>Optional</b></span><input name="titleTh" lang="th" maxLength={160} /></label>
+        <label><span>URL slug <b>Required</b></span><input name="slug" required pattern="[a-z0-9-]+" placeholder="grading-requirements-2026" /><small>Lowercase letters, numbers, and hyphens only.</small></label>
+        <label><span>Page count <b>Required</b></span><input name="pageCount" required type="number" min={1} max={999} placeholder="1" /></label>
+      </div></fieldset>
+      <fieldset><legend>Public labels</legend><div>
+        <label><span>Category <b>Required</b></span><input name="categoryLabel" required maxLength={120} placeholder="Examination forms and syllabi" /></label>
+        <label><span>Rank or audience <b>Optional</b></span><input name="rankLabel" maxLength={120} placeholder="Kyu and Dan ranks" /></label>
+        <label className="is-wide"><span>English description <b>Optional</b></span><textarea name="descriptionEn" maxLength={600} placeholder="Explain what the PDF contains and who should use it." /></label>
+        <label className="is-wide"><span>Thai description <b>Optional</b></span><textarea name="descriptionTh" lang="th" maxLength={600} /></label>
+      </div></fieldset>
+      <fieldset><legend>PDF file</legend><label className="admin-download-file"><FilePlus2 aria-hidden="true" /><span><strong>Choose a PDF</strong><small>PDF only · maximum 20 MB</small></span><input name="file" type="file" accept="application/pdf,.pdf" required /></label></fieldset>
+      <footer><p>The document stays private until you publish it in Step 2.</p><button className="btn-primary" disabled={Boolean(busy)}>{busy === "upload" ? <LoaderCircle className="spin" aria-hidden="true" /> : <FilePlus2 aria-hidden="true" />} Create private draft</button></footer>
     </form>
     <div className="mt-7 grid gap-5">
       {downloads.map((item) => <article key={item.id} className="rounded-3xl bg-paper/75 p-6 ring-1 ring-ink/10">

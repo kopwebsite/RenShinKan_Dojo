@@ -119,10 +119,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
   if (!session) return jsonResponse({ error: "Unauthorized" }, 401);
   const applicationId = String(params.applicationId || "").trim();
   try {
-    const body = await request.json<{ action?: unknown; studentVisibleNote?: unknown; internalNote?: unknown }>();
-    const studentVisibleNote = typeof body.studentVisibleNote === "string" ? body.studentVisibleNote.normalize("NFKC").trim().slice(0, 2000) : "";
-    const internalNote = typeof body.internalNote === "string" ? body.internalNote.normalize("NFKC").trim().slice(0, 2000) : "";
-    if (body.action !== "reject" || !studentVisibleNote) return jsonResponse({ error: "Add a student-visible explanation before rejecting the application." }, 400);
+    const body = await request.json<{ action?: unknown }>();
+    if (body.action !== "reject") return jsonResponse({ error: "Choose the reject action." }, 400);
     const db = requireStudentDb(env);
     const application = await db.prepare(`SELECT ea.id, ea.student_id, ea.cycle_id, ea.status, ea.payment_status,
         ea.student_name_snapshot, ea.student_public_id_snapshot, COALESCE(ea.dojo_id, s.dojo_id) AS dojo_id,
@@ -139,31 +137,30 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     const requestId = requestIdentifier(request);
     await db.batch([
       db.prepare(`INSERT INTO request_decisions
-        (id, request_type, request_id, decision, reviewer_identifier, student_visible_note, internal_admin_note, decided_at)
-        VALUES (?, 'examination_application', ?, 'denied', ?, ?, ?, ?)`)
-        .bind(crypto.randomUUID(), application.id, session.adminName, studentVisibleNote, internalNote, now),
-      db.prepare(`UPDATE examination_applications SET status = 'rejected', student_visible_decision_note = ?,
-        internal_admin_note = ?, administrator_notes = ?, updated_at = ?
+        (id, request_type, request_id, decision, reviewer_identifier, decided_at)
+        VALUES (?, 'examination_application', ?, 'denied', ?, ?)`)
+        .bind(crypto.randomUUID(), application.id, session.adminName, now),
+      db.prepare(`UPDATE examination_applications SET status = 'rejected', updated_at = ?
         WHERE id = ? AND status = 'application_submitted' AND payment_status <> 'paid'`)
-        .bind(studentVisibleNote, internalNote, internalNote, now, application.id),
+        .bind(now, application.id),
       db.prepare(`INSERT INTO application_status_history
         (id, application_id, previous_status, new_status, previous_payment_status, new_payment_status,
          actor_identifier, note, request_id, created_at) VALUES (?, ?, ?, 'rejected', ?, ?, ?, ?, ?, ?)`)
-        .bind(crypto.randomUUID(), application.id, application.status, application.payment_status, application.payment_status, session.adminName, internalNote || null, requestId, now),
+        .bind(crypto.randomUUID(), application.id, application.status, application.payment_status, application.payment_status, session.adminName, null, requestId, now),
       ...(application.cycle_status_id ? [
         db.prepare("UPDATE exam_cycle_student_status SET status = 'not_signed_up', updated_at = ?, updated_by = ? WHERE id = ?")
           .bind(now, session.adminName, application.cycle_status_id),
         db.prepare(`INSERT INTO exam_cycle_status_history
           (id, cycle_status_id, previous_status, new_status, actor_identifier, request_id, note, created_at)
           VALUES (?, ?, ?, 'not_signed_up', ?, ?, ?, ?)`)
-          .bind(crypto.randomUUID(), application.cycle_status_id, application.cycle_status, session.adminName, requestId, internalNote || "Application rejected", now),
+          .bind(crypto.randomUUID(), application.cycle_status_id, application.cycle_status, session.adminName, requestId, "Application rejected", now),
       ] : []),
       auditStatement(db, {
         actorType: "administrator", ...adminAuditMetadata(session, request), action: "examination_application_rejected",
         entityType: "examination_application", entityId: application.id, studentId: application.student_id,
         studentPublicId: application.student_public_id_snapshot, studentNameSnapshot: application.student_name_snapshot,
         examCycleId: application.cycle_id, previousValues: { status: application.status },
-        newValues: { status: "rejected", studentVisibleNote }, administratorNote: internalNote || null,
+        newValues: { status: "rejected" },
         source: "admin_examination_application", requestId, summary: `Rejected examination application for ${application.student_public_id_snapshot}`, createdAt: now,
       }),
     ]);

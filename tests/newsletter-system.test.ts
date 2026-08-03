@@ -185,16 +185,16 @@ describe("newsletter migration and backward compatibility", () => {
     ]))).toThrow(/not supported/);
   });
 
-  it("never makes future, archived, trashed, draft, empty, or obvious test content public", () => {
+  it("never makes future, archived, trashed, draft, or empty content public while honoring explicit publication", () => {
     const now = new Date("2026-06-15T00:00:00.000Z");
     expect(publicNewsletter(recommendationEvent("public"), now)).toBe(true);
     expect(publicNewsletter(recommendationEvent("future", { publishAt: "2026-07-01T00:00:00.000Z" }), now)).toBe(false);
     expect(publicNewsletter(recommendationEvent("archived", { lifecycleStatus: "archived" }), now)).toBe(false);
     expect(publicNewsletter(recommendationEvent("trash", { lifecycleStatus: "trash" }), now)).toBe(false);
     expect(publicNewsletter(recommendationEvent("draft", { published: false }), now)).toBe(false);
-    expect(publicNewsletter(recommendationEvent("test", { title: "DSADSADSA", slug: "d" }), now)).toBe(false);
-    expect(publicNewsletter(recommendationEvent("test-one", { title: "Test 1", slug: "t" }), now)).toBe(false);
-    expect(publicNewsletter(recommendationEvent("test-two", { title: "Test newsletter 2", slug: "test-newsletter-2" }), now)).toBe(false);
+    expect(publicNewsletter(recommendationEvent("test", { title: "DSADSADSA", slug: "d" }), now)).toBe(true);
+    expect(publicNewsletter(recommendationEvent("test-one", { title: "Test 1", slug: "t" }), now)).toBe(true);
+    expect(publicNewsletter(recommendationEvent("test-two", { title: "Test newsletter 2", slug: "test-newsletter-2" }), now)).toBe(true);
   });
 });
 

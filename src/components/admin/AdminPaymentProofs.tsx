@@ -16,8 +16,6 @@ type PaymentProof = {
   submitted_at: string;
   reviewed_at: string | null;
   reviewed_by: string | null;
-  student_visible_note: string;
-  internal_admin_note: string;
   content_type: string | null;
   original_filename: string;
   student_name: string;
@@ -32,7 +30,7 @@ type ProofResponse = {
   pagination: { page: number; pageSize: number; total: number; totalPages: number };
   summary: { total: number; pending: number; approved: number; denied: number };
 };
-type ReviewDraft = { action: "approve" | "deny"; proofIds: string[]; studentVisibleNote: string; internalNote: string };
+type ReviewDraft = { action: "approve" | "deny"; proofIds: string[] };
 
 const EMPTY: ProofResponse = {
   proofs: [], pagination: { page: 1, pageSize: 25, total: 0, totalPages: 1 },
@@ -98,12 +96,12 @@ export function AdminPaymentProofs({
   const allPendingSelected = pendingRows.length > 0 && pendingRows.every((proof) => selected.has(proof.id));
 
   async function submitReview() {
-    if (!review || (review.action === "deny" && !review.studentVisibleNote.trim())) return;
+    if (!review) return;
     setSaving(true);
     try {
       const result = await adminApi<{ count: number }>("/api/admin/payment-proofs", {
         method: "POST",
-        body: JSON.stringify({ action: review.action, proofIds: review.proofIds, studentVisibleNote: review.studentVisibleNote, internalNote: review.internalNote }),
+        body: JSON.stringify({ action: review.action, proofIds: review.proofIds }),
       });
       report(`${result.count} payment proof${result.count === 1 ? "" : "s"} ${review.action === "approve" ? "confirmed" : "rejected"}.`);
       setReview(null);
@@ -249,8 +247,6 @@ export function AdminPaymentProofs({
               setReview({
                 action: "approve",
                 proofIds: [...selected],
-                studentVisibleNote: "",
-                internalNote: "",
               })
             }
           >
@@ -262,8 +258,6 @@ export function AdminPaymentProofs({
               setReview({
                 action: "deny",
                 proofIds: [...selected],
-                studentVisibleNote: "",
-                internalNote: "",
               })
             }
           >
@@ -493,18 +487,6 @@ export function AdminPaymentProofs({
                   </dd>
                 </div>
               ) : null}
-              {opened.student_visible_note ? (
-                <div>
-                  <dt>Student-visible explanation</dt>
-                  <dd>{opened.student_visible_note}</dd>
-                </div>
-              ) : null}
-              {opened.internal_admin_note ? (
-                <div>
-                  <dt>Private internal note</dt>
-                  <dd>{opened.internal_admin_note}</dd>
-                </div>
-              ) : null}
             </dl>
             <p className="admin-payment-proof-privacy">
               <ShieldCheck size={16} /> Private retained file. Do not download
@@ -522,8 +504,6 @@ export function AdminPaymentProofs({
                       setReview({
                         action: "deny",
                         proofIds: [opened.id],
-                        studentVisibleNote: "",
-                        internalNote: "",
                       })
                     }
                   >
@@ -535,8 +515,6 @@ export function AdminPaymentProofs({
                       setReview({
                         action: "approve",
                         proofIds: [opened.id],
-                        studentVisibleNote: "",
-                        internalNote: "",
                       })
                     }
                   >
@@ -581,52 +559,15 @@ export function AdminPaymentProofs({
             <p>
               {review.action === "approve"
                 ? "Confirming updates the related payment and records a permanent audit entry."
-                : "Rejecting leaves the related payment unconfirmed and records the reason for the student record."}
+                : "Rejecting leaves the related payment unconfirmed and records the decision in the audit log."}
             </p>
-            <label>
-              Student-visible explanation{" "}
-              <small>
-                Shown in the student’s authenticated passport.{" "}
-                {review.action === "deny"
-                  ? "Required when rejecting; explain what needs correcting."
-                  : "Optional."}
-              </small>
-              <textarea
-                value={review.studentVisibleNote}
-                maxLength={2000}
-                onChange={(event) =>
-                  setReview({
-                    ...review,
-                    studentVisibleNote: event.target.value,
-                  })
-                }
-              />
-            </label>
-            <label>
-              Private internal note{" "}
-              <small>
-                Administrator-only accounting context. Never shown to students
-                or the public. Optional.
-              </small>
-              <textarea
-                value={review.internalNote}
-                maxLength={2000}
-                onChange={(event) =>
-                  setReview({ ...review, internalNote: event.target.value })
-                }
-              />
-            </label>
             <footer>
               <button className="btn-secondary" onClick={() => setReview(null)}>
                 Keep pending
               </button>
               <button
                 className={`btn-primary${review.action === "deny" ? " is-danger" : ""}`}
-                disabled={
-                  saving ||
-                  (review.action === "deny" &&
-                    !review.studentVisibleNote.trim())
-                }
+                disabled={saving}
                 onClick={() => void submitReview()}
               >
                 {saving ? (

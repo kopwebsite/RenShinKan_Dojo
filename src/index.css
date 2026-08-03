@@ -7616,10 +7616,13 @@ html.admin-route .admin-student-controls select {
   color: #344054;
   font-size: 0.72rem;
   font-weight: 800;
-  white-space: nowrap;
+  flex: 1 1 18rem;
+  min-width: 0;
+  white-space: normal;
 }
 .admin-selection-menu select {
-  min-width: 13rem;
+  width: 100%;
+  min-width: 0;
   min-height: 2.45rem;
   padding: 0.5rem 2.1rem 0.5rem 0.65rem;
   border: 1px solid #aebed4;
@@ -8025,7 +8028,7 @@ html.admin-route .admin-drawer {
 }
 .admin-alerts > div {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.65rem;
   margin-top: 1rem;
 }
@@ -8676,7 +8679,7 @@ html.admin-route .admin-drawer {
 .exam-application-form {
   width: min(64rem, 100%);
 }
-.exam-application-form fieldset {
+.exam-application-form .exam-application-section {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
@@ -8684,12 +8687,30 @@ html.admin-route .admin-drawer {
   padding: 1.2rem;
   border: 1px solid hsl(var(--color-ink) / 0.16);
 }
-.exam-application-form legend {
-  padding-inline: 0.5rem;
+.exam-application-form .exam-application-section > summary {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: -0.35rem -0.35rem 0;
+  padding: 0.55rem;
   font-size: 1rem;
   font-weight: 850;
+  cursor: pointer;
+  list-style: none;
 }
-.exam-application-form fieldset > p,
+.exam-application-form .exam-application-section > summary::-webkit-details-marker {
+  display: none;
+}
+.exam-application-form .exam-application-section > summary svg {
+  flex: 0 0 auto;
+  transition: transform 160ms ease;
+}
+.exam-application-form .exam-application-section:not([open]) > summary svg {
+  transform: rotate(-90deg);
+}
+.exam-application-form .exam-application-section > p,
 .exam-application-form .exam-promise {
   grid-column: 1 / -1;
 }
@@ -8951,12 +8972,12 @@ html.admin-route .admin-drawer {
   }
   .student-hours-form,
   .student-long-form .student-form-grid,
-  .exam-application-form fieldset,
+  .exam-application-form .exam-application-section,
   .exam-review > dl {
     grid-template-columns: 1fr;
   }
   .student-hours-form > div,
-  .exam-application-form fieldset > p,
+  .exam-application-form .exam-application-section > p,
   .exam-application-form .exam-promise {
     grid-column: auto;
   }
@@ -10741,7 +10762,7 @@ html.admin-route .admin-drawer {
 .student-form-grid > label > :is(input, select) {
   align-self: end;
 }
-.exam-application-form fieldset > label {
+.exam-application-form .exam-application-section > label {
   align-content: start;
 }
 
@@ -10790,7 +10811,7 @@ html.admin-route .admin-drawer {
   color: #536273;
   background: #e8edf2;
 }
-.exam-application-form fieldset {
+.exam-application-form .exam-application-section {
   gap: 1rem 1.15rem;
   margin-top: 1.4rem;
   padding: 1.25rem;
@@ -10802,24 +10823,24 @@ html.admin-route .admin-drawer {
     hsl(var(--color-paper) / 0.28)
   );
 }
-.exam-application-form legend {
+.exam-application-form .exam-application-section > summary {
   max-width: calc(100% - 1rem);
   padding-inline: 0.6rem;
 }
-.exam-application-form legend > span {
+.exam-application-form .exam-application-section > summary > span {
   display: grid;
   gap: 0.18rem;
 }
-.exam-application-form legend strong {
+.exam-application-form .exam-application-section > summary strong {
   font-size: 0.92rem;
 }
-.exam-application-form legend small {
+.exam-application-form .exam-application-section > summary small {
   color: hsl(var(--color-charcoal) / 0.62);
   font-size: 0.61rem;
   font-weight: 500;
   line-height: 1.4;
 }
-.exam-application-form fieldset > label,
+.exam-application-form .exam-application-section > label,
 .exam-occupation-fields > label {
   display: grid;
   grid-template-rows: 3.7rem auto;
@@ -10853,15 +10874,15 @@ html.admin-route .admin-drawer {
   font-weight: 500;
   line-height: 1.4;
 }
-.exam-application-form fieldset > label > :is(input, select, textarea),
+.exam-application-form .exam-application-section > label > :is(input, select, textarea),
 .exam-occupation-fields > label > :is(input, select, textarea) {
   align-self: start;
 }
-.exam-application-form fieldset > label > :is(input, select),
+.exam-application-form .exam-application-section > label > :is(input, select),
 .exam-occupation-fields > label > :is(input, select) {
   height: 2.8rem;
 }
-.exam-application-form fieldset > label > textarea {
+.exam-application-form .exam-application-section > label > textarea {
   height: 6rem;
   min-height: 6rem;
 }
@@ -11409,10 +11430,10 @@ html.admin-route .admin-drawer {
     align-items: flex-start;
     flex-direction: column;
   }
-  .exam-application-form fieldset {
+  .exam-application-form .exam-application-section {
     padding: 1rem;
   }
-  .exam-application-form fieldset > label,
+  .exam-application-form .exam-application-section > label,
   .exam-occupation-fields > label {
     grid-template-rows: auto auto;
   }
@@ -12395,6 +12416,9 @@ html.admin-route .admin-drawer {
 .admin-student-workspace
   .admin-drawer__body[data-section="overview"]
   > .admin-profile-review,
+.admin-student-workspace
+  .admin-drawer__body[data-section="overview"]
+  > .admin-overview-status,
 .admin-student-workspace .admin-drawer__body[data-section="profile"] > details,
 .admin-student-workspace
   .admin-drawer__body[data-section="profile"]
@@ -12438,6 +12462,252 @@ html.admin-route .admin-drawer {
   .admin-drawer__body[data-section="overview"]
   > .admin-profile-review {
   margin: 0;
+}
+
+.admin-overview-status {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(10rem, 0.45fr) auto;
+  align-items: end;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.admin-overview-status label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.admin-record-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 1rem;
+  border-bottom: 1px solid #d8dee7;
+}
+
+.admin-record-tabs button {
+  min-height: 2.7rem;
+  padding: 0.55rem 1rem;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  color: #667085;
+  background: transparent;
+  font-weight: 800;
+}
+
+.admin-record-tabs button.is-active {
+  border-bottom-color: #c93f2d;
+  color: #172033;
+  background: #fff;
+}
+
+.support-downloads {
+  margin-top: 4rem;
+  padding-top: 3rem;
+  border-top: 1px solid hsl(var(--color-ink) / 0.15);
+}
+
+.support-downloads > header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.support-downloads > header h2 {
+  margin-top: 0.35rem;
+  font-size: clamp(2rem, 4vw, 3rem);
+}
+
+.support-downloads > header p:last-child {
+  margin-top: 0.5rem;
+  color: hsl(var(--color-charcoal) / 0.72);
+}
+
+.support-downloads > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.support-downloads article {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid hsl(var(--color-ink) / 0.12);
+  border-radius: 0.8rem;
+  background: hsl(var(--color-paper) / 0.76);
+}
+
+.support-downloads article > span {
+  display: grid;
+  width: 2.7rem;
+  height: 2.7rem;
+  place-items: center;
+  border-radius: 0.65rem;
+  color: hsl(var(--color-bamboo));
+  background: hsl(var(--color-bamboo) / 0.1);
+}
+
+.support-downloads article small {
+  color: hsl(var(--color-bamboo));
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.support-downloads article h3 {
+  margin-top: 0.2rem;
+  font-size: 1rem;
+}
+
+.support-downloads article p {
+  margin-top: 0.15rem;
+  color: hsl(var(--color-charcoal) / 0.68);
+  font-size: 0.76rem;
+}
+
+.support-downloads article .btn-primary {
+  min-height: 2.5rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.72rem;
+}
+
+.support-downloads__empty {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px dashed hsl(var(--color-ink) / 0.2);
+}
+
+.admin-download-upload {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 1px solid #d8dee7;
+  border-radius: 0.8rem;
+  background: #fff;
+}
+
+.admin-download-upload > header,
+.admin-download-upload > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-download-upload > header p,
+.admin-download-upload > footer p {
+  margin-top: 0.3rem;
+  color: #667085;
+  font-size: 0.75rem;
+}
+
+.admin-download-upload > header > span {
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  color: #69471f;
+  background: #fff3d6;
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+.admin-download-upload fieldset {
+  padding: 1rem;
+  border: 1px solid #e0e5ec;
+  border-radius: 0.6rem;
+}
+
+.admin-download-upload legend {
+  padding-inline: 0.45rem;
+  font-weight: 850;
+}
+
+.admin-download-upload fieldset > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.admin-download-upload label {
+  display: grid;
+  align-content: start;
+  gap: 0.35rem;
+}
+
+.admin-download-upload label.is-wide {
+  grid-column: 1 / -1;
+}
+
+.admin-download-upload label > span {
+  display: flex;
+  min-height: 1.35rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.admin-download-upload label b {
+  color: #667085;
+  font-size: 0.58rem;
+  text-transform: uppercase;
+}
+
+.admin-download-file {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.8rem !important;
+  padding: 1rem;
+  border: 1px dashed #9aa8ba;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+}
+
+.admin-download-file > input {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 700px) {
+  .admin-download-upload fieldset > div {
+    grid-template-columns: 1fr;
+  }
+  .admin-download-upload label.is-wide {
+    grid-column: auto;
+  }
+  .admin-download-upload > header,
+  .admin-download-upload > footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 800px) {
+  .support-downloads > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .support-downloads > div {
+    grid-template-columns: 1fr;
+  }
+  .support-downloads article {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .support-downloads article .btn-primary {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+}
+
+.admin-card-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+}
+
+.admin-card-actions button {
+  justify-content: center;
 }
 
 .admin-student-workspace__identity > div > .admin-status {
@@ -12542,6 +12812,9 @@ html.admin-route .admin-drawer {
     scroll-snap-align: start;
   }
   .admin-student-workspace .admin-history-grid {
+    grid-template-columns: 1fr;
+  }
+  .admin-overview-status {
     grid-template-columns: 1fr;
   }
   .admin-profile-review {

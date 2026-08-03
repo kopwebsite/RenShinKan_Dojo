@@ -25,7 +25,7 @@ describe("help center content contracts", () => {
 
   it("ships the same complete public topic set in all four locales", () => {
     const english = getPublicHelpCatalog("en");
-    expect(english.articles).toHaveLength(9);
+    expect(english.articles).toHaveLength(10);
     const expectedIds = english.articles.map((article) => article.id).sort();
     for (const locale of publicLocales) {
       const catalog = getPublicHelpCatalog(locale);

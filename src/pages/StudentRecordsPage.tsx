@@ -3,6 +3,7 @@ import {
   AlertCircle,
   Camera,
   CheckCircle2,
+  ChevronDown,
   Clock3,
   Copy,
   Download,
@@ -241,12 +242,13 @@ function ExamFieldCopy({
 
 function ExamSectionLegend({ title, copy }: { title: string; copy: string }) {
   return (
-    <legend>
+    <summary>
       <span>
         <strong>{title}</strong>
         <small>{copy}</small>
       </span>
-    </legend>
+      <ChevronDown aria-hidden="true" />
+    </summary>
   );
 }
 
@@ -1340,7 +1342,7 @@ function ExamWorkflow() {
     );
   }
   return (
-    <form className="student-long-form exam-application-form" onSubmit={review}>
+    <form className="student-long-form exam-application-form" onSubmit={review} onInvalid={(event) => { const section = (event.target as HTMLElement).closest("details"); if (section) section.open = true; }}>
       <header>
         <div>
           <p className="eyebrow">Step 1 of 2 · Aikido Association Thailand</p>
@@ -1365,7 +1367,7 @@ function ExamWorkflow() {
           <b className="is-optional">Optional</b> Add only when relevant
         </span>
       </aside>
-      <fieldset>
+      <details className="exam-application-section" open>
         <ExamSectionLegend
           title="Verify your student record"
           copy="These details must match your active student profile."
@@ -1428,8 +1430,8 @@ function ExamWorkflow() {
             ))}
           </select>
         </label>
-      </fieldset>
-      <fieldset>
+      </details>
+      <details className="exam-application-section" open>
         <ExamSectionLegend
           title="Applicant details"
           copy="Personal details used for the association application."
@@ -1498,8 +1500,8 @@ function ExamWorkflow() {
             required
           />
         </label>
-      </fieldset>
-      <fieldset>
+      </details>
+      <details className="exam-application-section" open>
         <ExamSectionLegend
           title="Address and contact"
           copy="How the association or dojo can identify and contact you."
@@ -1573,8 +1575,8 @@ function ExamWorkflow() {
             required
           />
         </label>
-      </fieldset>
-      <fieldset className="exam-occupation-section">
+      </details>
+      <details className="exam-application-section exam-occupation-section" open>
         <ExamSectionLegend
           title="School or employment"
           copy="Choose what applies; only the useful follow-up questions will appear."
@@ -1666,8 +1668,8 @@ function ExamWorkflow() {
             ) : null}
           </div>
         ) : null}
-      </fieldset>
-      <fieldset>
+      </details>
+      <details className="exam-application-section" open>
         <ExamSectionLegend
           title="Qualifications and experience"
           copy="A short summary helps the examiners understand your background."
@@ -1698,8 +1700,8 @@ function ExamWorkflow() {
           />
           <FreeTextPreference />
         </label>
-      </fieldset>
-      <fieldset>
+      </details>
+      <details className="exam-application-section" open>
         <ExamSectionLegend
           title="Declaration and signature"
           copy="Confirm the application is accurate before review."
@@ -1734,7 +1736,7 @@ function ExamWorkflow() {
             <small>Required to submit this examination application.</small>
           </span>
         </label>
-      </fieldset>
+      </details>
       {error ? <p className="form-error">{error}</p> : null}
       <button className="btn-primary">Review every answer</button>
     </form>

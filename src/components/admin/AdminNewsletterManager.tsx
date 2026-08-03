@@ -448,6 +448,7 @@ export function AdminNewsletterManager({
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [saveMessage, setSaveMessage] = useState("Saved");
   const [activeSection, setActiveSection] = useState(0);
+  const [visitedSections, setVisitedSections] = useState<Set<number>>(new Set());
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -708,6 +709,7 @@ export function AdminNewsletterManager({
     expectedUpdatedAtRef.current = event.updatedAt;
     lastSavedSnapshotRef.current = eventSnapshot(event);
     setActiveSection(0);
+    setVisitedSections(new Set());
     setSaveState("saved");
     setSaveMessage("Saved");
     setErrorSummary([]);
@@ -1844,7 +1846,9 @@ export function AdminNewsletterManager({
                 <button
                   type="button"
                   aria-current={activeSection === index ? "step" : undefined}
-                  onClick={() => setActiveSection(index)}
+                  aria-label={`${label}: ${sectionStates[index] === "complete" ? "complete" : visitedSections.has(index) ? "needs attention" : "untouched"}`}
+                  data-state={sectionStates[index] === "complete" ? "complete" : visitedSections.has(index) ? "attention" : "untouched"}
+                  onClick={() => { setVisitedSections((current) => new Set(current).add(activeSection).add(index)); setActiveSection(index); }}
                 >
                   <span>
                     {sectionStates[index] === "complete" ? (
@@ -1855,13 +1859,6 @@ export function AdminNewsletterManager({
                   </span>
                   <span>
                     <strong>{label}</strong>
-                    <small>
-                      {sectionStates[index] === "complete"
-                        ? "Complete"
-                        : sectionStates[index] === "optional"
-                          ? "Optional"
-                          : "Needs attention"}
-                    </small>
                   </span>
                 </button>
               </li>
@@ -1943,7 +1940,7 @@ export function AdminNewsletterManager({
                 </p>
                 <div className="admin-newsletter-field-grid">
                   <label>
-                    Category <span aria-hidden="true">*</span>
+                    <span className="admin-newsletter-field-label">Category <b aria-hidden="true">*</b></span>
                     <select
                       value={editorEvent.category}
                       onChange={(event) =>
@@ -1960,10 +1957,9 @@ export function AdminNewsletterManager({
                     </select>
                   </label>
                   <label>
-                    {editorEvent.contentType === "event"
+                    <span className="admin-newsletter-field-label">{editorEvent.contentType === "event"
                       ? "Event date"
-                      : "Publication date"}{" "}
-                    <span aria-hidden="true">*</span>
+                      : "Publication date"} <b aria-hidden="true">*</b></span>
                     <GregorianDateInput
                       admin
                       value={editorEvent.date}
@@ -3029,9 +3025,10 @@ export function AdminNewsletterManager({
               type="button"
               className="btn-secondary"
               disabled={activeSection === 0}
-              onClick={() =>
-                setActiveSection((current) => Math.max(0, current - 1))
-              }
+              onClick={() => {
+                setVisitedSections((current) => new Set(current).add(activeSection).add(Math.max(0, activeSection - 1)));
+                setActiveSection((current) => Math.max(0, current - 1));
+              }}
             >
               <ArrowLeft size={16} /> Previous
             </button>
@@ -3039,9 +3036,10 @@ export function AdminNewsletterManager({
               <button
                 type="button"
                 className="btn-primary"
-                onClick={() =>
-                  setActiveSection((current) => Math.min(4, current + 1))
-                }
+                onClick={() => {
+                  setVisitedSections((current) => new Set(current).add(activeSection).add(Math.min(4, activeSection + 1)));
+                  setActiveSection((current) => Math.min(4, current + 1));
+                }}
               >
                 Next <ArrowRight size={16} />
               </button>

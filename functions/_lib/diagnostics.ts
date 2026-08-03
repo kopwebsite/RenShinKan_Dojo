@@ -4,7 +4,7 @@ import type { StorageEnv } from "./storage";
 import type { D1Database, StudentEnv } from "./studentRecords";
 
 export const EXPECTED_LATEST_MIGRATION =
-  "0026_simplify_student_and_admin_access.sql";
+  "0027_remove_review_notes.sql";
 const CONTENT_KEY = "site:editable-content";
 const CONTENT_POINTER_KEY = "site:editable-content:published-version";
 const EXPECTED_LOCALES = ["en", "th", "ja", "zh-CN"] as const;

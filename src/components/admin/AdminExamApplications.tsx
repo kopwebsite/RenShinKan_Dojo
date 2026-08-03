@@ -129,13 +129,6 @@ function historyDescription(entry: ApplicationDetail["history"][number]) {
   return changes.join(" · ") || "Application record updated";
 }
 
-function feeValue(json: string, key: "kyu" | "dan" | "default") {
-  try {
-    const value = Number((JSON.parse(json) as Record<string, unknown>)[key]);
-    return Number.isFinite(value) && value >= 0 ? String(value) : "0";
-  } catch { return "0"; }
-}
-
 function Status({ value }: { value: ExamStatus }) {
   const tone = value === "paid" ? "is-active" : value === "unpaid" ? "is-pending" : "is-neutral";
   return <span className={`admin-status ${tone}`}>{adminStatusLabel(value)}</span>;
@@ -163,13 +156,12 @@ export function AdminExamApplications({ report, admin, dojos, mode = "applicatio
   const [cycleDialog, setCycleDialog] = useState(false);
   const [editingCycle, setEditingCycle] = useState(false);
   const [cycleName, setCycleName] = useState("");
-  const [cycleForm, setCycleForm] = useState({ lifecycleStatus: "open", examinationType: "Belt promotion", rankCategory: "Kyu and Dan", applicationOpensAt: "", applicationClosesAt: "", examinationAt: "", venue: "", instructions: "", kyuExamFee: "0", danExamFee: "0", aatAnnualFee: "0" });
+  const [cycleForm, setCycleForm] = useState({ lifecycleStatus: "open", examinationType: "Belt promotion", rankCategory: "Kyu and Dan", applicationOpensAt: "", applicationClosesAt: "", examinationAt: "", venue: "", instructions: "" });
   const [exportDojo, setExportDojo] = useState(superAdmin ? "" : admin.selectedDojoId || "");
   const [saving, setSaving] = useState(false);
   const [openedApplicationId, setOpenedApplicationId] = useState<string | null>(null);
   const [applicationDetail, setApplicationDetail] = useState<ApplicationDetail | null>(null);
   const [applicationLoading, setApplicationLoading] = useState(false);
-  const [rejection, setRejection] = useState<{ studentVisibleNote: string; internalNote: string } | null>(null);
 
   async function load() {
     setLoading(true);
@@ -245,8 +237,6 @@ export function AdminExamApplications({ report, admin, dojos, mode = "applicatio
         body: JSON.stringify({
           action: editingCycle ? "update_cycle" : "start_cycle", cycleId: data.selectedCycle?.id,
           name: cycleName.trim(), confirmed: true, ...cycleForm,
-          rankFees: { kyu: Number(cycleForm.kyuExamFee || 0), dan: Number(cycleForm.danExamFee || 0) },
-          annualFees: { default: Number(cycleForm.aatAnnualFee || 0) },
         }),
       });
       report(editingCycle ? `Updated ${cycleName.trim()}.` : `Started ${cycleName.trim()} with ${result.rosterCount} active students. The previous cycle is now read-only history.`);
@@ -290,19 +280,17 @@ export function AdminExamApplications({ report, admin, dojos, mode = "applicatio
   function closeApplication() {
     setOpenedApplicationId(null);
     setApplicationDetail(null);
-    setRejection(null);
   }
 
   async function rejectApplication() {
-    if (!openedApplicationId || !rejection?.studentVisibleNote.trim()) return;
+    if (!openedApplicationId) return;
     setSaving(true);
     try {
       await adminApi(`/api/admin/examinations/${encodeURIComponent(openedApplicationId)}`, {
         method: "POST",
-        body: JSON.stringify({ action: "reject", studentVisibleNote: rejection.studentVisibleNote, internalNote: rejection.internalNote }),
+        body: JSON.stringify({ action: "reject" }),
       });
-      report("Examination application rejected with a student-visible explanation.");
-      setRejection(null);
+      report("Examination application rejected.");
       await Promise.all([viewApplication(openedApplicationId), load()]);
     } catch (reason) {
       report(reason instanceof Error ? reason.message : "Could not reject the examination application.", true);
@@ -313,8 +301,8 @@ export function AdminExamApplications({ report, admin, dojos, mode = "applicatio
 
   return <section className="admin-workspace-section" aria-busy={loading}>
     <header className="admin-workspace-heading">
-      <div><p className="eyebrow">{mode === "records" ? "Permanent history" : "Cycle-based workflow"}</p><h2>{mode === "records" ? "Saved examination records" : "Exam applications"}</h2><p>{mode === "records" ? "Only students with a saved application are shown. Open any row for the submitted answers and permanent timeline." : "Every active student appears in the current cycle. Closed cycles remain read-only."}</p></div>
-      {superAdmin && mode === "applications" ? <div className="flex flex-wrap gap-2"><button className="btn-secondary" disabled={!data.selectedCycle} onClick={() => { const cycle = data.selectedCycle; if (!cycle) return; setEditingCycle(true); setCycleName(cycle.title || cycle.name); setCycleForm({ lifecycleStatus: cycle.lifecycle_status, examinationType: cycle.examination_type, rankCategory: cycle.rank_category, applicationOpensAt: cycle.application_opens_at || "", applicationClosesAt: cycle.application_closes_at || "", examinationAt: cycle.examination_at || "", venue: cycle.venue, instructions: cycle.instructions, kyuExamFee: feeValue(cycle.rank_fee_config_json, "kyu"), danExamFee: feeValue(cycle.rank_fee_config_json, "dan"), aatAnnualFee: feeValue(cycle.annual_fee_config_json, "default") }); setCycleDialog(true); }}>Edit Cycle</button><button className="btn-primary" onClick={() => { setEditingCycle(false); setCycleName(""); setCycleForm({ lifecycleStatus: "open", examinationType: "Belt promotion", rankCategory: "Kyu and Dan", applicationOpensAt: "", applicationClosesAt: "", examinationAt: "", venue: "", instructions: "", kyuExamFee: "0", danExamFee: "0", aatAnnualFee: "0" }); setCycleDialog(true); }}><GraduationCap size={17} /> Start New Exam Cycle</button></div> : null}
+      <div><p className="eyebrow">{mode === "records" ? "Permanent history" : "Cycle-based workflow"}</p><h2>{mode === "records" ? "Saved application records" : "Exam applications"}</h2><p>{mode === "records" ? "Only students with a saved application are shown. Open any row for the submitted answers and permanent timeline." : "Every active student appears in the current cycle. Closed cycles remain read-only."}</p></div>
+      {superAdmin && mode === "applications" ? <div className="flex flex-wrap gap-2"><button className="btn-secondary" disabled={!data.selectedCycle} onClick={() => { const cycle = data.selectedCycle; if (!cycle) return; setEditingCycle(true); setCycleName(cycle.title || cycle.name); setCycleForm({ lifecycleStatus: cycle.lifecycle_status, examinationType: cycle.examination_type, rankCategory: cycle.rank_category, applicationOpensAt: cycle.application_opens_at || "", applicationClosesAt: cycle.application_closes_at || "", examinationAt: cycle.examination_at || "", venue: cycle.venue, instructions: cycle.instructions }); setCycleDialog(true); }}>Edit Cycle</button><button className="btn-primary" onClick={() => { setEditingCycle(false); setCycleName(""); setCycleForm({ lifecycleStatus: "open", examinationType: "Belt promotion", rankCategory: "Kyu and Dan", applicationOpensAt: "", applicationClosesAt: "", examinationAt: "", venue: "", instructions: "" }); setCycleDialog(true); }}><GraduationCap size={17} /> Start New Exam Cycle</button></div> : null}
     </header>
 
     <div className="admin-workspace-toolbar">
@@ -457,7 +445,7 @@ export function AdminExamApplications({ report, admin, dojos, mode = "applicatio
         <th><span className="admin-student-identity">{student.profile_image_url ? <img src={student.profile_image_url} alt="" /> : <span aria-hidden="true"><UserRound size={18} /></span>}<span>{student.student_name}</span></span></th>
         <td><code>{student.public_student_id}</code></td><td>{student.current_rank}</td><td>{student.requested_rank || "—"}</td><td>{formatAdminDate(student.application_date)}</td><td><Status value={student.status} /></td>
         <td><div className="admin-row-actions admin-exam-row-actions">
-          {student.application_id ? <button type="button" onClick={() => void viewApplication(student.application_id!)}><FileText size={14} /> View application</button> : <span className="admin-no-record">Not submitted</span>}
+          {mode === "records" ? student.application_id ? <button type="button" onClick={() => void viewApplication(student.application_id!)}><FileText size={14} /> Open record</button> : <span className="admin-no-record">Not submitted</span> : <span className="admin-no-record">Available in Application records</span>}
           {!readOnly ? <select className="admin-row-action-select" aria-label={`Set examination status for ${student.student_name}`} value={student.status} onChange={(event) => setPending({ status: event.target.value as ExamStatus, studentIds: [student.student_id] })}>{(["not_signed_up", "unpaid", "paid"] as ExamStatus[]).map((value) => <option key={value} value={value}>{adminStatusLabel(value)}</option>)}</select> : null}
         </div></td>
       </tr>)}
@@ -495,11 +483,9 @@ export function AdminExamApplications({ report, admin, dojos, mode = "applicatio
           <header><History size={17} /><div><p className="eyebrow">Record history</p><h3>Application timeline</h3></div></header>
           {applicationDetail.history.length ? <ol>{applicationDetail.history.map((entry) => <li key={entry.id}><span aria-hidden="true" /><div><strong>{historyDescription(entry)}</strong><time>{formatAdminDate(entry.createdAt)}</time><p>By {entry.actorIdentifier}{entry.note ? ` · ${entry.note}` : ""}</p></div></li>)}</ol> : <p>No status changes have been recorded beyond the saved application.</p>}
         </section>
-        {(applicationDetail.application.application_notes || applicationDetail.application.administrator_notes) ? <aside className="admin-exam-record-notes"><strong>Administrator notes <small>Private · authorized administrators only</small></strong><p>{applicationDetail.application.application_notes || applicationDetail.application.administrator_notes}</p></aside> : null}
-        {applicationDetail.application.student_visible_decision_note ? <aside className="admin-exam-record-notes"><strong>Student-visible decision note</strong><p>{applicationDetail.application.student_visible_decision_note}</p></aside> : null}
-        {rejection ? <section className="admin-exam-record-notes"><strong>Reject application</strong><label>Student-visible explanation <small>Required. The student will see this in Requests & Notices.</small><textarea maxLength={2000} value={rejection.studentVisibleNote} onChange={(event) => setRejection({ ...rejection, studentVisibleNote: event.target.value })} /></label><label>Private internal note <small>Optional. Never shown to the student or public.</small><textarea maxLength={2000} value={rejection.internalNote} onChange={(event) => setRejection({ ...rejection, internalNote: event.target.value })} /></label></section> : null}
+        {applicationDetail.application.application_notes ? <aside className="admin-exam-record-notes"><strong>Student application notes</strong><p>{applicationDetail.application.application_notes}</p></aside> : null}
       </> : null}
-      <footer><button className="btn-secondary" onClick={closeApplication}>Close record</button>{applicationDetail?.application.application_status === "application_submitted" && applicationDetail.application.payment_status !== "paid" ? rejection ? <><button className="btn-secondary" onClick={() => setRejection(null)}>Cancel rejection</button><button className="btn-primary is-danger" disabled={saving || !rejection.studentVisibleNote.trim()} onClick={() => void rejectApplication()}>{saving ? <LoaderCircle className="spin" size={16} /> : <X size={16} />} Confirm rejection</button></> : <button className="btn-secondary is-danger" onClick={() => setRejection({ studentVisibleNote: "", internalNote: "" })}>Reject application</button> : null}</footer>
+      <footer><button className="btn-secondary" onClick={closeApplication}>Close record</button>{applicationDetail?.application.application_status === "application_submitted" && applicationDetail.application.payment_status !== "paid" ? <button className="btn-secondary is-danger" disabled={saving} onClick={() => void rejectApplication()}>{saving ? <LoaderCircle className="spin" size={16} /> : <X size={16} />} Reject application</button> : null}</footer>
     </section></div> : null}
 
     {cycleDialog ? <div className="admin-confirm-backdrop" role="presentation"><section className="admin-confirm-dialog admin-confirm-dialog--danger" role="dialog" aria-modal="true" aria-labelledby="new-cycle-title">
@@ -515,10 +501,7 @@ export function AdminExamApplications({ report, admin, dojos, mode = "applicatio
         <label>Examination date and time<GregorianDateTimeInput admin value={cycleForm.examinationAt} onChange={(value) => setCycleForm({ ...cycleForm, examinationAt: value })} /></label>
         <label>Venue<input value={cycleForm.venue} onChange={(event) => setCycleForm({ ...cycleForm, venue: event.target.value })} maxLength={240} /></label>
         <label>Instructions<textarea value={cycleForm.instructions} onChange={(event) => setCycleForm({ ...cycleForm, instructions: event.target.value })} maxLength={4000} /></label>
-        <label>Default Kyu examination fee (THB)<input type="number" min="0" max="1000000" step="0.01" value={cycleForm.kyuExamFee} onChange={(event) => setCycleForm({ ...cycleForm, kyuExamFee: event.target.value })} /></label>
-        <label>Default Dan examination fee (THB)<input type="number" min="0" max="1000000" step="0.01" value={cycleForm.danExamFee} onChange={(event) => setCycleForm({ ...cycleForm, danExamFee: event.target.value })} /></label>
-        <label>AAT annual fee (THB)<input type="number" min="0" max="1000000" step="0.01" value={cycleForm.aatAnnualFee} onChange={(event) => setCycleForm({ ...cycleForm, aatAnnualFee: event.target.value })} /></label>
-        <p className="admin-help">These defaults are saved with this cycle, so future fee changes do not alter past examination records.</p>
+        <p className="admin-help">Examination and AAT fees use the site’s fixed fee schedule and are recorded automatically.</p>
         <footer><button type="button" className="btn-secondary" onClick={() => setCycleDialog(false)}>Cancel</button><button className="btn-primary" disabled={saving || !cycleName.trim()}>{saving ? <LoaderCircle className="spin" size={16} /> : <GraduationCap size={16} />} {editingCycle ? "Save cycle" : "Close current cycle and start new"}</button></footer>
       </form>
     </section></div> : null}

@@ -54,9 +54,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     if (application) {
       statements.splice(statements.length - 1, 0,
         db.prepare(`INSERT INTO request_decisions
-          (id, request_type, request_id, decision, reviewer_identifier, student_visible_note, internal_admin_note, decided_at)
-          VALUES (?, 'examination_application', ?, 'approved', ?, '', ?, ?)`)
-          .bind(crypto.randomUUID(), application.id, session.adminName, passed ? `Examination passed: ${rankAfter}` : `Examination attempt recorded: ${attemptedRank}`, now),
+          (id, request_type, request_id, decision, reviewer_identifier, decided_at)
+          VALUES (?, 'examination_application', ?, 'approved', ?, ?)`)
+          .bind(crypto.randomUUID(), application.id, session.adminName, now),
         db.prepare("UPDATE examination_applications SET status = 'examination_completed', completed_at = ?, updated_at = ? WHERE id = ?")
           .bind(now, now, application.id),
         db.prepare(`INSERT INTO application_status_history

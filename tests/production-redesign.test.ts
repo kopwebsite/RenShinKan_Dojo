@@ -216,14 +216,13 @@ describe("interface and downloadable assets", () => {
     }
   });
 
-  it("uses accessible Gregorian pickers without slash-typed date fields", () => {
+  it("uses accessible slash-typed Gregorian date fields", () => {
     const source = file("src/components/GregorianDateInput.tsx");
-    for (const value of ['type="date"', 'type="datetime-local"', 'className={`gregorian-month-control', 't("date.monthLabel")', 't("date.yearLabel")', 'type="number"', 'inputMode="numeric"', 'min={1900}', 'max={maximumYear}']) {
+    for (const value of ['type="text"', 'inputMode="numeric"', 'placeholder="DD/MM/YYYY"', 'placeholder="MM/YYYY"', 'placeholder="DD/MM/YYYY HH:MM"', 'displayDateToCanonical', 'displayMonthToCanonical', 'displayDateTimeToCanonical']) {
       expect(source).toContain(value);
     }
-    expect(source).toContain('t("date.monthMissing")');
-    expect(source).toContain('t("date.yearMissing")');
-    expect(source).not.toContain('placeholder="DD/MM/YYYY"');
+    expect(source).not.toContain('type="date"');
+    expect(source).not.toContain('type="datetime-local"');
     expect(source).not.toContain("showPicker");
   });
 
@@ -232,8 +231,8 @@ describe("interface and downloadable assets", () => {
     expect(admin).toContain("const [open, setOpen] = useState(true)");
     expect(admin).not.toContain("admin-task-prompt");
     const passport = file("src/components/studentPassport/DigitalPassport.tsx");
-    expect(passport).toContain("entries.slice(0, 5)");
-    expect(passport).toContain("exams.slice(0, 5)");
-    expect(passport).toContain("const pageSize = 10");
+    expect(passport).toContain("entries.slice((page - 1) * pageSize, page * pageSize)");
+    expect(passport).toContain("exams.slice((page - 1) * pageSize, page * pageSize)");
+    expect(passport.match(/const pageSize = 3/g)?.length).toBeGreaterThanOrEqual(3);
   });
 });

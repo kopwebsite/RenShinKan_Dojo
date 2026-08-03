@@ -259,6 +259,20 @@ const en: Topic[] = [
     ],
     action: "Receive updates by email",
   },
+  {
+    id: "public-training-hours",
+    category: "student-records",
+    route: "/student-records",
+    href: "/student-records?task=hours",
+    title: "How to request training hours",
+    summary: "Ask a sensei to verify training completed outside your current total.",
+    steps: [
+      "Open Training hours in the student workspace.",
+      "Enter your Student ID, training date, hours, and training details.",
+      "Submit the request. Approved hours will appear in your student passport.",
+    ],
+    action: "Request training hours",
+  },
 ];
 
 const th: Topic[] = [
@@ -360,6 +374,17 @@ const th: Topic[] = [
       "ส่งแบบฟอร์มและทำตามข้อความยืนยัน",
     ],
     action: "รับข่าวทางอีเมล",
+  },
+  {
+    ...en[9],
+    title: "วิธีขอเพิ่มชั่วโมงฝึก",
+    summary: "ขอให้อาจารย์ตรวจสอบชั่วโมงการฝึกที่ยังไม่รวมอยู่ในยอดปัจจุบัน",
+    steps: [
+      "เปิดหัวข้อชั่วโมงฝึกในพื้นที่ทำงานของนักเรียน",
+      "กรอกรหัสนักเรียน วันที่ฝึก จำนวนชั่วโมง และรายละเอียดการฝึก",
+      "ส่งคำขอและรอให้อาจารย์อนุมัติ",
+    ],
+    action: "ขอตรวจสอบชั่วโมงฝึก",
   },
 ];
 
@@ -463,6 +488,17 @@ const ja: Topic[] = [
     ],
     action: "メールで受け取る",
   },
+  {
+    ...en[9],
+    title: "稽古時間を申請する方法",
+    summary: "現在の合計に含まれていない稽古時間を先生に確認してもらいます。",
+    steps: [
+      "生徒ワークスペースで「稽古時間」を開きます。",
+      "生徒ID、稽古日、時間数、稽古内容を入力します。",
+      "申請を送信し、先生の承認を待ちます。",
+    ],
+    action: "稽古時間の確認を申請",
+  },
 ];
 
 const zh: Topic[] = [
@@ -564,6 +600,17 @@ const zh: Topic[] = [
       "提交并按确认提示操作。",
     ],
     action: "通过邮件接收更新",
+  },
+  {
+    ...en[9],
+    title: "如何申请训练小时数",
+    summary: "请老师核实尚未计入当前总数的训练时间。",
+    steps: [
+      "在学员工作区打开“训练小时数”。",
+      "填写学员编号、训练日期、小时数和训练详情。",
+      "提交申请并等待老师批准。",
+    ],
+    action: "申请核实训练小时数",
   },
 ];
 

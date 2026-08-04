@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
-  AlertCircle, Archive, Camera, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Database, Eye, FileImage, GraduationCap,
+  AlertCircle, Archive, Camera, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Eye, GraduationCap,
   LoaderCircle, Plus, ReceiptText, RotateCcw, Save, Search, Trash2, UserRound, Users, X,
 } from "lucide-react";
 import { useLocation } from "react-router";
@@ -52,7 +52,16 @@ type ListResponse = {
   summary: { total: number; active: number; archived: number; pending_profiles: number }; ranks: string[]; suggestedStudentId: string;
 };
 type BulkDraft = { type: "hours" | "approve_hours" | "promotion" | "exam_pass"; hours: string; levels: string; location: string; examinationDate: string; preview: boolean };
-type SelectionAction = { type: "approve" | "reject" | "archive" | "restore" | "delete"; studentVisibleNote: string; internalNote: string; confirmationText: string };
+type SelectionAction = { type: "approve" | "reject" | "archive" | "restore"; studentVisibleNote: string; internalNote: string; confirmationText: string };
+type DeletionPreview = {
+  student: { id: string; publicStudentId: string; name: string; englishName: string | null; thaiName: string | null; currentRank: string; dojoName: string; archivedAt: string | null };
+  canDelete: boolean;
+  blockedReason: string;
+  confirmationPhrase: string;
+  records: Array<{ key: string; label: string; count: number }>;
+  emptyGroups: string[];
+  totals: { studentRecords: number; relatedRecords: number; totalRecords: number; storedFiles: number; auditEntriesRedacted: number; contributionMonths: number };
+};
 type WorkspaceSection = "overview" | "profile" | "training" | "examinations" | "payments" | "history";
 type StudentPageMode = "students" | "profileRequests" | "trainingRequests";
 
@@ -135,13 +144,12 @@ export function AdminStudentsPage({ mode = "students" }: { mode?: StudentPageMod
   const [notice, setNotice] = useState("");
   const [detail, setDetail] = useState<Detail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [hoursEdit, setHoursEdit] = useState<{ id: string; value: string; previous: number } | null>(null);
-  const [rowBusy, setRowBusy] = useState("");
   const [bulk, setBulk] = useState<BulkDraft | null>(null);
   const [selectionAction, setSelectionAction] = useState<SelectionAction | null>(null);
+  // Deleting forever is always one student at a time, never a selection.
+  const [deleteTarget, setDeleteTarget] = useState<StudentSummary | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [workspaceStart, setWorkspaceStart] = useState<WorkspaceSection>("overview");
-  const skipHoursBlur = useRef(false);
   const selectAllRef = useRef<HTMLInputElement>(null);
 
   const defaultStatus = mode === "profileRequests" ? "pending" : "active";
@@ -168,7 +176,7 @@ export function AdminStudentsPage({ mode = "students" }: { mode?: StudentPageMod
     else if (value === "approve_pending_hours") setBulk({ ...common, type: "approve_hours" });
     else if (value === "mass_promotion") setBulk({ ...common, type: "promotion" });
     else if (value === "mass_exam_pass") setBulk({ ...common, type: "exam_pass" });
-    else if (value === "archive" || value === "approve" || value === "reject" || value === "restore" || value === "delete") {
+    else if (value === "archive" || value === "approve" || value === "reject" || value === "restore") {
       setSelectionAction({ type: value, studentVisibleNote: "", internalNote: "", confirmationText: "" });
     }
   }
@@ -218,23 +226,6 @@ export function AdminStudentsPage({ mode = "students" }: { mode?: StudentPageMod
     finally { setDetailLoading(false); }
   }
 
-  function patchRow(id: string, patch: Partial<StudentSummary>) {
-    setStudents((current) => current.map((student) => student.id === id ? { ...student, ...patch } : student));
-  }
-
-  async function saveHoursEdit(edit = hoursEdit) {
-    if (!edit) return;
-    const value = Number(edit.value);
-    if (!Number.isFinite(value) || value < 0) { setError("Training hours must be zero or a positive number."); setHoursEdit(null); return; }
-    if (value === edit.previous) { setHoursEdit(null); return; }
-    setRowBusy(edit.id); setError("");
-    try {
-      await api(`/api/admin/students/${edit.id}/inline`, { method: "PATCH", body: JSON.stringify({ field: "total_hours", value }) });
-      patchRow(edit.id, { total_hours: value, updated_at: new Date().toISOString() }); setNotice("Training hours saved."); setHoursEdit(null);
-    } catch (reason) { patchRow(edit.id, { total_hours: edit.previous }); setHoursEdit(null); setError(reason instanceof Error ? reason.message : "Hours were restored because saving failed."); }
-    finally { setRowBusy(""); }
-  }
-
   function setSection(value: "students" | "exams" | "memberships" | "contributions" | "payslips") {
     setSectionState(value);
     const url = new URL(window.location.href);
@@ -246,8 +237,6 @@ export function AdminStudentsPage({ mode = "students" }: { mode?: StudentPageMod
     if (!selectionAction) return;
     const targets = selectionTargets(selectionAction.type);
     if (!targets.length) { setSelectionAction(null); return; }
-    const deletePhrase = `DELETE ${targets.length} ARCHIVED STUDENT${targets.length === 1 ? "" : "S"}`;
-    if (selectionAction.type === "delete" && selectionAction.confirmationText.trim() !== deletePhrase) return;
     setLoading(true); setError("");
     const failed: Array<{ student: StudentSummary; message: string }> = [];
     let completed = 0;
@@ -263,15 +252,10 @@ export function AdminStudentsPage({ mode = "students" }: { mode?: StudentPageMod
             method: "DELETE",
             body: JSON.stringify({ action: "archive", confirmed: true, studentId: student.public_student_id }),
           });
-        } else if (selectionAction.type === "restore") {
+        } else {
           await api(`/api/admin/students/${student.id}`, {
             method: "PATCH",
             body: JSON.stringify({ action: "restore", confirmed: true, studentId: student.public_student_id }),
-          });
-        } else {
-          await api(`/api/admin/students/${student.id}`, {
-            method: "DELETE",
-            body: JSON.stringify({ action: "delete_permanently", confirmed: true, studentId: student.public_student_id, confirmationText: `DELETE ${student.public_student_id}` }),
           });
         }
         completed += 1;
@@ -279,7 +263,7 @@ export function AdminStudentsPage({ mode = "students" }: { mode?: StudentPageMod
         failed.push({ student, message: reason instanceof Error ? reason.message : "The action could not be completed." });
       }
     }
-    const actionLabel = selectionAction.type === "approve" ? "accepted" : selectionAction.type === "reject" ? "denied" : selectionAction.type === "archive" ? "archived" : selectionAction.type === "restore" ? "unarchived" : "deleted";
+    const actionLabel = selectionAction.type === "approve" ? "accepted" : selectionAction.type === "reject" ? "denied" : selectionAction.type === "archive" ? "archived" : "unarchived";
     if (completed) setNotice(`${completed} student${completed === 1 ? "" : "s"} ${actionLabel}. Only eligible selected records were changed.`);
     if (failed.length) setError(`${failed.length} student${failed.length === 1 ? "" : "s"} could not be updated. ${failed[0].student.display_name}: ${failed[0].message}`);
     setSelected(new Set(failed.map(({ student }) => student.id)));
@@ -355,7 +339,6 @@ export function AdminStudentsPage({ mode = "students" }: { mode?: StudentPageMod
         {selectedArchivedRows.length ? <optgroup label={`Archived records (${selectedArchivedRows.length})`}><option value="restore">Unarchive records</option></optgroup> : null}
       </select></label>
       {selectedActiveRows.length ? <label className="admin-selection-menu"><span>Training & rank actions</span><select value="" onChange={(event) => chooseSelectionAction(event.target.value)}><option value="">Choose student action</option><option value="change_hours">Add training hours</option>{selectedPendingRows.length ? <option value="approve_pending_hours">Approve pending hours ({selectedPendingRows.length})</option> : null}<option value="mass_promotion">Mass promotion</option><option value="mass_exam_pass">Record mass exam pass</option></select></label> : null}
-      {selectedArchivedRows.length ? <button className="admin-delete-archived" onClick={() => chooseSelectionAction("delete")} aria-label={`Delete ${selectedArchivedRows.length} selected archived record${selectedArchivedRows.length === 1 ? "" : "s"}`}><Trash2 size={14} /><span>Delete archived</span><b aria-hidden="true">{selectedArchivedRows.length}</b></button> : null}
       <button className="text-link admin-selection-clear" onClick={() => setSelected(new Set())}>Clear selection</button>
     </aside> : null}
 
@@ -365,11 +348,11 @@ export function AdminStudentsPage({ mode = "students" }: { mode?: StudentPageMod
     </tr></thead><tbody>{students.map((student) => <tr key={student.id} className={selected.has(student.id) ? "is-selected" : ""}>
       <td><label className="admin-select-box"><input type="checkbox" aria-label={`Select ${student.display_name}`} checked={selected.has(student.id)} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(student.id); else next.delete(student.id); return next; })} /><span aria-hidden="true" /></label></td>
       <th><span className="admin-student-identity">{student.profile_image_url ? <img src={student.profile_image_url} alt="" /> : <span aria-hidden="true"><UserRound size={18} /></span>}<span className="admin-student-name-stack"><strong>{student.english_name || student.display_name}</strong>{student.pending_hours ? <small className="admin-student-name-stack__pending">{student.pending_hours} hours request pending</small> : null}</span></span></th><td><code>{student.public_student_id}</code></td>
-      <td>{student.current_belt}</td><td><Status value={studentRecordStatus(student)} /></td><td>{student.total_hours} hr{student.pending_hours ? <small className="admin-table-pending"> · {student.pending_hours} pending</small> : null}</td><td><div className="admin-row-actions">{mode === "profileRequests" ? <><button onClick={() => { setSelected(new Set([student.id])); setSelectionAction({ type: "approve", studentVisibleNote: "", internalNote: "", confirmationText: "" }); }}><Check size={14} /> Approve</button><button className="is-danger" onClick={() => { setSelected(new Set([student.id])); setSelectionAction({ type: "reject", studentVisibleNote: "", internalNote: "", confirmationText: "" }); }}><X size={14} /> Deny</button><button onClick={() => void openStudent(student.id)}><Eye size={14} /> Profile</button></> : student.archived_at ? <><button onClick={() => { setSelected(new Set([student.id])); setSelectionAction({ type: "restore", studentVisibleNote: "", internalNote: "", confirmationText: "" }); }}><RotateCcw size={14} /> Restore</button><button className="is-danger" onClick={() => { setSelected(new Set([student.id])); setSelectionAction({ type: "delete", studentVisibleNote: "", internalNote: "", confirmationText: "" }); }}><Trash2 size={14} /> Delete</button></> : <button onClick={() => void openStudent(student.id)}><Eye size={14} /> Open record</button>}</div></td>
+      <td>{student.current_belt}</td><td><Status value={studentRecordStatus(student)} /></td><td>{student.total_hours} hr{student.pending_hours ? <small className="admin-table-pending"> · {student.pending_hours} pending</small> : null}</td><td><div className="admin-row-actions">{mode === "profileRequests" ? <><button onClick={() => { setSelected(new Set([student.id])); setSelectionAction({ type: "approve", studentVisibleNote: "", internalNote: "", confirmationText: "" }); }}><Check size={14} /> Approve</button><button className="is-danger" onClick={() => { setSelected(new Set([student.id])); setSelectionAction({ type: "reject", studentVisibleNote: "", internalNote: "", confirmationText: "" }); }}><X size={14} /> Deny</button><button onClick={() => void openStudent(student.id)}><Eye size={14} /> Profile</button></> : student.archived_at ? <><button onClick={() => { setSelected(new Set([student.id])); setSelectionAction({ type: "restore", studentVisibleNote: "", internalNote: "", confirmationText: "" }); }}><RotateCcw size={14} /> Restore</button><button className="is-danger" onClick={() => setDeleteTarget(student)}><Trash2 size={14} /> Delete forever</button></> : <button onClick={() => void openStudent(student.id)}><Eye size={14} /> Open record</button>}</div></td>
     </tr>)}</tbody></table></div><div className="admin-student-cards">{students.map((student) => <article key={student.id}>
       <header><label className="admin-select-box"><input type="checkbox" aria-label={`Select ${student.display_name}`} checked={selected.has(student.id)} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(student.id); else next.delete(student.id); return next; })} /><span aria-hidden="true" /></label><span className="admin-student-identity">{student.profile_image_url ? <img src={student.profile_image_url} alt="" /> : <span aria-hidden="true"><UserRound size={18} /></span>}<span className="admin-student-name-stack"><strong>{student.english_name || student.display_name}</strong>{student.pending_hours ? <small className="admin-student-name-stack__pending">{student.pending_hours} hours request pending</small> : null}<small className="admin-student-name-stack__id">{student.public_student_id}</small></span></span><Status value={studentRecordStatus(student)} /></header>
       <dl><div><dt>Rank</dt><dd>{student.current_belt}</dd></div><div><dt>Training hours</dt><dd>{student.total_hours} hr{student.pending_hours ? ` · ${student.pending_hours} pending` : ""}</dd></div><div><dt>Dojo</dt><dd>{student.dojo_name}</dd></div></dl>
-      {mode === "profileRequests" ? <div className="admin-card-actions"><button className="btn-primary" type="button" onClick={() => { setSelected(new Set([student.id])); setSelectionAction({ type: "approve", studentVisibleNote: "", internalNote: "", confirmationText: "" }); }}>Approve</button><button className="btn-secondary is-danger" type="button" onClick={() => { setSelected(new Set([student.id])); setSelectionAction({ type: "reject", studentVisibleNote: "", internalNote: "", confirmationText: "" }); }}>Deny</button><button className="btn-secondary" type="button" onClick={() => void openStudent(student.id)}>Profile</button></div> : student.archived_at ? <div className="admin-card-actions"><button className="btn-primary" type="button" onClick={() => { setSelected(new Set([student.id])); setSelectionAction({ type: "restore", studentVisibleNote: "", internalNote: "", confirmationText: "" }); }}>Restore</button><button className="btn-secondary is-danger" type="button" onClick={() => { setSelected(new Set([student.id])); setSelectionAction({ type: "delete", studentVisibleNote: "", internalNote: "", confirmationText: "" }); }}>Delete</button></div> : <button className="btn-secondary" type="button" onClick={() => void openStudent(student.id)}><Eye size={16} /> Open record</button>}
+      {mode === "profileRequests" ? <div className="admin-card-actions"><button className="btn-primary" type="button" onClick={() => { setSelected(new Set([student.id])); setSelectionAction({ type: "approve", studentVisibleNote: "", internalNote: "", confirmationText: "" }); }}>Approve</button><button className="btn-secondary is-danger" type="button" onClick={() => { setSelected(new Set([student.id])); setSelectionAction({ type: "reject", studentVisibleNote: "", internalNote: "", confirmationText: "" }); }}>Deny</button><button className="btn-secondary" type="button" onClick={() => void openStudent(student.id)}>Profile</button></div> : student.archived_at ? <div className="admin-card-actions"><button className="btn-primary" type="button" onClick={() => { setSelected(new Set([student.id])); setSelectionAction({ type: "restore", studentVisibleNote: "", internalNote: "", confirmationText: "" }); }}>Restore</button><button className="btn-secondary is-danger" type="button" onClick={() => setDeleteTarget(student)}>Delete forever</button></div> : <button className="btn-secondary" type="button" onClick={() => void openStudent(student.id)}><Eye size={16} /> Open record</button>}
     </article>)}</div>{!loading && students.length === 0 ? <div className="admin-empty"><UserRound size={32} /><h2>No students found</h2><p>Try clearing the active filters or add a new student.</p></div> : null}
       <nav className="admin-pagination"><button className="btn-secondary" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}><ChevronLeft size={16} /> Previous</button><span>Page {pagination.page} of {pagination.totalPages}</span><button className="btn-secondary" disabled={page >= pagination.totalPages} onClick={() => setPage((value) => value + 1)}>Next <ChevronRight size={16} /></button></nav>
     </section>
@@ -382,7 +365,8 @@ export function AdminStudentsPage({ mode = "students" }: { mode?: StudentPageMod
 
     {(detailLoading || detail) ? <StudentDrawer detail={detail} loading={detailLoading} initialSection={workspaceStart} admin={admin} dojos={dojos} close={() => setDetail(null)} refresh={async () => { if (detail) await openStudent(detail.student.id); await load(); }} report={(message, isError = false) => isError ? setError(message) : setNotice(message)} /> : null}
     {bulk ? <BulkModal bulk={bulk} setBulk={setBulk} students={bulk.type === "approve_hours" ? selectedPendingRows : selectedActiveRows} close={() => setBulk(null)} confirm={() => void runBulk()} busy={loading} /> : null}
-    {selectionAction ? <SelectionActionModal action={selectionAction} setAction={setSelectionAction} students={selectionTargets(selectionAction.type)} close={() => setSelectionAction(null)} confirm={() => void runSelectionAction()} busy={loading} /> : null}
+    {selectionAction ? <SelectionActionModal action={selectionAction} students={selectionTargets(selectionAction.type)} close={() => setSelectionAction(null)} confirm={() => void runSelectionAction()} busy={loading} /> : null}
+    {deleteTarget ? <DeleteForeverModal student={deleteTarget} close={() => setDeleteTarget(null)} complete={async (message) => { setDeleteTarget(null); setNotice(message); setSelected(new Set()); await load(); }} report={(message) => setError(message)} /> : null}
     {createOpen ? <CreateStudentModal suggestedId={suggestedId} dojos={dojos.filter((dojo) => superAdmin || dojo.id === admin?.selectedDojoId)} selectedDojoId={admin?.selectedDojoId || ""} canManageAllDojos={superAdmin} close={() => setCreateOpen(false)} complete={async (message) => { setCreateOpen(false); setNotice(message); await load(1); }} /> : null}
   </section>;
 }
@@ -407,28 +391,100 @@ function BulkModal({ bulk, setBulk, students, close, confirm, busy }: { bulk: Bu
   return <div className="admin-confirm-backdrop"><section className="admin-bulk-modal"><header><div><p className="eyebrow">Bulk action</p><h2>{title}</h2></div><button onClick={close}><X /></button></header>{!preview ? <div className="admin-bulk-form">{bulk.type === "hours" ? <><label>Hours to add to each student<input type="number" min="0.25" step="0.25" value={bulk.hours} onChange={(event) => setBulk({ ...bulk, hours: event.target.value })} onWheel={(event) => event.currentTarget.blur()} autoFocus /></label><label>Training location <small>Optional</small><input maxLength={200} value={bulk.location} onChange={(event) => setBulk({ ...bulk, location: event.target.value })} placeholder="Example: RenShinKan Dojo" /></label></> : <><label>Rank levels promoted<input type="number" min="1" step="1" value={bulk.levels} onChange={(event) => setBulk({ ...bulk, levels: event.target.value })} onWheel={(event) => event.currentTarget.blur()} autoFocus /></label>{bulk.type === "exam_pass" ? <><label>Examination date<GregorianDateInput admin value={bulk.examinationDate} onChange={(value) => setBulk({ ...bulk, examinationDate: value })} required /></label><label>Examination location<input value={bulk.location} maxLength={200} onChange={(event) => setBulk({ ...bulk, location: event.target.value })} required /></label></> : null}</>}<p>{students.length} active student{students.length === 1 ? "" : "s"} will be affected.</p><footer><button className="btn-secondary" onClick={close}>Cancel</button><button className="btn-primary" disabled={!valid} onClick={() => setBulk({ ...bulk, preview: true })}>Review changes</button></footer></div> : <div className="admin-bulk-preview"><p>{bulk.type === "approve_hours" ? "Every pending request for these students will be approved, added once to verified training hours, and recorded with an individual audit entry." : explanation}</p>{bulk.type === "approve_hours" ? <table><thead><tr><th>Student</th><th>Current total</th><th>Pending requests</th><th>Result</th></tr></thead><tbody>{students.map((student) => <tr key={student.id}><td>{student.display_name}</td><td>{student.total_hours} hr</td><td>{student.pending_hours}</td><td>Approve and add submitted hours</td></tr>)}</tbody></table> : <table><thead><tr><th>Student</th><th>Current</th><th>Change</th><th>Result</th></tr></thead><tbody>{students.map((student) => <tr key={student.id}><td>{student.display_name}</td><td>{bulk.type === "hours" ? `${student.total_hours} hr` : student.current_belt}</td><td>{bulk.type === "hours" ? `+${hours} hr` : `+${levels} level${levels === 1 ? "" : "s"}`}</td><td>{bulk.type === "hours" ? `${Number(student.total_hours) + hours} hr` : "Validated by official progression on save"}</td></tr>)}</tbody></table>}<footer>{bulk.type !== "approve_hours" ? <button className="btn-secondary" onClick={() => setBulk({ ...bulk, preview: false })}>Back</button> : <button className="btn-secondary" onClick={close}>Cancel</button>}<button className="btn-primary" disabled={busy || !valid} onClick={confirm}>{busy ? <LoaderCircle className="spin" size={16} /> : <Check size={16} />} Confirm {students.length} student{students.length === 1 ? "" : "s"}</button></footer></div>}</section></div>;
 }
 
-function SelectionActionModal({ action, setAction, students, close, confirm, busy }: { action: SelectionAction; setAction: (value: SelectionAction) => void; students: StudentSummary[]; close: () => void; confirm: () => void; busy: boolean }) {
+function SelectionActionModal({ action, students, close, confirm, busy }: { action: SelectionAction; students: StudentSummary[]; close: () => void; confirm: () => void; busy: boolean }) {
   const count = students.length;
-  const deletePhrase = `DELETE ${count} ARCHIVED STUDENT${count === 1 ? "" : "S"}`;
-  const title = action.type === "approve" ? "Accept pending profiles" : action.type === "reject" ? "Deny pending profiles" : action.type === "archive" ? "Archive active students" : action.type === "restore" ? "Unarchive students" : "Delete archived students";
+  const title = action.type === "approve" ? "Accept pending profiles" : action.type === "reject" ? "Deny pending profiles" : action.type === "archive" ? "Archive active students" : "Unarchive students";
   const copy = action.type === "approve"
     ? "Selected usable profiles still awaiting review will become approved. Optional photos will be published when present; the neutral avatar remains when absent."
     : action.type === "reject"
       ? "Only selected profiles still awaiting approval will be denied and kept private. The decision is applied immediately and retained in the audit log."
       : action.type === "archive"
-        ? "Only selected active students will be archived. Their examination, payment, training, and audit history will remain available."
-        : action.type === "restore"
-        ? "Only selected archived records will return to the active list. Their history remains unchanged."
-        : "Selected archived students and all related applications, payments, proofs, training records, and uploaded files will be permanently deleted. Only audit-log snapshots remain.";
-  const valid = count > 0 && (action.type !== "delete" || action.confirmationText.trim() === deletePhrase);
+        ? "Archiving keeps everything. Only selected active students will move to the Archived list, and their examination, payment, training, and audit history stays available."
+        : "Only selected archived records will return to the active list. Their history remains unchanged.";
+  const valid = count > 0;
   return <div className="admin-confirm-backdrop"><section className="admin-bulk-modal admin-selection-modal" role="alertdialog" aria-modal="true" aria-labelledby="selection-action-title">
     <header><div><p className="eyebrow">Selected records</p><h2 id="selection-action-title">{title}</h2></div><button aria-label="Close" onClick={close}><X /></button></header>
     <form className="admin-bulk-form" onSubmit={(event) => { event.preventDefault(); if (valid) confirm(); }}>
       <p>{copy}</p>
       <div className="admin-selection-preview-list">{students.map((student) => <span key={student.id}><strong>{student.display_name}</strong><code>{student.public_student_id}</code></span>)}</div>
-      {action.type === "delete" ? <label className="admin-confirm-phrase">Type <strong>{deletePhrase}</strong> to confirm<input value={action.confirmationText} onChange={(event) => setAction({ ...action, confirmationText: event.target.value })} autoComplete="off" /></label> : null}
-      <footer><button type="button" className="btn-secondary" onClick={close}>Cancel</button><button className={`btn-primary ${action.type === "reject" || action.type === "delete" ? "is-danger" : ""}`} disabled={busy || !valid}>{busy ? <LoaderCircle className="spin" size={16} /> : action.type === "archive" ? <Archive size={16} /> : action.type === "restore" ? <RotateCcw size={16} /> : action.type === "delete" ? <Trash2 size={16} /> : action.type === "approve" ? <Check size={16} /> : <X size={16} />} Confirm {count} student{count === 1 ? "" : "s"}</button></footer>
+      <footer><button type="button" className="btn-secondary" onClick={close}>Cancel</button><button className={`btn-primary ${action.type === "reject" ? "is-danger" : ""}`} disabled={busy || !valid}>{busy ? <LoaderCircle className="spin" size={16} /> : action.type === "archive" ? <Archive size={16} /> : action.type === "restore" ? <RotateCcw size={16} /> : action.type === "approve" ? <Check size={16} /> : <X size={16} />} Confirm {count} student{count === 1 ? "" : "s"}</button></footer>
     </form>
+  </section></div>;
+}
+
+/**
+ * Delete forever. One student only, never a selection. Step one shows who and
+ * what will go; step two is a separate, explicit second confirmation.
+ */
+function DeleteForeverModal({ student, close, complete, report }: { student: StudentSummary; close: () => void; complete: (message: string) => Promise<void>; report: (message: string) => void }) {
+  const [preview, setPreview] = useState<DeletionPreview | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [step, setStep] = useState<1 | 2>(1);
+  const [phrase, setPhrase] = useState("");
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true); setLoadError(""); setPreview(null); setStep(1); setPhrase(""); setAcknowledged(false);
+    void api<DeletionPreview>(`/api/admin/students/${student.id}/deletion-preview`)
+      .then((body) => { if (active) setPreview(body); })
+      .catch((reason) => { if (active) setLoadError(reason instanceof Error ? reason.message : "Could not check what would be erased."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [student.id]);
+
+  const phraseMatches = Boolean(preview) && phrase.trim() === preview!.confirmationPhrase;
+  const canContinue = Boolean(preview?.canDelete) && phraseMatches && acknowledged;
+
+  async function runDelete() {
+    if (!preview || !canContinue) return;
+    setBusy(true);
+    try {
+      const result = await api<{ recordsDeleted: number; filesDeleted: number }>(`/api/admin/students/${student.id}`, {
+        method: "DELETE",
+        body: JSON.stringify({
+          action: "delete_permanently",
+          confirmed: true,
+          secondConfirmation: true,
+          studentId: preview.student.publicStudentId,
+          confirmationText: preview.confirmationPhrase,
+        }),
+      });
+      await complete(`Record erased for good. ${result.recordsDeleted} record${result.recordsDeleted === 1 ? "" : "s"} and ${result.filesDeleted} file${result.filesDeleted === 1 ? "" : "s"} were removed. No name or Student ID was kept.`);
+    } catch (reason) {
+      report(reason instanceof Error ? reason.message : "The record could not be deleted. Nothing was removed.");
+      close();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <div className="admin-confirm-backdrop"><section className="admin-bulk-modal admin-selection-modal admin-delete-forever" role="alertdialog" aria-modal="true" aria-labelledby="delete-forever-title">
+    <header><div><p className="eyebrow">Cannot be undone</p><h2 id="delete-forever-title">Delete forever</h2></div><button aria-label="Close" onClick={close}><X /></button></header>
+    {loading ? <div className="admin-bulk-form"><p><LoaderCircle className="spin" size={16} /> Checking what would be erased…</p></div>
+      : loadError ? <div className="admin-bulk-form"><p role="alert">{loadError}</p><footer><button type="button" className="btn-secondary" onClick={close}>Close</button></footer></div>
+      : !preview ? null
+      : step === 1 ? <div className="admin-bulk-form">
+        <p><strong>This erases the record for good. It cannot be undone, and it cannot be restored from the Archived list.</strong></p>
+        <dl className="admin-detail-grid">
+          <div><dt>Name</dt><dd>{preview.student.name}</dd></div>
+          <div><dt>Student ID</dt><dd><code>{preview.student.publicStudentId}</code></dd></div>
+          <div><dt>Rank</dt><dd>{preview.student.currentRank}</dd></div>
+          <div><dt>Dojo</dt><dd>{preview.student.dojoName}</dd></div>
+        </dl>
+        {!preview.canDelete ? <p role="alert">{preview.blockedReason}</p> : null}
+        <h3>Everything that will be erased</h3>
+        {preview.records.length ? <ul className="admin-deletion-list">{preview.records.map((row) => <li key={row.key}><span>{row.label}</span><b>{row.count}</b></li>)}</ul> : <p>No related records were found. Only the student record itself will be erased.</p>}
+        <p>{preview.totals.totalRecords} record{preview.totals.totalRecords === 1 ? "" : "s"} in total, {preview.totals.storedFiles} stored file{preview.totals.storedFiles === 1 ? "" : "s"} (profile photo and payment images), and {preview.totals.auditEntriesRedacted} history entr{preview.totals.auditEntriesRedacted === 1 ? "y" : "ies"} will have the name and Student ID stripped out.</p>
+        <footer><button type="button" className="btn-secondary" onClick={close}>Cancel</button><button type="button" className="btn-primary is-danger" disabled={!preview.canDelete} onClick={() => setStep(2)}><Trash2 size={16} /> Continue</button></footer>
+      </div> : <form className="admin-bulk-form" onSubmit={(event) => { event.preventDefault(); void runDelete(); }}>
+        <p><strong>Second and final confirmation.</strong> {preview.student.name} ({preview.student.publicStudentId}) and {preview.totals.totalRecords} record{preview.totals.totalRecords === 1 ? "" : "s"} will be erased. There is no undo and no backup copy inside the site.</p>
+        <label className="admin-confirm-phrase">Type <strong>{preview.confirmationPhrase}</strong> to confirm<input value={phrase} onChange={(event) => setPhrase(event.target.value)} autoComplete="off" autoFocus /></label>
+        <label className="admin-confirm-check"><input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} /> I understand this cannot be undone.</label>
+        <footer><button type="button" className="btn-secondary" onClick={() => setStep(1)}>Back</button><button className="btn-primary is-danger" disabled={busy || !canContinue}>{busy ? <LoaderCircle className="spin" size={16} /> : <Trash2 size={16} />} Delete forever</button></footer>
+      </form>}
   </section></div>;
 }
 

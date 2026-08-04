@@ -3,6 +3,7 @@ import {
   adminAuditMetadata,
   assertStudentAccess,
   auditStatement,
+  contributionPeriodCountStatement,
   currentBangkokMonthKey,
   requestIdentifier,
   requireStudentDb,
@@ -90,11 +91,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
           current_rank_snapshot, active_at_period_start, created_at
         ) VALUES (?, ?, ?, ?, ?, ?, 1, ?)`)
           .bind(crypto.randomUUID(), currentMonth, id, existing.display_name, existing.public_student_id, existing.current_belt, now),
-        db.prepare(`UPDATE contribution_periods SET active_student_count_snapshot = (
-          SELECT COUNT(*) FROM contribution_period_students r
-          JOIN students s ON s.id = r.student_id
-          WHERE r.month_key = ? AND r.active_at_period_start = 1 AND s.dojo_id = 'dojo-rsk'
-        ) WHERE month_key = ?`).bind(currentMonth, currentMonth),
+        contributionPeriodCountStatement(db, currentMonth),
       ] : []),
       auditStatement(db, {
         actorType: "administrator", ...adminAuditMetadata(session, request), action: "profile_approved", entityType: "student", entityId: id, studentId: id,

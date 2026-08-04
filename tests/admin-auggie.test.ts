@@ -41,6 +41,90 @@ vi.mock("../functions/_lib/rateLimit", () => ({
   consumeRateLimit: async () => true,
 }));
 
+// The reviewed administration endpoints are mocked so the tests can assert what
+// Admin Auggie delegates to them, and how often, without re-running their own
+// domain transactions.
+type DelegatedCall = {
+  route: string;
+  url: string;
+  params: Record<string, string>;
+  body: Record<string, unknown>;
+  headers: Record<string, string>;
+};
+
+const delegated = vi.hoisted(() => {
+  const state = {
+    calls: [] as Array<{
+      route: string;
+      url: string;
+      params: Record<string, string>;
+      body: Record<string, unknown>;
+      headers: Record<string, string>;
+    }>,
+    status: 200,
+    body: { ok: true } as Record<string, unknown>,
+    // Lets a test stand in for the reviewed endpoint's own write, so an undo
+    // can be prepared against a database that really moved.
+    apply: undefined as
+      | ((call: {
+          route: string;
+          params: Record<string, string>;
+          body: Record<string, unknown>;
+        }) => void)
+      | undefined,
+  };
+  return {
+    state,
+    handler: (route: string) =>
+      async function onRequestPost(context: {
+        request: Request;
+        params?: Record<string, string>;
+      }) {
+        const call = {
+          route,
+          url: context.request.url,
+          params: (context.params || {}) as Record<string, string>,
+          body: (await context.request.json()) as Record<string, unknown>,
+          headers: Object.fromEntries(context.request.headers as never),
+        };
+        state.calls.push(call);
+        if (state.status < 400) state.apply?.(call);
+        return new Response(JSON.stringify(state.body), {
+          status: state.status,
+          headers: { "Content-Type": "application/json" },
+        });
+      },
+  };
+});
+
+vi.mock("../functions/api/admin/examinations", () => ({
+  onRequestPost: delegated.handler("admin/examinations"),
+}));
+vi.mock("../functions/api/admin/examinations/[applicationId]", () => ({
+  onRequestPost: delegated.handler("admin/examination-application"),
+}));
+vi.mock("../functions/api/admin/contributions", () => ({
+  onRequestPost: delegated.handler("admin/contributions"),
+}));
+vi.mock("../functions/api/admin/payment-proofs", () => ({
+  onRequestPost: delegated.handler("admin/payment-proofs"),
+}));
+vi.mock("../functions/api/admin/students/[id]", () => ({
+  onRequestPut: delegated.handler("admin/student-record"),
+}));
+vi.mock("../functions/api/admin/students/[id]/hours", () => ({
+  onRequestPost: delegated.handler("admin/student-hours"),
+}));
+vi.mock("../functions/api/admin/students/[id]/exam", () => ({
+  onRequestPost: delegated.handler("admin/student-exam"),
+}));
+vi.mock("../functions/api/admin/students/[id]/profile-status", () => ({
+  onRequestPost: delegated.handler("admin/student-profile-status"),
+}));
+vi.mock("../functions/api/admin/students/bulk", () => ({
+  onRequestPost: delegated.handler("admin/students-bulk"),
+}));
+
 import {
   AdminAuggieError,
   confirmAdminAuggieOperation,
@@ -66,7 +150,17 @@ type FakeStudent = {
   deleted_at: string | null;
   updated_at: string;
   total_hours: number;
+  dojo_joined_date: string;
 };
+
+const STUDENT_GUARD_PREFIXES = [
+  "__student_record__",
+  "__student_hours__",
+  "__student_exam__",
+  "__student_profile__",
+  "__bulk_student__",
+  "__rank__",
+];
 
 class FakeStatement {
   values: unknown[] = [];
@@ -113,6 +207,89 @@ class FakeDb {
   contributionPeriodExists = false;
   contributionSnapshots = new Set<string>();
   currentBangkokMonthOverride?: string;
+  examCycle: { id: string; name: string } | null = null;
+  examStatuses = new Map<
+    string,
+    { status: string; payment_status: string; application_status: string }
+  >();
+  applications = new Map<
+    string,
+    {
+      id: string;
+      student_id: string;
+      status: string;
+      payment_status: string;
+      attempted_rank: string;
+    }
+  >();
+  contributionRoster = new Map<string, string>();
+  proofs = new Map<
+    string,
+    {
+      id: string;
+      student_id: string;
+      status: string;
+      payment_type: string;
+      covered: number;
+    }
+  >();
+
+  pendingHourRequests = new Map<string, { count: number; hours: number }>();
+  rankWrites = 0;
+
+  // Mirrors the exact strings the server's own guard SQL builds, so a test
+  // fails whenever the two drift apart.
+  studentStateFor(query: string, studentId: string) {
+    const row = this.students.get(studentId);
+    if (!row) return "missing";
+    const total = Number(row.total_hours || 0).toFixed(2);
+    if (query.includes("s.public_visible") && query.includes("dojo_joined_date"))
+      return [
+        row.current_belt,
+        row.public_visible,
+        row.dojo_joined_date || "",
+        row.active,
+        row.archived_at || "",
+        row.profile_status,
+      ].join("|");
+    if (query.includes("s.profile_status AS state")) return row.profile_status;
+    if (query.includes("training_hour_requests")) {
+      const pending = this.pendingHourRequests.get(studentId) || {
+        count: 0,
+        hours: 0,
+      };
+      return `${row.active}|${total}|${pending.count}|${pending.hours.toFixed(2)}`;
+    }
+    if (query.includes("printf('%.2f'")) return `${row.active}|${total}`;
+    return `${row.current_belt}|${row.active}`;
+  }
+
+  examState(studentId: string) {
+    const row = this.examStatuses.get(studentId);
+    if (!this.students.has(studentId)) return "missing";
+    return `${row?.status || "not_signed_up"}|${row?.payment_status || ""}|${
+      row?.application_status || ""
+    }|${this.students.get(studentId)!.active}`;
+  }
+
+  delegatedGuardState(targetId: string) {
+    const [prefix, id] = [
+      targetId.slice(0, targetId.indexOf(":")),
+      targetId.slice(targetId.indexOf(":") + 1),
+    ];
+    if (prefix === "__exam__") return this.examState(id);
+    if (prefix === "__exam_application__") {
+      const application = this.applications.get(id);
+      return application
+        ? `${application.status}|${application.payment_status}`
+        : "missing";
+    }
+    if (prefix === "__contribution__")
+      return this.contributionRoster.get(id) || "missing";
+    if (prefix === "__payslip__")
+      return this.proofs.get(id)?.status || "missing";
+    return null;
+  }
 
   prepare(query: string) {
     return new FakeStatement(this, query.replace(/\s+/g, " ").trim());
@@ -142,6 +319,50 @@ class FakeDb {
       return this.contributionPeriodExists
         ? { month_key: String(values[0]) }
         : null;
+    if (query.includes("FROM examination_cycles WHERE status = 'active'"))
+      return this.examCycle;
+    if (query.includes("AS dojo_joined_date")) {
+      const row = this.students.get(String(values[0]));
+      return row
+        ? {
+            current_belt: row.current_belt,
+            public_visible: row.public_visible,
+            dojo_joined_date: row.dojo_joined_date || "",
+            active: row.active,
+            archived_at: row.archived_at || "",
+            profile_status: row.profile_status,
+          }
+        : null;
+    }
+    if (query.includes("AS state")) {
+      if (query.includes("FROM examination_applications WHERE id = ?"))
+        return { state: this.delegatedGuardState(`__exam_application__:${values[0]}`) };
+      if (query.includes("FROM contribution_period_students r"))
+        return { state: this.contributionRoster.get(String(values[1])) || null };
+      if (query.includes("FROM payment_proofs WHERE id = ?"))
+        return { state: this.proofs.get(String(values[0]))?.status || null };
+      if (query.includes("FROM students s WHERE s.id = ?"))
+        return { state: this.studentStateFor(query, String(values[0])) };
+      return { state: this.examState(String(values[3])) };
+    }
+    if (query.includes("SUM(CASE WHEN COALESCE(ecs.status")) {
+      const rows = [...this.examStatuses.values()];
+      return {
+        total: this.students.size,
+        not_signed_up: this.students.size - rows.length,
+        unpaid: rows.filter((row) => row.status === "unpaid").length,
+        paid: rows.filter((row) => row.status === "paid").length,
+      };
+    }
+    if (query.includes("SUM(CASE WHEN COALESCE(c.status")) {
+      const rows = [...this.contributionRoster.values()];
+      return {
+        total: rows.length,
+        no_submission: rows.filter((row) => row === "no_submission").length,
+        awaiting: rows.filter((row) => row === "awaiting_payment").length,
+        paid: rows.filter((row) => row === "paid").length,
+      };
+    }
     return null;
   }
 
@@ -173,12 +394,127 @@ class FakeDb {
         .filter((student) => !dojoId || student.dojo_id === dojoId)
         .map((student) => ({ ...student }));
     }
+    if (
+      query.includes("FROM contribution_period_students r JOIN students s") &&
+      query.includes("r.student_id IN (")
+    ) {
+      const scoped = query.includes("AND s.dojo_id = 'dojo-rsk'");
+      return values
+        .slice(1)
+        .map(String)
+        .filter(
+          (studentId) =>
+            this.contributionRoster.has(studentId) &&
+            (!scoped ||
+              this.students.get(studentId)?.dojo_id === "dojo-rsk"),
+        )
+        .map((studentId) => ({
+          student_id: studentId,
+          status: this.contributionRoster.get(studentId),
+        }));
+    }
     if (query.includes("FROM contribution_period_students"))
       return values
         .slice(1)
         .map(String)
         .filter((studentId) => this.contributionSnapshots.has(studentId))
         .map((studentId) => ({ student_id: studentId }));
+    if (
+      query.includes("LEFT JOIN examination_applications ea") &&
+      query.includes("WHERE s.id IN (")
+    ) {
+      return values
+        .slice(2)
+        .map(String)
+        .filter((studentId) => this.students.has(studentId))
+        .map((studentId) => {
+          const exam = this.examStatuses.get(studentId);
+          return {
+            id: studentId,
+            status: exam?.status || "not_signed_up",
+            payment_status: exam?.payment_status || "",
+            application_status: exam?.application_status || "",
+            active: this.students.get(studentId)!.active,
+          };
+        });
+    }
+    if (query.includes("FROM training_hour_requests WHERE status = 'pending'"))
+      return values
+        .map(String)
+        .filter((studentId) => this.pendingHourRequests.has(studentId))
+        .map((studentId) => ({
+          student_id: studentId,
+          request_count: this.pendingHourRequests.get(studentId)!.count,
+          pending_hours: this.pendingHourRequests.get(studentId)!.hours,
+        }));
+    if (
+      query.includes(
+        "FROM examination_applications WHERE student_id = ? AND cycle_id = ?",
+      )
+    )
+      return [...this.applications.values()]
+        .filter(
+          (application) =>
+            application.student_id === String(values[0]) &&
+            application.status === "application_submitted",
+        )
+        .map((application) => ({ ...application }));
+    if (
+      query.includes("FROM payment_proofs p JOIN students s") &&
+      query.includes("WHERE p.student_id = ?")
+    ) {
+      const dojoId = query.includes("AND s.dojo_id = ?")
+        ? String(values[1])
+        : null;
+      const examScope = query.includes("p.payment_type = 'exam'");
+      return [...this.proofs.values()]
+        .filter(
+          (proof) =>
+            proof.student_id === String(values[0]) &&
+            proof.status === "pending_review" &&
+            (examScope
+              ? proof.payment_type === "exam"
+              : proof.payment_type !== "exam") &&
+            (!dojoId ||
+              (this.students.get(proof.student_id)?.dojo_id === dojoId &&
+                proof.payment_type !== "renshinkan_monthly")),
+        )
+        .map((proof) => ({
+          id: proof.id,
+          status: proof.status,
+          payment_type: proof.payment_type,
+          covered_student_count: proof.covered,
+        }));
+    }
+    if (
+      query.includes("FROM students s JOIN dojos d") &&
+      query.includes("LEFT JOIN exam_cycle_student_status ecs")
+    ) {
+      const dojoId = query.includes("AND s.dojo_id = ?")
+        ? String(values[1])
+        : null;
+      return [...this.students.values()]
+        .filter((student) => !dojoId || student.dojo_id === dojoId)
+        .map((student) => ({
+          public_student_id: student.public_student_id,
+          display_name: student.display_name,
+          dojo_name: student.dojo_name,
+          current_rank: student.current_belt,
+          requested_rank: null,
+          status: this.examStatuses.get(student.id)?.status || "not_signed_up",
+        }));
+    }
+    if (query.includes("ORDER BY p.submitted_at DESC, p.id DESC LIMIT ?"))
+      return [...this.proofs.values()].map((proof) => ({
+        payment_type: proof.payment_type,
+        status: proof.status,
+        submitted_at: "2026-08-01T00:00:00.000Z",
+        public_student_id: this.students.get(proof.student_id)
+          ?.public_student_id,
+        display_name: this.students.get(proof.student_id)?.display_name,
+        dojo_name: this.students.get(proof.student_id)?.dojo_name,
+        covered_student_count: proof.covered,
+      }));
     return [];
   }
 
@@ -327,6 +663,21 @@ class FakeDb {
         targetId = "__contribution_period__";
         expected = "absent";
         observed = "absent";
+      } else if (
+        STUDENT_GUARD_PREFIXES.some((prefix) =>
+          String(values[1]).startsWith(`${prefix}:`),
+        )
+      ) {
+        targetId = String(values[1]);
+        expected = String(values[2]);
+        observed = this.studentStateFor(query, String(values[3]));
+      } else if (
+        this.delegatedGuardState(String(values[1])) !== null &&
+        String(values[1]).startsWith("__")
+      ) {
+        targetId = String(values[1]);
+        expected = String(values[2]);
+        observed = this.delegatedGuardState(targetId)!;
       } else {
         targetId = String(values[1]);
         expected = String(values[2]);
@@ -340,6 +691,15 @@ class FakeDb {
       if (expected !== observed)
         throw new Error("CHECK constraint failed: execution guard");
       this.guards.add(key);
+      return { success: true, meta: { changes: 1 } };
+    }
+    if (query.startsWith("UPDATE students SET current_belt = ?")) {
+      const row = this.students.get(String(values[3]));
+      if (row && row.current_belt === String(values[4])) {
+        row.current_belt = String(values[0]);
+        row.updated_at = String(values[2]);
+        this.rankWrites += 1;
+      }
       return { success: true, meta: { changes: 1 } };
     }
     if (query.startsWith("UPDATE students SET active = 0")) {
@@ -498,6 +858,7 @@ class FakeDb {
     const auditLength = this.audits.length;
     const archiveWrites = this.archiveWrites;
     const restoreWrites = this.restoreWrites;
+    const rankWrites = this.rankWrites;
     try {
       const results = [];
       for (const statement of statements) results.push(await statement.run());
@@ -511,6 +872,7 @@ class FakeDb {
       this.audits.length = auditLength;
       this.archiveWrites = archiveWrites;
       this.restoreWrites = restoreWrites;
+      this.rankWrites = rankWrites;
       throw error;
     }
   }
@@ -532,6 +894,7 @@ function student(overrides: Partial<FakeStudent> = {}): FakeStudent {
     deleted_at: null,
     updated_at: "2026-08-04T00:00:00.000Z",
     total_hours: 20,
+    dojo_joined_date: "2024-01-15",
     ...overrides,
   };
 }
@@ -569,11 +932,16 @@ function operationRequest(path: string) {
   });
 }
 
-function env(db: FakeDb, run: ReturnType<typeof vi.fn>) {
+function env(
+  db: FakeDb,
+  run: ReturnType<typeof vi.fn>,
+  extra: Record<string, unknown> = {},
+) {
   return {
     STUDENT_DB: db,
     SESSION_SECRET: "a".repeat(48),
     AI: { run },
+    ...extra,
   } as never;
 }
 
@@ -589,6 +957,10 @@ beforeEach(() => {
     allowedDojoIds: [],
     selectedDojoId: "dojo-rsk",
   };
+  delegated.state.calls.length = 0;
+  delegated.state.status = 200;
+  delegated.state.body = { ok: true };
+  delegated.state.apply = undefined;
 });
 
 describe("Admin Auggie inference boundary", () => {
@@ -1211,5 +1583,997 @@ describe("Admin Auggie prepared operations", () => {
       manualOnly: true,
     });
     expect(db.operations.size).toBe(0);
+  });
+});
+
+function examDb() {
+  const db = new FakeDb();
+  db.examCycle = { id: "cycle-2026", name: "August 2026" };
+  db.students.set("student-rsk-1001", student());
+  db.examStatuses.set("student-rsk-1001", {
+    status: "unpaid",
+    payment_status: "payment_pending",
+    application_status: "application_submitted",
+  });
+  return db;
+}
+
+async function prepare(
+  db: FakeDb,
+  toolName: string,
+  args: Record<string, unknown>,
+  requestId: string,
+  environment: Record<string, unknown> = {},
+) {
+  return (await handleAdminAuggieChat(
+    request("Prepare this change", requestId),
+    env(
+      db,
+      vi.fn(async () => tool(toolName, args)),
+      environment,
+    ),
+  )) as {
+    operation: {
+      id: string;
+      confirmationPhrase: string;
+      secondaryConfirmationPhrase?: string;
+      requiresSecondaryConfirmation?: boolean;
+      undoable?: boolean;
+      path: string;
+      preview: Record<string, unknown>;
+    };
+  };
+}
+
+describe("Admin Auggie examination and payment tools", () => {
+  it("keeps examination reads inside the administrator's own dojo", async () => {
+    authState.session.role = "dojo";
+    authState.session.selectedDojoId = "dojo-cmu";
+    authState.session.allowedDojoIds = ["dojo-cmu"];
+    const db = examDb();
+    db.students.set(
+      "student-cmu-2001",
+      student({
+        id: "student-cmu-2001",
+        public_student_id: "CMU-2001",
+        display_name: "Chiang Mai Student",
+        dojo_id: "dojo-cmu",
+        dojo_name: "CMU Aikido",
+      }),
+    );
+    const response = (await handleAdminAuggieChat(
+      request("Show the exam roster"),
+      env(
+        db,
+        vi.fn(async () => tool("list_examination_applications", {})),
+      ),
+    )) as { students: Array<{ studentId: string }> };
+    expect(response.students.map((entry) => entry.studentId)).toEqual([
+      "CMU-2001",
+    ]);
+  });
+
+  it("requires both exact phrases, delegates once, and marks the audit AI-made", async () => {
+    const db = examDb();
+    const proposal = await prepare(
+      db,
+      "propose_examination_status",
+      { status: "paid", studentIds: ["RSK-1001"] },
+      "exam-paid-1001",
+    );
+    expect(proposal.operation.requiresSecondaryConfirmation).toBe(true);
+    expect(proposal.operation.confirmationPhrase).toBe("EXAM PAID 1 STUDENT");
+    expect(proposal.operation.secondaryConfirmationPhrase).toBe(
+      "CONFIRM PAYMENT CHANGE 1 STUDENT",
+    );
+    expect(proposal.operation.path).toBe("/admin/exam-applications");
+    expect(proposal.operation.undoable).toBe(false);
+
+    await expect(
+      confirmAdminAuggieOperation(
+        operationRequest("/api/admin/auggie/confirm"),
+        env(db, vi.fn()),
+        proposal.operation.id,
+        proposal.operation.confirmationPhrase,
+        "en",
+      ),
+    ).rejects.toMatchObject({
+      code: "ADMIN_AUGGIE_SECOND_CONFIRMATION_REQUIRED",
+    });
+    await expect(
+      confirmAdminAuggieOperation(
+        operationRequest("/api/admin/auggie/confirm"),
+        env(db, vi.fn()),
+        proposal.operation.id,
+        proposal.operation.confirmationPhrase,
+        "en",
+        "CONFIRM PAYMENT CHANGE 2 STUDENTS",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_CONFIRMATION_MISMATCH" });
+    expect(delegated.state.calls).toHaveLength(0);
+    expect(db.operations.get(proposal.operation.id)?.status).toBe("prepared");
+
+    const result = (await confirmAdminAuggieOperation(
+      operationRequest("/api/admin/auggie/confirm"),
+      env(db, vi.fn()),
+      proposal.operation.id,
+      proposal.operation.confirmationPhrase,
+      "en",
+      proposal.operation.secondaryConfirmationPhrase!,
+    )) as { count: number; delegatedRequestId: string; undoable: boolean };
+    expect(result.count).toBe(1);
+    expect(result.undoable).toBe(false);
+    expect(delegated.state.calls).toHaveLength(1);
+
+    const call = delegated.state.calls[0];
+    expect(call.route).toBe("admin/examinations");
+    expect(call.body).toEqual({
+      action: "update_status",
+      confirmed: true,
+      cycleId: "cycle-2026",
+      status: "paid",
+      studentIds: ["student-rsk-1001"],
+    });
+    expect(call.headers["x-request-id"]).toBe(
+      `admin-auggie:${proposal.operation.id}`,
+    );
+    expect(result.delegatedRequestId).toBe(
+      `admin-auggie:${proposal.operation.id}`,
+    );
+    expect(db.archiveWrites + db.restoreWrites).toBe(0);
+
+    const success = db.audits.find(
+      (values) => values[1] === "admin_ai_write_succeeded",
+    );
+    expect(JSON.parse(String(success?.[13]))).toMatchObject({
+      aiGenerated: true,
+      aiAssistant: "admin_auggie",
+      delegatedRoute: "admin/examinations",
+      secondConfirmationRequired: true,
+    });
+
+    await confirmAdminAuggieOperation(
+      operationRequest("/api/admin/auggie/confirm"),
+      env(db, vi.fn()),
+      proposal.operation.id,
+      proposal.operation.confirmationPhrase,
+      "en",
+      proposal.operation.secondaryConfirmationPhrase!,
+    );
+    expect(delegated.state.calls).toHaveLength(1);
+
+    await expect(
+      prepareAdminAuggieUndo(
+        operationRequest("/api/admin/auggie/undo"),
+        env(db, vi.fn()),
+        proposal.operation.id,
+        "en",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_UNDO_UNAVAILABLE" });
+  });
+
+  it("never offers or runs a money tool outside the administrator's permission", async () => {
+    authState.session.role = "dojo";
+    authState.session.selectedDojoId = "dojo-cmu";
+    authState.session.allowedDojoIds = ["dojo-cmu"];
+    const db = examDb();
+    const run = vi.fn(async () =>
+      tool("propose_contribution_status", {
+        status: "paid",
+        studentIds: ["RSK-1001"],
+      }),
+    );
+    await expect(
+      handleAdminAuggieChat(request("Mark them paid"), env(db, run)),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_ROUTE_FORBIDDEN" });
+    const offered = (
+      run.mock.calls[0][1] as {
+        tools: Array<{ function: { name: string } }>;
+      }
+    ).tools.map((entry) => entry.function.name);
+    expect(offered).not.toContain("propose_contribution_status");
+    expect(offered).not.toContain("get_contribution_summary");
+    expect(offered).toContain("propose_examination_status");
+    expect(delegated.state.calls).toHaveLength(0);
+  });
+
+  it("takes the contribution amount from server configuration, never from the model", async () => {
+    const db = examDb();
+    db.contributionRoster.set("student-rsk-1001", "awaiting_payment");
+    await expect(
+      prepare(
+        db,
+        "propose_contribution_status",
+        { status: "paid", studentIds: ["RSK-1001"], amount: 99 },
+        "contribution-amount-1001",
+        { RENSHINKAN_MONTHLY_CONTRIBUTION_AMOUNT: "500" },
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_REQUEST_INVALID" });
+
+    await expect(
+      prepare(
+        db,
+        "propose_contribution_status",
+        { status: "paid", studentIds: ["RSK-1001"] },
+        "contribution-unset-1001",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_CONFIGURATION" });
+
+    const proposal = await prepare(
+      db,
+      "propose_contribution_status",
+      { status: "paid", studentIds: ["RSK-1001"] },
+      "contribution-paid-1001",
+      { RENSHINKAN_MONTHLY_CONTRIBUTION_AMOUNT: "500" },
+    );
+    expect(proposal.operation.requiresSecondaryConfirmation).toBe(true);
+    await confirmAdminAuggieOperation(
+      operationRequest("/api/admin/auggie/confirm"),
+      env(db, vi.fn(), { RENSHINKAN_MONTHLY_CONTRIBUTION_AMOUNT: "500" }),
+      proposal.operation.id,
+      proposal.operation.confirmationPhrase,
+      "en",
+      proposal.operation.secondaryConfirmationPhrase!,
+    );
+    expect(delegated.state.calls[0].body).toMatchObject({
+      contributionType: "renshinkan_monthly",
+      action: "update_status",
+      confirmed: true,
+      status: "paid",
+      amount: 500,
+      studentIds: ["student-rsk-1001"],
+    });
+  });
+
+  it("blocks a payslip decision when another administrator reviewed it first", async () => {
+    const db = examDb();
+    db.proofs.set("proof-1", {
+      id: "proof-1",
+      student_id: "student-rsk-1001",
+      status: "pending_review",
+      payment_type: "exam",
+      covered: 1,
+    });
+    const proposal = await prepare(
+      db,
+      "propose_payment_proof_decision",
+      { decision: "approve", scope: "exam", studentIds: ["RSK-1001"] },
+      "payslip-approve-1001",
+    );
+    expect(proposal.operation.secondaryConfirmationPhrase).toBe(
+      "CONFIRM REVIEWED EVIDENCE 1 PAYSLIP",
+    );
+    db.proofs.get("proof-1")!.status = "approved";
+
+    await expect(
+      confirmAdminAuggieOperation(
+        operationRequest("/api/admin/auggie/confirm"),
+        env(db, vi.fn()),
+        proposal.operation.id,
+        proposal.operation.confirmationPhrase,
+        "en",
+        proposal.operation.secondaryConfirmationPhrase!,
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_STALE" });
+    expect(delegated.state.calls).toHaveLength(0);
+    expect(
+      db.audits.filter((values) => values[1] === "admin_ai_write_failed"),
+    ).toHaveLength(1);
+    expect(db.operations.get(proposal.operation.id)?.status).toBe("failed");
+  });
+
+  it("fails safely when the reviewed endpoint refuses the delegated write", async () => {
+    const db = examDb();
+    db.applications.set("application-1", {
+      id: "application-1",
+      student_id: "student-rsk-1001",
+      status: "application_submitted",
+      payment_status: "payment_pending",
+      attempted_rank: "5th Kyu",
+    });
+    const proposal = await prepare(
+      db,
+      "propose_examination_rejection",
+      { studentId: "RSK-1001" },
+      "exam-reject-1001",
+    );
+    expect(proposal.operation.confirmationPhrase).toBe(
+      "REJECT 1 EXAM APPLICATION",
+    );
+    expect(proposal.operation.requiresSecondaryConfirmation).toBe(false);
+    delegated.state.status = 409;
+    delegated.state.body = {
+      error: "Another administrator has already processed this application.",
+    };
+    await expect(
+      confirmAdminAuggieOperation(
+        operationRequest("/api/admin/auggie/confirm"),
+        env(db, vi.fn()),
+        proposal.operation.id,
+        proposal.operation.confirmationPhrase,
+        "en",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_DELEGATED_REJECTED" });
+    expect(delegated.state.calls[0].params).toEqual({
+      applicationId: "application-1",
+    });
+    expect(db.operations.get(proposal.operation.id)?.status).toBe("failed");
+    expect(
+      db.audits.some((values) => values[1] === "admin_ai_write_succeeded"),
+    ).toBe(false);
+  });
+
+  it("edits one student record through the reviewed endpoint and undoes it", async () => {
+    const db = new FakeDb();
+    db.students.set("student-rsk-1001", student({ current_belt: "6 Kyu" }));
+    delegated.state.apply = (call: DelegatedCall) => {
+      const row = db.students.get("student-rsk-1001")!;
+      if (call.body.currentBelt) row.current_belt = String(call.body.currentBelt);
+    };
+    const proposal = await prepare(
+      db,
+      "propose_student_record_update",
+      { studentId: "RSK-1001", currentRank: "5 Kyu" },
+      "student-edit-1001",
+    );
+    expect(proposal.operation.confirmationPhrase).toBe("EDIT RSK-1001");
+    expect(proposal.operation.requiresSecondaryConfirmation).toBe(false);
+    expect(proposal.operation.path).toBe("/admin/students");
+    expect(proposal.operation.preview.records).toEqual([
+      expect.objectContaining({
+        studentId: "RSK-1001",
+        before: "6 Kyu",
+        after: "5 Kyu",
+      }),
+    ]);
+
+    const result = (await confirmAdminAuggieOperation(
+      operationRequest("/api/admin/auggie/confirm"),
+      env(db, vi.fn()),
+      proposal.operation.id,
+      proposal.operation.confirmationPhrase,
+      "en",
+    )) as { count: number; undoable: boolean; undoUntil?: string };
+    expect(result.undoable).toBe(true);
+    expect(delegated.state.calls).toHaveLength(1);
+    expect(delegated.state.calls[0].route).toBe("admin/student-record");
+    expect(delegated.state.calls[0].params).toEqual({ id: "student-rsk-1001" });
+    expect(delegated.state.calls[0].url).toContain(
+      "/api/admin/students/student-rsk-1001",
+    );
+    // Only the one instruction is sent; every other field stays with the row
+    // the reviewed endpoint re-reads for itself.
+    expect(delegated.state.calls[0].body).toEqual({ currentBelt: "5 Kyu" });
+    expect(db.students.get("student-rsk-1001")!.current_belt).toBe("5 Kyu");
+    expect(
+      JSON.parse(
+        String(
+          db.audits.find((values) => values[1] === "admin_ai_write_succeeded")
+            ?.[13],
+        ),
+      ),
+    ).toMatchObject({ aiGenerated: true, aiAssistant: "admin_auggie" });
+
+    const undo = (await prepareAdminAuggieUndo(
+      operationRequest("/api/admin/auggie/undo"),
+      env(db, vi.fn()),
+      proposal.operation.id,
+      "en",
+    )) as { operation: { id: string; confirmationPhrase: string } };
+    expect(undo.operation.confirmationPhrase).toBe("UNDO EDIT RSK-1001");
+    await confirmAdminAuggieOperation(
+      operationRequest("/api/admin/auggie/confirm"),
+      env(db, vi.fn()),
+      undo.operation.id,
+      undo.operation.confirmationPhrase,
+      "en",
+    );
+    expect(delegated.state.calls[1].body).toEqual({ currentBelt: "6 Kyu" });
+    expect(db.students.get("student-rsk-1001")!.current_belt).toBe("6 Kyu");
+    expect(db.operations.get(proposal.operation.id)?.status).toBe("undone");
+  });
+
+  it("blocks a student edit that changes nothing, an unknown rank, and a later edit", async () => {
+    const db = new FakeDb();
+    db.students.set("student-rsk-1001", student({ current_belt: "6 Kyu" }));
+    await expect(
+      prepare(
+        db,
+        "propose_student_record_update",
+        { studentId: "RSK-1001", currentRank: "6 Kyu" },
+        "student-edit-noop",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TARGET_STATE" });
+    await expect(
+      prepare(
+        db,
+        "propose_student_record_update",
+        { studentId: "RSK-1001", currentRank: "Grand Master" },
+        "student-edit-bad-rank",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_REQUEST_INVALID" });
+
+    const proposal = await prepare(
+      db,
+      "propose_student_record_update",
+      { studentId: "RSK-1001", publicVisible: false },
+      "student-edit-visible",
+    );
+    db.students.get("student-rsk-1001")!.current_belt = "5 Kyu";
+    await expect(
+      confirmAdminAuggieOperation(
+        operationRequest("/api/admin/auggie/confirm"),
+        env(db, vi.fn()),
+        proposal.operation.id,
+        proposal.operation.confirmationPhrase,
+        "en",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_STALE" });
+    expect(delegated.state.calls).toHaveLength(0);
+  });
+
+  it("adds training hours to one student and never offers to undo them", async () => {
+    const db = new FakeDb();
+    db.students.set("student-rsk-1001", student());
+    const proposal = await prepare(
+      db,
+      "propose_student_hours",
+      { studentId: "RSK-1001", hours: 2.5, location: "Bangkok dojo" },
+      "student-hours-1001",
+    );
+    expect(proposal.operation.confirmationPhrase).toBe(
+      "ADD 2.5 HOURS RSK-1001",
+    );
+    const result = (await confirmAdminAuggieOperation(
+      operationRequest("/api/admin/auggie/confirm"),
+      env(db, vi.fn()),
+      proposal.operation.id,
+      proposal.operation.confirmationPhrase,
+      "en",
+    )) as { undoable: boolean };
+    expect(result.undoable).toBe(false);
+    expect(delegated.state.calls[0].route).toBe("admin/student-hours");
+    expect(delegated.state.calls[0].body).toEqual({
+      hours: 2.5,
+      location: "Bangkok dojo",
+    });
+    await expect(
+      prepareAdminAuggieUndo(
+        operationRequest("/api/admin/auggie/undo"),
+        env(db, vi.fn()),
+        proposal.operation.id,
+        "en",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_UNDO_UNAVAILABLE" });
+  });
+
+  it("records one examination only when the attempted rank is higher", async () => {
+    const db = new FakeDb();
+    db.students.set("student-rsk-1001", student({ current_belt: "6 Kyu" }));
+    await expect(
+      prepare(
+        db,
+        "propose_student_examination",
+        {
+          studentId: "RSK-1001",
+          attemptedRank: "7 Kyu",
+          passed: true,
+          location: "Bangkok dojo",
+          examinationDate: "2026-08-01",
+        },
+        "student-exam-lower",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_REQUEST_INVALID" });
+
+    const proposal = await prepare(
+      db,
+      "propose_student_examination",
+      {
+        studentId: "RSK-1001",
+        attemptedRank: "5 Kyu",
+        passed: true,
+        location: "Bangkok dojo",
+        examinationDate: "2026-08-01",
+      },
+      "student-exam-1001",
+    );
+    expect(proposal.operation.confirmationPhrase).toBe(
+      "RECORD PASSED EXAM RSK-1001",
+    );
+    await confirmAdminAuggieOperation(
+      operationRequest("/api/admin/auggie/confirm"),
+      env(db, vi.fn()),
+      proposal.operation.id,
+      proposal.operation.confirmationPhrase,
+      "en",
+    );
+    expect(delegated.state.calls[0].route).toBe("admin/student-exam");
+    expect(delegated.state.calls[0].body).toEqual({
+      currentRank: "6 Kyu",
+      attemptedRank: "5 Kyu",
+      passed: true,
+      location: "Bangkok dojo",
+      examinationDate: "2026-08-01",
+    });
+    await expect(
+      prepareAdminAuggieUndo(
+        operationRequest("/api/admin/auggie/undo"),
+        env(db, vi.fn()),
+        proposal.operation.id,
+        "en",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_UNDO_UNAVAILABLE" });
+  });
+
+  it("needs two phrases for a profile decision and refuses one that is not waiting", async () => {
+    const db = new FakeDb();
+    db.students.set("student-rsk-1001", student());
+    await expect(
+      prepare(
+        db,
+        "propose_student_profile_decision",
+        { studentId: "RSK-1001", decision: "approve" },
+        "profile-not-waiting",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TARGET_STATE" });
+
+    db.students.get("student-rsk-1001")!.profile_status =
+      "pending_admin_approval";
+    const proposal = await prepare(
+      db,
+      "propose_student_profile_decision",
+      { studentId: "RSK-1001", decision: "approve" },
+      "profile-approve-1001",
+    );
+    expect(proposal.operation.confirmationPhrase).toBe(
+      "APPROVE PROFILE RSK-1001",
+    );
+    expect(proposal.operation.secondaryConfirmationPhrase).toBe(
+      "CONFIRM REVIEWED PROFILE RSK-1001",
+    );
+    await expect(
+      confirmAdminAuggieOperation(
+        operationRequest("/api/admin/auggie/confirm"),
+        env(db, vi.fn()),
+        proposal.operation.id,
+        proposal.operation.confirmationPhrase,
+        "en",
+      ),
+    ).rejects.toMatchObject({
+      code: "ADMIN_AUGGIE_SECOND_CONFIRMATION_REQUIRED",
+    });
+    await confirmAdminAuggieOperation(
+      operationRequest("/api/admin/auggie/confirm"),
+      env(db, vi.fn()),
+      proposal.operation.id,
+      proposal.operation.confirmationPhrase,
+      "en",
+      proposal.operation.secondaryConfirmationPhrase!,
+    );
+    expect(delegated.state.calls[0].route).toBe(
+      "admin/student-profile-status",
+    );
+    expect(delegated.state.calls[0].body).toEqual({ action: "approve" });
+  });
+
+  it("refuses student edits, hours and bulk actions from another dojo", async () => {
+    authState.session.role = "dojo";
+    authState.session.selectedDojoId = "dojo-cmu";
+    authState.session.allowedDojoIds = ["dojo-cmu"];
+    const db = new FakeDb();
+    db.students.set("student-rsk-1001", student());
+    for (const [toolName, args] of [
+      [
+        "propose_student_record_update",
+        { studentId: "RSK-1001", currentRank: "5 Kyu" },
+      ],
+      ["propose_student_hours", { studentId: "RSK-1001", hours: 1 }],
+      [
+        "propose_bulk_student_action",
+        { action: "mass_rank_change", studentIds: ["RSK-1001"], levels: 1 },
+      ],
+    ] as Array<[string, Record<string, unknown>]>)
+      await expect(
+        prepare(db, toolName, args, `cross-dojo-${toolName}`),
+      ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TARGET_MISSING" });
+    expect(db.operations.size).toBe(0);
+    expect(delegated.state.calls).toHaveLength(0);
+  });
+
+  it("refuses payslip and examination targets from another dojo", async () => {
+    authState.session.role = "dojo";
+    authState.session.selectedDojoId = "dojo-cmu";
+    authState.session.allowedDojoIds = ["dojo-cmu"];
+    const db = examDb();
+    db.proofs.set("proof-1", {
+      id: "proof-1",
+      student_id: "student-rsk-1001",
+      status: "pending_review",
+      payment_type: "exam",
+      covered: 1,
+    });
+    await expect(
+      prepare(
+        db,
+        "propose_payment_proof_decision",
+        {
+          decision: "approve",
+          scope: "contributions",
+          studentIds: ["RSK-1001"],
+        },
+        "payslip-cross-dojo",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TARGET_MISSING" });
+    await expect(
+      prepare(
+        db,
+        "propose_examination_status",
+        { status: "paid", studentIds: ["RSK-1001"] },
+        "exam-cross-dojo",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TARGET_MISSING" });
+    expect(db.operations.size).toBe(0);
+    expect(delegated.state.calls).toHaveLength(0);
+  });
+});
+
+function bulkDb() {
+  const db = new FakeDb();
+  for (const [id, publicId, name, rank] of [
+    ["student-rsk-1001", "RSK-1001", "First Student", "6 Kyu"],
+    ["student-rsk-1002", "RSK-1002", "Second Student", "5 Kyu"],
+    ["student-rsk-1003", "RSK-1003", "Third Student", "4 Kyu"],
+  ])
+    db.students.set(
+      id,
+      student({
+        id,
+        public_student_id: publicId,
+        display_name: name,
+        current_belt: rank,
+      }),
+    );
+  return db;
+}
+
+const BULK_IDS = ["RSK-1001", "RSK-1002", "RSK-1003"];
+
+describe("Admin Auggie bulk student actions", () => {
+  it("shows the dojo, count and list, then needs two exact phrases and runs once", async () => {
+    const db = bulkDb();
+    const proposal = await prepare(
+      db,
+      "propose_bulk_student_action",
+      {
+        action: "add_hours",
+        studentIds: BULK_IDS,
+        hours: 3,
+        location: "Bangkok dojo",
+      },
+      "bulk-add-hours",
+    );
+    expect(proposal.operation.preview.count).toBe(3);
+    expect(proposal.operation.preview.dojos).toEqual(["RenShinKan"]);
+    expect(
+      (proposal.operation.preview.records as Array<{ studentId: string }>).map(
+        (record) => record.studentId,
+      ),
+    ).toEqual(BULK_IDS);
+    expect(proposal.operation.confirmationPhrase).toBe(
+      "BULK ADD HOURS 3 STUDENTS",
+    );
+    expect(proposal.operation.secondaryConfirmationPhrase).toBe(
+      "CONFIRM BULK CHANGE 3 STUDENTS",
+    );
+    expect(proposal.operation.undoable).toBe(false);
+
+    await expect(
+      confirmAdminAuggieOperation(
+        operationRequest("/api/admin/auggie/confirm"),
+        env(db, vi.fn()),
+        proposal.operation.id,
+        proposal.operation.confirmationPhrase,
+        "en",
+      ),
+    ).rejects.toMatchObject({
+      code: "ADMIN_AUGGIE_SECOND_CONFIRMATION_REQUIRED",
+    });
+    await expect(
+      confirmAdminAuggieOperation(
+        operationRequest("/api/admin/auggie/confirm"),
+        env(db, vi.fn()),
+        proposal.operation.id,
+        proposal.operation.confirmationPhrase,
+        "en",
+        "CONFIRM BULK CHANGE 2 STUDENTS",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_CONFIRMATION_MISMATCH" });
+    expect(delegated.state.calls).toHaveLength(0);
+
+    const result = (await confirmAdminAuggieOperation(
+      operationRequest("/api/admin/auggie/confirm"),
+      env(db, vi.fn()),
+      proposal.operation.id,
+      proposal.operation.confirmationPhrase,
+      "en",
+      proposal.operation.secondaryConfirmationPhrase!,
+    )) as { count: number; undoable: boolean };
+    expect(result.count).toBe(3);
+    expect(result.undoable).toBe(false);
+    expect(delegated.state.calls).toHaveLength(1);
+    expect(delegated.state.calls[0].route).toBe("admin/students-bulk");
+    expect(delegated.state.calls[0].body).toEqual({
+      action: "add_hours",
+      studentIds: [
+        "student-rsk-1001",
+        "student-rsk-1002",
+        "student-rsk-1003",
+      ],
+      hours: 3,
+      location: "Bangkok dojo",
+    });
+    expect(delegated.state.calls[0].headers["x-request-id"]).toBe(
+      `admin-auggie:${proposal.operation.id}`,
+    );
+    expect(
+      JSON.parse(
+        String(
+          db.audits.find((values) => values[1] === "admin_ai_write_succeeded")
+            ?.[13],
+        ),
+      ),
+    ).toMatchObject({
+      aiGenerated: true,
+      aiAssistant: "admin_auggie",
+      delegatedRoute: "admin/students-bulk",
+      affectedCount: 3,
+      secondConfirmationRequired: true,
+    });
+
+    // A second confirmation replays the stored result instead of running again.
+    await confirmAdminAuggieOperation(
+      operationRequest("/api/admin/auggie/confirm"),
+      env(db, vi.fn()),
+      proposal.operation.id,
+      proposal.operation.confirmationPhrase,
+      "en",
+      proposal.operation.secondaryConfirmationPhrase!,
+    );
+    expect(delegated.state.calls).toHaveLength(1);
+  });
+
+  it("rolls the whole batch back when one student changed after the preview", async () => {
+    const db = bulkDb();
+    const proposal = await prepare(
+      db,
+      "propose_bulk_student_action",
+      { action: "mass_rank_change", studentIds: BULK_IDS, levels: 1 },
+      "bulk-stale-rank",
+    );
+    db.students.get("student-rsk-1002")!.current_belt = "3 Kyu";
+    await expect(
+      confirmAdminAuggieOperation(
+        operationRequest("/api/admin/auggie/confirm"),
+        env(db, vi.fn()),
+        proposal.operation.id,
+        proposal.operation.confirmationPhrase,
+        "en",
+        proposal.operation.secondaryConfirmationPhrase!,
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_STALE" });
+    expect(delegated.state.calls).toHaveLength(0);
+    expect(db.students.get("student-rsk-1001")!.current_belt).toBe("6 Kyu");
+    expect(db.operations.get(proposal.operation.id)?.status).toBe("failed");
+  });
+
+  it("approves pending hours only while every student still has a request", async () => {
+    const db = bulkDb();
+    db.pendingHourRequests.set("student-rsk-1001", { count: 1, hours: 4 });
+    db.pendingHourRequests.set("student-rsk-1002", { count: 2, hours: 6 });
+    await expect(
+      prepare(
+        db,
+        "propose_bulk_student_action",
+        { action: "approve_pending_hours", studentIds: BULK_IDS },
+        "bulk-approve-missing",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TARGET_STATE" });
+
+    const proposal = await prepare(
+      db,
+      "propose_bulk_student_action",
+      {
+        action: "approve_pending_hours",
+        studentIds: ["RSK-1001", "RSK-1002"],
+      },
+      "bulk-approve-hours",
+    );
+    expect(proposal.operation.confirmationPhrase).toBe(
+      "BULK APPROVE HOURS 2 STUDENTS",
+    );
+    db.pendingHourRequests.set("student-rsk-1002", { count: 1, hours: 6 });
+    await expect(
+      confirmAdminAuggieOperation(
+        operationRequest("/api/admin/auggie/confirm"),
+        env(db, vi.fn()),
+        proposal.operation.id,
+        proposal.operation.confirmationPhrase,
+        "en",
+        proposal.operation.secondaryConfirmationPhrase!,
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_STALE" });
+    expect(delegated.state.calls).toHaveLength(0);
+  });
+
+  it("undoes a bulk rank change for every student in one transaction", async () => {
+    const db = bulkDb();
+    delegated.state.apply = (call: DelegatedCall) => {
+      for (const id of call.body.studentIds as string[]) {
+        const row = db.students.get(id)!;
+        row.current_belt = { "6 Kyu": "5 Kyu", "5 Kyu": "4 Kyu", "4 Kyu": "3 Kyu" }[
+          row.current_belt
+        ]!;
+      }
+    };
+    const proposal = await prepare(
+      db,
+      "propose_bulk_student_action",
+      { action: "mass_rank_change", studentIds: BULK_IDS, levels: 1 },
+      "bulk-rank-change",
+    );
+    expect(proposal.operation.confirmationPhrase).toBe(
+      "BULK RANK CHANGE 3 STUDENTS",
+    );
+    const result = (await confirmAdminAuggieOperation(
+      operationRequest("/api/admin/auggie/confirm"),
+      env(db, vi.fn()),
+      proposal.operation.id,
+      proposal.operation.confirmationPhrase,
+      "en",
+      proposal.operation.secondaryConfirmationPhrase!,
+    )) as { undoable: boolean; undoUntil?: string };
+    expect(result.undoable).toBe(true);
+    expect(db.students.get("student-rsk-1003")!.current_belt).toBe("3 Kyu");
+
+    const undo = (await prepareAdminAuggieUndo(
+      operationRequest("/api/admin/auggie/undo"),
+      env(db, vi.fn()),
+      proposal.operation.id,
+      "en",
+    )) as { operation: { id: string; confirmationPhrase: string } };
+    expect(undo.operation.confirmationPhrase).toBe(
+      "UNDO RANK CHANGE 3 STUDENTS",
+    );
+    const batchesBefore = db.batches.length;
+    await confirmAdminAuggieOperation(
+      operationRequest("/api/admin/auggie/confirm"),
+      env(db, vi.fn()),
+      undo.operation.id,
+      undo.operation.confirmationPhrase,
+      "en",
+    );
+    expect(db.rankWrites).toBe(3);
+    expect(db.students.get("student-rsk-1001")!.current_belt).toBe("6 Kyu");
+    expect(db.students.get("student-rsk-1002")!.current_belt).toBe("5 Kyu");
+    expect(db.students.get("student-rsk-1003")!.current_belt).toBe("4 Kyu");
+    expect(db.operations.get(proposal.operation.id)?.status).toBe("undone");
+    // Every student goes back inside one batch, next to the claim and guards.
+    const revertBatch = db.batches
+      .slice(batchesBefore)
+      .find((batch) =>
+        batch.some((query) =>
+          query.startsWith("UPDATE students SET current_belt = ?"),
+        ),
+      )!;
+    expect(
+      revertBatch.filter((query) =>
+        query.startsWith("UPDATE students SET current_belt = ?"),
+      ),
+    ).toHaveLength(3);
+    expect(
+      revertBatch.some((query) =>
+        query.startsWith("INSERT INTO admin_ai_execution_claims"),
+      ),
+    ).toBe(true);
+    expect(
+      revertBatch.filter((query) =>
+        query.startsWith("INSERT INTO admin_ai_execution_guards"),
+      ),
+    ).toHaveLength(3);
+    // An undo is a write of its own and is never itself undoable.
+    await expect(
+      prepareAdminAuggieUndo(
+        operationRequest("/api/admin/auggie/undo"),
+        env(db, vi.fn()),
+        undo.operation.id,
+        "en",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_UNDO_UNAVAILABLE" });
+  });
+
+  it("blocks the bulk undo when a rank moved again after the change", async () => {
+    const db = bulkDb();
+    delegated.state.apply = (call: DelegatedCall) => {
+      for (const id of call.body.studentIds as string[])
+        db.students.get(id)!.current_belt = "1 Kyu";
+    };
+    const proposal = await prepare(
+      db,
+      "propose_bulk_student_action",
+      { action: "mass_rank_change", studentIds: ["RSK-1001"], levels: 1 },
+      "bulk-rank-stale-undo",
+    );
+    await confirmAdminAuggieOperation(
+      operationRequest("/api/admin/auggie/confirm"),
+      env(db, vi.fn()),
+      proposal.operation.id,
+      proposal.operation.confirmationPhrase,
+      "en",
+      proposal.operation.secondaryConfirmationPhrase!,
+    );
+    db.students.get("student-rsk-1001")!.current_belt = "SHO Dan-Ho";
+    await expect(
+      prepareAdminAuggieUndo(
+        operationRequest("/api/admin/auggie/undo"),
+        env(db, vi.fn()),
+        proposal.operation.id,
+        "en",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_UNDO_STALE" });
+    expect(db.rankWrites).toBe(0);
+  });
+
+  it("never offers an undo for a mass promotion or an archived student", async () => {
+    const db = bulkDb();
+    const proposal = await prepare(
+      db,
+      "propose_bulk_student_action",
+      {
+        action: "mass_promotion",
+        studentIds: ["RSK-1001"],
+        levels: 1,
+        location: "Bangkok dojo",
+        examinationDate: "2026-08-01",
+      },
+      "bulk-mass-promotion",
+    );
+    expect(proposal.operation.confirmationPhrase).toBe(
+      "BULK PROMOTION 1 STUDENT",
+    );
+    await confirmAdminAuggieOperation(
+      operationRequest("/api/admin/auggie/confirm"),
+      env(db, vi.fn()),
+      proposal.operation.id,
+      proposal.operation.confirmationPhrase,
+      "en",
+      proposal.operation.secondaryConfirmationPhrase!,
+    );
+    expect(delegated.state.calls[0].body).toEqual({
+      action: "mass_promotion",
+      studentIds: ["student-rsk-1001"],
+      levels: 1,
+      location: "Bangkok dojo",
+      examinationDate: "2026-08-01",
+    });
+    await expect(
+      prepareAdminAuggieUndo(
+        operationRequest("/api/admin/auggie/undo"),
+        env(db, vi.fn()),
+        proposal.operation.id,
+        "en",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_UNDO_UNAVAILABLE" });
+
+    db.students.get("student-rsk-1002")!.archived_at =
+      "2026-08-01T00:00:00.000Z";
+    db.students.get("student-rsk-1002")!.active = 0;
+    await expect(
+      prepare(
+        db,
+        "propose_bulk_student_action",
+        { action: "mass_rank_change", studentIds: BULK_IDS, levels: 1 },
+        "bulk-archived-target",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TARGET_STATE" });
   });
 });

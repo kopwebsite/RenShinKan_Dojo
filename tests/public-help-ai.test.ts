@@ -98,7 +98,7 @@ describe("public help AI safety boundary", () => {
   it("projects only approved public IDs, titles, and summaries", () => {
     const english = publicHelpTopicProjection("en");
     const thai = publicHelpTopicProjection("th");
-    expect(english).toHaveLength(10);
+    expect(english).toHaveLength(40);
     expect(thai.map(({ id }) => id)).toEqual(english.map(({ id }) => id));
     for (const topic of [...english, ...thai]) {
       expect(Object.keys(topic).sort()).toEqual(["id", "summary", "title"]);

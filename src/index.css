@@ -7641,40 +7641,6 @@ html.admin-route .admin-student-controls select {
   color: #172033;
   font-weight: 750;
 }
-.admin-delete-archived {
-  display: inline-flex;
-  min-height: 2.35rem;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.55rem;
-  border: 1px solid #d9a8a4;
-  border-radius: 0.4rem;
-  background: #fff;
-  color: #9b2c25;
-  font-size: 0.68rem;
-  font-weight: 800;
-  line-height: 1;
-  white-space: nowrap;
-  transition:
-    border-color 0.15s ease,
-    background-color 0.15s ease,
-    box-shadow 0.15s ease;
-}
-.admin-delete-archived:hover {
-  border-color: #b93b32;
-  background: #fff4f2;
-  box-shadow: 0 0 0 3px rgb(185 59 50 / 0.08);
-}
-.admin-delete-archived b {
-  display: inline-grid;
-  min-width: 1.15rem;
-  min-height: 1.15rem;
-  place-items: center;
-  padding-inline: 0.2rem;
-  border-radius: 999px;
-  background: #f8dedb;
-  font-size: 0.6rem;
-}
 .admin-selection-modal {
   width: min(40rem, 100%);
 }
@@ -8013,6 +7979,44 @@ html.admin-route .admin-drawer {
   min-height: 2.7rem;
   padding: 0.6rem;
   border: 1px solid #aeb8c6;
+}
+.admin-confirm-check {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.9rem;
+  font-size: 0.8rem;
+}
+.admin-confirm-check input {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: none;
+}
+.admin-delete-forever h3 {
+  margin: 1.1rem 0 0.5rem;
+  font-size: 0.85rem;
+}
+.admin-deletion-list {
+  display: grid;
+  gap: 0.35rem;
+  max-height: 15rem;
+  margin: 0;
+  padding: 0.7rem;
+  overflow-y: auto;
+  border: 1px solid #e1e6ed;
+  border-radius: 0.6rem;
+  background: #fbfcfe;
+  list-style: none;
+  font-size: 0.78rem;
+}
+.admin-deletion-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.admin-deletion-list b {
+  font-variant-numeric: tabular-nums;
 }
 .admin-alerts {
   margin-block: 1.25rem 2rem;

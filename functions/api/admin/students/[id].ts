@@ -1,3 +1,4 @@
+import { isCanonicalDate } from "../../../../shared/date";
 import { normalizeRank } from "../../../../shared/ranks";
 import { canAccessDojo, getAuthorizedAdminSession, isRenShinKanSuperAdmin, isSameOriginRequest, jsonResponse } from "../../../_lib/auth";
 import {
@@ -5,6 +6,7 @@ import {
   adminAuditMetadata,
   assertStudentAccess,
   auditStatement,
+  contributionPeriodCountStatement,
   currentBangkokMonthKey,
   DEFAULT_SHARE_FIELDS,
   isValidStudentId,
@@ -17,13 +19,20 @@ import {
   type StudentEnv,
 } from "../../../_lib/studentRecords";
 import type { R2Bucket } from "../../../_lib/storage";
+import {
+  buildStudentDeletionPlan,
+  canPermanentlyDeleteStudent,
+  loadDeletionTarget,
+  studentDeletionRecordStatements,
+  studentDeletionStatements,
+} from "../../../_lib/studentDeletion";
 
 type Env = StudentEnv & { SESSION_SECRET?: string; MEDIA_BUCKET?: R2Bucket };
 type ExistingStudent = {
   id: string; public_student_id: string; display_name: string; english_name: string | null; thai_name: string | null;
   account_created_date: string | null; dojo_joined_date: string | null; current_belt: string; belt_color: string;
   profile_image_url: string | null; profile_image_consent: number; guardian_consent: number; public_visible: number;
-  active: number; share_fields: string; dojo_name: string; admin_notes: string; training_hours_adjustment: number;
+  active: number; archived_at: string | null; share_fields: string; dojo_name: string; admin_notes: string; training_hours_adjustment: number;
   profile_status: string; practice_duration: string;
   pending_profile_image_key: string | null; profile_review_note: string;
   dojo_id: string; aat_number: string | null; aat_last_paid_date: string | null; aat_notes: string;
@@ -137,7 +146,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, params })
     const body = await request.json<Record<string, unknown>>();
     const existing = await db.prepare(`SELECT id, public_student_id, display_name, english_name, thai_name,
       account_created_date, dojo_joined_date, current_belt, belt_color, profile_image_url,
-      profile_image_consent, guardian_consent, public_visible, active, share_fields, dojo_name, admin_notes,
+      profile_image_consent, guardian_consent, public_visible, active, archived_at, share_fields, dojo_name, admin_notes,
       training_hours_adjustment, profile_status, practice_duration, dojo_id, aat_number, aat_last_paid_date, aat_notes,
       pending_profile_image_key, profile_review_note FROM students WHERE id = ?`).bind(id).first<ExistingStudent>();
     if (!existing) return jsonResponse({ error: "Student not found" }, 404);
@@ -208,7 +217,10 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, params })
       profileImageConsent: body.profileImageConsent === undefined ? existing.profile_image_consent : body.profileImageConsent ? 1 : 0,
       guardianConsent: body.guardianConsent === undefined ? existing.guardian_consent : body.guardianConsent ? 1 : 0,
       publicVisible: body.publicVisible === undefined ? existing.public_visible : body.publicVisible ? 1 : 0,
-      active: body.active === undefined ? existing.active : body.active ? 1 : 0,
+      // An archived student is always inactive. Archiving and unarchiving own
+      // that pair together, so editing a record can never split them apart and
+      // leave the Active count disagreeing with the Active list.
+      active: existing.archived_at ? 0 : body.active === undefined ? existing.active : body.active ? 1 : 0,
       dojoId: dojo.id, dojoName, aatNumber, aatLastPaidDate, aatNotes, adminNotes, practiceDuration, totalHours: currentTrainingHours,
     };
 
@@ -273,84 +285,73 @@ export const onRequestDelete: PagesFunction<Env> = async ({ request, env, params
     .first<{ public_student_id: string; display_name: string; active: number; public_visible: number; archived_at: string | null; deleted_at: string | null; profile_image_url: string | null; pending_profile_image_key: string | null }>();
   if (!existing) return jsonResponse({ error: "Student not found" }, 404);
   const body = await request
-    .json<{ action?: unknown; confirmed?: unknown; studentId?: unknown; confirmationText?: unknown }>()
-    .catch((): { action?: unknown; confirmed?: unknown; studentId?: unknown; confirmationText?: unknown } => ({}));
+    .json<{ action?: unknown; confirmed?: unknown; secondConfirmation?: unknown; studentId?: unknown; confirmationText?: unknown }>()
+    .catch((): { action?: unknown; confirmed?: unknown; secondConfirmation?: unknown; studentId?: unknown; confirmationText?: unknown } => ({}));
   const requestId = requestIdentifier(request);
   const now = new Date().toISOString();
 
   if (body.action === "delete_permanently") {
-    if (!existing.archived_at) return jsonResponse({ error: "Only an archived student can be deleted." }, 409);
-    const expectedConfirmation = `DELETE ${existing.public_student_id}`;
-    if (body.confirmed !== true || normalizeStudentId(String(body.studentId || "")) !== existing.public_student_id || String(body.confirmationText || "").trim() !== expectedConfirmation) {
+    // Deleting forever is irreversible, so it is never a bulk action, never
+    // reachable from another dojo, and never runs on a single confirmation.
+    const target = await loadDeletionTarget(db, id);
+    if (!target) return jsonResponse({ error: "Student not found" }, 404);
+    if (!canPermanentlyDeleteStudent(session, target.dojo_id)) {
+      return jsonResponse({ error: "You may only delete students in a dojo you administer." }, 403);
+    }
+    if (!target.archived_at) {
+      return jsonResponse({ error: "Archive this student first. Deleting forever is only for records created by mistake." }, 409);
+    }
+    const expectedConfirmation = `DELETE ${target.public_student_id}`;
+    if (body.confirmed !== true || body.secondConfirmation !== true) {
+      return jsonResponse({ error: "Permanent deletion needs both confirmations." }, 400);
+    }
+    if (normalizeStudentId(String(body.studentId || "")) !== target.public_student_id || String(body.confirmationText || "").trim() !== expectedConfirmation) {
       return jsonResponse({ error: `Type ${expectedConfirmation} to confirm permanent deletion.` }, 400);
     }
-    const removableProofs = (await db.prepare(`SELECT object_key FROM payment_proofs pp
-      WHERE pp.student_id = ? AND NOT EXISTS (
-        SELECT 1 FROM payment_request_items pri
-        WHERE pri.payment_request_id = pp.payment_reference_id AND pri.student_id <> ?
-      )`).bind(id, id).all<{ object_key: string | null }>()).results || [];
-    const profileMedia = (await db.prepare("SELECT object_key FROM student_profile_media WHERE student_id = ?")
-      .bind(id).all<{ object_key: string }>()).results || [];
-    const paymentRequestIds = (await db.prepare("SELECT DISTINCT payment_request_id AS id FROM payment_request_items WHERE student_id = ?")
-      .bind(id).all<{ id: string }>()).results?.map((entry) => entry.id) || [];
-    const objectKeys = Array.from(new Set([
-      ...removableProofs.map((entry) => entry.object_key),
-      ...profileMedia.map((entry) => entry.object_key),
-      profileKey(existing.profile_image_url),
-      existing.pending_profile_image_key,
-    ].filter((value): value is string => Boolean(value))));
+    const plan = await buildStudentDeletionPlan(db, id, target);
+    const deletionRecordId = crypto.randomUUID();
+    // One D1 batch is one transaction: if any statement fails, nothing is
+    // deleted and the immutability unlock is rolled back with it.
     await db.batch([
+      ...studentDeletionStatements(db, id, plan, { deletionRecordId, adminName: session.adminName, now }),
+      ...studentDeletionRecordStatements(db, session, plan, { deletionRecordId, dojoId: target.dojo_id, requestId, now }),
       auditStatement(db, {
-        actorType: "administrator", ...adminAuditMetadata(session, request), action: "student_permanently_deleted", entityType: "student", entityId: id,
-        studentPublicId: existing.public_student_id, studentNameSnapshot: existing.display_name,
-        previousValues: { active: Boolean(existing.active), archived: true }, newValues: { permanentlyDeleted: true, relatedRecordsDeleted: true, filesDeleted: objectKeys.length },
+        actorType: "administrator", ...adminAuditMetadata(session, request), action: "student_permanently_deleted",
+        entityType: "student_deletion", entityId: deletionRecordId,
+        previousValues: null,
+        newValues: {
+          recordsRemoved: plan.totalRecords,
+          filesRemoved: plan.objectKeys.length,
+          auditEntriesRedacted: plan.auditEntriesRedacted,
+          dojoId: target.dojo_id,
+        },
         source: "admin_student_permanent_delete", requestId,
-        summary: `Permanently deleted ${existing.public_student_id}: ${existing.display_name}; only this audit snapshot remains`, createdAt: now,
+        summary: `Permanently deleted one student record and ${plan.relatedRecords} related records; no identifying details were kept`,
+        createdAt: now,
       }),
-      db.prepare(`DELETE FROM request_decisions WHERE
-        (request_type = 'profile_information' AND request_id = ?)
-        OR (request_type = 'training_hours' AND request_id IN (SELECT id FROM training_hour_requests WHERE student_id = ?))
-        OR (request_type = 'examination_application' AND request_id IN (SELECT id FROM examination_applications WHERE student_id = ?))
-        OR (request_type IN ('payment_proof', 'payslip') AND request_id IN (SELECT id FROM payment_proofs WHERE student_id = ?))`).bind(id, id, id, id),
-      db.prepare("DELETE FROM application_status_history WHERE application_id IN (SELECT id FROM examination_applications WHERE student_id = ?)").bind(id),
-      db.prepare("DELETE FROM exam_cycle_status_history WHERE cycle_status_id IN (SELECT id FROM exam_cycle_student_status WHERE student_id = ?)").bind(id),
-      db.prepare("DELETE FROM contribution_status_history WHERE contribution_id IN (SELECT id FROM monthly_contributions WHERE student_id = ?)").bind(id),
-      db.prepare("DELETE FROM payment_history WHERE payment_id IN (SELECT id FROM payments WHERE student_id = ?)").bind(id),
-      db.prepare(`UPDATE payment_proofs SET student_id = (
-        SELECT pri.student_id FROM payment_request_items pri
-        WHERE pri.payment_request_id = payment_proofs.payment_reference_id AND pri.student_id <> ? LIMIT 1
-      ) WHERE student_id = ? AND EXISTS (
-        SELECT 1 FROM payment_request_items pri
-        WHERE pri.payment_request_id = payment_proofs.payment_reference_id AND pri.student_id <> ?
-      )`).bind(id, id, id),
-      db.prepare("DELETE FROM payment_proofs WHERE student_id = ?").bind(id),
-      db.prepare("DELETE FROM payment_request_items WHERE student_id = ?").bind(id),
-      ...paymentRequestIds.map((paymentRequestId) => db.prepare("DELETE FROM payment_requests WHERE id = ? AND NOT EXISTS (SELECT 1 FROM payment_request_items WHERE payment_request_id = ?)").bind(paymentRequestId, paymentRequestId)),
-      db.prepare("DELETE FROM student_profile_media WHERE student_id = ?").bind(id),
-      db.prepare("DELETE FROM monthly_contributions WHERE student_id = ?").bind(id),
-      db.prepare("DELETE FROM contribution_period_students WHERE student_id = ?").bind(id),
-      db.prepare("DELETE FROM exam_cycle_student_status WHERE student_id = ?").bind(id),
-      db.prepare("DELETE FROM examination_applications WHERE student_id = ?").bind(id),
-      db.prepare("DELETE FROM training_hour_requests WHERE student_id = ?").bind(id),
-      db.prepare("DELETE FROM student_dojo_history WHERE student_id = ?").bind(id),
-      db.prepare("DELETE FROM aat_membership_payments WHERE student_id = ?").bind(id),
-      db.prepare("DELETE FROM payments WHERE student_id = ?").bind(id),
-      db.prepare("DELETE FROM operation_failures WHERE student_id = ?").bind(id),
-      db.prepare("DELETE FROM students WHERE id = ?").bind(id),
     ]);
-    let filesDeleted = objectKeys.length;
-    if (env.MEDIA_BUCKET && objectKeys.length) {
+    let filesDeleted = plan.objectKeys.length;
+    if (env.MEDIA_BUCKET && plan.objectKeys.length) {
       try {
-        await env.MEDIA_BUCKET.delete(objectKeys);
+        await env.MEDIA_BUCKET.delete(plan.objectKeys);
       } catch (error) {
         filesDeleted = 0;
+        // Recorded against the anonymous deletion record, never the person.
         await db.prepare(`INSERT INTO operation_failures
           (id, action, entity_type, entity_id, student_id, request_id, error_summary, created_at)
-          VALUES (?, 'delete_student_files', 'student', ?, ?, ?, ?, ?)`)
-          .bind(crypto.randomUUID(), id, id, requestId, error instanceof Error ? error.message.slice(0, 500) : "R2 cleanup failed", now).run();
+          VALUES (?, 'delete_student_files', 'student_deletion', ?, NULL, ?, ?, ?)`)
+          .bind(crypto.randomUUID(), deletionRecordId, requestId, error instanceof Error ? error.message.slice(0, 500) : "Stored file cleanup failed", now).run();
       }
     }
-    return jsonResponse({ ok: true, permanentlyDeleted: true, recoverable: false, filesDeleted });
+    return jsonResponse({
+      ok: true,
+      permanentlyDeleted: true,
+      recoverable: false,
+      deletionRecordId,
+      recordsDeleted: plan.totalRecords,
+      filesDeleted,
+      auditEntriesRedacted: plan.auditEntriesRedacted,
+    });
   }
 
   if (body.confirmed !== true || normalizeStudentId(String(body.studentId || "")) !== existing.public_student_id) {
@@ -407,11 +408,7 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params 
         current_rank_snapshot, active_at_period_start, created_at
       ) VALUES (?, ?, ?, ?, ?, ?, 1, ?)`)
         .bind(crypto.randomUUID(), currentMonth, id, existing.display_name, existing.public_student_id, existing.current_belt, now),
-      db.prepare(`UPDATE contribution_periods SET active_student_count_snapshot = (
-        SELECT COUNT(*) FROM contribution_period_students r
-        JOIN students s ON s.id = r.student_id
-        WHERE r.month_key = ? AND r.active_at_period_start = 1 AND s.dojo_id = 'dojo-rsk'
-      ) WHERE month_key = ?`).bind(currentMonth, currentMonth),
+      contributionPeriodCountStatement(db, currentMonth),
     ] : []),
     auditStatement(db, {
       actorType: "administrator", ...adminAuditMetadata(session, request), action: "student_restored", entityType: "student", entityId: id,
@@ -422,4 +419,3 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params 
   ]);
   return jsonResponse({ ok: true, restored: true });
 };
-import { isCanonicalDate } from "../../../../shared/date";

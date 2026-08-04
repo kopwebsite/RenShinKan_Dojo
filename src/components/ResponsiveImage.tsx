@@ -112,9 +112,7 @@ export function ResponsiveImage({
 }: ResponsiveImageProps) {
   const imageClassName = imgClassName ?? className;
   const imageStyle = objectPosition ? { ...style, objectPosition } : style;
-  const fetchPriorityProps = fetchPriority
-    ? ({ fetchpriority: fetchPriority } as Record<string, string>)
-    : {};
+  const fetchPriorityProps = fetchPriority ? { fetchPriority } : {};
 
   const metadata = isLocalOptimizableImage(src) ? metadataFor(src) : undefined;
 

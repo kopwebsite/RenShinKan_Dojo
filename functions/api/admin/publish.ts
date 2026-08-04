@@ -66,13 +66,6 @@ function preservePreviouslySentNewsletters(content: EditableContent, previousByI
   };
 }
 
-function updateEventNewsletter(content: EditableContent, id: string, newsletter: RecentEvent["newsletter"]) {
-  return {
-    ...content,
-    recentEvents: content.recentEvents.map((event) => event.id === id ? { ...event, newsletter } : event),
-  };
-}
-
 async function publishNewsletterCandidates(_env: Env, content: EditableContent, candidates: RecentEvent[]) {
   const nextContent = content;
   const warnings: string[] = [];

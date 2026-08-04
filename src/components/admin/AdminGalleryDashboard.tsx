@@ -1,5 +1,5 @@
 import { ExternalLink, Images, Settings2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import {
   GALLERY_IDS,

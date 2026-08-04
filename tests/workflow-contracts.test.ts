@@ -454,7 +454,7 @@ describe("UI and responsive workflow contracts", () => {
       "Accept pending profiles",
       "Archive active students",
       "Unarchive students",
-      "Delete archived students",
+      "Delete forever",
     ])
       expect(admin).toContain(value);
     for (const value of [
@@ -475,7 +475,7 @@ describe("UI and responsive workflow contracts", () => {
     expect(admin).toContain("onWheel");
     expect(admin).toContain("Review changes");
     expect(admin).toContain("admin-select-box");
-    expect(admin).toContain("DELETE ${count} ARCHIVED STUDENT");
+    expect(admin).toContain("preview.confirmationPhrase");
   });
 
   it("keeps complete examination applications viewable as scoped historical records", () => {
@@ -514,7 +514,7 @@ describe("UI and responsive workflow contracts", () => {
       "Record mass exam pass",
       "Unarchive",
       "Deny pending profiles",
-      "Delete archived",
+      "Delete forever",
     ])
       expect(admin).toContain(value);
     expect(compact(admin)).toContain(
@@ -527,14 +527,17 @@ describe("UI and responsive workflow contracts", () => {
     expect(admin).not.toContain(
       "Actions apply only to eligible selected rows; the confirmation lists the exact students affected.",
     );
-    expect(admin).toContain("admin-delete-archived");
-    expect(css).toContain(".admin-delete-archived");
+    // Deleting forever is deliberately not a bulk action.
+    expect(admin).not.toContain("admin-delete-archived");
+    expect(css).not.toContain(".admin-delete-archived");
+    expect(admin).toContain("admin-delete-forever");
+    expect(css).toContain(".admin-delete-forever");
     expect(bulk).toContain('body.action === "mass_rank_change"');
     expect(bulk).toContain('action: "mass_exam_pass"');
     expect(bulk).toContain(
       'student.active !== 1 || student.archived_at || student.profile_status !== "approved"',
     );
-    expect(student).toContain("Only an archived student can be deleted.");
+    expect(student).toContain("Archive this student first.");
   });
 
   it("supports compact AAT membership selection and collapses empty payment history", () => {

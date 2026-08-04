@@ -1,3 +1,4 @@
+import { isCanonicalDate } from "../../../shared/date";
 import { getAuthorizedAdminSession, isRenShinKanSuperAdmin, jsonResponse } from "../../_lib/auth";
 import { requireStudentDb, type StudentEnv } from "../../_lib/studentRecords";
 
@@ -65,4 +66,3 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const total = Number((count.results?.[0] as { total?: number } | undefined)?.total || 0);
   return jsonResponse({ entries: rows.results || [], pagination: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) } }, 200, { "Cache-Control": "no-store" });
 };
-import { isCanonicalDate } from "../../../shared/date";

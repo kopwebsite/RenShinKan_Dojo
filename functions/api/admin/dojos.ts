@@ -11,8 +11,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const session = await getAuthorizedAdminSession(request, env);
   if (!requiresCentralAdmin(session)) return jsonResponse({ error: "Only the RenShinKan administrator may manage dojos." }, session ? 403 : 401);
   const db = requireStudentDb(env);
+  // Counts the same records the students screen counts, so "student records"
+  // means one thing across the site.
   const rows = (await db.prepare(`SELECT d.*,
-    (SELECT COUNT(*) FROM students s WHERE s.dojo_id = d.id AND s.deleted_at IS NULL) AS student_count
+    (SELECT COUNT(*) FROM students s WHERE s.dojo_id = d.id
+      AND s.deleted_at IS NULL AND s.profile_status <> 'rejected') AS student_count
     FROM dojos d ORDER BY d.sort_order, d.official_name COLLATE NOCASE`).all()).results || [];
   return jsonResponse({ dojos: rows.map((row) => {
     const value = row as Record<string, unknown>;

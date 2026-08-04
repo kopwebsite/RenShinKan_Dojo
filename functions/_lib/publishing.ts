@@ -122,7 +122,11 @@ async function markFailed(db: D1Database, operationId: string, stage: string) {
 }
 
 export async function publishEditableContent(input: {
-  env: StorageEnv & OperationalEnv & { SESSION_SECRET?: string; STUDENT_LOOKUP_PEPPER?: string };
+  env: StorageEnv &
+    OperationalEnv & {
+      SESSION_SECRET?: string;
+      STUDENT_LOOKUP_PEPPER?: string;
+    };
   db: D1Database;
   request: Request;
   session: AdminSession;

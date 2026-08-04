@@ -361,14 +361,15 @@ describe("multi-dojo data model and workflows", () => {
     expect(adminContribution).toContain("consecutivePaidMonths");
     expect(adminContribution).toContain("monthlyContributionStatus");
     expect(adminContribution).toContain(
-      "JOIN students s ON s.id = r.student_id AND s.dojo_id = 'dojo-rsk'",
+      "JOIN students s ON s.id = r.student_id AND s.dojo_id = '${DEFAULT_DOJO_ID}'",
     );
     expect(adminContribution).toContain(
       "c.student_id = r.student_id AND c.month_key = r.month_key",
     );
     expect(adminContribution).toContain(
-      "s.dojo_id = 'dojo-rsk' AND c.status = 'paid'",
+      "s.dojo_id = '${DEFAULT_DOJO_ID}' AND ${LIVE_ROSTER_STUDENT_SQL}",
     );
+    expect(adminContribution).toContain("${rosterStudent} AND c.status = 'paid'");
     expect(profileApproval).toContain(
       'contributionPeriod && existing.dojo_id === "dojo-rsk"',
     );

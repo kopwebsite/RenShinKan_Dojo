@@ -1,3 +1,4 @@
+import { isCanonicalDate } from "../../../../../shared/date";
 import { rankIndex } from "../../../../../shared/ranks";
 import { getAuthorizedAdminSession, isSameOriginRequest, jsonResponse } from "../../../../_lib/auth";
 import { adminAuditMetadata, assertStudentAccess, auditStatement, normalizedRankOrError, rankColor, requestIdentifier, requireStudentDb, type StudentEnv } from "../../../../_lib/studentRecords";
@@ -74,4 +75,3 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     return jsonResponse({ error: conflict ? "This examination application was already processed." : message }, conflict ? 409 : 400);
   }
 };
-import { isCanonicalDate } from "../../../../../shared/date";

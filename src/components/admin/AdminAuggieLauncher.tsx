@@ -41,6 +41,9 @@ type Operation = {
   status: string;
   expiresAt: string;
   confirmationPhrase?: string;
+  secondaryConfirmationPhrase?: string;
+  requiresSecondaryConfirmation?: boolean;
+  undoable?: boolean;
   highImpact?: boolean;
   path: string;
   warning: string;
@@ -50,6 +53,10 @@ type Operation = {
     dojos?: string[];
     records?: StudentPreview[];
     manualOnly?: boolean;
+    month?: string;
+    cycle?: string;
+    amount?: number | null;
+    coveredStudentCount?: number;
   };
 };
 
@@ -89,7 +96,7 @@ const copy = {
     requestsAndHours: (requests: number, hours: number) =>
       `${requests} request(s) · ${hours} hours`,
     intro:
-      "Ask for a scoped summary, find a student, or open an administration area. Auggie cannot inspect private files, publish, send, upload, permanently delete, or change settings.",
+      "Ask for a scoped summary, find a student, or open an administration area. Auggie can also prepare student record, rank, training-hour, bulk, newsletter, gallery, website, and dojo changes. Nothing changes until you type the exact confirmation phrase yourself, and a bulk change needs two. Auggie can never inspect private files or upload media.",
     privacy:
       "Only this message is sent to AI. Database results and this conversation are never sent back to the model or stored as a chat transcript.",
     placeholder: "Example: Find Student ID RSK-1001",
@@ -99,6 +106,8 @@ const copy = {
     open: "Open page",
     manual: "Manual review required",
     confirmation: "Exact confirmation phrase",
+    secondConfirmation:
+      "Second exact confirmation (money, payslip, permanent deletion, public website, or real email send)",
     confirm: "Confirm separate write",
     confirming: "Confirming transaction…",
     undo: "Prepare safe undo",
@@ -126,7 +135,7 @@ const copy = {
       `${requests} คำขอ · ${hours} ชั่วโมง`,
     description: "ผู้ช่วยงานผู้ดูแลตามขอบเขตสิทธิ์",
     intro:
-      "ขอสรุปตามขอบเขต ค้นหานักเรียน หรือเปิดส่วนงานผู้ดูแลได้ Auggie ไม่สามารถตรวจไฟล์ส่วนตัว เผยแพร่ ส่ง อัปโหลด ลบถาวร หรือเปลี่ยนการตั้งค่า",
+      "ขอสรุปตามขอบเขต ค้นหานักเรียน หรือเปิดส่วนงานผู้ดูแลได้ Auggie ยังเตรียมการเปลี่ยนแปลงระเบียนนักเรียน ระดับ ชั่วโมงฝึก การทำงานแบบกลุ่ม จดหมายข่าว แกลเลอรี เว็บไซต์ และโดโจได้ จะไม่มีการเปลี่ยนแปลงใดจนกว่าคุณจะพิมพ์ข้อความยืนยันให้ตรงด้วยตนเอง และการทำงานแบบกลุ่มต้องยืนยันสองครั้ง Auggie ไม่สามารถตรวจไฟล์ส่วนตัวหรืออัปโหลดสื่อได้",
     privacy:
       "ส่งให้ AI เฉพาะข้อความนี้ ผลจากฐานข้อมูลและบทสนทนานี้จะไม่ถูกส่งกลับไปยังโมเดลหรือจัดเก็บเป็นประวัติแชต",
     placeholder: "ตัวอย่าง: ค้นหารหัสนักเรียน RSK-1001",
@@ -136,6 +145,8 @@ const copy = {
     open: "เปิดหน้า",
     manual: "ต้องตรวจสอบด้วยตนเอง",
     confirmation: "ข้อความยืนยันที่ตรงกันทุกตัวอักษร",
+    secondConfirmation:
+      "ข้อความยืนยันครั้งที่สอง (การเงิน หลักฐานการชำระเงิน การลบถาวร เว็บไซต์สาธารณะ หรือการส่งอีเมลจริง)",
     confirm: "ยืนยันการเขียนข้อมูลแยกต่างหาก",
     confirming: "กำลังยืนยันธุรกรรม…",
     undo: "เตรียมการย้อนกลับอย่างปลอดภัย",
@@ -191,7 +202,9 @@ function ResponseCard({
   locale,
   busyAction,
   confirmation,
+  secondConfirmation,
   onConfirmation,
+  onSecondConfirmation,
   onConfirm,
   onUndo,
   onNavigate,
@@ -200,7 +213,9 @@ function ResponseCard({
   locale: Locale;
   busyAction: string;
   confirmation: string;
+  secondConfirmation: string;
   onConfirmation(value: string): void;
+  onSecondConfirmation(value: string): void;
   onConfirm(operation: Operation): void;
   onUndo(operationId: string): void;
   onNavigate(path: string): void;
@@ -325,11 +340,31 @@ function ResponseCard({
                 autoComplete="off"
                 spellCheck={false}
               />
+              {operation.secondaryConfirmationPhrase && (
+                <>
+                  <label htmlFor={`admin-auggie-confirm-2-${operation.id}`}>
+                    {text.secondConfirmation}
+                    <code>{operation.secondaryConfirmationPhrase}</code>
+                  </label>
+                  <input
+                    id={`admin-auggie-confirm-2-${operation.id}`}
+                    value={secondConfirmation}
+                    onChange={(event) =>
+                      onSecondConfirmation(event.target.value)
+                    }
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                </>
+              )}
               <button
                 type="submit"
                 disabled={
                   busyAction.length > 0 ||
-                  confirmation !== operation.confirmationPhrase
+                  confirmation !== operation.confirmationPhrase ||
+                  (Boolean(operation.secondaryConfirmationPhrase) &&
+                    secondConfirmation !==
+                      operation.secondaryConfirmationPhrase)
                 }
               >
                 {busyAction === operation.id ? (
@@ -411,6 +446,9 @@ function AdminAuggiePanel({
   const [confirmations, setConfirmations] = useState<Record<string, string>>(
     {},
   );
+  const [secondConfirmations, setSecondConfirmations] = useState<
+    Record<string, string>
+  >({});
 
   useEffect(() => {
     if (open) logEndRef.current?.scrollIntoView({ block: "nearest" });
@@ -461,6 +499,7 @@ function AdminAuggiePanel({
         {
           operationId: operation.id,
           phrase: confirmations[operation.id] || "",
+          secondPhrase: secondConfirmations[operation.id] || "",
           locale,
         },
       );
@@ -471,6 +510,10 @@ function AdminAuggiePanel({
         result: payload.result,
       });
       setConfirmations((current) => ({ ...current, [operation.id]: "" }));
+      setSecondConfirmations((current) => ({
+        ...current,
+        [operation.id]: "",
+      }));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : text.error);
     } finally {
@@ -558,10 +601,23 @@ function AdminAuggiePanel({
                   ? confirmations[item.response.operation.id] || ""
                   : ""
               }
+              secondConfirmation={
+                item.response.operation
+                  ? secondConfirmations[item.response.operation.id] || ""
+                  : ""
+              }
               onConfirmation={(value) => {
                 const id = item.response.operation?.id;
                 if (id)
                   setConfirmations((current) => ({ ...current, [id]: value }));
+              }}
+              onSecondConfirmation={(value) => {
+                const id = item.response.operation?.id;
+                if (id)
+                  setSecondConfirmations((current) => ({
+                    ...current,
+                    [id]: value,
+                  }));
               }}
               onConfirm={confirm}
               onUndo={undo}

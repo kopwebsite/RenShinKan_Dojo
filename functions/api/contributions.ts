@@ -6,10 +6,12 @@ import {
   auditStatement,
   configuredAatAnnualContributionAmount,
   configuredMonthlyContributionAmount,
+  contributionPeriodCountStatement,
   currentBangkokMonthKey,
   DEFAULT_DOJO_ID,
   enforceLookupRateLimit,
   isMonthKey,
+  liveRosterStudentSql,
   namesLikelyMatch,
   normalizeStudentId,
   requestIdentifier,
@@ -103,9 +105,7 @@ async function lookupStudent(
     WHERE (UPPER(s.public_student_id) = ? OR EXISTS (
       SELECT 1 FROM student_id_aliases a WHERE a.student_id = s.id
       AND UPPER(a.alias_public_student_id) = ?
-    )) AND s.active = 1
-      AND s.profile_status IN ('pending_admin_approval', 'approved')
-      AND s.deleted_at IS NULL LIMIT 1`,
+    )) AND ${liveRosterStudentSql()} LIMIT 1`,
     )
     .bind(publicStudentId, publicStudentId)
     .first<StudentRow>();
@@ -427,7 +427,7 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({
             await db
               .prepare(
                 `SELECT COUNT(*) AS count FROM students
-      WHERE active = 1 AND profile_status IN ('pending_admin_approval', 'approved') AND dojo_id = ?`,
+      WHERE ${liveRosterStudentSql("")} AND dojo_id = ?`,
               )
               .bind(DEFAULT_DOJO_ID)
               .first<{ count: number }>()
@@ -449,7 +449,7 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({
         id, month_key, student_id, student_name_snapshot, student_public_id_snapshot,
         current_rank_snapshot, active_at_period_start, created_at
       ) SELECT lower(hex(randomblob(16))), ?, id, display_name, public_student_id,
-        current_belt, 1, ? FROM students WHERE active = 1 AND profile_status IN ('pending_admin_approval', 'approved') AND dojo_id = ?`,
+        current_belt, 1, ? FROM students WHERE ${liveRosterStudentSql("")} AND dojo_id = ?`,
           )
           .bind(month, now, DEFAULT_DOJO_ID),
       );
@@ -621,14 +621,7 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({
       uploadToken: proof.uploadToken,
     };
     statements.push(
-      db
-        .prepare(
-          `UPDATE contribution_periods SET active_student_count_snapshot = (
-        SELECT COUNT(*) FROM contribution_period_students r JOIN students s ON s.id = r.student_id
-        WHERE r.month_key = ? AND r.active_at_period_start = 1 AND s.dojo_id = ?
-      ) WHERE month_key = ?`,
-        )
-        .bind(month, DEFAULT_DOJO_ID, month),
+      contributionPeriodCountStatement(db, month, DEFAULT_DOJO_ID),
       proof.statement,
       db
         .prepare(

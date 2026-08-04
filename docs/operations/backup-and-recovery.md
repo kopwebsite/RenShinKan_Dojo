@@ -87,6 +87,26 @@ Cloudflare also publishes a scheduled D1-to-R2 Workflow pattern. It is attractiv
 
 Stop writes, record the earliest known bad time, export the current state, use Time Travel info to resolve a pre-incident bookmark, and restore an isolated target first. For a small incident, compare the isolated export and create an explicit, reviewed repair plan rather than rolling the whole database back and losing valid later writes. Every production repair must preview affected row counts and identifiers in a restricted channel, require a second reviewer, execute once, and create an audit event. The application includes no automatic repair mode.
 
+## Permanent student deletion ("delete forever")
+
+Archiving is the normal path and is fully reversible. Permanent deletion is not: it erases the student row, every related record, the stored profile photo and payment images, and strips the name and Student ID out of surviving audit entries. Nothing inside the application can bring it back. The only recovery is a backup or Time Travel restore taken **before** the deletion, so treat the daily export and the 7/30-day Time Travel window as the sole safety net.
+
+Controls, all enforced on the server:
+
+- the student must already be archived;
+- the administrator must be able to manage that student's dojo;
+- both confirmations plus the exact typed phrase `DELETE <Student ID>` are required;
+- it is only ever available for one student at a time — there is no bulk permanent delete, and `students/bulk.ts` cannot perform one;
+- everything happens in a single D1 batch, so a failure anywhere leaves the record untouched.
+
+`migrations/0029_permanent_student_deletion.sql` adds `permanent_deletion_unlock`. The two immutable financial-history tables (`aat_membership_payments`, `payment_history`) still abort every delete unless that table holds a row naming **the same student** the row belongs to, and the application inserts and removes it inside the one deletion transaction. The unlock is therefore per-student, not global: a row left behind can only ever expose the single student it names, and a deletion can never reach past its own target. If a row is ever found in `permanent_deletion_unlock` outside a running deletion, still treat it as an incident and delete it — that one student's financial history is unprotected while it exists.
+
+`student_deletion_records` is the accountable proof that a deletion happened — who, when, from which dojo, and how many records and files went. It deliberately stores no name, no Student ID and no student row ID.
+
+## Leftover-record cleanup
+
+`npm run cleanup:leftovers` (add `-- --env production`) only reads, prints a plain-language report, and writes a reviewable SQL file under `tmp/cleanup-review/`. It changes nothing without `--apply --i-have-a-backup`, and it refuses to run the apply step without that backup acknowledgement. It never drops a table, resets a database, or deletes a student; every statement clears rows that point at a student who is already gone, or recounts a stored total. Take the export in "Export and isolated restore" before approving an apply against production.
+
 ## KV and R2 recovery model
 
 | Data                                       | Authoritative metadata                                    | Bytes/content                          | Recovery                                                                                                   |

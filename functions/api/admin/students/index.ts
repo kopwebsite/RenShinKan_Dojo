@@ -1,3 +1,4 @@
+import { isCanonicalDate } from "../../../../shared/date";
 import { RANKS, normalizeRank } from "../../../../shared/ranks";
 import { addOneCalendarYear } from "../../../../shared/membership";
 import {
@@ -11,6 +12,7 @@ import {
   activeDojo,
   adminAuditMetadata,
   auditStatement,
+  contributionPeriodCountStatement,
   currentBangkokMonthKey,
   DEFAULT_DOJO_ID,
   DEFAULT_SHARE_FIELDS,
@@ -480,15 +482,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
                 currentBelt,
                 now,
               ),
-            db
-              .prepare(
-                `UPDATE contribution_periods SET active_student_count_snapshot = (
-              SELECT COUNT(*) FROM contribution_period_students r
-              JOIN students s ON s.id = r.student_id
-              WHERE r.month_key = ? AND r.active_at_period_start = 1 AND s.dojo_id = 'dojo-rsk'
-            ) WHERE month_key = ?`,
-              )
-              .bind(currentMonth, currentMonth),
+            contributionPeriodCountStatement(db, currentMonth),
           );
         }
         if (aatLastPaidDate) {
@@ -614,4 +608,3 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     );
   }
 };
-import { isCanonicalDate } from "../../../../shared/date";

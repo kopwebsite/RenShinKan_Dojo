@@ -1,3 +1,4 @@
+import { isCanonicalDate } from "../../../shared/date";
 import { rankIndex } from "../../../shared/ranks";
 import { examinationFeeThb } from "../../../shared/examFees";
 import { jsonResponse } from "../../_lib/auth";
@@ -204,4 +205,3 @@ export const onRequestPost: PagesFunction<StudentEnv> = async ({ request, env })
     return jsonResponse({ error: message.includes("UNIQUE") ? "This application was already submitted." : message }, message.includes("UNIQUE") ? 409 : 400);
   }
 };
-import { isCanonicalDate } from "../../../shared/date";

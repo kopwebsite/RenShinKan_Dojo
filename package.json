@@ -37,6 +37,7 @@
     "archive:check": "node scripts/check-release-archive.mjs",
     "check": "npm run config:check && npm run archive:check && npm run lint && npm run test && npm run build",
     "auth:hash-password": "node scripts/hash-password.mjs",
+    "cleanup:leftovers": "node scripts/cleanup-leftover-student-records.mjs",
     "audit:worker:types": "wrangler types audit-cleanup-env.d.ts --cwd serverless --config ../wrangler.audit-cleanup.jsonc --env-file serverless/.env.types --include-runtime=false",
     "audit:worker:check": "wrangler deploy --dry-run --config wrangler.audit-cleanup.jsonc",
     "deploy": "node -e \"throw new Error('Direct deployment is disabled. Use the authorized release workflow after backups and config:release.')\"",

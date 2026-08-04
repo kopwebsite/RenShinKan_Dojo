@@ -1,3 +1,4 @@
+import { isCanonicalDate } from "../../shared/date";
 import {
   GALLERY_IDS,
   migrateLegacyGalleries,
@@ -865,4 +866,3 @@ export function replacePendingMediaUrls(content: EditableContent, uploadUrlById:
 
   return syncLegacyGalleryArrays(nextContent) as EditableContent;
 }
-import { isCanonicalDate } from "../../shared/date";

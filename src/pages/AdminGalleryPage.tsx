@@ -5,7 +5,6 @@ import {
   ArrowUp,
   Check,
   CheckCircle2,
-  ChevronLeft,
   Eye,
   EyeOff,
   GripVertical,

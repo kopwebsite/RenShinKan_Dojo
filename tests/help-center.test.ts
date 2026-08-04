@@ -25,7 +25,7 @@ describe("help center content contracts", () => {
 
   it("ships the same complete public topic set in all four locales", () => {
     const english = getPublicHelpCatalog("en");
-    expect(english.articles).toHaveLength(10);
+    expect(english.articles).toHaveLength(40);
     const expectedIds = english.articles.map((article) => article.id).sort();
     for (const locale of publicLocales) {
       const catalog = getPublicHelpCatalog(locale);
@@ -59,7 +59,7 @@ describe("help center content contracts", () => {
     const expectedIds = getAdminHelpCatalog("en")
       .articles.map((article) => article.id)
       .sort();
-    expect(expectedIds).toHaveLength(24);
+    expect(expectedIds).toHaveLength(25);
     for (const locale of adminLocales) {
       const catalog = getAdminHelpCatalog(locale);
       expect(catalog.articles.map((article) => article.id).sort()).toEqual(
@@ -77,6 +77,35 @@ describe("help center content contracts", () => {
     expect(getAdminHelpCatalog("en").ui.heading).toBe(
       "How to use administration",
     );
+  });
+
+  it("offers a real topic for every page the help panel routes to", () => {
+    // The Thai admin topics are matched to the English ones by position, so a
+    // topic added to one list and not the other would silently show the wrong
+    // translation. Both failures are caught here rather than by a reader.
+    const known = new Set([
+      ...publicLocales.flatMap((locale) =>
+        getPublicHelpCatalog(locale).articles.map((article) => article.id),
+      ),
+      ...adminLocales.flatMap((locale) =>
+        getAdminHelpCatalog(locale).articles.map((article) => article.id),
+      ),
+    ]);
+    const routing = readFileSync(resolve("src/help/context.ts"), "utf8");
+    const referenced = new Set(
+      [...routing.matchAll(/"((?:public|admin|student)-[a-z0-9-]+)"/g)].map(
+        (match) => match[1],
+      ),
+    );
+    expect(referenced.size).toBeGreaterThan(20);
+    expect([...referenced].filter((id) => !known.has(id))).toEqual([]);
+
+    const english = getAdminHelpCatalog("en").articles;
+    const thai = getAdminHelpCatalog("th").articles;
+    english.forEach((article, index) => {
+      expect(thai[index].id).toBe(article.id);
+      expect(thai[index].title).not.toBe(article.title);
+    });
   });
 
   it("marks the place or control to select in bold, using its real name", () => {

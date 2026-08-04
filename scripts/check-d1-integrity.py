@@ -134,6 +134,13 @@ def validate_previous_fixture_upgrade(connection: sqlite3.Connection, before: di
         raise RuntimeError("Admin account and dojo scope could not be enrolled after migration")
 
 
+def latest_migration_name(migrations: pathlib.Path) -> str:
+    names = sorted(path.name for path in migrations.glob("*.sql"))
+    if not names:
+        raise RuntimeError(f"No migrations found in {migrations}")
+    return names[-1]
+
+
 def replay_previous_schema(migrations: pathlib.Path, fixture: pathlib.Path) -> None:
     with tempfile.TemporaryDirectory(prefix="renshinkan-schema-upgrade-") as directory:
         database = pathlib.Path(directory) / "upgrade.sqlite"
@@ -163,9 +170,10 @@ def main() -> int:
     parser.add_argument("--migrations", type=pathlib.Path, default=pathlib.Path("migrations"))
     parser.add_argument("--fixture", type=pathlib.Path, default=pathlib.Path("tests/fixtures/previous-production-v0023.sql"))
     arguments = parser.parse_args()
+    expected_latest = latest_migration_name(arguments.migrations)
     if arguments.upgrade:
         replay_previous_schema(arguments.migrations, arguments.fixture)
-        print("Sanitized previous-production v0023 fixture upgraded through migration 0028 with row preservation, relationship, session, date, status, metadata, integrity, and query-plan checks passing.")
+        print(f"Sanitized previous-production v0023 fixture upgraded through migration {expected_latest} with row preservation, relationship, session, date, status, metadata, integrity, and query-plan checks passing.")
         return 0
     if not arguments.local_state:
         parser.error("--local-state is required unless --upgrade is used")
@@ -176,8 +184,10 @@ def main() -> int:
         latest = connection.execute("SELECT name FROM d1_migrations ORDER BY id DESC LIMIT 1").fetchone()[0]
     finally:
         connection.close()
-    if latest != "0028_admin_auggie_operations.sql":
-        raise RuntimeError(f"Unexpected latest migration: {latest}")
+    # Compared against the migrations directory rather than a pinned name, so
+    # adding a migration cannot silently leave this check behind.
+    if latest != expected_latest:
+        raise RuntimeError(f"Unexpected latest migration: {latest} (expected {expected_latest})")
     print("Empty local D1 replay, foreign keys, integrity checks, data checks, and query plans passed.")
     return 0
 

@@ -3,8 +3,12 @@ import { monthlyContributionStatus } from "../../../shared/membership";
 import {
   adminAuditMetadata,
   auditStatement,
+  contributionPeriodCountStatement,
   currentBangkokMonthKey,
+  DEFAULT_DOJO_ID,
   isMonthKey,
+  LIVE_ROSTER_STUDENT_SQL,
+  liveRosterStudentSql,
   recentMonthKeys,
   requestIdentifier,
   requireStudentDb,
@@ -79,7 +83,7 @@ async function ensureCurrentPeriod(db: D1Database, month: string, requestId: str
   const existing = await db.prepare("SELECT month_key FROM contribution_periods WHERE month_key = ? LIMIT 1")
     .bind(month).first<{ month_key: string }>();
   const activeStudentCount = Number((await db.prepare(`SELECT COUNT(*) AS count FROM students
-    WHERE active = 1 AND profile_status IN ('pending_admin_approval', 'approved') AND dojo_id = 'dojo-rsk'`).first<{ count: number }>())?.count || 0);
+    WHERE ${liveRosterStudentSql("")} AND dojo_id = '${DEFAULT_DOJO_ID}'`).first<{ count: number }>())?.count || 0);
   const now = new Date().toISOString();
   const statements: D1PreparedStatement[] = [
     db.prepare(`INSERT OR IGNORE INTO contribution_periods
@@ -89,13 +93,9 @@ async function ensureCurrentPeriod(db: D1Database, month: string, requestId: str
       id, month_key, student_id, student_name_snapshot, student_public_id_snapshot,
       current_rank_snapshot, active_at_period_start, created_at
     ) SELECT lower(hex(randomblob(16))), ?, id, display_name, public_student_id,
-      current_belt, 1, ? FROM students WHERE active = 1 AND profile_status IN ('pending_admin_approval', 'approved') AND dojo_id = 'dojo-rsk'`)
+      current_belt, 1, ? FROM students WHERE ${liveRosterStudentSql("")} AND dojo_id = '${DEFAULT_DOJO_ID}'`)
       .bind(month, now),
-    db.prepare(`UPDATE contribution_periods SET active_student_count_snapshot = (
-      SELECT COUNT(*) FROM contribution_period_students r
-      JOIN students s ON s.id = r.student_id
-      WHERE r.month_key = ? AND r.active_at_period_start = 1 AND s.dojo_id = 'dojo-rsk'
-    ) WHERE month_key = ?`).bind(month, month),
+    contributionPeriodCountStatement(db, month),
   ];
   if (!existing) {
     statements.push(auditStatement(db, {
@@ -124,10 +124,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   if (period) {
     rosterSql = `SELECT
         r.student_id,
-        r.student_name_snapshot AS student_name,
-        r.student_public_id_snapshot AS public_student_id,
+        s.display_name AS student_name,
+        s.public_student_id,
         s.profile_image_url,
-        r.current_rank_snapshot AS current_rank,
+        s.current_belt AS current_rank,
         c.id AS contribution_id,
         COALESCE(c.status, 'no_submission') AS status,
         c.submitted_at,
@@ -137,7 +137,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         c.internal_note,
         ${latestPaidColumns("r.student_id")}
       FROM contribution_period_students r
-      JOIN students s ON s.id = r.student_id AND s.dojo_id = 'dojo-rsk'
+      JOIN students s ON s.id = r.student_id AND s.dojo_id = '${DEFAULT_DOJO_ID}'
+        AND ${LIVE_ROSTER_STUDENT_SQL}
       LEFT JOIN monthly_contributions c ON c.student_id = r.student_id AND c.month_key = r.month_key
       WHERE r.month_key = ? AND r.active_at_period_start = 1
       `;
@@ -158,7 +159,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         NULL AS internal_note,
         ${latestPaidColumns("s.id")}
       FROM students s
-      WHERE s.active = 1 AND s.profile_status IN ('pending_admin_approval', 'approved') AND s.dojo_id = 'dojo-rsk'
+      WHERE ${LIVE_ROSTER_STUDENT_SQL} AND s.dojo_id = '${DEFAULT_DOJO_ID}'
       `;
   } else {
     rosterSql = `SELECT s.id AS student_id, s.display_name AS student_name, s.public_student_id,
@@ -262,10 +263,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const storedMonths = ((await db.prepare("SELECT month_key FROM contribution_periods ORDER BY month_key DESC LIMIT 36")
     .all<{ month_key: string }>()).results || []).map((row) => row.month_key);
   const months = Array.from(new Set([...recentMonthKeys(12), ...storedMonths])).sort().reverse();
+  const rosterStudent = `r.active_at_period_start = 1 AND s.dojo_id = '${DEFAULT_DOJO_ID}' AND ${LIVE_ROSTER_STUDENT_SQL}`;
   const graphRows = (await db.prepare(`SELECT
       p.month_key,
-      COUNT(DISTINCT CASE WHEN r.active_at_period_start = 1 AND s.dojo_id = 'dojo-rsk' THEN r.student_id END) AS total_active,
-      COUNT(DISTINCT CASE WHEN r.active_at_period_start = 1 AND s.dojo_id = 'dojo-rsk' AND c.status = 'paid' THEN r.student_id END) AS paid
+      COUNT(DISTINCT CASE WHEN ${rosterStudent} THEN r.student_id END) AS total_active,
+      COUNT(DISTINCT CASE WHEN ${rosterStudent} AND c.status = 'paid' THEN r.student_id END) AS paid
     FROM contribution_periods p
     LEFT JOIN contribution_period_students r ON r.month_key = p.month_key
     LEFT JOIN students s ON s.id = r.student_id
@@ -316,12 +318,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (month === currentBangkokMonthKey()) await ensureCurrentPeriod(db, month, requestId, session!, request);
     const placeholders = studentIds.map(() => "?").join(",");
     const rows = (await db.prepare(`SELECT
-        r.student_id, r.student_name_snapshot, r.student_public_id_snapshot,
+        r.student_id, s.display_name AS student_name_snapshot, s.public_student_id AS student_public_id_snapshot,
         c.id AS contribution_id, COALESCE(c.status, 'no_submission') AS current_status,
         c.submitted_at, c.internal_note, s.dojo_id
       FROM contribution_period_students r JOIN students s ON s.id = r.student_id
       LEFT JOIN monthly_contributions c ON c.student_id = r.student_id AND c.month_key = r.month_key
-      WHERE r.month_key = ? AND r.student_id IN (${placeholders}) AND r.active_at_period_start = 1 AND s.dojo_id = 'dojo-rsk'`)
+      WHERE r.month_key = ? AND r.student_id IN (${placeholders}) AND r.active_at_period_start = 1
+        AND s.dojo_id = '${DEFAULT_DOJO_ID}' AND ${LIVE_ROSTER_STUDENT_SQL}`)
       .bind(month, ...studentIds).all<{
         student_id: string; student_name_snapshot: string; student_public_id_snapshot: string;
         contribution_id: string | null; current_status: string; submitted_at: string | null; internal_note: string | null; dojo_id: string;

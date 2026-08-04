@@ -190,6 +190,39 @@ export function recentMonthKeys(count = 12, from = currentBangkokMonthKey()) {
   );
 }
 
+/**
+ * The single definition of "a student who still belongs on a live roster".
+ * Archived and removed records are excluded, so every screen that counts or
+ * lists roster students agrees instead of drifting apart.
+ */
+export function liveRosterStudentSql(alias = "s") {
+  const column = alias ? `${alias}.` : "";
+  return `${column}active = 1 AND ${column}archived_at IS NULL AND ${column}deleted_at IS NULL AND ${column}profile_status IN ('pending_admin_approval', 'approved')`;
+}
+
+export const LIVE_ROSTER_STUDENT_SQL = liveRosterStudentSql();
+
+/**
+ * Recomputes a contribution period's stored active-student count using the same
+ * roster definition the monthly contributions page renders.
+ */
+export function contributionPeriodCountStatement(
+  db: D1Database,
+  monthKey: string,
+  dojoId: string = DEFAULT_DOJO_ID,
+) {
+  return db
+    .prepare(
+      `UPDATE contribution_periods SET active_student_count_snapshot = (
+      SELECT COUNT(*) FROM contribution_period_students r
+      JOIN students s ON s.id = r.student_id
+      WHERE r.month_key = ? AND r.active_at_period_start = 1 AND s.dojo_id = ?
+        AND ${LIVE_ROSTER_STUDENT_SQL}
+    ) WHERE month_key = ?`,
+    )
+    .bind(monthKey, dojoId, monthKey);
+}
+
 export async function hmacHex(secret: string, value: string) {
   const key = await crypto.subtle.importKey(
     "raw",

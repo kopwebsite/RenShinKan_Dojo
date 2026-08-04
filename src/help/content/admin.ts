@@ -424,6 +424,22 @@ const en: Topic[] = [
     ],
     action: "Open dojo settings",
   },
+  // Keep this last: `th` below is matched to `en` by position, so a new topic
+  // must be appended to both lists at the same index.
+  {
+    id: "admin-dashboard",
+    category: "administration",
+    href: "/admin/dashboard",
+    title: "What do the dashboard numbers mean?",
+    summary:
+      "Each number counts the work waiting for you, and only for the dojo you are signed in to.",
+    steps: [
+      "Open the **Dashboard**.",
+      "Choose a number to open the screen it belongs to.",
+      "The list you land on holds exactly the records the number counted.",
+    ],
+    action: "Open dashboard",
+  },
 ];
 
 const thText: Array<[string, string, string[], string]> = [
@@ -666,6 +682,16 @@ const thText: Array<[string, string, string[], string]> = [
       "เลือก **บันทึก** แล้วตรวจสอบข้อความยืนยัน",
     ],
     "เปิดการตั้งค่าโดโจ",
+  ],
+  [
+    "ตัวเลขบนแดชบอร์ดหมายถึงอะไร?",
+    "แต่ละตัวเลขคืองานที่รอคุณอยู่ และนับเฉพาะโดโจที่คุณเข้าสู่ระบบอยู่เท่านั้น",
+    [
+      "เปิด **แดชบอร์ด**",
+      "เลือกตัวเลขเพื่อเปิดหน้าจอที่เกี่ยวข้อง",
+      "รายการที่เปิดขึ้นคือระเบียนเดียวกับที่ตัวเลขนั้นนับไว้",
+    ],
+    "เปิดแดชบอร์ด",
   ],
 ];
 

@@ -1,4 +1,5 @@
 import { jsonResponse } from "../../_lib/auth";
+import { operationalEvent } from "../../_lib/observability";
 import {
   audit,
   enforceLookupRateLimit,
@@ -61,10 +62,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       200,
       { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" },
     );
-  } catch (error) {
-    console.error("Student record lookup failed", {
-      requestId,
-      error: error instanceof Error ? error.message : String(error),
+  } catch {
+    // The submitted name and Student ID must never reach a log line, so the
+    // raw error text is dropped and only the correlation fields are recorded.
+    operationalEvent("error", "student_lookup_failed", "database_failure", {
+      request,
+      env,
+      status: 404,
     });
     return genericLookupFailure();
   }

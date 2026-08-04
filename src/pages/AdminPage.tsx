@@ -425,17 +425,6 @@ function bodyPositionLabel(position: number, paragraphCount: number) {
   return `After paragraph ${position}`;
 }
 
-function sectionTitle(title: string, copy: string) {
-  return (
-    <div className="mb-5">
-      <h2 className="text-3xl leading-tight text-ink">{title}</h2>
-      <p className="mt-2 max-w-3xl text-sm leading-6 text-charcoal/72">
-        {copy}
-      </p>
-    </div>
-  );
-}
-
 function CollapsibleEditorSection({
   title,
   copy,

@@ -17,11 +17,14 @@ export const onRequestPost: PagesFunction<AdminAuggieEnv> = async ({
     const body = await parseBoundedJson(request, [
       "operationId",
       "phrase",
+      "secondPhrase",
       "locale",
     ]);
     const operationId =
       typeof body.operationId === "string" ? body.operationId : "";
     const phrase = typeof body.phrase === "string" ? body.phrase : "";
+    const secondPhrase =
+      typeof body.secondPhrase === "string" ? body.secondPhrase : "";
     const locale: AdminAuggieLocale = body.locale === "th" ? "th" : "en";
     const result = await confirmAdminAuggieOperation(
       request,
@@ -29,6 +32,7 @@ export const onRequestPost: PagesFunction<AdminAuggieEnv> = async ({
       operationId,
       phrase,
       locale,
+      secondPhrase,
     );
     return jsonResponse({ ok: true, result }, 200, {
       "Cache-Control": "private, no-store",

@@ -1,3 +1,5 @@
+import { readdirSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   operationalEvent,
@@ -5,6 +7,7 @@ import {
   unexpectedErrorResponse,
 } from "../functions/_lib/observability";
 import {
+  EXPECTED_LATEST_MIGRATION,
   runBindingDiagnostics,
   runReadOnlyConsistencyAudit,
 } from "../functions/_lib/diagnostics";
@@ -40,7 +43,7 @@ function healthyDb() {
       if (query.includes("SELECT 1 AS available"))
         return statement({ available: 1 });
       if (query.includes("FROM d1_migrations"))
-        return statement({ name: "0028_admin_auggie_operations.sql" });
+        return statement({ name: EXPECTED_LATEST_MIGRATION });
       if (
         query.includes("FROM publish_operations") &&
         query.includes("problems")
@@ -145,6 +148,18 @@ describe("sanitized operational observability", () => {
 });
 
 describe("health and consistency failure injection", () => {
+  it("expects the newest migration that actually exists", () => {
+    // The live health endpoint answers "degraded" until the database has
+    // EXPECTED_LATEST_MIGRATION applied. Adding a migration without updating
+    // that constant takes the site's own health check down, so the two are
+    // compared here instead of being noticed in production.
+    const newest = readdirSync(resolve("migrations"))
+      .filter((name) => name.endsWith(".sql"))
+      .sort()
+      .at(-1);
+    expect(EXPECTED_LATEST_MIGRATION).toBe(newest);
+  });
+
   it("reports healthy bindings and the expected migration without resource IDs", async () => {
     const result = await runBindingDiagnostics({
       APP_ENV: "production",

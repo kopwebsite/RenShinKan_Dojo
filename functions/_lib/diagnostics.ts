@@ -3,7 +3,10 @@ import type { OperationalEnv } from "./observability";
 import type { StorageEnv } from "./storage";
 import type { D1Database, StudentEnv } from "./studentRecords";
 
-export const EXPECTED_LATEST_MIGRATION = "0028_admin_auggie_operations.sql";
+// Must name the highest-numbered file in migrations/. The health endpoint
+// reports "degraded" until the database has it applied, so adding a migration
+// means updating this line in the same change.
+export const EXPECTED_LATEST_MIGRATION = "0029_permanent_student_deletion.sql";
 const CONTENT_KEY = "site:editable-content";
 const CONTENT_POINTER_KEY = "site:editable-content:published-version";
 const EXPECTED_LOCALES = ["en", "th", "ja", "zh-CN"] as const;

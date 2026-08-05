@@ -289,6 +289,50 @@
   line-height: 1.45;
 }
 
+.admin-auggie__examples {
+  margin-top: 0.85rem;
+}
+
+.admin-auggie__examples-title {
+  margin: 0 0 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6c625c;
+}
+
+.admin-auggie__examples ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-auggie__examples button {
+  cursor: pointer;
+  border: 1px solid rgb(40 78 57 / 0.25);
+  border-radius: 999px;
+  background: rgb(40 78 57 / 0.06);
+  padding: 0.35rem 0.7rem;
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1.3;
+  color: #284e39;
+  text-align: left;
+}
+
+.admin-auggie__examples button:hover {
+  background: rgb(40 78 57 / 0.12);
+}
+
+.admin-auggie__examples button:focus-visible {
+  outline: 2px solid #284e39;
+  outline-offset: 2px;
+}
+
 .admin-auggie__user-message {
   width: fit-content;
   max-width: 88%;

@@ -125,9 +125,17 @@ const copy = {
     requestsAndHours: (requests: number, hours: number) =>
       `${requests} request(s) · ${hours} hours`,
     intro:
-      "Ask for a summary, find a student, or open an administration page. Auggie can also walk you through making a new student profile, writing a newsletter, adding training hours or recording an examination result, one question at a time. Nothing is created or changed until you type the exact confirmation phrase yourself, and some changes need two. Auggie can never open private files or upload media.",
+      "Ask for a summary or a count, find a student, or check the weather in a place. Auggie can walk you through making a new student profile, adding training hours, recording an examination result, or writing a newsletter — one question at a time. Nothing is created or changed until you type the exact confirmation phrase yourself, and money, permanent deletion, the public website and real emails need a second phrase.",
     privacy:
-      "Only your first request is sent to AI, and only so it can work out what you want. Once a step-by-step conversation starts, nothing at all is sent to AI: every question and reply is written into this website. Your answers and database results are never sent to AI and are never kept as a chat transcript. Answers you have given are held on our server against your own sign-in and dojo, are cleared when you sign out or start over, and expire on their own after two hours.",
+      "Only the request you type is sent to AI, so it can work out what you want. Once a step-by-step conversation starts, nothing more is sent to AI. A weather question sends only the place name to a weather service. Nothing about your students, records or money is ever sent to AI or to any outside service, and no chat transcript is kept. Your saved answers are held against your own sign-in and dojo, clear when you sign out or start over, and expire on their own after two hours.",
+    examplesTitle: "Try asking",
+    examples: [
+      "Show me the dashboard summary",
+      "Find Student ID RSK-1001",
+      "How many paid the monthly contribution in 2026-07?",
+      "Start a new student profile",
+      "What is the weather in Chiang Mai right now?",
+    ],
     placeholder: "Example: Find Student ID RSK-1001",
     send: "Send",
     sending: "Just a moment…",
@@ -179,9 +187,17 @@ const copy = {
       `${requests} คำขอ · ${hours} ชั่วโมง`,
     description: "ผู้ช่วยงานผู้ดูแลตามขอบเขตสิทธิ์",
     intro:
-      "ขอสรุป ค้นหานักเรียน หรือเปิดหน้าผู้ดูแลได้ Auggie ยังช่วยแนะนำทีละขั้นตอนในการสร้างประวัตินักเรียนใหม่ เขียนจดหมายข่าว เพิ่มชั่วโมงฝึก หรือบันทึกผลการสอบ โดยถามทีละคำถาม จะไม่มีการสร้างหรือเปลี่ยนแปลงใดจนกว่าคุณจะพิมพ์ข้อความยืนยันให้ตรงด้วยตนเอง และบางรายการต้องยืนยันสองครั้ง Auggie ไม่สามารถเปิดไฟล์ส่วนตัวหรืออัปโหลดสื่อได้",
+      "ขอสรุปหรือจำนวน ค้นหานักเรียน หรือดูสภาพอากาศของสถานที่ได้ Auggie ช่วยแนะนำทีละขั้นในการสร้างประวัตินักเรียนใหม่ เพิ่มชั่วโมงฝึก บันทึกผลการสอบ หรือเขียนจดหมายข่าว โดยถามทีละคำถาม จะไม่มีการสร้างหรือเปลี่ยนแปลงใดจนกว่าคุณจะพิมพ์ข้อความยืนยันให้ตรงด้วยตนเอง และเรื่องการเงิน การลบถาวร เว็บไซต์สาธารณะ และการส่งอีเมลจริง ต้องยืนยันครั้งที่สอง",
     privacy:
-      "ส่งให้ AI เฉพาะคำขอแรกของคุณ และส่งเพียงเพื่อให้เข้าใจว่าคุณต้องการสิ่งใด เมื่อเริ่มการสนทนาแบบทีละขั้นแล้ว จะไม่มีการส่งข้อมูลใดให้ AI อีกเลย ทุกคำถามและคำตอบเขียนไว้ในเว็บไซต์นี้ คำตอบของคุณและผลจากฐานข้อมูลจะไม่ถูกส่งให้ AI และไม่ถูกเก็บเป็นประวัติแชต คำตอบที่กรอกไว้จะเก็บบนเซิร์ฟเวอร์ของเราผูกกับการเข้าสู่ระบบและโดโจของคุณ จะถูกล้างเมื่อออกจากระบบหรือเริ่มใหม่ และจะหมดอายุเองภายในสองชั่วโมง",
+      "ส่งให้ AI เฉพาะคำขอที่คุณพิมพ์ เพื่อให้เข้าใจว่าคุณต้องการสิ่งใด เมื่อเริ่มการสนทนาแบบทีละขั้นแล้ว จะไม่มีการส่งข้อมูลใดให้ AI อีก คำถามเรื่องอากาศจะส่งเพียงชื่อสถานที่ไปยังบริการพยากรณ์อากาศเท่านั้น ข้อมูลนักเรียน ประวัติ หรือการเงินของคุณจะไม่ถูกส่งให้ AI หรือบริการภายนอกใด ๆ และไม่มีการเก็บประวัติแชต คำตอบที่กรอกไว้ผูกกับการเข้าสู่ระบบและโดโจของคุณ จะถูกล้างเมื่อออกจากระบบหรือเริ่มใหม่ และหมดอายุเองภายในสองชั่วโมง",
+    examplesTitle: "ลองถามดู",
+    examples: [
+      "ขอสรุปแดชบอร์ด",
+      "ค้นหารหัสนักเรียน RSK-1001",
+      "เดือน 2026-07 มีใครชำระเงินสมทบบ้าง",
+      "เริ่มสร้างประวัตินักเรียนใหม่",
+      "อากาศที่เชียงใหม่ตอนนี้เป็นอย่างไร",
+    ],
     placeholder: "ตัวอย่าง: ค้นหารหัสนักเรียน RSK-1001",
     send: "ส่ง",
     sending: "สักครู่…",
@@ -838,6 +854,28 @@ export function AdminAuggiePanel({
         <div className="admin-auggie__intro">
           <p>{text.intro}</p>
           <small>{text.privacy}</small>
+          {items.length === 0 && (
+            <div className="admin-auggie__examples">
+              <p className="admin-auggie__examples-title">
+                {text.examplesTitle}
+              </p>
+              <ul>
+                {text.examples.map((example) => (
+                  <li key={example}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMessage(example);
+                        requestAnimationFrame(() => inputRef.current?.focus());
+                      }}
+                    >
+                      {example}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
         {items.map((item) =>
           item.role === "user" ? (

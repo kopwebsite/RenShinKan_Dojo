@@ -89,6 +89,31 @@ describe("unified administration UI contracts", () => {
     expect(passport).toContain("owner.dojoJoinedDate");
   });
 
+  it("keeps the Admin Auggie panel copy honest and free of the old blurb", () => {
+    const panel = file("src/components/admin/AdminAuggiePanel.tsx");
+    // The old, now-inaccurate blurb must be gone in both languages.
+    expect(panel).not.toContain("Only your first request is sent to AI");
+    expect(panel).not.toContain(
+      "Auggie can never open private files or upload media",
+    );
+    expect(panel).not.toContain("ส่งให้ AI เฉพาะคำขอแรกของคุณ");
+    expect(panel).not.toContain("Auggie ไม่สามารถเปิดไฟล์ส่วนตัวหรืออัปโหลดสื่อได้");
+    // The honest copy names the confirmation rail and the second phrase.
+    expect(panel).toContain("type the exact confirmation phrase yourself");
+    expect(panel).toContain("need a second phrase");
+    // A weather question sends only the place name, nothing about the dojo.
+    expect(panel).toContain("place name to a weather service");
+    expect(compact(panel)).toContain(
+      "Nothing about your students, records or money is ever sent to AI",
+    );
+    // Example asks are shown when the panel is empty, in both languages.
+    expect(panel).toContain("examplesTitle");
+    expect(panel).toContain("items.length === 0");
+    expect(panel).toContain("Find Student ID RSK-1001");
+    expect(panel).toContain("ลองถามดู");
+    expect(panel).toContain("บริการพยากรณ์อากาศ");
+  });
+
   it("keeps all new shell, dashboard, and student task translations in parity", () => {
     const languages = ["en", "th", "ja", "zh-CN"].map((language) =>
       JSON.parse(file(`src/i18n/${language}.json`)) as Record<"adminShell" | "adminDashboard" | "studentTasks", Record<string, string>>,

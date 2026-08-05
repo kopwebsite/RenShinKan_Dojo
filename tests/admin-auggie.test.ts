@@ -1024,35 +1024,82 @@ describe("Admin Auggie inference boundary", () => {
   });
 
   it.each([
+    ["no tool at all", { tool_calls: [] as unknown[] }],
     [
-      "malformed",
+      "unreadable arguments",
       {
         tool_calls: [{ function: { name: "navigate_admin", arguments: "{" } }],
       },
-      "ADMIN_AUGGIE_MALFORMED_TOOL",
     ],
     [
-      "multiple",
+      "more than one tool",
       {
         tool_calls: [
           { function: { name: "navigate_admin", arguments: "{}" } },
           { function: { name: "get_dashboard_summary", arguments: "{}" } },
         ],
       },
-      "ADMIN_AUGGIE_MULTIPLE_TOOLS",
     ],
-    ["unknown", tool("delete_everything", {}), "ADMIN_AUGGIE_UNKNOWN_TOOL"],
-  ])("rejects %s model tool output", async (_label, output, code) => {
+  ])(
+    "answers %s with a plain conversation reply instead of a raw failure",
+    async (_label, output) => {
+      const db = new FakeDb();
+      const response = (await handleAdminAuggieChat(
+        request("hello there"),
+        env(
+          db,
+          vi.fn(async () => output),
+        ),
+      )) as { kind: string; message: string };
+      expect(response.kind).toBe("conversation");
+      expect(response.message.length).toBeGreaterThan(0);
+      // Recorded as an ordinary conversation, never as a failure.
+      expect(
+        db.audits.some((values) => values[1] === "admin_ai_conversation"),
+      ).toBe(true);
+      expect(
+        db.audits.some((values) => String(values[1] ?? "").includes("failed")),
+      ).toBe(false);
+    },
+  );
+
+  it("still refuses an unknown tool name the model invented", async () => {
     const db = new FakeDb();
     await expect(
       handleAdminAuggieChat(
         request("Do the task"),
         env(
           db,
-          vi.fn(async () => output),
+          vi.fn(async () => tool("delete_everything", {})),
         ),
       ),
-    ).rejects.toMatchObject({ code });
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_UNKNOWN_TOOL" });
+  });
+
+  it("answers a greeting when the model chooses the converse tool", async () => {
+    const db = new FakeDb();
+    const run = vi.fn(async () => tool("converse", {}));
+    const response = (await handleAdminAuggieChat(
+      request("hi"),
+      env(db, run),
+    )) as { kind: string; heading: string; message: string };
+    expect(response.kind).toBe("conversation");
+    // A few plain examples of what it can do, and no database write at all.
+    expect(response.message).toMatch(/student|dojo|นักเรียน|โดโจ/);
+    expect(delegated.state.calls).toHaveLength(0);
+    expect(
+      db.audits.some((values) => values[1] === "admin_ai_conversation"),
+    ).toBe(true);
+  });
+
+  it("always offers the converse tool so a greeting has somewhere to go", async () => {
+    const db = new FakeDb();
+    const run = vi.fn(async () => tool("converse", {}));
+    await handleAdminAuggieChat(request("hi"), env(db, run));
+    const offered = (
+      run.mock.calls[0][1] as { tools: Array<{ function: { name: string } }> }
+    ).tools.map((entry) => entry.function.name);
+    expect(offered).toContain("converse");
   });
 
   it("cancels a chunked body once the byte limit is crossed", async () => {

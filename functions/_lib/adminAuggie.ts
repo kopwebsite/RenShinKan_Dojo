@@ -1108,6 +1108,16 @@ function toolSchemas(ctx: AdminAuggieContext) {
       },
     },
     {
+      name: "converse",
+      description:
+        "Reply to a greeting, a thank you, small talk, or a message that names no administration task. Choose this instead of guessing a tool. It only sends one short friendly reply with a few examples, and never reads, invents or changes anything.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
+    {
       name: "get_dashboard_summary",
       description:
         "Read the dashboard counts.",
@@ -1962,10 +1972,12 @@ const THAI_SUBJECTS: ReadonlyArray<readonly [RegExp, readonly string[]]> = [
 ];
 
 // navigate_admin is the safe way out of anything unsupported, so it is always
-// offered. The others give the model a way to look a record up before naming
-// it, and a way to start a guided conversation.
+// offered. converse is the plain answer to a greeting or an unclear message.
+// The others give the model a way to look a record up before naming it, and a
+// way to start a guided conversation.
 const ALWAYS_OFFERED = [
   "navigate_admin",
+  "converse",
   "search_students",
   "start_guided_flow",
 ] as const;
@@ -2092,7 +2104,7 @@ async function runToolSelection(ctx: AdminAuggieContext, message: string) {
           {
             role: "system",
             content:
-              "Choose exactly one tool from the list. Never answer with prose. Never invent an ID, name, rank, date, amount, hours, web address, album id or photo id. When a record is named only by a person's name, choose the matching search or list tool first. Choose navigate_admin for uploads, media, private data, or anything no tool covers. Choose start_guided_flow when the administrator wants to create, add or record something but has not given the details. Every propose tool only prepares a change: the server rechecks everything and the administrator must type an exact confirmation before anything is written.",
+              "Choose exactly one tool from the list. Never answer with prose. Never invent an ID, name, rank, date, amount, hours, web address, album id or photo id. Choose converse for a greeting, a thank you, small talk, or a message that names no administration task. When a record is named only by a person's name, choose the matching search or list tool first. Choose navigate_admin for uploads, media, private data, or anything no tool covers. Choose start_guided_flow when the administrator wants to create, add or record something but has not given the details. Every propose tool only prepares a change: the server rechecks everything and the administrator must type an exact confirmation before anything is written.",
           },
           { role: "user", content: message },
         ],
@@ -2144,18 +2156,13 @@ async function runToolSelection(ctx: AdminAuggieContext, message: string) {
   if (!usable(calls) && deadline - Date.now() > 5_000)
     calls = normalizeToolCalls(await attempt());
 
-  if (!usable(calls))
-    throw new AdminAuggieError(
-      localized(
-        ctx.locale,
-        "Sorry, I could not work out what you needed. Nothing was changed. Could you say it another way?",
-        "ขออภัย ไม่สามารถเข้าใจสิ่งที่คุณต้องการได้ ไม่มีการเปลี่ยนแปลงใด ๆ โปรดลองอธิบายใหม่อีกครั้ง",
-      ),
-      502,
-      calls.length > 1
-        ? "ADMIN_AUGGIE_MULTIPLE_TOOLS"
-        : "ADMIN_AUGGIE_MALFORMED_TOOL",
-    );
+  // A greeting, a thank you or an unclear request matches no action, so the
+  // model can return nothing usable even after a second try. That is not a
+  // failure. Fall back to a plain, friendly conversation reply instead of
+  // refusing the request, so the administrator never sees a raw error for
+  // ordinary talk. Every genuine tool the model does name still goes through
+  // unchanged, and the server still rechecks it.
+  if (!usable(calls)) return { name: "converse", arguments: {} };
   return calls[0];
 }
 
@@ -6045,7 +6052,30 @@ async function navigate(
   };
 }
 
+// A deliberately small, deterministic conversation reply. It is chosen for a
+// greeting, a thank you, small talk or an unclear request, and is also the
+// safe landing place when the model returns nothing usable. The wording is
+// fixed here in English and Thai: no opinion, no invented fact, no personal
+// detail and no long essay. It always steers back to administration work, and
+// it is recorded in the audit log as an ordinary conversation, never a
+// failure.
+async function converse(ctx: AdminAuggieContext) {
+  await auditAi(ctx, "admin_ai_conversation", "converse", "success").catch(
+    () => undefined,
+  );
+  return {
+    kind: "conversation" as const,
+    heading: localized(ctx.locale, "Here to help", "ยินดีช่วยเหลือ"),
+    message: localized(
+      ctx.locale,
+      "Hello. I help with dojo administration. You could ask me to find a student, show the dashboard counts, add training hours, or start a new student profile. Nothing is changed until you confirm it yourself. What would you like to do?",
+      "สวัสดี ยินดีช่วยงานผู้ดูแลโดโจ เช่น ค้นหานักเรียน ดูสรุปแดชบอร์ด เพิ่มชั่วโมงฝึก หรือเริ่มสร้างประวัตินักเรียนใหม่ จะยังไม่มีการเปลี่ยนแปลงใดจนกว่าคุณจะยืนยันด้วยตนเอง ต้องการให้ช่วยเรื่องใด",
+    ),
+  };
+}
+
 async function executeSelectedTool(ctx: AdminAuggieContext, call: ToolCall) {
+  if (call.name === "converse") return converse(ctx);
   const args = objectValue(call.arguments);
   if (!args)
     throw new AdminAuggieError(

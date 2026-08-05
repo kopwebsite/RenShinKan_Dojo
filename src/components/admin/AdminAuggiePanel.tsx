@@ -81,7 +81,14 @@ type GuidedFlow = {
 };
 
 type AssistantResponse = {
-  kind: "navigate" | "dashboard" | "students" | "proposal" | "result" | "flow";
+  kind:
+    | "navigate"
+    | "dashboard"
+    | "students"
+    | "proposal"
+    | "result"
+    | "flow"
+    | "conversation";
   heading: string;
   message: string;
   path?: string;
@@ -210,7 +217,11 @@ const copy = {
   },
 };
 
-async function requestAuggie<T>(url: string, body: Record<string, unknown>) {
+async function requestAuggie<T>(
+  url: string,
+  body: Record<string, unknown>,
+  fallbackError: string,
+) {
   const response = await fetch(url, {
     method: "POST",
     credentials: "include",
@@ -227,7 +238,11 @@ async function requestAuggie<T>(url: string, body: Record<string, unknown>) {
   if (!response.ok) {
     if (response.status === 401)
       window.dispatchEvent(new CustomEvent("admin-session-invalid"));
-    throw new Error(payload.error || "Admin Auggie request failed.");
+    // Always prefer the server's own plain-language, translated reason. The
+    // fallback is only ever reached if a reply arrived with no readable body
+    // at all, and it is translated too, so the panel never shows an
+    // untranslated internal string.
+    throw new Error(payload.error || fallbackError);
   }
   return payload;
 }
@@ -633,11 +648,15 @@ export function AdminAuggiePanel({
     try {
       const payload = await requestAuggie<{
         response: AssistantResponse;
-      }>("/api/admin/auggie/chat", {
-        message: latest,
-        locale,
-        currentPath: location.pathname,
-      });
+      }>(
+        "/api/admin/auggie/chat",
+        {
+          message: latest,
+          locale,
+          currentPath: location.pathname,
+        },
+        text.error,
+      );
       appendResponse(payload.response);
       setFlowActive(payload.response.kind === "flow");
     } catch (reason) {
@@ -660,10 +679,14 @@ export function AdminAuggiePanel({
     setResetting(true);
     setError("");
     try {
-      await requestAuggie("/api/admin/auggie/reset", {
-        locale,
-        currentPath: location.pathname,
-      });
+      await requestAuggie(
+        "/api/admin/auggie/reset",
+        {
+          locale,
+          currentPath: location.pathname,
+        },
+        text.error,
+      );
       setItems([]);
       setConfirmations({});
       setSecondConfirmations({});
@@ -690,6 +713,7 @@ export function AdminAuggiePanel({
           secondPhrase: secondConfirmations[operation.id] || "",
           locale,
         },
+        text.error,
       );
       appendResponse({
         kind: "result",
@@ -717,6 +741,7 @@ export function AdminAuggiePanel({
       const payload = await requestAuggie<{ response: AssistantResponse }>(
         "/api/admin/auggie/undo",
         { operationId, locale },
+        text.error,
       );
       appendResponse(payload.response);
     } catch (reason) {

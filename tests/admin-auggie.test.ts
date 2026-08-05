@@ -236,6 +236,7 @@ class FakeDb {
   >();
 
   pendingHourRequests = new Map<string, { count: number; hours: number }>();
+  studentHistory = new Map<string, Array<Record<string, unknown>>>();
   rankWrites = 0;
 
   // Mirrors the exact strings the server's own guard SQL builds, so a test
@@ -369,6 +370,12 @@ class FakeDb {
 
   all(statement: FakeStatement) {
     const { query, values } = statement;
+    if (query.includes("FROM audit_log WHERE student_id = ?")) {
+      return (this.studentHistory.get(String(values[0])) || []).slice(
+        0,
+        Number(values[1]),
+      );
+    }
     if (query.includes("SELECT id FROM admin_ai_operations")) {
       const now = String(values[0]);
       return [...this.operations.values()]
@@ -2787,6 +2794,110 @@ describe("Admin Auggie outside lookups", () => {
         run.mock.calls[0][1] as { tools: Array<{ function: { name: string } }> }
       ).tools.map((entry) => entry.function.name);
       expect(offered).toContain("look_up_information");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe("Admin Auggie student history", () => {
+  it("reads who changed a student and when, within the administrator's scope", async () => {
+    const db = new FakeDb();
+    db.students.set("student-rsk-1001", student());
+    db.studentHistory.set("student-rsk-1001", [
+      {
+        action: "student_rank_updated",
+        action_summary: "RSK-1001: rank changed to Shodan",
+        administrator_name: "Auggie Test Admin",
+        actor_identifier: "admin",
+        created_at: "2026-07-15T09:30:00.000Z",
+        outcome: "success",
+      },
+    ]);
+    const run = vi.fn(async () =>
+      tool("read_student_history", { studentId: "RSK-1001" }),
+    );
+    const response = (await handleAdminAuggieChat(
+      request("who changed student RSK-1001 and when"),
+      env(db, run),
+    )) as { kind: string; summary?: Array<{ label: string; value: string }> };
+    expect(response.kind).toBe("conversation");
+    expect(response.summary?.[0].value).toContain("rank changed to Shodan");
+    expect(response.summary?.[0].value).toContain("Auggie Test Admin");
+    expect(response.summary?.[0].label).toBe("2026-07-15 09:30");
+    expect(delegated.state.calls).toHaveLength(0);
+    expect(db.audits.some((values) => values[1] === "admin_ai_audit_read")).toBe(
+      true,
+    );
+  });
+
+  it("refuses history for a student outside the administrator's dojo", async () => {
+    authState.session.role = "dojo";
+    authState.session.selectedDojoId = "dojo-cmu";
+    authState.session.allowedDojoIds = ["dojo-cmu"];
+    const db = new FakeDb();
+    db.students.set("student-rsk-1001", student()); // belongs to dojo-rsk
+    const run = vi.fn(async () =>
+      tool("read_student_history", { studentId: "RSK-1001" }),
+    );
+    await expect(
+      handleAdminAuggieChat(request("history for RSK-1001"), env(db, run)),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TARGET_MISSING" });
+  });
+});
+
+describe("Admin Auggie site health", () => {
+  it("reports a healthy site from the status check, changing nothing", async () => {
+    const db = new FakeDb();
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: "ok",
+        checks: { d1: true, kv: true, migrations: true },
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const response = (await handleAdminAuggieChat(
+        request("is the site healthy"),
+        env(
+          db,
+          vi.fn(async () => tool("get_site_health", {})),
+        ),
+      )) as { kind: string; heading: string };
+      expect(String(fetchMock.mock.calls[0][0])).toContain(
+        "/api/diagnostics/health",
+      );
+      expect(response.heading).toMatch(/healthy/i);
+      expect(delegated.state.calls).toHaveLength(0);
+      expect(
+        db.audits.some((values) => values[1] === "admin_ai_health_read"),
+      ).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("reports a degraded site and names the failing checks", async () => {
+    const db = new FakeDb();
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      json: async () => ({
+        status: "degraded",
+        checks: { d1: true, migrations: false },
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const response = (await handleAdminAuggieChat(
+        request("is everything ok with the site"),
+        env(
+          db,
+          vi.fn(async () => tool("get_site_health", {})),
+        ),
+      )) as { heading: string; message: string };
+      expect(response.heading).toMatch(/attention/i);
+      expect(response.message).toMatch(/migrations/);
     } finally {
       vi.unstubAllGlobals();
     }

@@ -1163,6 +1163,16 @@ function toolSchemas(ctx: AdminAuggieContext) {
       },
     },
     {
+      name: "get_site_health",
+      description:
+        "Report whether the website itself is healthy right now, read from the same status check the public status page uses. Reading only.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
+    {
       name: "search_students",
       description:
         "Find students by exact Student ID or by name.",
@@ -1174,6 +1184,20 @@ function toolSchemas(ctx: AdminAuggieContext) {
           limit: { type: "integer", minimum: 1, maximum: 20 },
         },
         required: ["query"],
+      },
+    },
+    {
+      name: "read_student_history",
+      description:
+        "Read the recent audit history for one student, named by exact Student ID: who changed what, and when. Reading only; it changes nothing.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          studentId: { type: "string", minLength: 1, maxLength: 40 },
+          limit: { type: "integer", minimum: 1, maximum: 20 },
+        },
+        required: ["studentId"],
       },
     },
     {
@@ -1792,9 +1816,19 @@ const TOOL_TOPICS: Record<string, ToolTopic> = {
     words: /dashboard|summary|overview|count|how many|waiting|pending|today/i,
     paths: ["/admin/dashboard"],
   },
+  get_site_health: {
+    words:
+      /health|healthy|status|is the site (?:ok|up|down|working|healthy)|diagnostic|degraded|outage|is everything (?:ok|working)/i,
+    paths: [],
+  },
   search_students: {
     words: /student|find|search|look ?up|who is|name|roster|member|pupil/i,
     paths: ["/admin/students", "/admin/profile-requests"],
+  },
+  read_student_history: {
+    words:
+      /history|audit|who (?:changed|made|did|updated|edited)|when.*(?:changed|updated)|record of changes|track changes|log of changes/i,
+    paths: ["/admin/students", "/admin/audit"],
   },
   propose_student_status: {
     words: /archive|restore|unarchive|deactivate|reactivate|leave|left|quit|return/i,
@@ -2001,8 +2035,13 @@ const THAI_SUBJECTS: ReadonlyArray<readonly [RegExp, readonly string[]]> = [
     /หลักฐาน|สลิป|ชำระเงิน|โอนเงิน/,
     ["list_payment_proofs", "propose_payment_proof_decision"],
   ],
+  [
+    /ประวัติการแก้ไข|ใครแก้ไข|ใครเปลี่ยน|ใครแก้|บันทึกการเปลี่ยน|ประวัติการเปลี่ยน/,
+    ["read_student_history"],
+  ],
   [/โปรไฟล์|คำขอ/, ["propose_student_profile_decision"]],
   [/สรุป|แดชบอร์ด|ภาพรวม|จำนวน/, ["get_dashboard_summary"]],
+  [/สถานะระบบ|ระบบปกติ|ระบบล่ม|สุขภาพระบบ|ตรวจสอบระบบ/, ["get_site_health"]],
   [
     /สร้าง|เพิ่ม|บันทึก|ทำใหม่|ลงทะเบียน/,
     ["start_guided_flow", "propose_student_create", "propose_newsletter_create"],
@@ -2145,7 +2184,7 @@ async function runToolSelection(ctx: AdminAuggieContext, message: string) {
           {
             role: "system",
             content:
-              "Choose exactly one tool from the list. Never answer with prose. Never invent an ID, name, rank, date, amount, hours, web address, album id or photo id. Choose converse for a greeting, a thank you, small talk, or a message that names no administration task. Choose look_up_information for a question about the current weather in a place, or another plain outside fact. When a record is named only by a person's name, choose the matching search or list tool first. Choose navigate_admin for uploads, media, private data, or anything no tool covers. Choose start_guided_flow when the administrator wants to create, add or record something but has not given the details. Every propose tool only prepares a change: the server rechecks everything and the administrator must type an exact confirmation before anything is written.",
+              "Choose exactly one tool from the list. Never answer with prose. Never invent an ID, name, rank, date, amount, hours, web address, album id or photo id. Choose converse for a greeting, a thank you, small talk, or a message that names no administration task. Choose look_up_information for a question about the current weather in a place, or another plain outside fact. When a record is named only by a person's name, choose the matching search or list tool first. Choose read_student_history to see who changed one student and when. Choose get_site_health to report whether the website is healthy. Choose navigate_admin for uploads, media, private data, or anything no tool covers. Choose start_guided_flow when the administrator wants to create, add or record something but has not given the details. Every propose tool only prepares a change: the server rechecks everything and the administrator must type an exact confirmation before anything is written.",
           },
           { role: "user", content: message },
         ],
@@ -2365,6 +2404,74 @@ async function searchStudents(
           "ขออภัย ไม่พบนักเรียนที่ตรงกัน โปรดตรวจสอบการสะกดหรือรหัสนักเรียนอีกครั้ง",
         ),
     students,
+  };
+}
+
+// Reading only: who changed one student, and when. The student is resolved by
+// exact Student ID through the same dojo-scoped check every student tool uses,
+// so a dojo administrator only ever sees history for their own students. The
+// audit rows are returned to the panel, never sent to the model, and nothing is
+// changed.
+async function readStudentHistory(
+  ctx: AdminAuggieContext,
+  args: Record<string, unknown>,
+) {
+  if (!exactKeys(args, ["studentId", "limit"]))
+    throw new AdminAuggieError("The history request contains unsupported fields.");
+  const studentId = cleanText(args.studentId, 40)
+    .toLocaleUpperCase("en-US")
+    .replace(/\s+/g, "");
+  if (!STUDENT_ID.test(studentId))
+    throw new AdminAuggieError(
+      "That does not look like a Student ID. It looks like RSK-1001.",
+    );
+  const limit = args.limit === undefined ? 10 : Number(args.limit);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 20)
+    throw new AdminAuggieError("Choose a limit from 1 to 20.");
+  const [target] = await resolveStudentTargets(ctx, [studentId]);
+  const rows =
+    (
+      await ctx.db
+        .prepare(
+          `SELECT action, action_summary, administrator_name, actor_identifier,
+        created_at, outcome
+      FROM audit_log WHERE student_id = ? ORDER BY created_at DESC LIMIT ?`,
+        )
+        .bind(target.id, limit)
+        .all<Record<string, unknown>>()
+    ).results || [];
+  const summary = rows.map((row) => {
+    const when = String(row.created_at || "").slice(0, 16).replace("T", " ");
+    const who =
+      cleanText(row.administrator_name ?? row.actor_identifier, 120) || "—";
+    const what =
+      cleanText(row.action_summary, 200) || cleanText(row.action, 80) || "change";
+    const failed = String(row.outcome || "success") !== "success";
+    return { label: when || "—", value: `${what} — ${who}${failed ? " (failed)" : ""}` };
+  });
+  await auditAi(ctx, "admin_ai_audit_read", "read_student_history", "success", {
+    studentId: target.publicId,
+    entries: rows.length,
+  }).catch(() => undefined);
+  return {
+    kind: "conversation" as const,
+    heading: localized(
+      ctx.locale,
+      `History for ${target.publicId}`,
+      `ประวัติของ ${target.publicId}`,
+    ),
+    message: rows.length
+      ? localized(
+          ctx.locale,
+          "Most recent changes first. Reading only — nothing was changed.",
+          "การเปลี่ยนแปลงล่าสุดก่อน อ่านอย่างเดียว ไม่มีการเปลี่ยนแปลงใด ๆ",
+        )
+      : localized(
+          ctx.locale,
+          "No recorded changes for this student yet.",
+          "ยังไม่มีบันทึกการเปลี่ยนแปลงสำหรับนักเรียนคนนี้",
+        ),
+    summary,
   };
 }
 
@@ -6143,15 +6250,23 @@ function sanitizePlaceName(raw: string) {
     .slice(0, 80);
 }
 
-async function fetchJsonWithTimeout(url: string, timeoutMs: number) {
+async function fetchJsonWithTimeout(
+  url: string,
+  timeoutMs: number,
+  // The health endpoint answers 503 when the site is degraded, and its body is
+  // exactly what we want to read in that case, so callers can opt to keep the
+  // body whatever the status.
+  acceptAnyStatus = false,
+) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort("lookup-timeout"), timeoutMs);
   try {
     const response = await fetch(url, {
       signal: controller.signal,
       headers: { Accept: "application/json" },
+      cache: "no-store",
     });
-    if (!response.ok) return null;
+    if (!response.ok && !acceptAnyStatus) return null;
     return (await response.json()) as unknown;
   } catch {
     return null;
@@ -6298,6 +6413,64 @@ async function lookUpInformation(
   };
 }
 
+// Reading only: the current health of the site, read from the very same check
+// the public status page uses, so the answer can never drift from it. It
+// prepares no operation and changes nothing.
+async function getSiteHealth(ctx: AdminAuggieContext) {
+  const origin = new URL(ctx.request.url).origin;
+  const data = objectValue(
+    await fetchJsonWithTimeout(
+      `${origin}/api/diagnostics/health`,
+      LOOKUP_TIMEOUT_MS,
+      true,
+    ),
+  );
+  await auditAi(ctx, "admin_ai_health_read", "get_site_health", "success").catch(
+    () => undefined,
+  );
+  if (!data || typeof data.status !== "string")
+    return {
+      kind: "conversation" as const,
+      heading: localized(ctx.locale, "Health unavailable", "อ่านสถานะไม่ได้"),
+      message: localized(
+        ctx.locale,
+        "I could not read the site health just now. Please try again in a moment.",
+        "ขณะนี้อ่านสถานะระบบไม่ได้ โปรดลองอีกครั้งในอีกสักครู่",
+      ),
+    };
+  const ok = data.status === "ok";
+  const checks = objectValue(data.checks) || {};
+  const failing = Object.entries(checks)
+    .filter(([, value]) => value === false)
+    .map(([name]) => name.replace(/_/g, " "));
+  const summary = Object.entries(checks).map(([name, value]) => ({
+    label: name.replace(/_/g, " "),
+    value: value
+      ? localized(ctx.locale, "ok", "ปกติ")
+      : localized(ctx.locale, "problem", "มีปัญหา"),
+  }));
+  return {
+    kind: "conversation" as const,
+    heading: localized(
+      ctx.locale,
+      ok ? "The site is healthy" : "The site needs attention",
+      ok ? "ระบบทำงานปกติ" : "ระบบต้องได้รับการดูแล",
+    ),
+    message: ok
+      ? localized(
+          ctx.locale,
+          "Everything checks out as healthy right now.",
+          "ขณะนี้ทุกอย่างทำงานปกติดี",
+        )
+      : localized(
+          ctx.locale,
+          `Some checks are failing${failing.length ? `: ${failing.join(", ")}` : ""}. Please open the status page or ask an engineer to look.`,
+          `บางรายการมีปัญหา${failing.length ? `: ${failing.join(", ")}` : ""} โปรดเปิดหน้าสถานะระบบหรือแจ้งผู้ดูแลระบบ`,
+        ),
+    summary,
+  };
+}
+
 // The plain, deterministic refusal for a subject that never belongs in the
 // chat. Passwords, sign-in and administrator accounts are handled at sign-in.
 // The audit log is the permanent record of what everyone did, so it can never
@@ -6354,7 +6527,14 @@ async function executeSelectedTool(ctx: AdminAuggieContext, call: ToolCall) {
       throw new AdminAuggieError("Dashboard summary takes no arguments.");
     return dashboardSummary(ctx);
   }
+  if (call.name === "get_site_health") {
+    if (Object.keys(args).length)
+      throw new AdminAuggieError("Site health takes no arguments.");
+    return getSiteHealth(ctx);
+  }
   if (call.name === "search_students") return searchStudents(ctx, args);
+  if (call.name === "read_student_history")
+    return readStudentHistory(ctx, args);
   if (call.name === "propose_student_status")
     return proposeStudentStatus(ctx, args);
   if (call.name === "propose_bulk_student_action")

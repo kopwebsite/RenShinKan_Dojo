@@ -128,6 +128,7 @@ vi.mock("../functions/api/admin/students/bulk", () => ({
 import {
   AdminAuggieError,
   confirmAdminAuggieOperation,
+  detectOutOfChatScope,
   detectSensitiveAdminAuggieInput,
   handleAdminAuggieChat,
   parseBoundedJson,
@@ -2789,5 +2790,66 @@ describe("Admin Auggie outside lookups", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+describe("Admin Auggie out-of-chat subjects", () => {
+  it("recognises passwords, sign-in and audit removal, and lets ordinary reads pass", () => {
+    expect(detectOutOfChatScope("please change my password")).toBe(
+      "credentials",
+    );
+    expect(detectOutOfChatScope("how do I sign in as another admin")).toBe(
+      "credentials",
+    );
+    expect(detectOutOfChatScope("create a new administrator account")).toBe(
+      "credentials",
+    );
+    expect(detectOutOfChatScope("delete the audit log")).toBe("audit_removal");
+    expect(detectOutOfChatScope("clear the audit history")).toBe(
+      "audit_removal",
+    );
+    // Reading the audit, or ordinary deletes elsewhere, must not be caught.
+    expect(detectOutOfChatScope("who changed this student in the audit")).toBe(
+      null,
+    );
+    expect(detectOutOfChatScope("delete that newsletter in the trash")).toBe(
+      null,
+    );
+    expect(detectOutOfChatScope("how many students are on the roster")).toBe(
+      null,
+    );
+  });
+
+  it("refuses a password request politely before any model call", async () => {
+    const db = new FakeDb();
+    const run = vi.fn();
+    const response = (await handleAdminAuggieChat(
+      request("reset my password please"),
+      env(db, run),
+    )) as { kind: string; message: string };
+    expect(run).not.toHaveBeenCalled();
+    expect(response.kind).toBe("conversation");
+    expect(response.message).toMatch(/sign-in|password/i);
+    expect(delegated.state.calls).toHaveLength(0);
+    expect(
+      db.audits.some((values) => values[1] === "admin_ai_out_of_scope"),
+    ).toBe(true);
+    expect(
+      db.audits.some((values) => String(values[1] ?? "").includes("failed")),
+    ).toBe(false);
+  });
+
+  it("refuses clearing the audit log and offers the read-only history", async () => {
+    const db = new FakeDb();
+    const run = vi.fn();
+    const response = (await handleAdminAuggieChat(
+      request("wipe the audit log"),
+      env(db, run),
+    )) as { kind: string; message: string; path?: string };
+    expect(run).not.toHaveBeenCalled();
+    expect(response.kind).toBe("navigate");
+    expect(response.message).toMatch(/permanent record|never be cleared/i);
+    expect(response.path).toBe("/admin/audit");
+    expect(delegated.state.calls).toHaveLength(0);
   });
 });

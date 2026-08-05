@@ -675,6 +675,27 @@ export function detectSensitiveAdminAuggieInput(message: string) {
   return hasSensitivePhoneValue(message) ? "phone" : null;
 }
 
+// Subjects that never belong in the chat, whatever the wording: passwords,
+// signing in or out, and administrator accounts; and clearing the audit log,
+// which is the permanent record of what everyone did. These are recognised
+// before any model call, refused politely, and the administrator is pointed to
+// the right place instead.
+const CREDENTIAL_SUBJECT =
+  /password|passphrase|passcode|\bsign[- ]?(?:in|out)\b|\blog[- ]?(?:in|out)\b|two[- ]?factor|\bmfa\b|\botp\b|(?:administrator|admin)[^.]{0,24}(?:account|login|credential|password)|create[^.]{0,12}admin|reset[^.]{0,16}(?:password|login)|รหัสผ่าน|เข้าสู่ระบบ|ออกจากระบบ|ล็อกอิน|บัญชีผู้ดูแล|เพิ่มผู้ดูแล/i;
+const AUDIT_REMOVAL_VERB =
+  /\b(?:delete|clear|erase|wipe|purge|clean|reset)\b|ลบ|ล้าง|เคลียร์/i;
+const AUDIT_SUBJECT =
+  /\baudit\b|audit log|activity log|ประวัติการตรวจสอบ|บันทึกการตรวจสอบ|ล็อกการตรวจสอบ/i;
+
+export function detectOutOfChatScope(
+  message: string,
+): "credentials" | "audit_removal" | null {
+  if (AUDIT_REMOVAL_VERB.test(message) && AUDIT_SUBJECT.test(message))
+    return "audit_removal";
+  if (CREDENTIAL_SUBJECT.test(message)) return "credentials";
+  return null;
+}
+
 function sessionSecret(env: AdminAuggieEnv) {
   const secret = env.SESSION_SECRET?.trim() || "";
   if (secret.length < 32)
@@ -6277,6 +6298,46 @@ async function lookUpInformation(
   };
 }
 
+// The plain, deterministic refusal for a subject that never belongs in the
+// chat. Passwords, sign-in and administrator accounts are handled at sign-in.
+// The audit log is the permanent record of what everyone did, so it can never
+// be cleared; the administrator is offered the read-only history instead.
+function outOfChatScopeReply(
+  ctx: AdminAuggieContext,
+  category: "credentials" | "audit_removal",
+) {
+  if (category === "audit_removal") {
+    const canOpen = canAccessAdminPath("/admin/audit", ctx.permission);
+    return {
+      kind: "navigate" as const,
+      heading: localized(
+        ctx.locale,
+        "The audit log is permanent",
+        "บันทึกการตรวจสอบเป็นบันทึกถาวร",
+      ),
+      message: localized(
+        ctx.locale,
+        `The audit log is the permanent record of what everyone did, so it can never be cleared — not from the chat and not from the pages. Nothing was changed.${canOpen ? " I can open the audit history for you to read." : ""}`,
+        `บันทึกการตรวจสอบคือบันทึกถาวรของสิ่งที่ทุกคนทำ จึงไม่สามารถลบได้ ไม่ว่าจากแชตหรือจากหน้าเว็บ ไม่มีการเปลี่ยนแปลงใด ๆ${canOpen ? " สามารถเปิดประวัติการตรวจสอบให้อ่านได้" : ""}`,
+      ),
+      ...(canOpen ? { path: "/admin/audit" } : {}),
+    };
+  }
+  return {
+    kind: "conversation" as const,
+    heading: localized(
+      ctx.locale,
+      "Handled at sign-in, not here",
+      "จัดการที่หน้าเข้าสู่ระบบ",
+    ),
+    message: localized(
+      ctx.locale,
+      "For your security I never handle passwords, signing in or out, or administrator accounts. Please use the normal sign-in screen for that. I can help with students, payments, the website and more.",
+      "เพื่อความปลอดภัย ฉันจะไม่จัดการรหัสผ่าน การเข้าสู่ระบบหรือออกจากระบบ หรือบัญชีผู้ดูแล โปรดใช้หน้าเข้าสู่ระบบตามปกติ ฉันช่วยเรื่องนักเรียน การชำระเงิน และเว็บไซต์ได้",
+    ),
+  };
+}
+
 async function executeSelectedTool(ctx: AdminAuggieContext, call: ToolCall) {
   if (call.name === "converse") return converse(ctx);
   const args = objectValue(call.arguments);
@@ -6871,6 +6932,16 @@ export async function handleAdminAuggieChat(
       422,
       "ADMIN_AUGGIE_SENSITIVE_INPUT",
     );
+  }
+  // Subjects that never belong in the chat are answered here, before any model
+  // call, with a plain refusal and a pointer to the right place. This is a
+  // polite conversation, not a failure.
+  const outOfScope = detectOutOfChatScope(message);
+  if (outOfScope) {
+    await auditAi(ctx, "admin_ai_out_of_scope", "converse", "success", {
+      category: outOfScope,
+    }).catch(() => undefined);
+    return outOfChatScopeReply(ctx, outOfScope);
   }
   let call: ToolCall;
   try {

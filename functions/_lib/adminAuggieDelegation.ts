@@ -19,6 +19,7 @@ import {
   onRequestGet as dojosGet,
   onRequestPut as dojosPut,
 } from "../api/admin/dojos";
+import { onRequestPost as studentsCreatePost } from "../api/admin/students/index";
 import { onRequestPut as studentRecordPut } from "../api/admin/students/[id]";
 import { onRequestPost as studentHoursPost } from "../api/admin/students/[id]/hours";
 import { onRequestPost as studentExamPost } from "../api/admin/students/[id]/exam";
@@ -43,6 +44,7 @@ export type AdminApiRoute =
   | "admin/galleries"
   | "admin/site-content"
   | "admin/dojos"
+  | "admin/students-create"
   | "admin/student-record"
   | "admin/student-hours"
   | "admin/student-exam"
@@ -119,6 +121,13 @@ const ROUTES: Record<AdminApiRoute, RouteDefinition> = {
   // Student record, hour, examination, profile and bulk writes keep the same
   // rule as every other delegated route: the reviewed endpoint owns the
   // transaction, the dojo check and the domain audit rows.
+  // Creating a student is delegated exactly like every other student write:
+  // the reviewed endpoint allocates the Student ID, checks the dojo, validates
+  // every field and owns the whole creation transaction.
+  "admin/students-create": {
+    path: "/api/admin/students",
+    handlers: { POST: studentsCreatePost as unknown as DelegatedHandler },
+  },
   "admin/student-record": {
     path: "/api/admin/students",
     handlers: { PUT: studentRecordPut as unknown as DelegatedHandler },

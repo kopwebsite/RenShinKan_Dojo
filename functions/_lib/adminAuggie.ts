@@ -67,7 +67,37 @@ import {
   type GalleryAlbum,
   type GalleryId,
 } from "../../shared/gallery";
-import { newsletterPublicationIssues } from "../../shared/newsletter";
+import {
+  NEWSLETTER_CATEGORIES,
+  newsletterPublicationIssues,
+  type NewsletterCategory,
+} from "../../shared/newsletter";
+import {
+  activeFields,
+  applyFlowMessage,
+  currentField,
+  flowCommand,
+  flowDefinition,
+  flowQuestionCount,
+  flowSummaryRows,
+  flowText,
+  FLOW_WORDING,
+  isFlowId,
+  resolvedAnswers,
+  rewindTo,
+  stepBack,
+  type FlowId,
+  type FlowText,
+  type FlowRuntime,
+  type FlowState,
+} from "./adminAuggieFlows";
+import {
+  clearFlowSession,
+  deleteExpiredFlowSessions,
+  readFlowSession,
+  writeFlowSession,
+  type FlowSessionOwner,
+} from "./adminAuggieFlowStore";
 import type { RecentEvent, SitePage, SiteSettings } from "./content";
 import { readEditableContentFromStorage, type StorageEnv } from "./storage";
 import {
@@ -155,7 +185,8 @@ type DelegatedKind =
   | "student_hours"
   | "student_examination"
   | "student_profile_decision"
-  | "bulk_student_action";
+  | "bulk_student_action"
+  | "student_create";
 
 type DelegatedArgs = {
   kind: DelegatedKind;
@@ -191,6 +222,12 @@ type DelegatedArgs = {
   profileDecision?: "approve" | "reject";
   pendingRequestCount?: number;
   pendingHours?: number;
+  // New student record fields. Only the plain administrative details a new
+  // profile needs are carried; notes, contact details, identity documents and
+  // images are never collected here and stay in the reviewed student page.
+  englishName?: string;
+  thaiName?: string;
+  dojoIdForCreate?: string;
   // Set only when the change is a plain, reversible field value that Admin
   // Auggie can put back exactly. Permanent history rows are never undoable.
   undoable?: boolean;
@@ -224,7 +261,8 @@ type ContentKind =
   | "gallery_publish"
   | "site_page_visibility"
   | "site_publish"
-  | "dojo_settings";
+  | "dojo_settings"
+  | "newsletter_create";
 
 type ContentCaption = { photoId: string; caption?: string; alt?: string };
 
@@ -258,6 +296,14 @@ type ContentArgs = {
   shortName?: string;
   dojoActive?: boolean;
   sortOrder?: number;
+  // New newsletter fields. A newsletter made here is always an unpublished
+  // draft, so nothing reaches the website or anybody's email until the
+  // administrator publishes or sends it through the existing reviewed steps.
+  newsletterTitle?: string;
+  newsletterSummary?: string;
+  newsletterBody?: string;
+  newsletterCategory?: NewsletterCategory;
+  newsletterDate?: string;
 };
 
 type OperationArgsUnion =
@@ -363,7 +409,7 @@ export function adminAuggieErrorResponse(error: unknown, request: Request) {
     error instanceof AdminAuggieError
       ? error
       : new AdminAuggieError(
-          "Admin Auggie failed safely. Administration itself is unchanged.",
+          "Sorry, something went wrong. Nothing was changed, and the rest of administration still works as normal.",
           500,
           "ADMIN_AUGGIE_INTERNAL",
         );
@@ -383,7 +429,11 @@ const MODEL_ALLOWLIST = new Set([
   "@cf/zai-org/glm-4.7-flash",
   "@cf/openai/gpt-oss-120b",
 ]);
-const DEFAULT_MODEL = "@cf/zai-org/glm-4.7-flash";
+// Both approved models were measured against the same shortlisted requests on
+// 5 August 2026. gpt-oss-120b answered in about 1.3 seconds against about 4.1
+// seconds for glm-4.7-flash, and was never slower, so it is the default. The
+// ADMIN_AUGGIE_MODEL setting can still name the other approved model.
+const DEFAULT_MODEL = "@cf/openai/gpt-oss-120b";
 const MAX_BODY_BYTES = 8 * 1024;
 const MAX_MESSAGE_CHARS = 1_600;
 const MAX_TARGETS = 50;
@@ -403,6 +453,7 @@ const DELEGATED_KINDS = new Set<string>([
   "student_examination",
   "student_profile_decision",
   "bulk_student_action",
+  "student_create",
 ]);
 // A bulk confirmation must never move more student records than an
 // administrator can read in one preview card, so it stays well under the
@@ -421,6 +472,7 @@ const CONTENT_KINDS = new Set<string>([
   "site_page_visibility",
   "site_publish",
   "dojo_settings",
+  "newsletter_create",
 ]);
 // One confirmation must cover no more records than an administrator can read in
 // one preview card, so photo and album batches stay small.
@@ -452,6 +504,24 @@ function objectValue(value: unknown): Record<string, unknown> | null {
 
 function exactKeys(value: Record<string, unknown>, allowed: readonly string[]) {
   return Object.keys(value).every((key) => allowed.includes(key));
+}
+
+// The same cleaning as cleanText, except that line breaks survive. A guided
+// answer may hold several replies on separate lines, and collapsing them into
+// one line would turn three answers into one.
+function cleanFlowText(value: unknown, max: number) {
+  if (typeof value !== "string") return "";
+  return value
+    .normalize("NFKC")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .split("\n")
+    .map((line) => line.trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, max);
 }
 
 function cleanText(value: unknown, max: number) {
@@ -1010,13 +1080,26 @@ type ToolDefinition = {
   };
 };
 
+// The guided conversations this administrator may start. The list is built
+// from the same permission rules as every other tool, so a flow can never be
+// offered, and can never be started, outside the administrator's own access.
+function permittedFlows(ctx: AdminAuggieContext): FlowId[] {
+  const flows: FlowId[] = [];
+  if (canAccessAdminPath(STUDENT_PATH, ctx.permission))
+    flows.push("create_student", "add_training_hours", "record_exam_result");
+  if (canAccessAdminPath(WEBSITE_PATH, ctx.permission))
+    flows.push("create_newsletter");
+  return flows;
+}
+
 function toolSchemas(ctx: AdminAuggieContext) {
   const destinations = permittedDestinations(ctx).map((item) => item.key);
+  const flows = permittedFlows(ctx);
   const definitions: ToolDefinition[] = [
     {
       name: "navigate_admin",
       description:
-        "Open the allowlisted administration page for any domain that needs its existing reviewed UI, including payments, proofs, publishing, newsletters, galleries, downloads, uploads, deletes, settings, audits, profiles, examinations, or student records.",
+        "Open an administration page. Use this for uploads, media, private data, deletion, settings, audits, or anything no other tool covers.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -1027,7 +1110,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
     {
       name: "get_dashboard_summary",
       description:
-        "Read current permission-scoped counts for the administration dashboard.",
+        "Read the dashboard counts.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -1037,7 +1120,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
     {
       name: "search_students",
       description:
-        "Search permission-scoped student records by exact Student ID or name. This returns only minimal administrative identity and status fields.",
+        "Find students by exact Student ID or by name.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -1051,7 +1134,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
     {
       name: "propose_student_status",
       description:
-        "Prepare, but do not execute, an archive or restore operation for exact public Student IDs. The server will require a separate exact confirmation.",
+        "Prepare archiving or restoring students, named by exact Student IDs.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -1070,7 +1153,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
     {
       name: "propose_bulk_student_action",
       description:
-        "Prepare, but do not execute, a bulk change for exact public Student IDs: add training hours, approve every pending training-hour request, change rank by whole levels, or record a mass promotion with an examination. A bulk change touches many students at once, so the server shows the dojo, the exact count and every record, requires two separate exact confirmations, and applies the whole batch in one transaction that either changes every student or none.",
+        "Prepare one bulk change for many exact Student IDs: add hours, approve pending hours, change rank by whole levels, or a mass promotion.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -1101,7 +1184,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
     {
       name: "propose_student_record_update",
       description:
-        "Prepare, but do not execute, a correction to one student's record, named by the exact public Student ID: the current rank, whether the student is shown on the public website, or the dojo-joined date. Give only the fields that must change. This never records an examination and never touches names, contact details, notes, images, or any other private field, which stay in the reviewed student page.",
+        "Prepare a correction to one student, named by exact Student ID: rank, public-website visibility, or dojo-joined date. Give only the fields that change.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -1117,7 +1200,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
     {
       name: "propose_student_hours",
       description:
-        "Prepare, but do not execute, adding verified training hours to one student, named by the exact public Student ID. Added hours become part of the permanent training record and cannot be undone by Auggie.",
+        "Prepare adding training hours to one student, named by exact Student ID.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -1132,7 +1215,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
     {
       name: "propose_student_examination",
       description:
-        "Prepare, but do not execute, recording one examination result for one student, named by the exact public Student ID. A passed examination moves the student to the attempted rank. This writes permanent examination history and cannot be undone by Auggie.",
+        "Prepare recording one examination result for one student, named by exact Student ID.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -1152,12 +1235,43 @@ function toolSchemas(ctx: AdminAuggieContext) {
         ],
       },
     },
+    {
+      name: "propose_student_create",
+      description:
+        "Prepare creating one new student record. Every detail must already be known; otherwise choose start_guided_flow.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          englishName: { type: "string", minLength: 1, maxLength: 120 },
+          thaiName: { type: "string", maxLength: 120 },
+          currentRank: { type: "string", enum: [...RANKS] },
+          dojoId: { type: "string", minLength: 1, maxLength: 80 },
+          dojoJoinedDate: { type: "string", minLength: 10, maxLength: 10 },
+          currentTrainingHours: { type: "number", minimum: 0, maximum: 1000 },
+        },
+        required: ["englishName"],
+      },
+    },
   ];
+  if (flows.length) {
+    definitions.push({
+      name: "start_guided_flow",
+      description:
+        "Start a step-by-step conversation that asks the administrator for each detail in turn. Choose this whenever they want to create, add or record something but have not given every detail.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: { flow: { type: "string", enum: flows } },
+        required: ["flow"],
+      },
+    });
+  }
   if (canAccessAdminPath(PROFILE_REQUEST_PATH, ctx.permission)) {
     definitions.push({
       name: "propose_student_profile_decision",
       description:
-        "Prepare, but do not execute, approving or rejecting one waiting profile request, named by the exact public Student ID. Auggie can never open or inspect the submitted picture, so the server requires two separate exact confirmations, the second one attesting that the administrator looked at the request in the reviewed page.",
+        "Prepare approving or rejecting one waiting profile request, named by exact Student ID.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -1174,7 +1288,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
       {
         name: "get_examination_summary",
         description:
-          "Read permission-scoped counts for the current examination cycle: how many students are not signed up, applied and unpaid, or paid.",
+          "Read counts for the current examination cycle.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1184,7 +1298,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
       {
         name: "list_examination_applications",
         description:
-          "List permission-scoped examination roster rows for the current cycle. Returns only minimal identity, rank, and status fields; private questionnaire answers stay in the reviewed interface.",
+          "List examination roster rows for the current cycle.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1201,7 +1315,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
       {
         name: "propose_examination_status",
         description:
-          "Prepare, but do not execute, an examination status change for exact public Student IDs in the current cycle. The server requires a separate exact confirmation, and a second exact confirmation whenever examination money changes.",
+          "Prepare an examination status change for exact Student IDs in the current cycle.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1223,7 +1337,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
       {
         name: "propose_examination_rejection",
         description:
-          "Prepare, but do not execute, the rejection of one submitted examination application, named by the exact public Student ID. The server resolves the application and requires a separate exact confirmation.",
+          "Prepare rejecting one submitted examination application, named by exact Student ID.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1240,7 +1354,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
       {
         name: "get_contribution_summary",
         description:
-          "Read RenShinKan monthly contribution counts for one month: how many students have no submission, are awaiting payment, or are paid.",
+          "Read monthly contribution counts for one month.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1252,7 +1366,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
       {
         name: "propose_contribution_status",
         description:
-          "Prepare, but do not execute, a RenShinKan monthly contribution status change for exact public Student IDs. This is a money change: the server requires two separate exact confirmations and takes the amount from server configuration, never from this request.",
+          "Prepare a monthly contribution status change for exact Student IDs. This is a money change.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1280,7 +1394,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
       {
         name: "list_payment_proofs",
         description:
-          "List permission-scoped submitted payslips awaiting review. Returns only minimal identity and status fields. Auggie can never open or inspect the payslip image itself.",
+          "List submitted payslips awaiting review.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1298,7 +1412,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
       {
         name: "propose_payment_proof_decision",
         description:
-          "Prepare, but do not execute, an approve or deny decision on submitted payslips, named by the exact public Student IDs that submitted them. Auggie cannot see the evidence, so the server requires two separate exact confirmations, the second one attesting that the administrator inspected the payslip.",
+          "Prepare approving or denying submitted payslips, named by the exact Student IDs that sent them.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1322,7 +1436,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
       {
         name: "list_newsletters",
         description:
-          "List saved newsletters and events with their web address, date, and current state. Returns only these minimal fields; the newsletter body, subscriber list, and email settings stay in the reviewed website editor.",
+          "List saved newsletters and events with web address, date and state.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1338,9 +1452,27 @@ function toolSchemas(ctx: AdminAuggieContext) {
         },
       },
       {
+        name: "propose_newsletter_create",
+        description:
+          "Prepare creating one new newsletter draft. Every detail must already be known; otherwise choose start_guided_flow.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            title: { type: "string", minLength: 1, maxLength: 160 },
+            summary: { type: "string", minLength: 1, maxLength: 500 },
+            body: { type: "string", minLength: 1, maxLength: 5000 },
+            category: { type: "string", enum: [...NEWSLETTER_CATEGORIES] },
+            date: { type: "string", minLength: 10, maxLength: 10 },
+            webAddress: { type: "string", minLength: 1, maxLength: 100 },
+          },
+          required: ["title", "summary", "body", "category", "date"],
+        },
+      },
+      {
         name: "propose_newsletter_website_state",
         description:
-          "Prepare, but do not execute, publishing or unpublishing one saved newsletter or event on the website. The newsletter is named by its exact web address. The server requires a separate exact confirmation and re-reads the saved record before saving anything.",
+          "Prepare publishing or unpublishing one newsletter, named by its exact web address.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1354,7 +1486,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
       {
         name: "propose_newsletter_lifecycle",
         description:
-          "Prepare, but do not execute, moving one saved newsletter or event to the archive or the trash, or restoring it, named by its exact web address. This never deletes anything permanently.",
+          "Prepare archiving, trashing or restoring one newsletter, named by its exact web address.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1371,7 +1503,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
       {
         name: "propose_newsletter_send",
         description:
-          "Prepare, but do not execute, sending one saved newsletter as email to every real subscriber, named by its exact web address. This reaches real people and can never be recalled or undone, so the server shows the exact live subscriber count and requires two separate exact confirmations.",
+          "Prepare sending one newsletter as real email to every subscriber, named by its exact web address.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1384,7 +1516,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
       {
         name: "propose_newsletter_delete",
         description:
-          "Prepare, but do not execute, permanently deleting one newsletter or event that is already in the trash, named by its exact web address. Permanent deletion cannot be undone, so the server requires two separate exact confirmations.",
+          "Prepare permanently deleting one newsletter that is already in the trash, named by its exact web address.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1397,7 +1529,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
       {
         name: "list_site_pages",
         description:
-          "List the website pages in the saved website draft with their web address and draft or published state.",
+          "List website pages with web address and draft or published state.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1409,7 +1541,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
       {
         name: "propose_site_page_visibility",
         description:
-          "Prepare, but do not execute, marking one website page as draft or published inside the saved website draft. This only changes the draft; the live website is unchanged until the website draft is published separately.",
+          "Prepare marking one website page as draft or published inside the website draft.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1423,7 +1555,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
       {
         name: "propose_site_publish",
         description:
-          "Prepare, but do not execute, publishing the whole saved website draft to the live public website. Everything currently in the draft goes public, so the server requires two separate exact confirmations.",
+          "Prepare publishing the whole website draft to the live public website.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1440,7 +1572,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
       {
         name: "list_gallery_albums",
         description:
-          "List the photo albums in one gallery draft, with each album's exact album id, title, date, visibility, and photo count. Use albumId to list the photos inside one album with their exact photo ids and captions.",
+          "List albums in one gallery, or the photos inside one album.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1455,7 +1587,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
       {
         name: "propose_gallery_album_update",
         description:
-          "Prepare, but do not execute, a change to one photo album's title, description, date, visibility, or cover photo, named by its exact album id. This edits the gallery draft only; the live website is unchanged until the galleries are published separately.",
+          "Prepare a change to one album's title, description, date, visibility or cover, named by its exact album id.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1477,7 +1609,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
       {
         name: "propose_gallery_album_order",
         description:
-          "Prepare, but do not execute, putting the albums of one gallery in a new order. Give every exact album id of that gallery once, in the wanted order. This edits the gallery draft only.",
+          "Prepare a new order for the albums of one gallery. Give every exact album id once.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1496,7 +1628,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
       {
         name: "propose_gallery_photo_captions",
         description:
-          "Prepare, but do not execute, new captions or alternative text for photos inside one album, named by their exact photo ids. This edits the gallery draft only.",
+          "Prepare new captions or alternative text for photos in one album, named by exact photo ids.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1525,7 +1657,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
       {
         name: "propose_gallery_photo_order",
         description:
-          "Prepare, but do not execute, putting the photos inside one album in a new order. Give every exact photo id of that album once, in the wanted order. This edits the gallery draft only.",
+          "Prepare a new order for the photos inside one album. Give every exact photo id once.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1545,7 +1677,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
       {
         name: "propose_gallery_publish",
         description:
-          "Prepare, but do not execute, publishing the saved gallery draft to the live public website. Every gallery change currently in the draft goes public, so the server requires two separate exact confirmations. Photo uploads and the trash always stay in the reviewed gallery page.",
+          "Prepare publishing the gallery draft to the live public website.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1561,7 +1693,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
       {
         name: "list_dojos",
         description:
-          "List the dojos with their exact dojo id, official name, short name, code, active state, and display order.",
+          "List the dojos with their exact dojo id, names, code, active state and order.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1571,7 +1703,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
       {
         name: "propose_dojo_settings",
         description:
-          "Prepare, but do not execute, a change to one dojo's official name, short name, active state, or display order, named by its exact dojo id. The dojo code, web address, logo, and contact details are never changed here and always keep the values the server already holds.",
+          "Prepare a change to one dojo's names, active state or display order, named by its exact dojo id.",
         parameters: {
           type: "object",
           additionalProperties: false,
@@ -1587,10 +1719,324 @@ function toolSchemas(ctx: AdminAuggieContext) {
       },
     );
   }
-  return definitions.map((definition) => ({
+  return definitions;
+}
+
+// Every tool this administrator is allowed to use, in the shape the model
+// expects. Kept separate from the shortlist below so the permission rules are
+// applied once, before anything is narrowed down.
+function allToolSchemas(ctx: AdminAuggieContext) {
+  return toolSchemas(ctx).map((definition) => ({
     type: "function" as const,
     function: definition,
   }));
+}
+
+// Which tools each subject and each administration page is about. Sending all
+// of them on every message cost thousands of characters and made a simple
+// question time out. Narrowing the list can only ever remove tools from the
+// permitted set built above, so it can never widen what an administrator may
+// reach, and the server still rechecks the permission of whatever is chosen.
+type ToolTopic = { words: RegExp; paths: readonly string[] };
+
+const STUDENT_WORDS =
+  /student|pupil|member|roster|profile|rank|belt|grade|promot|archive|restore|hour|training|exam|test|grading|create|make|add|new|register|enrol|enroll|record/i;
+
+const TOOL_TOPICS: Record<string, ToolTopic> = {
+  get_dashboard_summary: {
+    words: /dashboard|summary|overview|count|how many|waiting|pending|today/i,
+    paths: ["/admin/dashboard"],
+  },
+  search_students: {
+    words: /student|find|search|look ?up|who is|name|roster|member|pupil/i,
+    paths: ["/admin/students", "/admin/profile-requests"],
+  },
+  propose_student_status: {
+    words: /archive|restore|unarchive|deactivate|reactivate|leave|left|quit|return/i,
+    paths: ["/admin/students"],
+  },
+  propose_bulk_student_action: {
+    words: /bulk|batch|everyone|all students|mass|group|several|many|whole class/i,
+    paths: ["/admin/students"],
+  },
+  propose_student_record_update: {
+    words: /rank|belt|grade|correct|fix|change|update|edit|visible|website|joined|date/i,
+    paths: ["/admin/students"],
+  },
+  propose_student_hours: {
+    words: /hour|training|practice|session|attend/i,
+    paths: ["/admin/students", "/admin/training-requests"],
+  },
+  propose_student_examination: {
+    words: /exam|test|grading|pass|fail|result|promot|attempt/i,
+    paths: ["/admin/students", "/admin/examination-records"],
+  },
+  propose_student_create: {
+    words: /new student|create|make|add|register|enrol|enroll|sign ?up|joined/i,
+    paths: ["/admin/students"],
+  },
+  propose_student_profile_decision: {
+    words: /profile|picture|photo request|approve|reject|waiting|request/i,
+    paths: ["/admin/profile-requests"],
+  },
+  get_examination_summary: {
+    words: /exam|test|grading|cycle|signed up|unpaid|paid/i,
+    paths: ["/admin/exam-applications", "/admin/examination-records"],
+  },
+  list_examination_applications: {
+    words: /exam|test|grading|applicant|application|roster|signed up|unpaid|paid/i,
+    paths: ["/admin/exam-applications"],
+  },
+  propose_examination_status: {
+    words: /exam|test|grading|unpaid|paid|signed up|status/i,
+    paths: ["/admin/exam-applications"],
+  },
+  propose_examination_rejection: {
+    words: /exam|application|reject|refuse|decline/i,
+    paths: ["/admin/exam-applications"],
+  },
+  get_contribution_summary: {
+    words: /contribution|monthly|dues|subscription|month/i,
+    paths: ["/admin/monthly-contributions"],
+  },
+  propose_contribution_status: {
+    words: /contribution|monthly|dues|subscription|paid|awaiting|money/i,
+    paths: ["/admin/monthly-contributions"],
+  },
+  list_payment_proofs: {
+    words: /payslip|proof|receipt|slip|payment|transfer|evidence/i,
+    paths: ["/admin/payment-proofs", "/admin/exam-payslips"],
+  },
+  propose_payment_proof_decision: {
+    words: /payslip|proof|receipt|slip|approve|deny|payment/i,
+    paths: ["/admin/payment-proofs", "/admin/exam-payslips"],
+  },
+  list_newsletters: {
+    words: /newsletter|news|event|article|post|bulletin/i,
+    paths: ["/admin/website", "/admin/site-editor"],
+  },
+  propose_newsletter_create: {
+    words: /newsletter|news|article|post|bulletin|write|create|make|new/i,
+    paths: ["/admin/website"],
+  },
+  propose_newsletter_website_state: {
+    words: /newsletter|publish|unpublish|show|hide|live|website/i,
+    paths: ["/admin/website"],
+  },
+  propose_newsletter_lifecycle: {
+    words: /newsletter|archive|trash|bin|restore|remove/i,
+    paths: ["/admin/website"],
+  },
+  propose_newsletter_send: {
+    words: /send|email|subscriber|mail|blast|deliver/i,
+    paths: ["/admin/website"],
+  },
+  propose_newsletter_delete: {
+    words: /delete|permanent|remove for good|purge|trash/i,
+    paths: ["/admin/website"],
+  },
+  list_site_pages: {
+    words: /page|website|site|menu|route/i,
+    paths: ["/admin/site-editor", "/admin/website"],
+  },
+  propose_site_page_visibility: {
+    words: /page|draft|publish|hide|show|website|site/i,
+    paths: ["/admin/site-editor"],
+  },
+  propose_site_publish: {
+    words: /publish|go live|website|site|release/i,
+    paths: ["/admin/site-editor", "/admin/website"],
+  },
+  list_gallery_albums: {
+    words: /gallery|album|photo|picture|image/i,
+    paths: ["/admin/galleries/"],
+  },
+  propose_gallery_album_update: {
+    words: /album|gallery|title|cover|description|visibility|photo/i,
+    paths: ["/admin/galleries/"],
+  },
+  propose_gallery_album_order: {
+    words: /album|gallery|order|sort|arrange|rearrange|move/i,
+    paths: ["/admin/galleries/"],
+  },
+  propose_gallery_photo_captions: {
+    words: /caption|alt|describe|photo|picture|image/i,
+    paths: ["/admin/galleries/"],
+  },
+  propose_gallery_photo_order: {
+    words: /photo|picture|image|order|sort|arrange|rearrange/i,
+    paths: ["/admin/galleries/"],
+  },
+  propose_gallery_publish: {
+    words: /gallery|publish|go live|album/i,
+    paths: ["/admin/galleries/"],
+  },
+  list_dojos: {
+    words: /dojo|branch|location|club/i,
+    paths: ["/admin/dojos"],
+  },
+  propose_dojo_settings: {
+    words: /dojo|branch|club|name|active|order|setting/i,
+    paths: ["/admin/dojos"],
+  },
+  start_guided_flow: {
+    words: STUDENT_WORDS,
+    paths: [
+      "/admin/students",
+      "/admin/website",
+      "/admin/examination-records",
+      "/admin/training-requests",
+    ],
+  },
+};
+
+// Thai wording for the same subjects. An administrator working in Thai must get
+// exactly the same shortlist as one working in English.
+const THAI_SUBJECTS: ReadonlyArray<readonly [RegExp, readonly string[]]> = [
+  [
+    /นักเรียน|สมาชิก|ประวัติ|รายชื่อ/,
+    [
+      "search_students",
+      "propose_student_status",
+      "propose_student_record_update",
+      "propose_student_create",
+      "start_guided_flow",
+    ],
+  ],
+  [
+    /ชั่วโมง|ฝึก|ฝึกซ้อม/,
+    ["propose_student_hours", "propose_bulk_student_action", "start_guided_flow"],
+  ],
+  [
+    /สอบ|การสอบ|ผลสอบ|เลื่อนขั้น|ระดับ|สายพาน/,
+    [
+      "propose_student_examination",
+      "get_examination_summary",
+      "list_examination_applications",
+      "propose_examination_status",
+      "propose_student_record_update",
+      "start_guided_flow",
+    ],
+  ],
+  [
+    /จดหมายข่าว|ข่าว|บทความ|กิจกรรม/,
+    [
+      "list_newsletters",
+      "propose_newsletter_create",
+      "propose_newsletter_website_state",
+      "propose_newsletter_lifecycle",
+      "start_guided_flow",
+    ],
+  ],
+  [/ส่งอีเมล|อีเมล|สมาชิกรับข่าว/, ["propose_newsletter_send"]],
+  [
+    /แกลเลอรี|อัลบั้ม|รูป|ภาพ/,
+    [
+      "list_gallery_albums",
+      "propose_gallery_album_update",
+      "propose_gallery_photo_captions",
+      "propose_gallery_publish",
+    ],
+  ],
+  [
+    /เว็บไซต์|หน้าเว็บ|เผยแพร่/,
+    ["list_site_pages", "propose_site_page_visibility", "propose_site_publish"],
+  ],
+  [/โดโจ/, ["list_dojos", "propose_dojo_settings"]],
+  [
+    /เงินสมทบ|รายเดือน|ค่าบำรุง/,
+    ["get_contribution_summary", "propose_contribution_status"],
+  ],
+  [
+    /หลักฐาน|สลิป|ชำระเงิน|โอนเงิน/,
+    ["list_payment_proofs", "propose_payment_proof_decision"],
+  ],
+  [/โปรไฟล์|คำขอ/, ["propose_student_profile_decision"]],
+  [/สรุป|แดชบอร์ด|ภาพรวม|จำนวน/, ["get_dashboard_summary"]],
+  [
+    /สร้าง|เพิ่ม|บันทึก|ทำใหม่|ลงทะเบียน/,
+    ["start_guided_flow", "propose_student_create", "propose_newsletter_create"],
+  ],
+  [/เก็บถาวร|กู้คืน/, ["propose_student_status", "propose_newsletter_lifecycle"]],
+  [/ลบ/, ["propose_newsletter_delete"]],
+];
+
+// navigate_admin is the safe way out of anything unsupported, so it is always
+// offered. The others give the model a way to look a record up before naming
+// it, and a way to start a guided conversation.
+const ALWAYS_OFFERED = [
+  "navigate_admin",
+  "search_students",
+  "start_guided_flow",
+] as const;
+
+const MAX_OFFERED_TOOLS = 12;
+
+export function relevantToolNames(input: {
+  available: readonly string[];
+  message: string;
+  currentPath: string;
+}) {
+  const message = input.message.toLocaleLowerCase("en-US");
+  const path = normalizeAdminPath(input.currentPath);
+  const thaiMatches = new Set<string>();
+  for (const [pattern, names] of THAI_SUBJECTS)
+    if (pattern.test(input.message)) for (const name of names) thaiMatches.add(name);
+
+  const scored = input.available.map((name) => {
+    const topic = TOOL_TOPICS[name];
+    let score = 0;
+    if (topic?.words.test(message)) score += 2;
+    if (thaiMatches.has(name)) score += 2;
+    if (
+      topic?.paths.some((candidate) =>
+        candidate.endsWith("/") ? path.startsWith(candidate) : path === candidate,
+      )
+    )
+      score += 1;
+    if ((ALWAYS_OFFERED as readonly string[]).includes(name)) score += 100;
+    return { name, score };
+  });
+
+  const chosen = scored
+    .filter((entry) => entry.score > 0)
+    .sort(
+      (left, right) =>
+        right.score - left.score ||
+        input.available.indexOf(left.name) - input.available.indexOf(right.name),
+    )
+    .slice(0, MAX_OFFERED_TOOLS)
+    .map((entry) => entry.name);
+
+  // A message that matches no subject at all still needs somewhere to go, so
+  // the shortlist falls back to reading tools plus the safe page opener.
+  if (chosen.length <= ALWAYS_OFFERED.length) {
+    for (const name of ["get_dashboard_summary", "list_newsletters", "list_dojos"])
+      if (input.available.includes(name) && !chosen.includes(name))
+        chosen.push(name);
+  }
+  return chosen;
+}
+
+// The complete permission-filtered catalogue, before any shortlist is applied.
+// Exported so tests and the release speed check can measure exactly what used
+// to be sent on every single message.
+export function adminAuggieToolCatalogue(permission: AdminPermission) {
+  return allToolSchemas({
+    permission,
+    currentPath: "/admin/dashboard",
+  } as AdminAuggieContext);
+}
+
+function selectedToolSchemas(ctx: AdminAuggieContext, message: string) {
+  const all = allToolSchemas(ctx);
+  const names = relevantToolNames({
+    available: all.map((entry) => entry.function.name),
+    message,
+    currentPath: ctx.currentPath,
+  });
+  const shortlist = all.filter((entry) => names.includes(entry.function.name));
+  return shortlist.length ? shortlist : all;
 }
 
 function normalizeToolCalls(output: unknown): ToolCall[] {
@@ -1625,64 +2071,85 @@ async function runToolSelection(ctx: AdminAuggieContext, message: string) {
     throw new AdminAuggieError(
       localized(
         ctx.locale,
-        "Admin Auggie is temporarily unavailable. Administration itself is unchanged.",
-        "Admin Auggie ไม่พร้อมใช้งานชั่วคราว ระบบผู้ดูแลส่วนอื่นยังใช้งานได้ตามปกติ",
+        "Sorry, Admin Auggie is not available just now. The rest of the administration pages still work as normal.",
+        "ขออภัย ขณะนี้ Admin Auggie ไม่พร้อมใช้งาน หน้าผู้ดูแลอื่น ๆ ยังใช้งานได้ตามปกติ",
       ),
       503,
       "ADMIN_AUGGIE_AI_UNAVAILABLE",
     );
   const configured = ctx.env.ADMIN_AUGGIE_MODEL?.trim() || DEFAULT_MODEL;
   const model = MODEL_ALLOWLIST.has(configured) ? configured : DEFAULT_MODEL;
-  const controller = new AbortController();
-  const selection = ctx.env.AI.run(
-    model,
-    {
-      messages: [
-        {
-          role: "system",
-          content:
-            "Select exactly one provided administration tool. Never answer with prose. Never invent Student IDs, dojo names, permission levels, money amounts, ranks, hours, dates, web addresses, album ids, photo ids, or record identifiers. Use search_students, list_examination_applications, list_payment_proofs, list_newsletters, list_gallery_albums, list_site_pages, or list_dojos first when a record is identified only by name. Use navigate_admin for file uploads, media, the gallery trash, private-data edits, or any unsupported write. Every propose tool only prepares a change: the server rechecks scope, re-reads the saved record, requires the administrator's exact typed confirmation, and requires a second exact confirmation for money changes, payslip decisions, profile decisions, every bulk student change, permanent deletion, publishing the whole website or gallery draft, and sending a newsletter as real email. A bulk student change is applied to every named student in one transaction or to none of them. A tool request is not confirmation and must never claim a write succeeded.",
+  const tools = selectedToolSchemas(ctx, message);
+  const deadline = Date.now() + AI_TIMEOUT_MS;
+
+  const attempt = async () => {
+    const controller = new AbortController();
+    const remaining = deadline - Date.now();
+    const selection = ctx.env.AI!.run(
+      model,
+      {
+        messages: [
+          {
+            role: "system",
+            content:
+              "Choose exactly one tool from the list. Never answer with prose. Never invent an ID, name, rank, date, amount, hours, web address, album id or photo id. When a record is named only by a person's name, choose the matching search or list tool first. Choose navigate_admin for uploads, media, private data, or anything no tool covers. Choose start_guided_flow when the administrator wants to create, add or record something but has not given the details. Every propose tool only prepares a change: the server rechecks everything and the administrator must type an exact confirmation before anything is written.",
+          },
+          { role: "user", content: message },
+        ],
+        // Only the tools that could apply to this message and this page are
+        // sent. The shortlist is drawn from the permission-filtered list above,
+        // so it can only ever be smaller, never wider.
+        tools,
+        tool_choice: "required",
+        parallel_tool_calls: false,
+        max_completion_tokens: 300,
+        temperature: 0,
+      },
+      { signal: controller.signal },
+    );
+    let timeoutId = 0;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(
+        () => {
+          controller.abort("admin-auggie-timeout");
+          reject(
+            new AdminAuggieError(
+              localized(
+                ctx.locale,
+                "Admin Auggie took too long and stopped safely. Nothing was changed. Please try again.",
+                "Admin Auggie ใช้เวลานานเกินไปและหยุดอย่างปลอดภัย ไม่มีการเปลี่ยนแปลงใด ๆ โปรดลองอีกครั้ง",
+              ),
+              503,
+              "ADMIN_AUGGIE_TIMEOUT",
+            ),
+          );
         },
-        { role: "user", content: message },
-      ],
-      tools: toolSchemas(ctx),
-      tool_choice: "required",
-      parallel_tool_calls: false,
-      max_completion_tokens: 300,
-      temperature: 0,
-    },
-    { signal: controller.signal },
-  );
-  let timeoutId = 0;
-  const timeout = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => {
-      controller.abort("admin-auggie-timeout");
-      reject(
-        new AdminAuggieError(
-          localized(
-            ctx.locale,
-            "Admin Auggie timed out safely. No action was taken.",
-            "Admin Auggie หมดเวลาอย่างปลอดภัย ไม่มีการดำเนินการใด ๆ",
-          ),
-          503,
-          "ADMIN_AUGGIE_TIMEOUT",
-        ),
-      );
-    }, AI_TIMEOUT_MS) as unknown as number;
-  });
-  let output: unknown;
-  try {
-    output = await Promise.race([selection, timeout]);
-  } finally {
-    clearTimeout(timeoutId);
-  }
-  const calls = normalizeToolCalls(output);
-  if (calls.length !== 1 || !calls[0].name || !objectValue(calls[0].arguments))
+        Math.max(1_000, remaining),
+      ) as unknown as number;
+    });
+    try {
+      return await Promise.race([selection, timeout]);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  };
+
+  const usable = (calls: ToolCall[]) =>
+    calls.length === 1 && Boolean(calls[0].name) && Boolean(objectValue(calls[0].arguments));
+
+  let calls = normalizeToolCalls(await attempt());
+  // The faster model very occasionally answers with no tool call at all. One
+  // more try still finishes well inside the limit, and turns what the
+  // administrator would have seen as a failure into an ordinary answer.
+  if (!usable(calls) && deadline - Date.now() > 5_000)
+    calls = normalizeToolCalls(await attempt());
+
+  if (!usable(calls))
     throw new AdminAuggieError(
       localized(
         ctx.locale,
-        "Admin Auggie could not select one safe action. No action was taken.",
-        "Admin Auggie ไม่สามารถเลือกการทำงานที่ปลอดภัยเพียงรายการเดียว ไม่มีการดำเนินการใด ๆ",
+        "Sorry, I could not work out what you needed. Nothing was changed. Could you say it another way?",
+        "ขออภัย ไม่สามารถเข้าใจสิ่งที่คุณต้องการได้ ไม่มีการเปลี่ยนแปลงใด ๆ โปรดลองอธิบายใหม่อีกครั้ง",
       ),
       502,
       calls.length > 1
@@ -1761,11 +2228,11 @@ async function dashboardSummary(ctx: AdminAuggieContext) {
   );
   return {
     kind: "dashboard" as const,
-    heading: localized(ctx.locale, "Dashboard summary", "สรุปแดชบอร์ด"),
+    heading: localized(ctx.locale, "Here is your dashboard", "สรุปแดชบอร์ดของคุณ"),
     message: localized(
       ctx.locale,
-      "These counts are limited to your current administrator scope.",
-      "จำนวนเหล่านี้จำกัดตามขอบเขตผู้ดูแลปัจจุบันของคุณ",
+      "These are the numbers for your own dojo and access.",
+      "นี่คือตัวเลขสำหรับโดโจและสิทธิ์การเข้าถึงของคุณ",
     ),
     counts,
   };
@@ -1841,13 +2308,13 @@ async function searchStudents(
     message: students.length
       ? localized(
           ctx.locale,
-          "Minimal fields are shown. Use exact Student IDs when preparing a change.",
-          "แสดงเฉพาะข้อมูลขั้นต่ำ โปรดใช้รหัสนักเรียนที่ถูกต้องเมื่อเตรียมการเปลี่ยนแปลง",
+          "Here is what I found. Please use the exact Student ID when you want a change made.",
+          "นี่คือผลการค้นหา หากต้องการให้เปลี่ยนแปลงข้อมูล โปรดใช้รหัสนักเรียนให้ตรง",
         )
       : localized(
           ctx.locale,
-          "No student matched in your current scope.",
-          "ไม่พบนักเรียนในขอบเขตปัจจุบันของคุณ",
+          "Sorry, I could not find a student matching that. Please check the spelling or the Student ID.",
+          "ขออภัย ไม่พบนักเรียนที่ตรงกัน โปรดตรวจสอบการสะกดหรือรหัสนักเรียนอีกครั้ง",
         ),
     students,
   };
@@ -2266,26 +2733,26 @@ function operationProposal(row: OperationRow, locale: AdminAuggieLocale) {
       row.status === "undone"
         ? localized(
             locale,
-            "This operation was safely undone.",
-            "การดำเนินการนี้ถูกย้อนกลับอย่างปลอดภัยแล้ว",
+            "This was put back safely.",
+            "รายการนี้ถูกย้อนกลับอย่างปลอดภัยแล้ว",
           )
         : row.status === "succeeded"
           ? localized(
               locale,
-              "This change was saved safely and cannot be confirmed again.",
-              "บันทึกการเปลี่ยนแปลงอย่างปลอดภัยแล้วและไม่สามารถยืนยันซ้ำได้",
+              "This is already saved, so it cannot be confirmed a second time.",
+              "บันทึกเรียบร้อยแล้ว จึงไม่สามารถยืนยันซ้ำได้",
             )
           : row.status === "expired"
             ? localized(
                 locale,
-                "This proposal expired. Prepare a new one.",
-                "ข้อเสนอนี้หมดอายุแล้ว โปรดเตรียมใหม่",
+                "This has been waiting too long, so it has lapsed. Please ask me again.",
+                "รายการนี้รอนานเกินไปจึงหมดอายุ โปรดสอบถามอีกครั้ง",
               )
             : row.status === "failed"
               ? localized(
                   locale,
-                  "This operation failed safely. No partial change was saved.",
-                  "การดำเนินการล้มเหลวอย่างปลอดภัย ไม่มีการบันทึกบางส่วน",
+                  "This did not go through. Nothing at all was saved, not even part of it.",
+                  "รายการนี้ไม่สำเร็จ ไม่มีการบันทึกใด ๆ แม้เพียงบางส่วน",
                 )
               : previewWarning
                 ? previewWarning
@@ -2304,13 +2771,13 @@ function operationProposal(row: OperationRow, locale: AdminAuggieLocale) {
                   : row.execution_mode === "direct"
                     ? localized(
                         locale,
-                        "No change has been made. Type the exact phrase and use the separate Confirm button.",
-                        "ยังไม่มีการเปลี่ยนแปลง พิมพ์ข้อความยืนยันให้ตรงและใช้ปุ่มยืนยันแยกต่างหาก",
+                        "Nothing has changed yet. When you are happy with it, type the exact phrase below and press confirm.",
+                        "ยังไม่มีการเปลี่ยนแปลง เมื่อคุณตรวจสอบเรียบร้อยแล้ว พิมพ์ข้อความด้านล่างให้ตรงและกดยืนยัน",
                       )
                     : localized(
                         locale,
-                        "This is a resolved preview only. Open Student records and use its existing reviewed bulk confirmation.",
-                        "นี่เป็นเพียงตัวอย่างที่ตรวจสอบแล้ว เปิดระเบียนนักเรียนและใช้ขั้นตอนยืนยันแบบกลุ่มเดิม",
+                        "This is a preview only. Please open Student records and finish it there.",
+                        "นี่เป็นเพียงตัวอย่าง โปรดเปิดระเบียนนักเรียนและดำเนินการต่อที่นั่น",
                       ),
   };
 }
@@ -2800,6 +3267,18 @@ function bulkStateSql(action: BulkStudentAction) {
 }
 
 function delegatedStateSql(args: DelegatedArgs) {
+  // A new record has no row of its own to prove, so the guard proves the two
+  // things that must still hold when the administrator confirms: the chosen
+  // dojo is still active, and nobody else has since created a student with the
+  // same English name in it.
+  if (args.kind === "student_create")
+    return {
+      sql: `SELECT CAST(d.active AS TEXT) || '|' || CAST((SELECT COUNT(*) FROM students s
+        WHERE s.dojo_id = d.id AND s.deleted_at IS NULL
+          AND s.display_name = ? COLLATE NOCASE) AS TEXT) AS state
+      FROM dojos d WHERE d.id = ?`,
+      bindings: (guard: DelegatedGuard) => [args.englishName || "", guard.id],
+    };
   if (args.kind === "student_record_update")
     return studentStateSql(
       `SELECT s.current_belt || '|' || CAST(s.public_visible AS TEXT) || '|' ||
@@ -2908,6 +3387,7 @@ const DELEGATED_GUARD_PREFIX: Record<DelegatedKind, string> = {
   student_examination: "__student_exam__",
   student_profile_decision: "__student_profile__",
   bulk_student_action: "__bulk_student__",
+  student_create: "__student_create__",
 };
 
 function delegatedGuards(args: DelegatedArgs): DelegatedGuard[] {
@@ -2977,13 +3457,13 @@ async function insertDelegatedOperation(
     kind: "proposal" as const,
     heading: localized(
       ctx.locale,
-      input.heading?.en || "Change proposal",
-      input.heading?.th || "ข้อเสนอการเปลี่ยนแปลง",
+      input.heading?.en || "Ready when you are",
+      input.heading?.th || "พร้อมเมื่อคุณพร้อม",
     ),
     message: localized(
       ctx.locale,
-      "The server resolved and rechecked every exact record inside your own dojo scope. Nothing has changed yet. Review the card below.",
-      "เซิร์ฟเวอร์ตรวจสอบระเบียนที่ระบุทุกระเบียนภายในขอบเขตโดโจของคุณแล้ว ยังไม่มีการเปลี่ยนแปลงใด ๆ โปรดตรวจบัตรด้านล่าง",
+      "I have checked every record against your own dojo. Nothing has changed yet. Please look it over below.",
+      "ตรวจสอบทุกระเบียนกับโดโจของคุณแล้ว ยังไม่มีการเปลี่ยนแปลงใด ๆ โปรดตรวจดูด้านล่าง",
     ),
     operation: operationProposal(row, ctx.locale),
   };
@@ -3663,6 +4143,165 @@ async function proposeStudentExamination(
   });
 }
 
+// The dojos this administrator may actually put a student into. A dojo account
+// only ever sees its own dojo, so the dojo question answers itself.
+async function permittedDojos(ctx: AdminAuggieContext) {
+  const rows =
+    (
+      await ctx.db
+        .prepare(
+          `SELECT id, official_name FROM dojos WHERE active = 1
+        ORDER BY sort_order, official_name COLLATE NOCASE`,
+        )
+        .all<{ id: string; official_name: string }>()
+    ).results || [];
+  return rows
+    .filter((row) => canAccessDojo(ctx.session, row.id))
+    .map((row) => ({ id: row.id, name: row.official_name }));
+}
+
+async function proposeStudentCreate(
+  ctx: AdminAuggieContext,
+  args: Record<string, unknown>,
+) {
+  requirePathPermission(ctx, STUDENT_PATH);
+  if (
+    !exactKeys(args, [
+      "englishName",
+      "thaiName",
+      "currentRank",
+      "dojoId",
+      "dojoJoinedDate",
+      "currentTrainingHours",
+    ])
+  )
+    throw new AdminAuggieError(
+      "The new student proposal contains unsupported fields.",
+    );
+  const englishName = cleanText(args.englishName, 120);
+  if (!englishName || cleanText(args.englishName, 121).length > 120)
+    throw new AdminAuggieError(
+      "Enter an English name of 120 characters or fewer.",
+    );
+  const thaiName =
+    args.thaiName === undefined ? "" : cleanText(args.thaiName, 120);
+  const currentRank =
+    args.currentRank === undefined
+      ? "Unranked"
+      : normalizeRank(args.currentRank);
+  if (!currentRank)
+    throw new AdminAuggieError(
+      "Choose a valid rank from the official progression.",
+    );
+  const dojos = await permittedDojos(ctx);
+  if (!dojos.length)
+    throw new AdminAuggieError(
+      "No active dojo is available in your current scope.",
+      409,
+      "ADMIN_AUGGIE_TARGET_MISSING",
+    );
+  const requestedDojoId =
+    args.dojoId === undefined ? "" : cleanText(args.dojoId, 80);
+  const dojo = requestedDojoId
+    ? dojos.find((entry) => entry.id === requestedDojoId)
+    : dojos.length === 1
+      ? dojos[0]
+      : undefined;
+  if (!dojo)
+    throw new AdminAuggieError(
+      requestedDojoId
+        ? "That dojo is not an active dojo in your current scope."
+        : "Name the dojo the student is joining.",
+      requestedDojoId ? 403 : 400,
+      requestedDojoId ? "ADMIN_AUGGIE_CROSS_DOJO" : "ADMIN_AUGGIE_REQUEST_INVALID",
+    );
+  const dojoJoinedDate =
+    args.dojoJoinedDate === undefined
+      ? undefined
+      : cleanText(args.dojoJoinedDate, 10);
+  if (dojoJoinedDate !== undefined && !isCanonicalDate(dojoJoinedDate))
+    throw new AdminAuggieError("Choose a dojo-joined date in YYYY-MM-DD form.");
+  const startingHours =
+    args.currentTrainingHours === undefined
+      ? undefined
+      : Number(args.currentTrainingHours);
+  if (
+    startingHours !== undefined &&
+    (!Number.isFinite(startingHours) || startingHours < 0 || startingHours > 1_000)
+  )
+    throw new AdminAuggieError(
+      "Starting training hours must be between zero and 1,000.",
+    );
+  const duplicates = await ctx.db
+    .prepare(
+      `SELECT COUNT(*) AS matches FROM students
+      WHERE dojo_id = ? AND deleted_at IS NULL AND display_name = ? COLLATE NOCASE`,
+    )
+    .bind(dojo.id, englishName)
+    .first<{ matches: number }>();
+  const duplicateCount = Number(duplicates?.matches || 0);
+  const stored: StoredTarget = {
+    id: dojo.id,
+    publicId: "",
+    name: englishName,
+    dojoId: dojo.id,
+    dojoName: dojo.name,
+    currentRank,
+    active: 1,
+    profileStatus: "approved",
+    publicVisible: 1,
+    publicVisibleBeforeArchive: null,
+    archivedAt: null,
+    deletedAt: null,
+    updatedAt: "",
+    totalHours: startingHours || 0,
+    expectedState: `1|${duplicateCount}`,
+  };
+  return insertDelegatedOperation(ctx, {
+    toolName: "student_created",
+    args: {
+      kind: "student_create",
+      action: "create_student",
+      targets: [stored],
+      route: "admin/students-create",
+      requiresSecondaryConfirmation: false,
+      requiredPath: STUDENT_PATH,
+      englishName,
+      thaiName,
+      currentRank,
+      dojoIdForCreate: dojo.id,
+      dojoJoinedDate,
+      hours: startingHours,
+      undoable: false,
+    },
+    primaryPhrase: "CREATE STUDENT",
+    heading: { en: "New student profile", th: "ประวัตินักเรียนใหม่" },
+    records: [
+      {
+        studentId: localized(ctx.locale, "New record", "ระเบียนใหม่"),
+        name: thaiName ? `${englishName} (${thaiName})` : englishName,
+        dojo: dojo.name,
+        rank: currentRank,
+        status: localized(ctx.locale, "will be created", "จะถูกสร้าง"),
+      },
+    ],
+    extraPreview: {
+      englishName,
+      thaiName,
+      currentRank,
+      dojoJoinedDate: dojoJoinedDate || "",
+      startingHours: startingHours || 0,
+      duplicateNameCount: duplicateCount,
+      warningEn: duplicateCount
+        ? `Nothing has been created yet. Please note that ${duplicateCount} student with this exact English name is already in ${dojo.name}. Check that this is a different person, then type the exact phrase below.`
+        : "Nothing has been created yet. Please check the name, rank and dojo, then type the exact phrase below. The Student ID is allocated by the server, not by Auggie.",
+      warningTh: duplicateCount
+        ? `ยังไม่มีการสร้างระเบียน โปรดทราบว่ามีนักเรียนชื่อภาษาอังกฤษนี้อยู่แล้ว ${duplicateCount} คนใน ${dojo.name} โปรดตรวจสอบว่าเป็นคนละคน แล้วพิมพ์ข้อความยืนยันด้านล่างให้ตรง`
+        : "ยังไม่มีการสร้างระเบียน โปรดตรวจสอบชื่อ ระดับ และโดโจ แล้วพิมพ์ข้อความยืนยันด้านล่างให้ตรง รหัสนักเรียนจะถูกกำหนดโดยเซิร์ฟเวอร์ ไม่ใช่โดย Auggie",
+    },
+  });
+}
+
 async function proposeStudentProfileDecision(
   ctx: AdminAuggieContext,
   args: Record<string, unknown>,
@@ -4242,8 +4881,8 @@ async function insertContentOperation(
     heading: localized(ctx.locale, input.heading, input.headingTh),
     message: localized(
       ctx.locale,
-      "The server re-read the saved record and rechecked your permission. Nothing has changed yet. Review the card below.",
-      "เซิร์ฟเวอร์อ่านระเบียนที่บันทึกไว้ใหม่และตรวจสิทธิ์ของคุณแล้ว ยังไม่มีการเปลี่ยนแปลงใด ๆ โปรดตรวจบัตรด้านล่าง",
+      "I have read the saved record again and checked your access. Nothing has changed yet. Please look it over below.",
+      "อ่านระเบียนที่บันทึกไว้อีกครั้งและตรวจสิทธิ์ของคุณแล้ว ยังไม่มีการเปลี่ยนแปลงใด ๆ โปรดตรวจดูด้านล่าง",
     ),
     operation: operationProposal(row, ctx.locale),
   };
@@ -4262,13 +4901,13 @@ function contentList(
     message: records.length
       ? localized(
           ctx.locale,
-          "Minimal fields are shown. Uploads, file media, and permanent deletion stay in the reviewed page.",
-          "แสดงเฉพาะข้อมูลขั้นต่ำ การอัปโหลด ไฟล์สื่อ และการลบถาวร ยังคงอยู่ในหน้าจอเดิมที่มีการตรวจสอบ",
+          "Here is what I found. Uploading files and permanent deletion are still done on the normal page.",
+          "นี่คือผลการค้นหา การอัปโหลดไฟล์และการลบถาวรยังคงทำในหน้าปกติ",
         )
       : localized(
           ctx.locale,
-          "Nothing matched in your current scope.",
-          "ไม่พบรายการในขอบเขตปัจจุบันของคุณ",
+          "Sorry, I could not find anything matching that.",
+          "ขออภัย ไม่พบรายการที่ตรงกัน",
         ),
     students: records,
     path,
@@ -4334,6 +4973,110 @@ async function listNewsletters(
     records,
     WEBSITE_PATH,
   );
+}
+
+function slugFromTitle(title: string, date: string) {
+  const slug = title
+    .toLocaleLowerCase("en-US")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 100)
+    .replace(/-+$/g, "");
+  return NEWSLETTER_SLUG.test(slug) ? slug : `newsletter-${date}`;
+}
+
+async function proposeNewsletterCreate(
+  ctx: AdminAuggieContext,
+  args: Record<string, unknown>,
+) {
+  requirePathPermission(ctx, WEBSITE_PATH);
+  if (
+    !exactKeys(args, [
+      "title",
+      "summary",
+      "body",
+      "category",
+      "date",
+      "webAddress",
+    ])
+  )
+    throw new AdminAuggieError(
+      "The new newsletter proposal contains unsupported fields.",
+    );
+  const title = cleanText(args.title, 160);
+  const summary = cleanText(args.summary, 500);
+  const body = cleanText(args.body, 5_000);
+  const date = cleanText(args.date, 10);
+  if (!title || !summary || !body)
+    throw new AdminAuggieError(
+      "A newsletter needs a title, a short summary and its text.",
+    );
+  if (!isCanonicalDate(date))
+    throw new AdminAuggieError("Choose a date in YYYY-MM-DD form.");
+  const category = NEWSLETTER_CATEGORIES.find(
+    (entry) => entry === cleanText(args.category, 60),
+  );
+  if (!category)
+    throw new AdminAuggieError(
+      `Choose one of these categories: ${NEWSLETTER_CATEGORIES.join(", ")}.`,
+    );
+  const slug =
+    args.webAddress === undefined || args.webAddress === ""
+      ? slugFromTitle(title, date)
+      : parseWebAddress(args.webAddress);
+  const events = await readNewsletters(ctx);
+  if (
+    events.some(
+      (event) => event.slug === slug || event.slugHistory?.includes(slug),
+    )
+  )
+    throw new AdminAuggieError(
+      `The web address ${slug} is already used by another newsletter. Choose a different one.`,
+      409,
+      "ADMIN_AUGGIE_TARGET_STATE",
+    );
+  const observed = await observeContent(ctx, {
+    kind: "newsletter_create",
+    newsletterSlug: slug,
+  });
+  return insertContentOperation(ctx, {
+    toolName: "newsletter_created",
+    affectedLabel: "newsletter",
+    args: {
+      kind: "newsletter_create",
+      action: "create_newsletter",
+      targets: [],
+      route: "admin/newsletter-save",
+      requiresSecondaryConfirmation: false,
+      requiredPath: WEBSITE_PATH,
+      expectedState: observed.state,
+      affectedCount: 1,
+      newsletterSlug: slug,
+      newsletterTitle: title,
+      newsletterSummary: summary,
+      newsletterBody: body,
+      newsletterCategory: category,
+      newsletterDate: date,
+      published: false,
+    },
+    primaryPhrase: "CREATE NEWSLETTER",
+    records: [
+      {
+        studentId: slug,
+        name: title,
+        dojo: category,
+        rank: date,
+        status: localized(ctx.locale, "draft", "ฉบับร่าง"),
+      },
+    ],
+    heading: "New newsletter",
+    headingTh: "จดหมายข่าวใหม่",
+    warningEn:
+      "Nothing has been saved yet. This creates an unpublished draft only: it does not go on the website and it does not email anybody. Publishing and sending stay separate steps that each need their own confirmation.",
+    warningTh:
+      "ยังไม่มีการบันทึก ขั้นตอนนี้สร้างเฉพาะฉบับร่างที่ยังไม่เผยแพร่ จะไม่ขึ้นเว็บไซต์และไม่ส่งอีเมลถึงใคร การเผยแพร่และการส่งเป็นขั้นตอนแยกที่ต้องยืนยันของตนเอง",
+    extraPreview: { title, summary, category, date, webAddress: slug },
+  });
 }
 
 async function proposeNewsletterWebsiteState(
@@ -5327,6 +6070,10 @@ async function executeSelectedTool(ctx: AdminAuggieContext, call: ToolCall) {
     return proposeStudentHours(ctx, args);
   if (call.name === "propose_student_examination")
     return proposeStudentExamination(ctx, args);
+  if (call.name === "propose_student_create")
+    return proposeStudentCreate(ctx, args);
+  if (call.name === "propose_newsletter_create")
+    return proposeNewsletterCreate(ctx, args);
   if (call.name === "propose_student_profile_decision")
     return proposeStudentProfileDecision(ctx, args);
   if (call.name === "get_examination_summary") {
@@ -5377,12 +6124,418 @@ async function executeSelectedTool(ctx: AdminAuggieContext, call: ToolCall) {
   throw new AdminAuggieError(
     localized(
       ctx.locale,
-      "The model selected an unknown tool. No action was taken.",
-      "โมเดลเลือกเครื่องมือที่ไม่รู้จัก ไม่มีการดำเนินการใด ๆ",
+      "Sorry, I could not work out what you needed. Nothing was changed.",
+      "ขออภัย ไม่สามารถเข้าใจสิ่งที่คุณต้องการได้ ไม่มีการเปลี่ยนแปลงใด ๆ",
     ),
     502,
     "ADMIN_AUGGIE_UNKNOWN_TOOL",
   );
+}
+
+// --- Guided conversations ---------------------------------------------------
+// From here down, nothing calls the model. Once a guided conversation has been
+// started, every question, acknowledgement, correction and summary is the
+// wording in adminAuggieFlows.ts, and the administrator's answers are checked
+// and kept by this server only. The conversation always ends by preparing an
+// ordinary proposal, so the existing permission checks, dojo limits, re-reads
+// and exact typed confirmation still decide whether anything is written.
+
+const FLOW_PATHS: Record<FlowId, string> = {
+  create_student: STUDENT_PATH,
+  add_training_hours: STUDENT_PATH,
+  record_exam_result: STUDENT_PATH,
+  create_newsletter: WEBSITE_PATH,
+};
+
+async function flowOwner(ctx: AdminAuggieContext): Promise<FlowSessionOwner> {
+  return {
+    accountId: ctx.session.accountId,
+    sessionHash: await sessionHash(ctx.env, ctx.session),
+    selectedDojoId: ctx.session.selectedDojoId!,
+    permission: ctx.permission,
+  };
+}
+
+async function flowRuntimeFor(
+  ctx: AdminAuggieContext,
+  flowId: FlowId,
+): Promise<FlowRuntime> {
+  if (flowId !== "create_student") return { dojos: [] };
+  return { dojos: await permittedDojos(ctx) };
+}
+
+function flowGuidedResponse(
+  ctx: AdminAuggieContext,
+  state: FlowState,
+  runtime: FlowRuntime,
+  lead: string,
+) {
+  const flow = flowDefinition(state.flowId);
+  const fields = activeFields(flow, runtime);
+  const field = currentField(flow, runtime, state);
+  const answered = fields.filter((entry) => entry.key in state.answers).length;
+  const step = Math.min(answered + 1, fields.length);
+  const choices =
+    field?.autoResolve === "dojo"
+      ? runtime.dojos.map((dojo) => dojo.name)
+      : field?.choices
+        ? [...field.choices]
+        : [];
+  return {
+    kind: "flow" as const,
+    heading: flowText(ctx.locale, flow.title),
+    message: lead,
+    flow: {
+      id: state.flowId,
+      title: flowText(ctx.locale, flow.title),
+      question: field ? flowText(ctx.locale, field.ask) : "",
+      hint: field?.hint ? flowText(ctx.locale, field.hint) : "",
+      optional: Boolean(field?.optional),
+      optionalNote: field?.optional
+        ? flowText(ctx.locale, FLOW_WORDING.optional)
+        : "",
+      choices,
+      step,
+      total: fields.length,
+      progressLabel: flowText(ctx.locale, FLOW_WORDING.progress(step, fields.length)),
+      guide: flowText(ctx.locale, FLOW_WORDING.guide),
+      answers: flowSummaryRows(flow, runtime, state, ctx.locale).filter(
+        (row, index) => index < answered,
+      ),
+      canGoBack: state.order.length > 0,
+      startedAt: state.startedAt,
+    },
+  };
+}
+
+// The collected answers become the arguments of an ordinary propose tool. Only
+// keys the administrator actually answered are passed, so the existing strict
+// field checks in each propose function still apply.
+// Some answers can only be judged against the records themselves: whether a
+// Student ID really exists in this administrator's scope, whether an attempted
+// rank is above the rank the student holds now, whether a web address is free.
+// Those are checked as the answer is given, so the administrator is told at
+// once rather than at the very end.
+async function guidedRecordCheck(
+  ctx: AdminAuggieContext,
+  state: FlowState,
+  key: string,
+): Promise<FlowText | null> {
+  const answers = state.answers;
+  const missingStudent: FlowText = {
+    en: "I could not find that Student ID in your dojo, or the record is not an active, approved student. Please check it and tell me again.",
+    th: "ไม่พบรหัสนักเรียนนี้ในโดโจของคุณ หรือระเบียนไม่ได้เป็นนักเรียนที่ใช้งานอยู่และผ่านการอนุมัติ โปรดตรวจสอบแล้วแจ้งอีกครั้ง",
+  };
+  if (
+    key === "studentId" &&
+    (state.flowId === "add_training_hours" ||
+      state.flowId === "record_exam_result")
+  ) {
+    try {
+      await requireEditableStudent(ctx, answers.studentId);
+      return null;
+    } catch {
+      return missingStudent;
+    }
+  }
+  if (key === "attemptedRank" && state.flowId === "record_exam_result") {
+    let target;
+    try {
+      target = await requireEditableStudent(ctx, answers.studentId);
+    } catch {
+      return missingStudent;
+    }
+    if (rankIndex(answers.attemptedRank) <= rankIndex(target.currentRank))
+      return {
+        en: `${target.publicId} is already at ${target.currentRank}, so the rank attempted has to be above that one. Which rank did the student go for?`,
+        th: `${target.publicId} อยู่ที่ระดับ ${target.currentRank} แล้ว ระดับที่สอบจึงต้องสูงกว่านั้น นักเรียนสอบเพื่อเลื่อนไประดับใด`,
+      };
+    return null;
+  }
+  if (key === "webAddress" && state.flowId === "create_newsletter") {
+    // When the administrator skips the web address the server makes one from
+    // the title, so that one is checked here too rather than failing later.
+    const slug =
+      answers.webAddress || slugFromTitle(answers.title || "", answers.date || "");
+    if (!slug) return null;
+    const events = await readNewsletters(ctx);
+    if (
+      events.some(
+        (event) => event.slug === slug || event.slugHistory?.includes(slug),
+      )
+    )
+      return {
+        en: `Another newsletter already uses the web address ${slug}. Please choose a different one.`,
+        th: `มีจดหมายข่าวอื่นใช้ที่อยู่เว็บ ${slug} อยู่แล้ว โปรดเลือกที่อยู่อื่น`,
+      };
+    return null;
+  }
+  return null;
+}
+
+// Runs the record checks for every answer the administrator just gave, in the
+// order they gave them, and stops at the first one the records reject.
+async function firstRejectedAnswer(
+  ctx: AdminAuggieContext,
+  before: FlowState,
+  after: FlowState,
+) {
+  for (const key of after.order.slice(before.order.length)) {
+    const upTo = rewindTo(after, key);
+    const problem = await guidedRecordCheck(
+      ctx,
+      { ...upTo, answers: { ...upTo.answers, [key]: after.answers[key] } },
+      key,
+    );
+    if (problem) return { key, problem };
+  }
+  return null;
+}
+
+async function completeGuidedFlow(
+  ctx: AdminAuggieContext,
+  state: FlowState,
+  runtime: FlowRuntime,
+) {
+  const flow = flowDefinition(state.flowId);
+  const answers = resolvedAnswers(flow, runtime, state);
+  const optional = (key: string) =>
+    answers[key] ? { [key]: answers[key] } : {};
+  if (state.flowId === "create_student")
+    return proposeStudentCreate(ctx, {
+      englishName: answers.englishName,
+      ...optional("thaiName"),
+      currentRank: answers.currentRank,
+      ...optional("dojoId"),
+      ...optional("dojoJoinedDate"),
+      ...(answers.currentTrainingHours
+        ? { currentTrainingHours: Number(answers.currentTrainingHours) }
+        : {}),
+    });
+  if (state.flowId === "add_training_hours")
+    return proposeStudentHours(ctx, {
+      studentId: answers.studentId,
+      hours: Number(answers.hours),
+      ...optional("location"),
+    });
+  if (state.flowId === "record_exam_result")
+    return proposeStudentExamination(ctx, {
+      studentId: answers.studentId,
+      attemptedRank: answers.attemptedRank,
+      passed: answers.passed === "yes",
+      location: answers.location,
+      examinationDate: answers.examinationDate,
+    });
+  return proposeNewsletterCreate(ctx, {
+    title: answers.title,
+    summary: answers.summary,
+    body: answers.body,
+    category: answers.category,
+    date: answers.date,
+    ...optional("webAddress"),
+  });
+}
+
+async function finishGuidedFlow(
+  ctx: AdminAuggieContext,
+  state: FlowState,
+  runtime: FlowRuntime,
+  owner: FlowSessionOwner,
+) {
+  const proposal = await completeGuidedFlow(ctx, state, runtime);
+  // The answers are dropped as soon as the proposal exists. From here the
+  // operation row carries the change, under the ordinary expiry and scrubbing.
+  await clearFlowSession(ctx.db, owner);
+  const flow = flowDefinition(state.flowId);
+  const phrase = proposal.operation.confirmationPhrase || "";
+  return {
+    ...proposal,
+    heading: flowText(ctx.locale, FLOW_WORDING.summaryHeading),
+    message: flowText(ctx.locale, FLOW_WORDING.summaryLead(phrase)),
+    summary: flowSummaryRows(flow, runtime, state, ctx.locale),
+  };
+}
+
+async function startGuidedFlow(
+  ctx: AdminAuggieContext,
+  flowId: FlowId,
+  owner: FlowSessionOwner,
+) {
+  requirePathPermission(ctx, FLOW_PATHS[flowId]);
+  const runtime = await flowRuntimeFor(ctx, flowId);
+  const flow = flowDefinition(flowId);
+  const state: FlowState = {
+    flowId,
+    answers: {},
+    order: [],
+    startedAt: new Date().toISOString(),
+  };
+  await writeFlowSession(ctx.db, owner, state);
+  await auditAi(ctx, "admin_ai_guided_flow_started", "start_guided_flow", "success", {
+    flowId,
+    questionCount: flowQuestionCount(flow, runtime),
+  });
+  const lead = `${flowText(ctx.locale, flow.opening)} ${flowText(
+    ctx.locale,
+    FLOW_WORDING.opening(flowQuestionCount(flow, runtime)),
+  )}`;
+  return flowGuidedResponse(ctx, state, runtime, lead);
+}
+
+async function continueGuidedFlow(
+  ctx: AdminAuggieContext,
+  state: FlowState,
+  message: string,
+  owner: FlowSessionOwner,
+) {
+  // A guided conversation may only continue inside the access it was started
+  // in. A permission or dojo change ends it rather than carrying answers over.
+  requirePathPermission(ctx, FLOW_PATHS[state.flowId]);
+  const runtime = await flowRuntimeFor(ctx, state.flowId);
+  const flow = flowDefinition(state.flowId);
+  const command = flowCommand(message);
+
+  if (command === "cancel") {
+    await clearFlowSession(ctx.db, owner);
+    await auditAi(ctx, "admin_ai_guided_flow_cancelled", "guided_flow", "success", {
+      flowId: state.flowId,
+      answeredCount: state.order.length,
+    });
+    return {
+      kind: "result" as const,
+      heading: flowText(ctx.locale, FLOW_WORDING.cancelHeading),
+      message: flowText(ctx.locale, FLOW_WORDING.cancelled),
+    };
+  }
+
+  if (command === "back") {
+    const previous = stepBack(state);
+    if (!previous)
+      return flowGuidedResponse(
+        ctx,
+        state,
+        runtime,
+        flowText(ctx.locale, FLOW_WORDING.backAtStart),
+      );
+    await writeFlowSession(ctx.db, owner, previous);
+    return flowGuidedResponse(
+      ctx,
+      previous,
+      runtime,
+      flowText(ctx.locale, FLOW_WORDING.backDone),
+    );
+  }
+
+  // Every question is answered but the summary could not be prepared last time,
+  // for example because a record moved. The next message tries again rather
+  // than leaving the administrator with no way forward but cancelling.
+  if (!currentField(flow, runtime, state))
+    return finishGuidedFlow(ctx, state, runtime, owner);
+
+  const applied = applyFlowMessage(flow, runtime, state, message, (value) =>
+    Boolean(detectSensitiveAdminAuggieInput(value)),
+  );
+
+  if (applied.kind === "sensitive") {
+    await auditAi(
+      ctx,
+      "admin_ai_sensitive_input_rejected",
+      "guided_flow",
+      "failure",
+      { flowId: state.flowId, code: "ADMIN_AUGGIE_SENSITIVE_INPUT" },
+    ).catch(() => undefined);
+    return {
+      ...flowGuidedResponse(
+        ctx,
+        state,
+        runtime,
+        flowText(ctx.locale, FLOW_WORDING.sensitive),
+      ),
+      path: FLOW_PATHS[state.flowId],
+      manualOnly: true,
+    };
+  }
+
+  if (applied.kind === "error")
+    return flowGuidedResponse(
+      ctx,
+      state,
+      runtime,
+      flowText(ctx.locale, applied.error),
+    );
+
+  const rejected = await firstRejectedAnswer(ctx, state, applied.state);
+  if (rejected) {
+    const rewound = rewindTo(applied.state, rejected.key);
+    await writeFlowSession(ctx.db, owner, rewound);
+    return flowGuidedResponse(
+      ctx,
+      rewound,
+      runtime,
+      flowText(ctx.locale, rejected.problem),
+    );
+  }
+
+  const next = applied.state;
+  if (!currentField(flow, runtime, next))
+    return finishGuidedFlow(ctx, next, runtime, owner);
+  await writeFlowSession(ctx.db, owner, next);
+  return flowGuidedResponse(
+    ctx,
+    next,
+    runtime,
+    flowText(ctx.locale, FLOW_WORDING.acknowledgement(next.order.length - 1)),
+  );
+}
+
+// Reopening the panel or reloading the page picks the conversation back up from
+// the server, so nothing the administrator already typed is lost.
+export async function getAdminAuggieFlowSession(
+  request: Request,
+  env: AdminAuggieEnv,
+  locale: AdminAuggieLocale,
+  currentPath: string,
+) {
+  const ctx = await requireAdminAuggieContext(request, env, locale, currentPath);
+  await deleteExpiredFlowSessions(ctx.db).catch(() => undefined);
+  const owner = await flowOwner(ctx);
+  const saved = await readFlowSession(ctx.db, owner);
+  if (!saved) return { response: null };
+  if (!canAccessAdminPath(FLOW_PATHS[saved.state.flowId], ctx.permission)) {
+    await clearFlowSession(ctx.db, owner);
+    return { response: null };
+  }
+  const runtime = await flowRuntimeFor(ctx, saved.state.flowId);
+  return {
+    response: flowGuidedResponse(
+      ctx,
+      saved.state,
+      runtime,
+      flowText(ctx.locale, FLOW_WORDING.resumed),
+    ),
+    expiresAt: saved.expiresAt,
+  };
+}
+
+export async function resetAdminAuggieFlowSession(
+  request: Request,
+  env: AdminAuggieEnv,
+  locale: AdminAuggieLocale,
+  currentPath: string,
+) {
+  const ctx = await requireAdminAuggieContext(request, env, locale, currentPath);
+  const owner = await flowOwner(ctx);
+  const saved = await readFlowSession(ctx.db, owner);
+  await clearFlowSession(ctx.db, owner);
+  if (saved)
+    await auditAi(ctx, "admin_ai_guided_flow_cleared", "guided_flow", "success", {
+      flowId: saved.state.flowId,
+      answeredCount: saved.state.order.length,
+    }).catch(() => undefined);
+  return {
+    cleared: Boolean(saved),
+    message: flowText(ctx.locale, FLOW_WORDING.startedOver),
+  };
 }
 
 export async function handleAdminAuggieChat(
@@ -5410,8 +6563,8 @@ export async function handleAdminAuggieChat(
     throw new AdminAuggieError(
       localized(
         locale,
-        "Enter a message of 1-1,600 characters.",
-        "กรอกข้อความความยาว 1-1,600 ตัวอักษร",
+        "Please type your message. It can be up to 1,600 characters.",
+        "โปรดพิมพ์ข้อความของคุณ ความยาวไม่เกิน 1,600 ตัวอักษร",
       ),
     );
   const allowed = await consumeRateLimit(request, env, {
@@ -5425,12 +6578,49 @@ export async function handleAdminAuggieChat(
     throw new AdminAuggieError(
       localized(
         locale,
-        "Admin Auggie is rate limited. Wait a minute and try again.",
-        "Admin Auggie ถูกจำกัดการใช้งาน โปรดรอหนึ่งนาทีแล้วลองอีกครั้ง",
+        "That is a lot of requests at once. Please wait a minute and try again.",
+        "มีคำขอเข้ามาพร้อมกันจำนวนมาก โปรดรอสักหนึ่งนาทีแล้วลองอีกครั้ง",
       ),
       429,
       "ADMIN_AUGGIE_RATE_LIMIT",
     );
+  // A guided conversation already in progress is answered entirely here. The
+  // message is not sent to the model, so the promise that only a first request
+  // ever reaches AI holds for every step of the conversation.
+  const owner = await flowOwner(ctx);
+  await deleteExpiredFlowSessions(ctx.db).catch(() => undefined);
+  const active = await readFlowSession(ctx.db, owner);
+  if (active) {
+    try {
+      return await continueGuidedFlow(
+        ctx,
+        active.state,
+        cleanFlowText(input.message, MAX_MESSAGE_CHARS),
+        owner,
+      );
+    } catch (error) {
+      const known =
+        error instanceof AdminAuggieError
+          ? error
+          : new AdminAuggieError(
+              "That step could not be completed safely. Nothing was saved.",
+              500,
+              "ADMIN_AUGGIE_FLOW_FAILURE",
+            );
+      await auditAi(ctx, "admin_ai_guided_flow_failed", "guided_flow", "failure", {
+        code: known.code,
+        flowId: active.state.flowId,
+      }).catch(() => undefined);
+      throw known;
+    }
+  }
+  if (flowCommand(message) === "cancel")
+    return {
+      kind: "result" as const,
+      heading: flowText(locale, FLOW_WORDING.cancelHeading),
+      message: flowText(locale, FLOW_WORDING.nothingToCancel),
+    };
+
   const sensitiveCategory = detectSensitiveAdminAuggieInput(message);
   if (sensitiveCategory) {
     await auditAi(ctx, "admin_ai_sensitive_input_rejected", "none", "failure", {
@@ -5441,8 +6631,8 @@ export async function handleAdminAuggieChat(
     throw new AdminAuggieError(
       localized(
         locale,
-        "Remove private values such as identity, contact, financial, credential, private-link, note, or questionnaire data before asking Admin Auggie. No text was sent to AI.",
-        "โปรดลบข้อมูลส่วนตัว เช่น ข้อมูลยืนยันตัวตน การติดต่อ การเงิน ข้อมูลลับ ลิงก์ส่วนตัว หมายเหตุ หรือคำตอบแบบสอบถามก่อนถาม Admin Auggie ข้อความนี้ไม่ได้ถูกส่งให้ AI",
+        "I would rather not handle private details such as identity documents, contact details, bank details, passwords, private links or personal notes. Please add those on the normal administration page. Nothing you typed was sent to AI.",
+        "ขออนุญาตไม่รับข้อมูลส่วนตัว เช่น เอกสารยืนยันตัวตน ข้อมูลติดต่อ ข้อมูลธนาคาร รหัสผ่าน ลิงก์ส่วนตัว หรือหมายเหตุส่วนบุคคล โปรดกรอกข้อมูลเหล่านี้ในหน้าผู้ดูแลตามปกติ ข้อความที่คุณพิมพ์ไม่ได้ถูกส่งให้ AI",
       ),
       422,
       "ADMIN_AUGGIE_SENSITIVE_INPUT",
@@ -5456,7 +6646,7 @@ export async function handleAdminAuggieChat(
       error instanceof AdminAuggieError
         ? error
         : new AdminAuggieError(
-            "Admin Auggie failed safely. No action was taken.",
+            "Sorry, something went wrong. Nothing was changed.",
             502,
             "ADMIN_AUGGIE_AI_FAILURE",
           );
@@ -5466,6 +6656,37 @@ export async function handleAdminAuggieChat(
     }).catch(() => undefined);
     throw known;
   }
+  // The model may only name a guided conversation. It never supplies an answer,
+  // and the flow it names is rechecked against this administrator's access.
+  if (call.name === "start_guided_flow") {
+    const wanted = objectValue(call.arguments)?.flow;
+    if (!isFlowId(wanted))
+      throw new AdminAuggieError(
+        localized(
+          locale,
+          "I could not tell which step-by-step task you wanted. Could you say it again?",
+          "ไม่สามารถระบุงานแบบทีละขั้นที่ต้องการได้ โปรดระบุอีกครั้ง",
+        ),
+        502,
+        "ADMIN_AUGGIE_MALFORMED_TOOL",
+      );
+    try {
+      return await startGuidedFlow(ctx, wanted, owner);
+    } catch (error) {
+      const known =
+        error instanceof AdminAuggieError
+          ? error
+          : new AdminAuggieError(
+              "That step-by-step task could not be started. Nothing was changed.",
+              500,
+              "ADMIN_AUGGIE_FLOW_FAILURE",
+            );
+      await auditAi(ctx, "admin_ai_tool_failed", call.name, "failure", {
+        code: known.code,
+      }).catch(() => undefined);
+      throw known;
+    }
+  }
   try {
     return await executeSelectedTool(ctx, call);
   } catch (error) {
@@ -5473,7 +6694,7 @@ export async function handleAdminAuggieChat(
       error instanceof AdminAuggieError
         ? error
         : new AdminAuggieError(
-            "The selected action failed safely. No write was made.",
+            "Sorry, that did not go through. Nothing was saved.",
             500,
             "ADMIN_AUGGIE_TOOL_FAILURE",
           );
@@ -6004,6 +7225,18 @@ async function recheckDelegatedTargets(
 function delegatedBody(args: DelegatedArgs): Record<string, unknown> {
   // Only the small instruction is sent. Every identity field the reviewed
   // student endpoint needs is carried over from the row it re-reads itself.
+  if (args.kind === "student_create")
+    return {
+      // The Student ID is always allocated by the reviewed endpoint itself.
+      manualStudentId: false,
+      displayName: args.englishName,
+      thaiName: args.thaiName || "",
+      currentBelt: args.currentRank,
+      dojoId: args.dojoIdForCreate,
+      publicVisible: args.publicVisible !== false,
+      ...(args.dojoJoinedDate ? { dojoJoinedDate: args.dojoJoinedDate } : {}),
+      ...(args.hours === undefined ? {} : { currentTrainingHours: args.hours }),
+    };
   if (args.kind === "student_record_update")
     return {
       ...(args.newRank ? { currentBelt: args.newRank } : {}),
@@ -6122,6 +7355,14 @@ async function executeDelegatedOperation(
   const previewRecords = Array.isArray(preview.records)
     ? (preview.records as Array<Record<string, unknown>>)
     : [];
+  // The reviewed endpoint allocates the Student ID for a new record, so the
+  // result card shows the identifier the database actually holds.
+  const createdStudentId =
+    args.kind === "student_create" && typeof call.body.studentId === "string"
+      ? call.body.studentId
+      : "";
+  if (createdStudentId && previewRecords[0])
+    previewRecords[0] = { ...previewRecords[0], studentId: createdStudentId };
   return completeEndpointOwnedOperation(ctx, row, {
     action: args.action,
     route: args.route,
@@ -6336,6 +7577,37 @@ function contentCall(
   form?: Record<string, string>;
 } {
   const now = new Date().toISOString();
+  if (args.kind === "newsletter_create")
+    return {
+      method: "POST",
+      form: {
+        event: JSON.stringify({
+          id: `auggie-${operationId}`,
+          title: args.newsletterTitle,
+          date: args.newsletterDate,
+          summary: args.newsletterSummary,
+          body: args.newsletterBody,
+          slug: args.newsletterSlug,
+          contentType: "newsletter",
+          category: args.newsletterCategory,
+          newsletterFormat: "article",
+          lifecycleStatus: "active",
+          // A newsletter made by Auggie is always an unpublished draft that has
+          // not been sent, so the website and the subscriber list are untouched
+          // until the administrator takes those separate reviewed steps.
+          published: false,
+          websitePublishRequested: false,
+          notifySubscribers: false,
+          showInCommunityCalendar: false,
+          media: [],
+          tags: [],
+          createdAt: now,
+          updatedAt: now,
+        }),
+        expectedUpdatedAt: "",
+        confirmSlugChange: "false",
+      },
+    };
   if (args.kind === "newsletter_website_state")
     return {
       method: "POST",
@@ -6466,6 +7738,9 @@ function contentCall(
 }
 
 function contentSubjectMissing(args: ContentArgs, observed: ContentObservation) {
+  // A creation needs the opposite proof from every other newsletter tool: the
+  // web address must still be free when the administrator confirms.
+  if (args.kind === "newsletter_create") return Boolean(observed.newsletter);
   if (args.kind.startsWith("newsletter_")) return !observed.newsletter;
   if (args.kind === "dojo_settings") return !observed.dojo;
   if (args.kind === "site_page_visibility")

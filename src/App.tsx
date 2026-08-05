@@ -7,7 +7,9 @@ import { Seo } from "./components/Seo";
 import { ManagedRoute } from "./components/ManagedRoute";
 import { AdminShell } from "./components/admin/AdminShell";
 import { AdminSessionProvider } from "./components/admin/useAdminSession";
-import { AdminAuggieLauncher } from "./components/admin/AdminAuggieLauncher";
+// The Admin Auggie button only ever appears for a signed-in administrator, so
+// neither it nor its styles belong in the first download for anybody else.
+const AdminAuggieLauncher = lazy(() => import("./components/admin/AdminAuggieLauncher").then((module) => ({ default: module.AdminAuggieLauncher })));
 import { AdminLanguageProvider, useAdminTranslation, useTranslation } from "./i18n";
 import { DojoPage } from "./pages/DojoPage";
 import { HelpLauncher } from "./help/HelpLauncher";
@@ -90,7 +92,9 @@ function AdminRouteFrame() {
           </Suspense>
         </AdminShell>
       </main>
-      <AdminAuggieLauncher />
+      <Suspense fallback={null}>
+        <AdminAuggieLauncher />
+      </Suspense>
     </>
   );
 }

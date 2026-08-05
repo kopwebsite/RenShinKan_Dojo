@@ -6,7 +6,8 @@ import type { D1Database, StudentEnv } from "./studentRecords";
 // Must name the highest-numbered file in migrations/. The health endpoint
 // reports "degraded" until the database has it applied, so adding a migration
 // means updating this line in the same change.
-export const EXPECTED_LATEST_MIGRATION = "0029_permanent_student_deletion.sql";
+export const EXPECTED_LATEST_MIGRATION =
+  "0030_admin_auggie_guided_sessions.sql";
 const CONTENT_KEY = "site:editable-content";
 const CONTENT_POINTER_KEY = "site:editable-content:published-version";
 const EXPECTED_LOCALES = ["en", "th", "ja", "zh-CN"] as const;

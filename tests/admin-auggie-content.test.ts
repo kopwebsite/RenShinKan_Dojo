@@ -567,32 +567,53 @@ describe("Admin Auggie website permission scope", () => {
     expect(db.operations.size).toBe(0);
   });
 
-  it("offers every website tool to the RenShinKan administrator", async () => {
-    const db = new FakeDb();
-    const run = vi.fn(async () => tool("list_newsletters", {}));
-    await handleAdminAuggieChat(request("Show newsletters"), env(db, run));
-    const offered = (
-      run.mock.calls[0][1] as { tools: Array<{ function: { name: string } }> }
-    ).tools.map((entry) => entry.function.name);
-    for (const name of [
-      "list_newsletters",
-      "propose_newsletter_website_state",
-      "propose_newsletter_lifecycle",
-      "propose_newsletter_send",
-      "propose_newsletter_delete",
-      "list_gallery_albums",
-      "propose_gallery_album_update",
-      "propose_gallery_album_order",
-      "propose_gallery_photo_captions",
-      "propose_gallery_photo_order",
-      "propose_gallery_publish",
-      "list_site_pages",
-      "propose_site_page_visibility",
-      "propose_site_publish",
-      "list_dojos",
-      "propose_dojo_settings",
-    ])
-      expect(offered).toContain(name);
+  // Only the tools that could apply to the message and the current page are
+  // sent, so a simple question no longer carries every website tool. The
+  // administrator can still reach all of them: each subject offers its own.
+  it("offers the RenShinKan administrator the website tools that match the subject", async () => {
+    const subjects: Array<[string, string[], string[]]> = [
+      [
+        "Show newsletters",
+        [
+          "list_newsletters",
+          "propose_newsletter_website_state",
+          "propose_newsletter_lifecycle",
+        ],
+        ["list_dojos", "propose_gallery_photo_order"],
+      ],
+      [
+        "Reorder the album photos in the gallery",
+        [
+          "list_gallery_albums",
+          "propose_gallery_album_order",
+          "propose_gallery_photo_order",
+        ],
+        ["propose_newsletter_send"],
+      ],
+      [
+        "Publish the website pages",
+        ["list_site_pages", "propose_site_page_visibility", "propose_site_publish"],
+        ["list_dojos"],
+      ],
+      ["Rename a dojo", ["list_dojos", "propose_dojo_settings"], []],
+      ["Send the newsletter by email", ["propose_newsletter_send"], []],
+      [
+        "Permanently delete that newsletter in the trash",
+        ["propose_newsletter_delete"],
+        [],
+      ],
+    ];
+    for (const [message, expected, absent] of subjects) {
+      const db = new FakeDb();
+      const run = vi.fn(async () => tool("list_newsletters", {}));
+      await handleAdminAuggieChat(request(message), env(db, run));
+      const offered = (
+        run.mock.calls[0][1] as { tools: Array<{ function: { name: string } }> }
+      ).tools.map((entry) => entry.function.name);
+      for (const name of expected) expect(offered).toContain(name);
+      for (const name of absent) expect(offered).not.toContain(name);
+      expect(offered.length).toBeLessThanOrEqual(12);
+    }
   });
 });
 

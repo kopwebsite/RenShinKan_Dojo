@@ -427,7 +427,11 @@ const CONTENT_KINDS = new Set<string>([
 const MAX_GALLERY_ITEMS = 60;
 const OPERATION_TTL_MS = 10 * 60 * 1_000;
 const UNDO_TTL_MS = 30 * 60 * 1_000;
-const AI_TIMEOUT_MS = 18_000;
+// The tool-selection call is the only model call Admin Auggie makes. Eighteen
+// seconds cut off answers that were still arriving, so the administrator saw a
+// timeout instead of a result. Thirty seconds stays well inside the platform
+// request budget while leaving the safe-failure path unchanged.
+const AI_TIMEOUT_MS = 30_000;
 const STUDENT_ID = /^[A-Z0-9]{2,8}-\d{4,}$/;
 const NEWSLETTER_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 // The reviewed gallery endpoint keeps an album or photo identifier only when it

@@ -164,6 +164,10 @@ const copy = {
       pendingTrainingHours: "Training hours",
       pendingMonthlyContributions: "Monthly contributions",
       pendingPaymentProofs: "Payment proofs",
+      total: "On the roster",
+      paid: "Paid",
+      awaitingPayment: "Awaiting payment",
+      noSubmission: "Nothing submitted",
     } as Record<string, string>,
   },
   th: {
@@ -213,6 +217,10 @@ const copy = {
       pendingTrainingHours: "ชั่วโมงฝึก",
       pendingMonthlyContributions: "เงินสมทบรายเดือน",
       pendingPaymentProofs: "หลักฐานการชำระเงิน",
+      total: "รายชื่อทั้งหมด",
+      paid: "ชำระแล้ว",
+      awaitingPayment: "รอชำระ",
+      noSubmission: "ยังไม่ส่ง",
     } as Record<string, string>,
   },
 };

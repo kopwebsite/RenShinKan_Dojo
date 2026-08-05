@@ -3131,8 +3131,8 @@ async function contributionSummary(
     message: counts.total
       ? localized(
           ctx.locale,
-          "These counts cover the RenShinKan roster snapshot for that month.",
-          "จำนวนเหล่านี้ครอบคลุมรายชื่อ RenShinKan ของเดือนนั้น",
+          `${counts.paid} paid, ${counts.awaitingPayment} awaiting payment and ${counts.noSubmission} with nothing submitted. Those three add up to the whole roster of ${counts.total} for that month.`,
+          `ชำระแล้ว ${counts.paid} ราย รอชำระ ${counts.awaitingPayment} ราย และยังไม่ส่ง ${counts.noSubmission} ราย สามจำนวนนี้รวมเป็นรายชื่อทั้งหมด ${counts.total} รายของเดือนนั้น`,
         )
       : localized(
           ctx.locale,

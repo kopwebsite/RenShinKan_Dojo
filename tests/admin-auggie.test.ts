@@ -2624,3 +2624,170 @@ describe("Admin Auggie bulk student actions", () => {
     ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TARGET_STATE" });
   });
 });
+
+describe("Admin Auggie outside lookups", () => {
+  function stubFetch(pages: Array<{ ok?: boolean; body: unknown }>) {
+    const urls: string[] = [];
+    const fn = vi.fn(async (url: unknown) => {
+      urls.push(String(url));
+      const next = pages.shift() ?? { ok: true, body: {} };
+      return { ok: next.ok ?? true, json: async () => next.body };
+    });
+    vi.stubGlobal("fetch", fn);
+    return { fn, urls };
+  }
+
+  const CLEAR_38 = {
+    body: {
+      current: {
+        temperature_2m: 38,
+        relative_humidity_2m: 12,
+        weather_code: 0,
+        wind_speed_10m: 15,
+      },
+    },
+  };
+
+  it("looks up the current weather for a place through open-meteo only", async () => {
+    const db = new FakeDb();
+    const { urls } = stubFetch([
+      {
+        body: {
+          results: [
+            {
+              name: "Riyadh",
+              country: "Saudi Arabia",
+              latitude: 24.71,
+              longitude: 46.68,
+            },
+          ],
+        },
+      },
+      CLEAR_38,
+    ]);
+    try {
+      const response = (await handleAdminAuggieChat(
+        request("what is the weather in Saudi Arabia right now"),
+        env(
+          db,
+          vi.fn(async () =>
+            tool("look_up_information", {
+              topic: "weather",
+              place: "Saudi Arabia",
+            }),
+          ),
+        ),
+      )) as { kind: string; message: string };
+      expect(response.kind).toBe("conversation");
+      expect(response.message).toContain("38");
+      expect(response.message).toMatch(/open-meteo/);
+      // Only the place the administrator typed left the site, and only to the
+      // approved weather host. No dojo data appeared in any outbound request.
+      expect(urls).toHaveLength(2);
+      expect(urls[0]).toContain("geocoding-api.open-meteo.com");
+      expect(urls[0]).toContain("Saudi%20Arabia");
+      expect(urls[1]).toContain("api.open-meteo.com/v1/forecast");
+      expect(urls.every((url) => url.includes("open-meteo.com"))).toBe(true);
+      expect(urls.join(" ")).not.toMatch(/dojo-rsk|RSK-|student/i);
+      // A lookup never delegates a write and never records an operation.
+      expect(delegated.state.calls).toHaveLength(0);
+      expect(db.audits.some((values) => values[1] === "admin_ai_lookup")).toBe(
+        true,
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("caches a repeated weather question so it does not go out twice", async () => {
+    const db = new FakeDb();
+    const { fn } = stubFetch([
+      {
+        body: {
+          results: [
+            {
+              name: "Cachetown",
+              country: "Testland",
+              latitude: 1,
+              longitude: 2,
+            },
+          ],
+        },
+      },
+      CLEAR_38,
+      // No further pages: a second, uncached call would fall through to the
+      // empty default and the fetch count would exceed two.
+    ]);
+    try {
+      const ask = () =>
+        handleAdminAuggieChat(
+          request("weather in Cachetown"),
+          env(
+            db,
+            vi.fn(async () =>
+              tool("look_up_information", {
+                topic: "weather",
+                place: "Cachetown",
+              }),
+            ),
+          ),
+        );
+      await ask();
+      await ask();
+      // Two outbound requests for the first question (geocode + forecast); the
+      // second is served from the brief cache with nothing new sent out.
+      expect(fn).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("declines an outside topic with no approved source, without guessing", async () => {
+    const db = new FakeDb();
+    const { fn } = stubFetch([]);
+    try {
+      const response = (await handleAdminAuggieChat(
+        request("look up the news in Bangkok"),
+        env(
+          db,
+          vi.fn(async () =>
+            tool("look_up_information", { topic: "news", place: "Bangkok" }),
+          ),
+        ),
+      )) as { kind: string; message: string };
+      expect(response.kind).toBe("conversation");
+      expect(response.message).toMatch(/weather/i);
+      // Nothing went out at all for an unsupported source.
+      expect(fn).not.toHaveBeenCalled();
+      expect(delegated.state.calls).toHaveLength(0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("offers the lookup tool for a weather question", async () => {
+    const db = new FakeDb();
+    const run = vi.fn(async () =>
+      tool("look_up_information", { topic: "weather", place: "Tokyo" }),
+    );
+    stubFetch([
+      {
+        body: {
+          results: [
+            { name: "Tokyo", country: "Japan", latitude: 35, longitude: 139 },
+          ],
+        },
+      },
+      CLEAR_38,
+    ]);
+    try {
+      await handleAdminAuggieChat(request("weather in Tokyo"), env(db, run));
+      const offered = (
+        run.mock.calls[0][1] as { tools: Array<{ function: { name: string } }> }
+      ).tools.map((entry) => entry.function.name);
+      expect(offered).toContain("look_up_information");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});

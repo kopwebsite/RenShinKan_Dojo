@@ -1118,6 +1118,20 @@ function toolSchemas(ctx: AdminAuggieContext) {
       },
     },
     {
+      name: "look_up_information",
+      description:
+        "Look up a fact from the outside world through an approved source. Right now the only source is the current weather for a place. The site does the lookup itself; you never browse. Only the place the administrator typed is sent out — never anything about this dojo, its students, its money or its records. Do not use this for students, payments, examinations, the website or anything inside the dojo; use the dojo tools for those.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          topic: { type: "string", minLength: 1, maxLength: 40 },
+          place: { type: "string", minLength: 1, maxLength: 80 },
+        },
+        required: ["topic", "place"],
+      },
+    },
+    {
       name: "get_dashboard_summary",
       description:
         "Read the dashboard counts.",
@@ -1898,6 +1912,11 @@ const TOOL_TOPICS: Record<string, ToolTopic> = {
       "/admin/training-requests",
     ],
   },
+  look_up_information: {
+    words:
+      /weather|forecast|temperature|raining|climate|humid|wind|sunny|snow|how (hot|cold)|degrees|look ?up|search the (web|internet)|on the internet|google/i,
+    paths: [],
+  },
 };
 
 // Thai wording for the same subjects. An administrator working in Thai must get
@@ -1969,6 +1988,7 @@ const THAI_SUBJECTS: ReadonlyArray<readonly [RegExp, readonly string[]]> = [
   ],
   [/เก็บถาวร|กู้คืน/, ["propose_student_status", "propose_newsletter_lifecycle"]],
   [/ลบ/, ["propose_newsletter_delete"]],
+  [/อากาศ|สภาพอากาศ|พยากรณ์|อุณหภูมิ|ฝนตก|ค้นหาข้อมูล/, ["look_up_information"]],
 ];
 
 // navigate_admin is the safe way out of anything unsupported, so it is always
@@ -2104,7 +2124,7 @@ async function runToolSelection(ctx: AdminAuggieContext, message: string) {
           {
             role: "system",
             content:
-              "Choose exactly one tool from the list. Never answer with prose. Never invent an ID, name, rank, date, amount, hours, web address, album id or photo id. Choose converse for a greeting, a thank you, small talk, or a message that names no administration task. When a record is named only by a person's name, choose the matching search or list tool first. Choose navigate_admin for uploads, media, private data, or anything no tool covers. Choose start_guided_flow when the administrator wants to create, add or record something but has not given the details. Every propose tool only prepares a change: the server rechecks everything and the administrator must type an exact confirmation before anything is written.",
+              "Choose exactly one tool from the list. Never answer with prose. Never invent an ID, name, rank, date, amount, hours, web address, album id or photo id. Choose converse for a greeting, a thank you, small talk, or a message that names no administration task. Choose look_up_information for a question about the current weather in a place, or another plain outside fact. When a record is named only by a person's name, choose the matching search or list tool first. Choose navigate_admin for uploads, media, private data, or anything no tool covers. Choose start_guided_flow when the administrator wants to create, add or record something but has not given the details. Every propose tool only prepares a change: the server rechecks everything and the administrator must type an exact confirmation before anything is written.",
           },
           { role: "user", content: message },
         ],
@@ -6074,6 +6094,189 @@ async function converse(ctx: AdminAuggieContext) {
   };
 }
 
+// --- Approved outside lookups ----------------------------------------------
+// The model never browses. It can only ask the site to look a fact up, and the
+// site performs the request itself against a short, named allowlist. Only the
+// place or term the administrator typed ever leaves the site: nothing from the
+// dojo database is ever sent to an outside service. Every lookup is read-only —
+// it prepares no operation and can never change a dojo record — and each result
+// is cached briefly so a repeated question does not go out twice.
+
+const LOOKUP_TIMEOUT_MS = 7_000;
+const WEATHER_CACHE_TTL_MS = 10 * 60 * 1_000;
+// The one approved topic today. A message routed here for anything else is
+// declined plainly rather than answered with a guess.
+const WEATHER_INTENT =
+  /weather|forecast|temperature|rain|climate|humid|wind|sun|snow|hot|cold|degree|อากาศ|พยากรณ|อุณหภูม|ฝน|ลม|ร้อน|หนาว/i;
+
+type LookupAnswer = { heading: string; message: string };
+
+const weatherCache = new Map<string, { at: number; value: LookupAnswer }>();
+
+function sanitizePlaceName(raw: string) {
+  return raw
+    .normalize("NFKC")
+    .replace(/[^\p{L}\p{M}0-9 ,.'-]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+}
+
+async function fetchJsonWithTimeout(url: string, timeoutMs: number) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort("lookup-timeout"), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as unknown;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function weatherWords(code: number, locale: AdminAuggieLocale) {
+  const table: Array<[number[], string, string]> = [
+    [[0], "clear sky", "ท้องฟ้าแจ่มใส"],
+    [[1, 2], "partly cloudy", "มีเมฆบางส่วน"],
+    [[3], "overcast", "เมฆมาก"],
+    [[45, 48], "fog", "หมอก"],
+    [[51, 53, 55, 56, 57], "drizzle", "ฝนปรอย"],
+    [[61, 63, 65, 66, 67, 80, 81, 82], "rain", "ฝนตก"],
+    [[71, 73, 75, 77, 85, 86], "snow", "หิมะ"],
+    [[95, 96, 99], "thunderstorm", "พายุฝนฟ้าคะนอง"],
+  ];
+  for (const [codes, en, th] of table)
+    if (codes.includes(code)) return localized(locale, en, th);
+  return localized(locale, "changeable weather", "อากาศแปรปรวน");
+}
+
+async function weatherFor(
+  ctx: AdminAuggieContext,
+  place: string,
+): Promise<LookupAnswer> {
+  const key = `${ctx.locale}|${place.toLocaleLowerCase("en-US")}`;
+  const cached = weatherCache.get(key);
+  if (cached && Date.now() - cached.at < WEATHER_CACHE_TTL_MS)
+    return cached.value;
+
+  const notFound: LookupAnswer = {
+    heading: localized(ctx.locale, "Place not found", "ไม่พบสถานที่"),
+    message: localized(
+      ctx.locale,
+      `I could not find a place called "${place}". Please check the spelling and try again.`,
+      `ไม่พบสถานที่ชื่อ "${place}" โปรดตรวจสอบการสะกดแล้วลองอีกครั้ง`,
+    ),
+  };
+  const unavailable: LookupAnswer = {
+    heading: localized(ctx.locale, "Weather unavailable", "ดูสภาพอากาศไม่ได้"),
+    message: localized(
+      ctx.locale,
+      "The weather service did not answer in time. Please try again in a moment. Nothing about the dojo was sent anywhere.",
+      "บริการสภาพอากาศไม่ตอบกลับในเวลาที่กำหนด โปรดลองอีกครั้งในอีกสักครู่ ไม่มีการส่งข้อมูลของโดโจออกไปที่ใด",
+    ),
+  };
+
+  const geo = objectValue(
+    await fetchJsonWithTimeout(
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(place)}&count=1&language=${ctx.locale}&format=json`,
+      LOOKUP_TIMEOUT_MS,
+    ),
+  );
+  const results = geo && Array.isArray(geo.results) ? geo.results : [];
+  const first = objectValue(results[0]);
+  const lat = typeof first?.latitude === "number" ? first.latitude : null;
+  const lon = typeof first?.longitude === "number" ? first.longitude : null;
+  if (!first || lat === null || lon === null) return notFound;
+
+  const name = cleanText(first.name, 80) || place;
+  const country = cleanText(first.country, 80);
+  const forecast = objectValue(
+    await fetchJsonWithTimeout(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m`,
+      LOOKUP_TIMEOUT_MS,
+    ),
+  );
+  const current = objectValue(forecast?.current);
+  const temp = Number(current?.temperature_2m);
+  if (!current || !Number.isFinite(temp)) return unavailable;
+  const hum = Number(current.relative_humidity_2m);
+  const wind = Number(current.wind_speed_10m);
+  const code = Number(current.weather_code);
+  const desc = weatherWords(Number.isFinite(code) ? code : -1, ctx.locale);
+  const where = country ? `${name}, ${country}` : name;
+  const humEn = Number.isFinite(hum) ? `, humidity ${Math.round(hum)}%` : "";
+  const humTh = Number.isFinite(hum) ? ` ความชื้น ${Math.round(hum)}%` : "";
+  const windEn = Number.isFinite(wind) ? `, wind ${Math.round(wind)} km/h` : "";
+  const windTh = Number.isFinite(wind) ? ` ลม ${Math.round(wind)} กม./ชม.` : "";
+  const value: LookupAnswer = {
+    heading: localized(ctx.locale, `Weather in ${name}`, `สภาพอากาศใน ${name}`),
+    message: localized(
+      ctx.locale,
+      `Right now in ${where}: ${desc}, about ${Math.round(temp)}°C${humEn}${windEn}. Source: open-meteo.com. Nothing about the dojo was sent.`,
+      `ขณะนี้ที่ ${where}: ${desc} อุณหภูมิประมาณ ${Math.round(temp)}°C${humTh}${windTh} ที่มา open-meteo.com ไม่มีการส่งข้อมูลของโดโจออกไป`,
+    ),
+  };
+  weatherCache.set(key, { at: Date.now(), value });
+  return value;
+}
+
+// A lookup only ever asks an approved outside source for a plain fact. It reads
+// nothing from the dojo, prepares no operation, and writes no dojo record. The
+// interaction is recorded in the audit log exactly like every other read.
+async function lookUpInformation(
+  ctx: AdminAuggieContext,
+  args: Record<string, unknown>,
+) {
+  const topic = cleanText(args.topic, 40).toLocaleLowerCase("en-US");
+  const place = sanitizePlaceName(
+    typeof args.place === "string" ? args.place : "",
+  );
+
+  if (!WEATHER_INTENT.test(topic)) {
+    await auditAi(ctx, "admin_ai_lookup", "look_up_information", "success", {
+      source: "unsupported",
+    }).catch(() => undefined);
+    return {
+      kind: "conversation" as const,
+      heading: localized(ctx.locale, "Not connected to that", "ยังไม่รองรับ"),
+      message: localized(
+        ctx.locale,
+        "I can only look up the current weather for a place right now. I am not connected to the wider internet for anything else, so I will not guess. Nothing about the dojo was sent anywhere.",
+        "ขณะนี้ค้นหาได้เฉพาะสภาพอากาศปัจจุบันของสถานที่เท่านั้น ยังไม่ได้เชื่อมต่ออินเทอร์เน็ตสำหรับเรื่องอื่น จึงจะไม่คาดเดา ไม่มีการส่งข้อมูลของโดโจออกไปที่ใด",
+      ),
+    };
+  }
+
+  if (!place) {
+    return {
+      kind: "conversation" as const,
+      heading: localized(ctx.locale, "Which place?", "สถานที่ใด"),
+      message: localized(
+        ctx.locale,
+        "Which place should I check the current weather for?",
+        "ต้องการให้ตรวจสอบสภาพอากาศปัจจุบันของสถานที่ใด",
+      ),
+    };
+  }
+
+  const answer = await weatherFor(ctx, place);
+  await auditAi(ctx, "admin_ai_lookup", "look_up_information", "success", {
+    source: "weather",
+    // Only the place the administrator typed is recorded, never any dojo data.
+    place,
+  }).catch(() => undefined);
+  return {
+    kind: "conversation" as const,
+    heading: answer.heading,
+    message: answer.message,
+  };
+}
+
 async function executeSelectedTool(ctx: AdminAuggieContext, call: ToolCall) {
   if (call.name === "converse") return converse(ctx);
   const args = objectValue(call.arguments);
@@ -6084,6 +6287,7 @@ async function executeSelectedTool(ctx: AdminAuggieContext, call: ToolCall) {
       "ADMIN_AUGGIE_MALFORMED_TOOL",
     );
   if (call.name === "navigate_admin") return navigate(ctx, args);
+  if (call.name === "look_up_information") return lookUpInformation(ctx, args);
   if (call.name === "get_dashboard_summary") {
     if (Object.keys(args).length)
       throw new AdminAuggieError("Dashboard summary takes no arguments.");

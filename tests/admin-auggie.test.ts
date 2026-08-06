@@ -229,6 +229,12 @@ class FakeStatement {
 
 class FakeDb {
   students = new Map<string, FakeStudent>();
+  // The active dojos permittedDojos reads; canAccessDojo then narrows them to
+  // the ones the signed-in administrator may actually work in.
+  dojoRows: Array<{ id: string; official_name: string }> = [
+    { id: "dojo-rsk", official_name: "RenShinKan Dojo" },
+    { id: "dojo-cmu", official_name: "CMU Aikido Club" },
+  ];
   operations = new Map<string, Record<string, unknown>>();
   claims = new Set<string>();
   guards = new Set<string>();
@@ -419,6 +425,8 @@ class FakeDb {
 
   all(statement: FakeStatement) {
     const { query, values } = statement;
+    if (query.includes("FROM dojos WHERE active = 1"))
+      return this.dojoRows;
     if (query.includes("FROM audit_log WHERE student_id = ?")) {
       return (this.studentHistory.get(String(values[0])) || []).slice(
         0,
@@ -2477,6 +2485,60 @@ describe("Admin Auggie membership payments", () => {
     ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_STALE" });
     expect(delegated.state.calls).toHaveLength(0);
     expect(db.operations.get(proposal.operation.id)?.status).toBe("failed");
+  });
+});
+
+describe("Admin Auggie switch working dojo", () => {
+  it("points the RenShinKan administrator to the per-page filter and never switches or writes", async () => {
+    const db = new FakeDb();
+    const response = (await handleAdminAuggieChat(
+      request("Switch which dojo I am working in"),
+      env(
+        db,
+        vi.fn(async () => tool("switch_working_dojo", {})),
+      ),
+    )) as { kind: string; heading: string; message: string; path?: string };
+    expect(response.kind).toBe("navigate");
+    expect(response.path).toBe("/admin/students");
+    expect(response.message).toContain("dojo filter");
+    expect(response.message).toContain("changes nothing in any record");
+    // The dojos the administrator may work in are named from their own session,
+    // read straight from the database, never sent to the model.
+    expect(response.message).toContain("RenShinKan Dojo");
+    expect(db.operations.size).toBe(0);
+    expect(delegated.state.calls).toHaveLength(0);
+  });
+
+  it("tells a dojo administrator their working dojo is fixed at sign-in", async () => {
+    authState.session.role = "dojo";
+    authState.session.selectedDojoId = "dojo-cmu";
+    authState.session.allowedDojoIds = ["dojo-cmu"];
+    const db = new FakeDb();
+    const response = (await handleAdminAuggieChat(
+      request("Change my working dojo"),
+      env(
+        db,
+        vi.fn(async () => tool("switch_working_dojo", {})),
+      ),
+    )) as { kind: string; message: string; path?: string };
+    expect(response.kind).toBe("navigate");
+    expect(response.message).toContain("fixed when you sign in");
+    expect(response.message).toContain("CMU Aikido Club");
+    expect(db.operations.size).toBe(0);
+    expect(delegated.state.calls).toHaveLength(0);
+  });
+
+  it("offers the switch tool for a change-of-dojo message", async () => {
+    const db = new FakeDb();
+    const run = vi.fn(async () => tool("switch_working_dojo", {}));
+    await handleAdminAuggieChat(
+      request("I want to work in a different dojo"),
+      env(db, run),
+    );
+    const offered = (
+      run.mock.calls[0][1] as { tools: Array<{ function: { name: string } }> }
+    ).tools.map((entry) => entry.function.name);
+    expect(offered).toContain("switch_working_dojo");
   });
 });
 

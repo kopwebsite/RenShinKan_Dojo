@@ -1279,6 +1279,16 @@ function toolSchemas(ctx: AdminAuggieContext) {
       },
     },
     {
+      name: "switch_working_dojo",
+      description:
+        "Answer when the administrator asks to switch, change, or choose which dojo they are working in. It reads nothing about students and prepares no change; it explains what the working dojo is, which dojos they may work in, and how to focus on one, then offers the right page. Nothing is ever switched from the chat.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
+    {
       name: "search_students",
       description:
         "Find students by exact Student ID or by name.",
@@ -1995,6 +2005,14 @@ const TOOL_TOPICS: Record<string, ToolTopic> = {
       /health|healthy|status|is the site (?:ok|up|down|working|healthy)|diagnostic|degraded|outage|is everything (?:ok|working)/i,
     paths: [],
   },
+  switch_working_dojo: {
+    // Dojo-scoped on purpose: it only matches when the message is about which
+    // dojo the administrator works in, so a plain "change the rank" never pulls
+    // the dojo area in.
+    words:
+      /\bdojo\b.*\b(?:switch|scope|context|filter)\b|\b(?:switch|change|choose|select|which|another|different|work(?:ing)? in)\b.*\bdojo\b/i,
+    paths: ["/admin/dojos"],
+  },
   search_students: {
     words: /student|find|search|look ?up|who is|name|roster|member|pupil/i,
     paths: ["/admin/students", "/admin/profile-requests"],
@@ -2236,6 +2254,7 @@ const THAI_SUBJECTS: ReadonlyArray<readonly [RegExp, readonly string[]]> = [
   [/โปรไฟล์|คำขอ/, ["propose_student_profile_decision"]],
   [/สรุป|แดชบอร์ด|ภาพรวม|จำนวน/, ["get_dashboard_summary"]],
   [/สถานะระบบ|ระบบปกติ|ระบบล่ม|สุขภาพระบบ|ตรวจสอบระบบ/, ["get_site_health"]],
+  [/สลับโดโจ|เปลี่ยนโดโจ|เลือกโดโจ|โดโจที่ทำงาน|ทำงานในโดโจ/, ["switch_working_dojo"]],
   [
     /สร้าง|เพิ่ม|บันทึก|ทำใหม่|ลงทะเบียน/,
     ["start_guided_flow", "propose_student_create", "propose_newsletter_create"],
@@ -2325,7 +2344,12 @@ export const TOOL_AREAS: Record<ToolArea, readonly string[]> = {
     "propose_gallery_photo_order",
     "propose_gallery_publish",
   ],
-  dojos: ["list_dojos", "propose_dojo_settings", "propose_dojo_create"],
+  dojos: [
+    "list_dojos",
+    "propose_dojo_settings",
+    "propose_dojo_create",
+    "switch_working_dojo",
+  ],
   // Downloads has no tool yet (the coverage map still lists it as a gap). The
   // area exists so that when a downloads tool is built it routes here with a
   // one-line change, and so a downloads message already has a named home rather
@@ -7351,6 +7375,52 @@ async function getSiteHealth(ctx: AdminAuggieContext) {
   };
 }
 
+// "Switch which dojo I am working in." Which dojo an administrator works in is
+// their signed session's own scope, set when they sign in. Changing it would
+// re-issue that sign-in, which the chat's propose-then-type-the-phrase rail
+// deliberately never touches, and there is no reviewed endpoint the page calls
+// to switch it either — the site moved to a per-page dojo filter instead. So
+// this never switches anything and never writes: it reads only the dojos the
+// administrator may already work in, from their own session, explains plainly
+// what the working dojo is and how to focus on one, and offers the right page.
+// No student record and nothing about the request is ever sent to the model.
+async function switchWorkingDojo(ctx: AdminAuggieContext) {
+  const superAdmin = isRenShinKanSuperAdmin(ctx.session);
+  const dojos = await permittedDojos(ctx);
+  const names = dojos.map((dojo) => dojo.name).join(", ");
+  await auditAi(ctx, "admin_ai_navigation", "switch_working_dojo", "success", {
+    superAdmin,
+    dojoCount: dojos.length,
+  }).catch(() => undefined);
+  if (superAdmin)
+    return {
+      kind: "navigate" as const,
+      heading: localized(
+        ctx.locale,
+        "Switching your working dojo",
+        "การสลับโดโจที่ทำงาน",
+      ),
+      message: localized(
+        ctx.locale,
+        `As the RenShinKan administrator you already work across every dojo at once${names ? ` (${names})` : ""}, so there is no separate dojo to switch into from the chat. To focus on just one, use the dojo filter at the top of the students, memberships and payment pages — that only narrows what you see and changes nothing in any record. I can open the students page for you.`,
+        `ในฐานะผู้ดูแล RenShinKan คุณทำงานครอบคลุมทุกโดโจอยู่แล้ว${names ? ` (${names})` : ""} จึงไม่มีโดโจแยกให้สลับจากแชต หากต้องการเจาะจงโดโจใด ให้ใช้ตัวกรองโดโจด้านบนของหน้านักเรียน สมาชิก และการชำระเงิน ซึ่งเป็นเพียงการจำกัดสิ่งที่แสดง ไม่เปลี่ยนแปลงข้อมูลใด ๆ สามารถเปิดหน้านักเรียนให้ได้`,
+      ),
+      path: STUDENT_PATH,
+    };
+  const current =
+    dojos[0]?.name || localized(ctx.locale, "your dojo", "โดโจของคุณ");
+  return {
+    kind: "navigate" as const,
+    heading: localized(ctx.locale, "Your working dojo", "โดโจที่คุณทำงาน"),
+    message: localized(
+      ctx.locale,
+      `You are signed in to work in ${current}. For your security, which dojo you work in is fixed when you sign in, so it is not something I switch from the chat. Everything I do for you already stays inside ${current}. If you look after more than one dojo, please sign in again to choose a different one. I can open your students page.`,
+      `คุณเข้าสู่ระบบเพื่อทำงานใน ${current} เพื่อความปลอดภัย โดโจที่คุณทำงานจะถูกกำหนดเมื่อเข้าสู่ระบบ จึงไม่ใช่สิ่งที่ฉันสลับจากแชต ทุกอย่างที่ฉันทำให้จะอยู่ภายใน ${current} เสมอ หากคุณดูแลมากกว่าหนึ่งโดโจ โปรดเข้าสู่ระบบอีกครั้งเพื่อเลือกโดโจอื่น สามารถเปิดหน้านักเรียนของคุณให้ได้`,
+    ),
+    path: STUDENT_PATH,
+  };
+}
+
 // The plain, deterministic refusal for a subject that never belongs in the
 // chat. Passwords, sign-in and administrator accounts are handled at sign-in.
 // The audit log is the permanent record of what everyone did, so it can never
@@ -7411,6 +7481,11 @@ async function executeSelectedTool(ctx: AdminAuggieContext, call: ToolCall) {
     if (Object.keys(args).length)
       throw new AdminAuggieError("Site health takes no arguments.");
     return getSiteHealth(ctx);
+  }
+  if (call.name === "switch_working_dojo") {
+    if (Object.keys(args).length)
+      throw new AdminAuggieError("Switching the working dojo takes no arguments.");
+    return switchWorkingDojo(ctx);
   }
   if (call.name === "search_students") return searchStudents(ctx, args);
   if (call.name === "read_student_history")

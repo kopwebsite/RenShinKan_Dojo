@@ -48,6 +48,11 @@ const COVERAGE: Record<string, string | string[]> = {
   "login.ts": "page-only", // passwords and sign-in
   "logout.ts": "page-only", // sign-in / session
   "select-dojo.ts": "page-only", // sign-in dojo selection
+  // Switching the working dojo is the signed session's own scope, set at sign-in;
+  // the site moved to a per-page dojo filter and this endpoint is a removed stub.
+  // switch_working_dojo recognises the request in chat and points to the page,
+  // but it is never a chat write, so this stays page-only.
+  "switch-dojo.ts": "page-only",
   "publish.ts": "page-only", // Auggie publishes through site-content
   "publish-reconcile.ts": "page-only", // internal publishing recovery
 
@@ -62,7 +67,6 @@ const COVERAGE: Record<string, string | string[]> = {
   "students/[id]/hours-requests.ts":
     "gap: approving training-hour requests is not yet a tool",
   "students/[id]/share.ts": "gap: student share links are not yet a tool",
-  "switch-dojo.ts": "gap: switching the working dojo is not yet a tool",
 };
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");

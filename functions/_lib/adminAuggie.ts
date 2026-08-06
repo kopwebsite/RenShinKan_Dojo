@@ -208,7 +208,8 @@ type DelegatedKind =
   | "student_profile_decision"
   | "bulk_student_action"
   | "student_create"
-  | "student_deletion";
+  | "student_deletion"
+  | "membership_payment";
 
 type DelegatedArgs = {
   kind: DelegatedKind;
@@ -244,6 +245,15 @@ type DelegatedArgs = {
   profileDecision?: "approve" | "reject";
   pendingRequestCount?: number;
   pendingHours?: number;
+  // AAT annual membership fields. Recording only carries the plain payment date
+  // and an optional membership number; the money amount is never taken from the
+  // model, so it is left for the reviewed page. Reversing carries the exact
+  // payment row the server itself resolved as the current paid one.
+  membershipAction?: "mark_paid" | "mark_unpaid";
+  paymentDate?: string;
+  aatNumber?: string;
+  membershipReason?: string;
+  paymentReferenceId?: string;
   // New student record fields. Only the plain administrative details a new
   // profile needs are carried; notes, contact details, identity documents and
   // images are never collected here and stay in the reviewed student page.
@@ -493,6 +503,7 @@ const DELEGATED_KINDS = new Set<string>([
   "bulk_student_action",
   "student_create",
   "student_deletion",
+  "membership_payment",
 ]);
 // A bulk confirmation must never move more student records than an
 // administrator can read in one preview card, so it stays well under the
@@ -1151,6 +1162,7 @@ const EXAM_PATH = "/admin/exam-applications";
 const EXAM_PAYSLIP_PATH = "/admin/exam-payslips";
 const CONTRIBUTION_PATH = "/admin/monthly-contributions";
 const PAYMENT_PROOF_PATH = "/admin/payment-proofs";
+const MEMBERSHIP_PATH = "/admin/memberships";
 const WEBSITE_PATH = "/admin/website";
 const DOJO_SETTINGS_PATH = "/admin/dojos";
 
@@ -1607,6 +1619,25 @@ function toolSchemas(ctx: AdminAuggieContext) {
       },
     );
   }
+  if (canAccessAdminPath(MEMBERSHIP_PATH, ctx.permission)) {
+    definitions.push({
+      name: "propose_membership_payment",
+      description:
+        "Prepare recording or reversing one student's AAT annual membership payment, named by exact Student ID. Recording marks the membership paid from a date you give; reversing removes the paid status from the student's most recent recorded membership payment. This is a money decision, so it needs the second exact confirmation. The amount is never set here — add an exact figure on the memberships page if one is needed.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          studentId: { type: "string", minLength: 1, maxLength: 40 },
+          action: { type: "string", enum: ["mark_paid", "mark_unpaid"] },
+          paymentDate: { type: "string", minLength: 10, maxLength: 10 },
+          aatNumber: { type: "string", maxLength: 40 },
+          reason: { type: "string", maxLength: 500 },
+        },
+        required: ["studentId", "action"],
+      },
+    });
+  }
   if (canAccessAdminPath(WEBSITE_PATH, ctx.permission)) {
     definitions.push(
       {
@@ -2038,6 +2069,11 @@ const TOOL_TOPICS: Record<string, ToolTopic> = {
     words: /payslip|proof|receipt|slip|approve|deny|payment/i,
     paths: ["/admin/payment-proofs", "/admin/exam-payslips"],
   },
+  propose_membership_payment: {
+    words:
+      /membership|\baat\b|annual|yearly|renew|renewal|life ?member|paid up|mark.*paid|reverse.*payment/i,
+    paths: ["/admin/memberships"],
+  },
   list_newsletters: {
     words: /newsletter|news|event|article|post|bulletin/i,
     paths: ["/admin/website", "/admin/site-editor"],
@@ -2192,6 +2228,7 @@ const THAI_SUBJECTS: ReadonlyArray<readonly [RegExp, readonly string[]]> = [
     /หลักฐาน|สลิป|ชำระเงิน|โอนเงิน/,
     ["list_payment_proofs", "propose_payment_proof_decision"],
   ],
+  [/สมาชิกภาพ|ต่ออายุ|ค่าสมาชิก|สมาชิกรายปี/, ["propose_membership_payment"]],
   [
     /ประวัติการแก้ไข|ใครแก้ไข|ใครเปลี่ยน|ใครแก้|บันทึกการเปลี่ยน|ประวัติการเปลี่ยน/,
     ["read_student_history"],
@@ -2289,12 +2326,12 @@ export const TOOL_AREAS: Record<ToolArea, readonly string[]> = {
     "propose_gallery_publish",
   ],
   dojos: ["list_dojos", "propose_dojo_settings", "propose_dojo_create"],
-  // No tools yet: the coverage map lists downloads and memberships as gaps. The
-  // areas exist so that when those tools are built they route here with a
-  // one-line change, and so a downloads or memberships message already has a
-  // named home rather than being lost among everything else.
+  // Downloads has no tool yet (the coverage map still lists it as a gap). The
+  // area exists so that when a downloads tool is built it routes here with a
+  // one-line change, and so a downloads message already has a named home rather
+  // than being lost among everything else.
   downloads: [],
-  memberships: [],
+  memberships: ["propose_membership_payment"],
   system: [
     "get_dashboard_summary",
     "get_site_health",
@@ -3862,6 +3899,15 @@ function delegatedStateSql(args: DelegatedArgs) {
       WHERE r.month_key = ? AND r.student_id = ? AND r.active_at_period_start = 1`,
       bindings: (guard: DelegatedGuard) => [args.monthKey, guard.id],
     };
+  // The membership guard proves the student's own AAT payment fingerprint is
+  // unchanged. The reviewed endpoint owns the precise re-check of the exact
+  // payment being recorded or reversed, so this only needs to catch a payment
+  // that anyone else recorded or reversed after the preview.
+  if (args.kind === "membership_payment")
+    return studentStateSql(
+      `SELECT COALESCE(s.aat_last_paid_date, '') || '|' || CAST(s.active AS TEXT) AS state
+      FROM students s WHERE s.id = ?`,
+    );
   return {
     sql: `SELECT status AS state FROM payment_proofs WHERE id = ?`,
     bindings: (guard: DelegatedGuard) => [guard.id],
@@ -3917,6 +3963,7 @@ const DELEGATED_GUARD_PREFIX: Record<DelegatedKind, string> = {
   bulk_student_action: "__bulk_student__",
   student_create: "__student_create__",
   student_deletion: "__student_delete__",
+  membership_payment: "__membership__",
 };
 
 function delegatedGuards(args: DelegatedArgs): DelegatedGuard[] {
@@ -4366,6 +4413,139 @@ async function proposePaymentProofDecision(
     secondaryPhrase: `CONFIRM REVIEWED EVIDENCE ${plural(stored.length, "PAYSLIP")}`,
     records,
     extraPreview: { scope, coveredStudentCount, manualEvidenceReview: true },
+  });
+}
+
+// Recording or reversing one AAT annual membership payment. This is money, so
+// it always keeps the second exact confirmation. Admin Auggie never sets an
+// amount: recording a payment carries only the date and an optional membership
+// number, and the exact figure stays on the reviewed memberships page. The
+// reviewed endpoint owns the money transaction, the dojo scope and the audit.
+async function proposeMembershipPayment(
+  ctx: AdminAuggieContext,
+  args: Record<string, unknown>,
+) {
+  requirePathPermission(ctx, MEMBERSHIP_PATH);
+  if (!exactKeys(args, ["studentId", "action", "paymentDate", "aatNumber", "reason"]))
+    throw new AdminAuggieError(
+      "The membership proposal contains unsupported fields.",
+    );
+  const action = cleanText(args.action, 20);
+  if (action !== "mark_paid" && action !== "mark_unpaid")
+    throw new AdminAuggieError(
+      "Choose whether to record or reverse the membership payment.",
+    );
+  const [target] = await resolveStudentTargets(
+    ctx,
+    parseStudentIds([args.studentId], 1),
+  );
+  // The exact same fingerprint the confirmation guard rebuilds, so a payment
+  // recorded or reversed by anyone else after this preview is caught before the
+  // reviewed endpoint is ever called.
+  const stateRow = await ctx.db
+    .prepare(
+      `SELECT COALESCE(s.aat_last_paid_date, '') || '|' || CAST(s.active AS TEXT) AS state
+      FROM students s WHERE s.id = ?`,
+    )
+    .bind(target.id)
+    .first<{ state: string }>();
+  const expectedState = stateRow?.state ?? `|${target.active}`;
+  const lastPaid = expectedState.split("|")[0];
+  const stored: StoredTarget = { ...target, expectedState };
+
+  if (action === "mark_unpaid") {
+    const paid = await ctx.db
+      .prepare(
+        `SELECT id, payment_date FROM payments
+        WHERE student_id = ? AND payment_type = 'aat_annual' AND status = 'paid'
+        ORDER BY payment_date DESC, created_at DESC LIMIT 1`,
+      )
+      .bind(target.id)
+      .first<{ id: string; payment_date: string | null }>();
+    if (!paid)
+      throw new AdminAuggieError(
+        `${target.publicId} has no recorded paid AAT membership payment to reverse. Use the memberships page.`,
+        409,
+        "ADMIN_AUGGIE_TARGET_STATE",
+      );
+    const reason =
+      args.reason === undefined ? "" : cleanText(args.reason, 500);
+    return insertDelegatedOperation(ctx, {
+      toolName: "membership_mark_unpaid",
+      args: {
+        kind: "membership_payment",
+        action: "membership_mark_unpaid",
+        targets: [stored],
+        route: "admin/memberships",
+        requiresSecondaryConfirmation: true,
+        requiredPath: MEMBERSHIP_PATH,
+        membershipAction: "mark_unpaid",
+        paymentReferenceId: paid.id,
+        membershipReason: reason || undefined,
+        undoable: false,
+      },
+      primaryPhrase: `REVERSE MEMBERSHIP ${target.publicId}`,
+      secondaryPhrase: "CONFIRM MEMBERSHIP REVERSAL",
+      heading: { en: "Reverse membership payment", th: "ย้อนกลับการชำระค่าสมาชิก" },
+      records: [
+        {
+          studentId: target.publicId,
+          name: target.name,
+          dojo: target.dojoName,
+          before: `paid${paid.payment_date ? ` (${paid.payment_date})` : ""}`,
+          after: "paid status removed",
+        },
+      ],
+      extraPreview: {
+        touchesMoney: true,
+        warningEn: `No change has been made. Confirming removes the paid status from ${target.publicId}'s most recent AAT membership payment and moves their renewal date back. This is a money decision. Type both exact confirmation phrases.`,
+        warningTh: `ยังไม่มีการเปลี่ยนแปลง เมื่อยืนยันจะลบสถานะชำระเงินของการชำระค่าสมาชิก AAT ล่าสุดของ ${target.publicId} และเลื่อนวันต่ออายุกลับ นี่เป็นเรื่องการเงิน โปรดพิมพ์ข้อความยืนยันทั้งสองให้ตรง`,
+      },
+    });
+  }
+
+  const paymentDate =
+    args.paymentDate === undefined ? "" : cleanText(args.paymentDate, 10);
+  if (!isCanonicalDate(paymentDate))
+    throw new AdminAuggieError(
+      "Give the membership payment date as YYYY-MM-DD.",
+    );
+  const aatNumber =
+    args.aatNumber === undefined ? "" : cleanText(args.aatNumber, 40);
+  return insertDelegatedOperation(ctx, {
+    toolName: "membership_mark_paid",
+    args: {
+      kind: "membership_payment",
+      action: "membership_mark_paid",
+      targets: [stored],
+      route: "admin/memberships",
+      requiresSecondaryConfirmation: true,
+      requiredPath: MEMBERSHIP_PATH,
+      membershipAction: "mark_paid",
+      paymentDate,
+      aatNumber: aatNumber || undefined,
+      amount: null,
+      undoable: false,
+    },
+    primaryPhrase: `RECORD MEMBERSHIP ${target.publicId}`,
+    secondaryPhrase: "CONFIRM MEMBERSHIP MONEY",
+    heading: { en: "Record membership payment", th: "บันทึกการชำระค่าสมาชิก" },
+    records: [
+      {
+        studentId: target.publicId,
+        name: target.name,
+        dojo: target.dojoName,
+        before: lastPaid
+          ? `last paid ${lastPaid}`
+          : localized(ctx.locale, "no membership recorded", "ยังไม่มีบันทึกสมาชิก"),
+        after: `paid ${paymentDate}`,
+      },
+    ],
+    extraPreview: {
+      touchesMoney: true,
+      warningEn: `No change has been made. Confirming records an AAT annual membership payment for ${target.publicId} dated ${paymentDate} and moves their renewal date forward one year. No amount is recorded here — add an exact figure on the memberships page if one is needed. This is a money decision. Type both exact confirmation phrases.`,
+      warningTh: `ยังไม่มีการเปลี่ยนแปลง เมื่อยืนยันจะบันทึกการชำระค่าสมาชิกรายปี AAT ของ ${target.publicId} ลงวันที่ ${paymentDate} และเลื่อนวันต่ออายุไปอีกหนึ่งปี จะไม่มีการบันทึกจำนวนเงินที่นี่ หากต้องการให้เพิ่มจำนวนที่แน่นอนในหน้าสมาชิก นี่เป็นเรื่องการเงิน โปรดพิมพ์ข้อความยืนยันทั้งสองให้ตรง`,
+    },
   });
 }
 
@@ -7271,6 +7451,8 @@ async function executeSelectedTool(ctx: AdminAuggieContext, call: ToolCall) {
   if (call.name === "list_payment_proofs") return listPaymentProofs(ctx, args);
   if (call.name === "propose_payment_proof_decision")
     return proposePaymentProofDecision(ctx, args);
+  if (call.name === "propose_membership_payment")
+    return proposeMembershipPayment(ctx, args);
   if (call.name === "list_newsletters") return listNewsletters(ctx, args);
   if (call.name === "propose_newsletter_website_state")
     return proposeNewsletterWebsiteState(ctx, args);
@@ -8500,6 +8682,28 @@ function delegatedBody(args: DelegatedArgs): Record<string, unknown> {
       amount: args.amount ?? null,
       reference: "",
     };
+  if (args.kind === "membership_payment") {
+    const studentId = args.targets[0]?.id;
+    if (args.membershipAction === "mark_unpaid")
+      return {
+        action: "mark_unpaid",
+        confirmed: true,
+        studentId,
+        paymentId: args.paymentReferenceId,
+        reason: args.membershipReason || "",
+      };
+    return {
+      action: "mark_paid",
+      confirmed: true,
+      studentId,
+      paymentDate: args.paymentDate,
+      aatNumber: args.aatNumber || "",
+      notes: "",
+      // The money amount is never taken from the model. The reviewed page is
+      // where an exact figure is added; here the payment is recorded without one.
+      amount: null,
+    };
+  }
   return {
     action: args.action === "payslip_approve" ? "approve" : "deny",
     proofIds: args.proofIds || [],

@@ -153,6 +153,9 @@ vi.mock("../functions/api/admin/students/[id]/profile-status", () => ({
 vi.mock("../functions/api/admin/students/bulk", () => ({
   onRequestPost: delegated.handler("admin/students-bulk"),
 }));
+vi.mock("../functions/api/admin/memberships", () => ({
+  onRequestPost: delegated.handler("admin/memberships"),
+}));
 
 import {
   AdminAuggieError,
@@ -181,6 +184,7 @@ type FakeStudent = {
   updated_at: string;
   total_hours: number;
   dojo_joined_date: string;
+  aat_last_paid_date?: string | null;
 };
 
 const STUDENT_GUARD_PREFIXES = [
@@ -190,6 +194,7 @@ const STUDENT_GUARD_PREFIXES = [
   "__student_exam__",
   "__student_profile__",
   "__bulk_student__",
+  "__membership__",
   "__rank__",
 ];
 
@@ -267,6 +272,8 @@ class FakeDb {
 
   pendingHourRequests = new Map<string, { count: number; hours: number }>();
   studentHistory = new Map<string, Array<Record<string, unknown>>>();
+  // The current paid AAT membership payment the server resolves when reversing.
+  aatPaidPayments = new Map<string, { id: string; payment_date: string | null }>();
   rankWrites = 0;
 
   // Mirrors the exact strings the server's own guard SQL builds, so a test
@@ -274,6 +281,9 @@ class FakeDb {
   studentStateFor(query: string, studentId: string) {
     const row = this.students.get(studentId);
     if (!row) return "missing";
+    // The AAT membership guard: the student's last-paid date and active flag.
+    if (query.includes("aat_last_paid_date"))
+      return `${row.aat_last_paid_date || ""}|${row.active}`;
     const total = Number(row.total_hours || 0).toFixed(2);
     // The permanent-deletion guard: still inactive, still archived, same dojo.
     if (query.includes("s.dojo_id"))
@@ -332,6 +342,12 @@ class FakeDb {
 
   first(statement: FakeStatement) {
     const { query, values } = statement;
+    if (
+      query.includes("FROM payments") &&
+      query.includes("payment_type = 'aat_annual'") &&
+      query.includes("status = 'paid'")
+    )
+      return this.aatPaidPayments.get(String(values[0])) || null;
     if (query.includes("WHERE idempotency_key = ?")) {
       return (
         [...this.operations.values()].find(
@@ -936,6 +952,7 @@ function student(overrides: Partial<FakeStudent> = {}): FakeStudent {
     updated_at: "2026-08-04T00:00:00.000Z",
     total_hours: 20,
     dojo_joined_date: "2024-01-15",
+    aat_last_paid_date: null,
     ...overrides,
   };
 }
@@ -2302,6 +2319,164 @@ describe("Admin Auggie examination and payment tools", () => {
     ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TARGET_MISSING" });
     expect(db.operations.size).toBe(0);
     expect(delegated.state.calls).toHaveLength(0);
+  });
+});
+
+describe("Admin Auggie membership payments", () => {
+  function membershipDb(overrides: Partial<FakeStudent> = {}) {
+    const db = new FakeDb();
+    db.students.set("student-rsk-1001", student(overrides));
+    return db;
+  }
+
+  it("records an AAT membership payment through the reviewed endpoint after two exact phrases, never with an amount", async () => {
+    const db = membershipDb();
+    const proposal = await prepare(
+      db,
+      "propose_membership_payment",
+      { studentId: "RSK-1001", action: "mark_paid", paymentDate: "2026-08-06", aatNumber: "AAT-123" },
+      "membership-paid-1001",
+    );
+    expect(proposal.operation.confirmationPhrase).toBe("RECORD MEMBERSHIP RSK-1001");
+    expect(proposal.operation.secondaryConfirmationPhrase).toBe(
+      "CONFIRM MEMBERSHIP MONEY",
+    );
+    expect(proposal.operation.requiresSecondaryConfirmation).toBe(true);
+    expect(proposal.operation.path).toBe("/admin/memberships");
+    expect(proposal.operation.undoable).toBe(false);
+    expect(delegated.state.calls).toHaveLength(0);
+
+    // The money rail: one phrase is never enough.
+    await expect(
+      confirmAdminAuggieOperation(
+        operationRequest("/api/admin/auggie/confirm"),
+        env(db, vi.fn()),
+        proposal.operation.id,
+        proposal.operation.confirmationPhrase,
+        "en",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_SECOND_CONFIRMATION_REQUIRED" });
+    expect(delegated.state.calls).toHaveLength(0);
+
+    await confirmAdminAuggieOperation(
+      operationRequest("/api/admin/auggie/confirm"),
+      env(db, vi.fn()),
+      proposal.operation.id,
+      proposal.operation.confirmationPhrase,
+      "en",
+      proposal.operation.secondaryConfirmationPhrase!,
+    );
+    const call = delegated.state.calls[0];
+    expect(call.route).toBe("admin/memberships");
+    expect(call.headers["x-request-id"]).toBe(
+      `admin-auggie:${proposal.operation.id}`,
+    );
+    expect(call.body).toEqual({
+      action: "mark_paid",
+      confirmed: true,
+      studentId: "student-rsk-1001",
+      paymentDate: "2026-08-06",
+      aatNumber: "AAT-123",
+      notes: "",
+      amount: null,
+    });
+    const success = db.audits.find(
+      (values) => values[1] === "admin_ai_write_succeeded",
+    );
+    expect(JSON.parse(String(success?.[13]))).toMatchObject({
+      aiGenerated: true,
+      aiAssistant: "admin_auggie",
+      delegatedRoute: "admin/memberships",
+      secondConfirmationRequired: true,
+    });
+  });
+
+  it("reverses the paid status of the most recent membership payment the server resolves", async () => {
+    const db = membershipDb({ aat_last_paid_date: "2026-01-01" });
+    db.aatPaidPayments.set("student-rsk-1001", {
+      id: "aat-pay-1",
+      payment_date: "2026-01-01",
+    });
+    const proposal = await prepare(
+      db,
+      "propose_membership_payment",
+      { studentId: "RSK-1001", action: "mark_unpaid", reason: "recorded by mistake" },
+      "membership-unpaid-1001",
+    );
+    expect(proposal.operation.confirmationPhrase).toBe("REVERSE MEMBERSHIP RSK-1001");
+    expect(proposal.operation.secondaryConfirmationPhrase).toBe(
+      "CONFIRM MEMBERSHIP REVERSAL",
+    );
+    await confirmAdminAuggieOperation(
+      operationRequest("/api/admin/auggie/confirm"),
+      env(db, vi.fn()),
+      proposal.operation.id,
+      proposal.operation.confirmationPhrase,
+      "en",
+      proposal.operation.secondaryConfirmationPhrase!,
+    );
+    expect(delegated.state.calls[0].body).toEqual({
+      action: "mark_unpaid",
+      confirmed: true,
+      studentId: "student-rsk-1001",
+      paymentId: "aat-pay-1",
+      reason: "recorded by mistake",
+    });
+  });
+
+  it("refuses to reverse when the student has no recorded paid membership payment", async () => {
+    const db = membershipDb();
+    await expect(
+      prepare(
+        db,
+        "propose_membership_payment",
+        { studentId: "RSK-1001", action: "mark_unpaid" },
+        "membership-none-1001",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TARGET_STATE" });
+    expect(db.operations.size).toBe(0);
+    expect(delegated.state.calls).toHaveLength(0);
+  });
+
+  it("keeps a dojo administrator inside their own dojo (permission parity)", async () => {
+    authState.session.role = "dojo";
+    authState.session.selectedDojoId = "dojo-cmu";
+    authState.session.allowedDojoIds = ["dojo-cmu"];
+    const db = membershipDb(); // the student is in dojo-rsk
+    await expect(
+      prepare(
+        db,
+        "propose_membership_payment",
+        { studentId: "RSK-1001", action: "mark_paid", paymentDate: "2026-08-06" },
+        "membership-scope-1001",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TARGET_MISSING" });
+    expect(db.operations.size).toBe(0);
+    expect(delegated.state.calls).toHaveLength(0);
+  });
+
+  it("refuses the recording when a membership payment was recorded after the preview", async () => {
+    const db = membershipDb();
+    const proposal = await prepare(
+      db,
+      "propose_membership_payment",
+      { studentId: "RSK-1001", action: "mark_paid", paymentDate: "2026-08-06" },
+      "membership-stale-1001",
+    );
+    // Someone else records a payment between the preview and the confirmation.
+    db.students.get("student-rsk-1001")!.aat_last_paid_date = "2026-08-06";
+    await expect(
+      confirmAdminAuggieOperation(
+        operationRequest("/api/admin/auggie/confirm"),
+        env(db, vi.fn()),
+        proposal.operation.id,
+        proposal.operation.confirmationPhrase,
+        "en",
+        proposal.operation.secondaryConfirmationPhrase!,
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_STALE" });
+    expect(delegated.state.calls).toHaveLength(0);
+    expect(db.operations.get(proposal.operation.id)?.status).toBe("failed");
   });
 });
 

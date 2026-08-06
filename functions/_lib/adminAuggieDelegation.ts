@@ -29,6 +29,7 @@ import { onRequestPost as studentHoursPost } from "../api/admin/students/[id]/ho
 import { onRequestPost as studentExamPost } from "../api/admin/students/[id]/exam";
 import { onRequestPost as studentProfileStatusPost } from "../api/admin/students/[id]/profile-status";
 import { onRequestPost as studentsBulkPost } from "../api/admin/students/bulk";
+import { onRequestPost as membershipsPost } from "../api/admin/memberships";
 
 // Admin Auggie never writes examination, payment, newsletter, gallery, website
 // or dojo rows itself. Every write is delegated to the reviewed administration
@@ -54,7 +55,8 @@ export type AdminApiRoute =
   | "admin/student-hours"
   | "admin/student-exam"
   | "admin/student-profile-status"
-  | "admin/students-bulk";
+  | "admin/students-bulk"
+  | "admin/memberships";
 
 export type AdminApiMethod = "GET" | "POST" | "PUT" | "DELETE";
 
@@ -164,6 +166,14 @@ const ROUTES: Record<AdminApiRoute, RouteDefinition> = {
   "admin/students-bulk": {
     path: "/api/admin/students/bulk",
     handlers: { POST: studentsBulkPost as unknown as DelegatedHandler },
+  },
+  // Recording or reversing an AAT annual membership payment is delegated to the
+  // same reviewed endpoint the memberships page calls. That endpoint owns the
+  // one-transaction money write, the dojo scope check, and its own audit rows;
+  // Admin Auggie only proposes and proves the payment fingerprint is unchanged.
+  "admin/memberships": {
+    path: "/api/admin/memberships",
+    handlers: { POST: membershipsPost as unknown as DelegatedHandler },
   },
 };
 

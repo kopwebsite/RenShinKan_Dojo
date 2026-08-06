@@ -25,7 +25,8 @@ import { adminAuggieToolCatalogue } from "../functions/_lib/adminAuggie";
 const COVERAGE: Record<string, string | string[]> = {
   // Covered — one Auggie tool per reviewed delegation route.
   "contributions.ts": "propose_contribution_status",
-  "dojos.ts": "propose_dojo_settings",
+  // One file, two write methods: PUT edits a dojo, POST creates a new one.
+  "dojos.ts": ["propose_dojo_settings", "propose_dojo_create"],
   "examinations.ts": "propose_examination_status",
   "examinations/[applicationId].ts": "propose_examination_rejection",
   "galleries.ts": "propose_gallery_album_update",

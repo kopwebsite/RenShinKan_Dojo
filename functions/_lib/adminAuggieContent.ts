@@ -1,6 +1,6 @@
 import type { GalleryAlbum, GalleryId, GalleryPhoto } from "../../shared/gallery";
 import type { NewsletterLifecycleStatus } from "../../shared/newsletter";
-import type { RecentEvent, SitePage } from "./content";
+import type { RecentEvent, SiteLocale, SitePage } from "./content";
 
 // Pure shaping helpers for the Admin Auggie website tools. Nothing here reads a
 // session, opens a database, or performs a write: every function turns a record
@@ -287,6 +287,85 @@ export function sitePagesWithStatus(
   return pages.map((page) =>
     page.route === route ? { ...page, status } : page,
   );
+}
+
+// The exact words a text edit targets, in one locale, rebuilt identically when
+// the proposal is prepared and again when it is confirmed. Any change to the
+// very same block paragraph or page title in between makes the two strings
+// differ, so the confirmation is refused before anything is sent to the
+// reviewed endpoint. A block edit reads the block's title and text; a
+// page-level edit reads the page title and its two SEO fields.
+export function sitePageTextState(
+  page: SitePage,
+  locale: SiteLocale,
+  blockId: string,
+) {
+  if (blockId) {
+    const block = page.blocks.find((entry) => entry.id === blockId);
+    if (!block) return "missing-block";
+    const translation = block.translations[locale];
+    return `block|${translation?.title || ""}|${translation?.text || ""}`;
+  }
+  const translation = page.translations[locale];
+  return `page|${translation?.title || ""}|${translation?.seoTitle || ""}|${
+    translation?.seoDescription || ""
+  }`;
+}
+
+// Applies a proposed text change to exactly one page. Only the fields the
+// administrator is changing are set; every other field, block and locale is
+// carried over untouched. A block edit (blockId given) changes that block's
+// title and/or text in the chosen locale; a page-level edit changes the page
+// title and/or its SEO fields. The reviewed endpoint still re-validates the
+// whole site draft before saving it.
+export function sitePageWithText(
+  pages: SitePage[],
+  route: string,
+  patch: {
+    locale: SiteLocale;
+    blockId?: string;
+    title?: string;
+    text?: string;
+    seoTitle?: string;
+    seoDescription?: string;
+  },
+) {
+  return pages.map((page) => {
+    if (page.route !== route) return page;
+    if (patch.blockId) {
+      return {
+        ...page,
+        blocks: page.blocks.map((block) => {
+          if (block.id !== patch.blockId) return block;
+          return {
+            ...block,
+            translations: {
+              ...block.translations,
+              [patch.locale]: {
+                ...block.translations[patch.locale],
+                ...(patch.title !== undefined ? { title: patch.title } : {}),
+                ...(patch.text !== undefined ? { text: patch.text } : {}),
+              },
+            },
+          };
+        }),
+      };
+    }
+    return {
+      ...page,
+      translations: {
+        ...page.translations,
+        [patch.locale]: {
+          ...page.translations[patch.locale],
+          ...(patch.title !== undefined ? { title: patch.title } : {}),
+          ...(patch.seoTitle !== undefined ? { seoTitle: patch.seoTitle } : {}),
+          ...(patch.seoDescription !== undefined
+            ? { seoDescription: patch.seoDescription }
+            : {}),
+        },
+      },
+    };
+  });
 }
 
 // --- Dojo settings ----------------------------------------------------------

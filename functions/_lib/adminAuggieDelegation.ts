@@ -30,6 +30,12 @@ import { onRequestPost as studentExamPost } from "../api/admin/students/[id]/exa
 import { onRequestPost as studentProfileStatusPost } from "../api/admin/students/[id]/profile-status";
 import { onRequestPost as studentsBulkPost } from "../api/admin/students/bulk";
 import { onRequestPost as membershipsPost } from "../api/admin/memberships";
+import { onRequestPost as studentHoursRequestsPost } from "../api/admin/students/[id]/hours-requests";
+import {
+  onRequestPatch as downloadsPatch,
+  onRequestDelete as downloadsDelete,
+} from "../api/admin/downloads";
+import { onRequestPost as newsletterTestPost } from "../api/admin/newsletters/test";
 
 // Admin Auggie never writes examination, payment, newsletter, gallery, website
 // or dojo rows itself. Every write is delegated to the reviewed administration
@@ -56,9 +62,12 @@ export type AdminApiRoute =
   | "admin/student-exam"
   | "admin/student-profile-status"
   | "admin/students-bulk"
-  | "admin/memberships";
+  | "admin/memberships"
+  | "admin/student-hours-requests"
+  | "admin/downloads"
+  | "admin/newsletter-test";
 
-export type AdminApiMethod = "GET" | "POST" | "PUT" | "DELETE";
+export type AdminApiMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 type DelegatedHandler = (context: {
   request: Request;
@@ -175,6 +184,35 @@ const ROUTES: Record<AdminApiRoute, RouteDefinition> = {
     path: "/api/admin/memberships",
     handlers: { POST: membershipsPost as unknown as DelegatedHandler },
   },
+  // Approving or rejecting one student-submitted training-hour request is
+  // delegated to the same reviewed endpoint the training-requests page calls.
+  // That endpoint owns the one-transaction hour write, the student-access check
+  // and its own audit rows; Admin Auggie only proposes and proves the student's
+  // pending-request fingerprint is unchanged.
+  "admin/student-hours-requests": {
+    path: "/api/admin/students",
+    handlers: { POST: studentHoursRequestsPost as unknown as DelegatedHandler },
+  },
+  // Editing, publishing or retiring a download is delegated to the reviewed
+  // downloads endpoint. The PDF itself is never carried on the JSON delegation
+  // layer: adding or replacing a file reuses that same reviewed upload path from
+  // the panel. Here Admin Auggie only manages the download record and proves the
+  // row fingerprint is unchanged before the reviewed endpoint is called.
+  "admin/downloads": {
+    path: "/api/admin/downloads",
+    handlers: {
+      PATCH: downloadsPatch as unknown as DelegatedHandler,
+      DELETE: downloadsDelete as unknown as DelegatedHandler,
+    },
+  },
+  // Sending one test newsletter is delegated to the same reviewed endpoint the
+  // website editor calls. The recipient is the address the administrator typed
+  // into the panel's own field, never inferred from chat; the reviewed endpoint
+  // owns the delivery and its audit row.
+  "admin/newsletter-test": {
+    path: "/api/admin/newsletters/test",
+    handlers: { POST: newsletterTestPost as unknown as DelegatedHandler },
+  },
 };
 
 // The reviewed student endpoints live under a dynamic path segment. The
@@ -186,6 +224,7 @@ const STUDENT_ROUTE_SUFFIX: Partial<Record<AdminApiRoute, string>> = {
   "admin/student-hours": "/hours",
   "admin/student-exam": "/exam",
   "admin/student-profile-status": "/profile-status",
+  "admin/student-hours-requests": "/hours-requests",
 };
 
 // Audit rows written by the delegated endpoint carry this request identifier,

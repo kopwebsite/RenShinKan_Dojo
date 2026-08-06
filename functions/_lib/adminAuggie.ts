@@ -34,6 +34,7 @@ import {
 import {
   adminAuggieDelegatedRequestId,
   callAdminApi,
+  type AdminApiMethod,
   type AdminApiRoute,
 } from "./adminAuggieDelegation";
 import {
@@ -63,6 +64,8 @@ import {
   sitePageRecord,
   sitePagesState,
   sitePagesWithStatus,
+  sitePageTextState,
+  sitePageWithText,
   type ContentRecord,
   type DojoRecord,
   type NewsletterLifecycle,
@@ -104,7 +107,14 @@ import {
   writeFlowSession,
   type FlowSessionOwner,
 } from "./adminAuggieFlowStore";
-import type { MediaItem, RecentEvent, SitePage, SiteSettings } from "./content";
+import {
+  SITE_LOCALES,
+  type MediaItem,
+  type RecentEvent,
+  type SiteLocale,
+  type SitePage,
+  type SiteSettings,
+} from "./content";
 import { readEditableContentFromStorage, type StorageEnv } from "./storage";
 import {
   getBrevoSubscriberCount,
@@ -155,6 +165,10 @@ export type AdminAuggieContext = {
   // resolved once, before tool selection, and used only by the two proposals
   // that reference a media id (a newsletter draft, or a gallery album).
   attachment?: AdminAuggieAttachment;
+  // Set only when the administrator typed a test-email address into the panel's
+  // own recipient field. It never reaches the model and is resolved once, before
+  // tool selection; only the test-send proposal reads it.
+  testRecipient?: string;
 };
 
 type StudentTarget = {
@@ -209,7 +223,8 @@ type DelegatedKind =
   | "bulk_student_action"
   | "student_create"
   | "student_deletion"
-  | "membership_payment";
+  | "membership_payment"
+  | "hours_request_decision";
 
 type DelegatedArgs = {
   kind: DelegatedKind;
@@ -254,6 +269,12 @@ type DelegatedArgs = {
   aatNumber?: string;
   membershipReason?: string;
   paymentReferenceId?: string;
+  // Training-hour request decision. The exact request row the administrator is
+  // approving or rejecting is named by its own id; the reviewed endpoint re-reads
+  // that request, confirms it is still pending and belongs to the resolved
+  // student, and owns the one-transaction hour write.
+  hourRequestId?: string;
+  hoursRequestAction?: "approve" | "reject";
   // New student record fields. Only the plain administrative details a new
   // profile needs are carried; notes, contact details, identity documents and
   // images are never collected here and stay in the reviewed student page.
@@ -293,10 +314,14 @@ type ContentKind =
   | "gallery_photo_add"
   | "gallery_publish"
   | "site_page_visibility"
+  | "site_page_text"
   | "site_publish"
   | "dojo_settings"
   | "dojo_create"
-  | "newsletter_create";
+  | "newsletter_create"
+  | "newsletter_test_send"
+  | "download_update"
+  | "download_retire";
 
 type ContentCaption = { photoId: string; caption?: string; alt?: string };
 
@@ -352,6 +377,36 @@ type ContentArgs = {
   // so the confirmed write only ever references an image the server resolved.
   newsletterCoverMedia?: MediaItem;
   addedPhoto?: GalleryPhoto;
+  // The recipient of a single test newsletter. It is the address the
+  // administrator typed into the panel's own field, never inferred from the chat
+  // message, and it is only ever sent to the reviewed test endpoint.
+  testRecipient?: string;
+  // Website page words. A text edit changes exactly one locale of one page: a
+  // named block's title and/or text, or the page's own title and SEO fields. The
+  // reviewed endpoint re-validates the whole site draft, and publishing stays a
+  // separate confirmed step.
+  blockId?: string;
+  textLocale?: SiteLocale;
+  newBlockTitle?: string;
+  newBlockText?: string;
+  newPageTitle?: string;
+  newSeoTitle?: string;
+  newSeoDescription?: string;
+  // Download record fields. Admin Auggie never carries the PDF itself: adding or
+  // replacing a file reuses the reviewed upload path from the panel. Here it only
+  // edits the record's plain details, its published state and order, or retires
+  // it. Retiring either archives it (unpublished, file kept) or deletes the
+  // record while the reviewed endpoint keeps the stored file.
+  downloadId?: string;
+  downloadTitleEn?: string;
+  downloadTitleTh?: string;
+  downloadDescriptionEn?: string;
+  downloadDescriptionTh?: string;
+  downloadCategory?: string;
+  downloadRank?: string;
+  downloadPublished?: boolean;
+  downloadSortOrder?: number;
+  downloadRetireMode?: "archive" | "delete";
 };
 
 type OperationArgsUnion =
@@ -504,6 +559,7 @@ const DELEGATED_KINDS = new Set<string>([
   "student_create",
   "student_deletion",
   "membership_payment",
+  "hours_request_decision",
 ]);
 // A bulk confirmation must never move more student records than an
 // administrator can read in one preview card, so it stays well under the
@@ -521,10 +577,14 @@ const CONTENT_KINDS = new Set<string>([
   "gallery_photo_add",
   "gallery_publish",
   "site_page_visibility",
+  "site_page_text",
   "site_publish",
   "dojo_settings",
   "dojo_create",
   "newsletter_create",
+  "newsletter_test_send",
+  "download_update",
+  "download_retire",
 ]);
 // One confirmation must cover no more records than an administrator can read in
 // one preview card, so photo and album batches stay small.
@@ -583,6 +643,24 @@ function cleanText(value: unknown, max: number) {
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
     .trim()
     .replace(/\s+/g, " ")
+    .slice(0, max + 1);
+}
+
+// Website block body text is the one place a proposal keeps paragraph breaks:
+// collapsing every run of whitespace (as cleanText does) would flatten a
+// multi-paragraph block into a single line. Newlines are kept, other control
+// characters and stray spacing are still removed, and the reviewed endpoint
+// re-validates the whole draft before saving it.
+function cleanMultiline(value: unknown, max: number) {
+  if (typeof value !== "string") return "";
+  return value
+    .normalize("NFKC")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
     .slice(0, max + 1);
 }
 
@@ -1130,8 +1208,8 @@ const DESTINATIONS: Destination[] = [
     path: "/admin/downloads",
     domain: "downloads",
     manualOnly: true,
-    en: "Open downloads. PDF uploads, replacements, publishing, archiving, and deletion stay manual.",
-    th: "เปิดไฟล์ดาวน์โหลด การอัปโหลด แทนที่ เผยแพร่ เก็บถาวร และลบ PDF ต้องทำด้วยตนเอง",
+    en: "Open downloads. Adding or replacing the PDF file stays manual; I can edit, publish, archive, or delete a download record with confirmation.",
+    th: "เปิดไฟล์ดาวน์โหลด การเพิ่มหรือแทนที่ไฟล์ PDF ต้องทำด้วยตนเอง ส่วนการแก้ไข เผยแพร่ เก็บถาวร หรือลบระเบียนดาวน์โหลด ฉันทำได้พร้อมการยืนยัน",
   },
   {
     key: "dojos",
@@ -1165,6 +1243,7 @@ const PAYMENT_PROOF_PATH = "/admin/payment-proofs";
 const MEMBERSHIP_PATH = "/admin/memberships";
 const WEBSITE_PATH = "/admin/website";
 const DOJO_SETTINGS_PATH = "/admin/dojos";
+const DOWNLOADS_PATH = "/admin/downloads";
 
 function galleryPath(galleryId: GalleryId) {
   return `/admin/galleries/${galleryId}`;
@@ -1408,6 +1487,21 @@ function toolSchemas(ctx: AdminAuggieContext) {
           location: { type: "string", maxLength: 200 },
         },
         required: ["studentId", "hours"],
+      },
+    },
+    {
+      name: "propose_hours_request_decision",
+      description:
+        "Prepare approving or rejecting one training-hour request a student submitted, named by the student's exact Student ID and the exact request id. Approving adds the submitted hours to the student; rejecting declines the request without changing the total. To approve or reject many requests at once, use propose_bulk_student_action instead.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          studentId: { type: "string", minLength: 1, maxLength: 40 },
+          hourRequestId: { type: "string", minLength: 1, maxLength: 80 },
+          action: { type: "string", enum: ["approve", "reject"] },
+        },
+        required: ["studentId", "hourRequestId", "action"],
       },
     },
     {
@@ -1744,6 +1838,19 @@ function toolSchemas(ctx: AdminAuggieContext) {
         },
       },
       {
+        name: "propose_newsletter_test_send",
+        description:
+          "Prepare sending one test copy of a newsletter, named by its exact web address, to the test email address the administrator typed into the panel's test-email field. Never ask for or accept an email address in the chat message; the recipient comes only from that field. Choose this only when a test-email address has been provided.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            webAddress: { type: "string", minLength: 1, maxLength: 100 },
+          },
+          required: ["webAddress"],
+        },
+      },
+      {
         name: "list_site_pages",
         description:
           "List website pages with web address and draft or published state.",
@@ -1770,6 +1877,26 @@ function toolSchemas(ctx: AdminAuggieContext) {
         },
       },
       {
+        name: "propose_site_page_text",
+        description:
+          "Prepare editing the words on one website page inside the website draft, named by its exact web address (route) and locale. To change the words of one content block, give its exact block id with a new title and/or text. To change the page's own heading or search-engine text, omit the block id and give a new page title, SEO title and/or SEO description. Only the fields you give are changed; publishing to the live website stays a separate confirmed step.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            route: { type: "string", minLength: 1, maxLength: 200 },
+            locale: { type: "string", enum: [...SITE_LOCALES] },
+            blockId: { type: "string", minLength: 1, maxLength: 140 },
+            blockTitle: { type: "string", maxLength: 300 },
+            blockText: { type: "string", maxLength: 8000 },
+            pageTitle: { type: "string", maxLength: 300 },
+            seoTitle: { type: "string", maxLength: 300 },
+            seoDescription: { type: "string", maxLength: 600 },
+          },
+          required: ["route", "locale"],
+        },
+      },
+      {
         name: "propose_site_publish",
         description:
           "Prepare publishing the whole website draft to the live public website.",
@@ -1777,6 +1904,45 @@ function toolSchemas(ctx: AdminAuggieContext) {
           type: "object",
           additionalProperties: false,
           properties: {},
+        },
+      },
+    );
+  }
+  if (canAccessAdminPath(DOWNLOADS_PATH, ctx.permission)) {
+    definitions.push(
+      {
+        name: "propose_download_update",
+        description:
+          "Prepare editing one download's details, its published state or its order, named by its exact download id. Use this to change the English or Thai title or description, the category or rank label, whether it is published, or its sort order. Only the fields you give are changed. Adding or replacing the PDF file itself is not done here — that stays on the reviewed downloads page.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            downloadId: { type: "string", minLength: 1, maxLength: 80 },
+            titleEn: { type: "string", maxLength: 160 },
+            titleTh: { type: "string", maxLength: 160 },
+            descriptionEn: { type: "string", maxLength: 600 },
+            descriptionTh: { type: "string", maxLength: 600 },
+            category: { type: "string", maxLength: 120 },
+            rank: { type: "string", maxLength: 120 },
+            published: { type: "boolean" },
+            sortOrder: { type: "integer", minimum: 0, maximum: 10000 },
+          },
+          required: ["downloadId"],
+        },
+      },
+      {
+        name: "propose_download_retire",
+        description:
+          "Prepare retiring one download, named by its exact download id. Archiving unpublishes it and keeps the record and its file. Deleting removes the download record while the reviewed endpoint keeps the stored file; because it cannot be undone here, deleting needs the second exact confirmation.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            downloadId: { type: "string", minLength: 1, maxLength: 80 },
+            mode: { type: "string", enum: ["archive", "delete"] },
+          },
+          required: ["downloadId", "mode"],
         },
       },
     );
@@ -2043,6 +2209,11 @@ const TOOL_TOPICS: Record<string, ToolTopic> = {
     words: /hour|training|practice|session|attend/i,
     paths: ["/admin/students", "/admin/training-requests"],
   },
+  propose_hours_request_decision: {
+    words:
+      /hour|training|request|submitted|approve|reject|decline|deny|pending|review/i,
+    paths: ["/admin/training-requests", "/admin/students"],
+  },
   propose_student_examination: {
     words: /exam|test|grading|pass|fail|result|promot|attempt/i,
     paths: ["/admin/students", "/admin/examination-records"],
@@ -2112,6 +2283,10 @@ const TOOL_TOPICS: Record<string, ToolTopic> = {
     words: /send|email|subscriber|mail|blast|deliver/i,
     paths: ["/admin/website"],
   },
+  propose_newsletter_test_send: {
+    words: /test|preview|try|sample|check.*email|test.*(?:send|email|mail)/i,
+    paths: ["/admin/website"],
+  },
   propose_newsletter_delete: {
     words: /delete|permanent|remove for good|purge|trash/i,
     paths: ["/admin/website"],
@@ -2123,6 +2298,11 @@ const TOOL_TOPICS: Record<string, ToolTopic> = {
   propose_site_page_visibility: {
     words: /page|draft|publish|hide|show|website|site/i,
     paths: ["/admin/site-editor"],
+  },
+  propose_site_page_text: {
+    words:
+      /page|word|wording|text|title|heading|paragraph|copy|content|edit|change|reword|rewrite|seo|block/i,
+    paths: ["/admin/site-editor", "/admin/dojo-updates", "/admin/website"],
   },
   propose_site_publish: {
     words: /publish|go live|website|site|release/i,
@@ -2155,6 +2335,16 @@ const TOOL_TOPICS: Record<string, ToolTopic> = {
   propose_gallery_publish: {
     words: /gallery|publish|go live|album/i,
     paths: ["/admin/galleries/"],
+  },
+  propose_download_update: {
+    words:
+      /download|pdf|file|document|form|handbook|syllabus|category|publish|unpublish|order|rename|title|edit/i,
+    paths: ["/admin/downloads"],
+  },
+  propose_download_retire: {
+    words:
+      /download|pdf|file|document|archive|retire|remove|delete|unpublish|take down/i,
+    paths: ["/admin/downloads"],
   },
   list_dojos: {
     words: /dojo|branch|location|club/i,
@@ -2199,7 +2389,16 @@ const THAI_SUBJECTS: ReadonlyArray<readonly [RegExp, readonly string[]]> = [
   ],
   [
     /ชั่วโมง|ฝึก|ฝึกซ้อม/,
-    ["propose_student_hours", "propose_bulk_student_action", "start_guided_flow"],
+    [
+      "propose_student_hours",
+      "propose_hours_request_decision",
+      "propose_bulk_student_action",
+      "start_guided_flow",
+    ],
+  ],
+  [
+    /คำขอชั่วโมง|อนุมัติชั่วโมง|ปฏิเสธ|ไม่อนุมัติ|คำขอที่รอ/,
+    ["propose_hours_request_decision"],
   ],
   [
     /สอบ|การสอบ|ผลสอบ|เลื่อนขั้น|ระดับ|สายพาน/,
@@ -2223,6 +2422,7 @@ const THAI_SUBJECTS: ReadonlyArray<readonly [RegExp, readonly string[]]> = [
     ],
   ],
   [/ส่งอีเมล|อีเมล|สมาชิกรับข่าว/, ["propose_newsletter_send"]],
+  [/ทดสอบ|ตัวอย่าง|ทดลองส่ง|ส่งทดสอบ/, ["propose_newsletter_test_send"]],
   [
     /แกลเลอรี|อัลบั้ม|รูป|ภาพ/,
     [
@@ -2235,7 +2435,20 @@ const THAI_SUBJECTS: ReadonlyArray<readonly [RegExp, readonly string[]]> = [
   ],
   [
     /เว็บไซต์|หน้าเว็บ|เผยแพร่/,
-    ["list_site_pages", "propose_site_page_visibility", "propose_site_publish"],
+    [
+      "list_site_pages",
+      "propose_site_page_visibility",
+      "propose_site_page_text",
+      "propose_site_publish",
+    ],
+  ],
+  [
+    /ข้อความ|ถ้อยคำ|แก้คำ|แก้ข้อความ|หัวข้อ|เนื้อหา|ปรับข้อความ/,
+    ["propose_site_page_text"],
+  ],
+  [
+    /ดาวน์โหลด|ไฟล์|เอกสาร|พีดีเอฟ|แบบฟอร์ม|หมวดหมู่/,
+    ["propose_download_update", "propose_download_retire"],
   ],
   [/โดโจ/, ["list_dojos", "propose_dojo_settings"]],
   [
@@ -2308,6 +2521,7 @@ export const TOOL_AREAS: Record<ToolArea, readonly string[]> = {
     "propose_student_record_update",
     "propose_student_deletion",
     "propose_student_hours",
+    "propose_hours_request_decision",
     "propose_student_examination",
     "propose_student_create",
     "propose_student_profile_decision",
@@ -2331,9 +2545,11 @@ export const TOOL_AREAS: Record<ToolArea, readonly string[]> = {
     "propose_newsletter_website_state",
     "propose_newsletter_lifecycle",
     "propose_newsletter_send",
+    "propose_newsletter_test_send",
     "propose_newsletter_delete",
     "list_site_pages",
     "propose_site_page_visibility",
+    "propose_site_page_text",
     "propose_site_publish",
   ],
   galleries: [
@@ -2351,11 +2567,10 @@ export const TOOL_AREAS: Record<ToolArea, readonly string[]> = {
     "propose_dojo_create",
     "switch_working_dojo",
   ],
-  // Downloads has no tool yet (the coverage map still lists it as a gap). The
-  // area exists so that when a downloads tool is built it routes here with a
-  // one-line change, and so a downloads message already has a named home rather
-  // than being lost among everything else.
-  downloads: [],
+  // Editing, publishing and retiring a download record are on the delegation
+  // layer. Adding or replacing the PDF itself reuses the reviewed downloads
+  // upload from the panel, so it is not a chat tool and is not listed here.
+  downloads: ["propose_download_update", "propose_download_retire"],
   memberships: ["propose_membership_payment"],
   system: [
     "get_dashboard_summary",
@@ -3953,6 +4168,16 @@ function delegatedStateSql(args: DelegatedArgs) {
       `SELECT COALESCE(s.aat_last_paid_date, '') || '|' || CAST(s.active AS TEXT) AS state
       FROM students s WHERE s.id = ?`,
     );
+  // The training-hour request guard proves the student's active flag, verified
+  // hour total and pending-request fingerprint are all unchanged, so a request
+  // that anyone else reviewed after the preview — changing the pending count or
+  // the total — aborts the write. The reviewed endpoint owns the exact re-check
+  // of the one request being approved or rejected.
+  if (args.kind === "hours_request_decision")
+    return studentStateSql(
+      `SELECT CAST(s.active AS TEXT) || '|' || ${TOTAL_HOURS_SQL} || '|' ||
+        ${PENDING_HOURS_SQL} AS state FROM students s WHERE s.id = ?`,
+    );
   return {
     sql: `SELECT status AS state FROM payment_proofs WHERE id = ?`,
     bindings: (guard: DelegatedGuard) => [guard.id],
@@ -4009,6 +4234,7 @@ const DELEGATED_GUARD_PREFIX: Record<DelegatedKind, string> = {
   student_create: "__student_create__",
   student_deletion: "__student_delete__",
   membership_payment: "__membership__",
+  hours_request_decision: "__hours_request__",
 };
 
 function delegatedGuards(args: DelegatedArgs): DelegatedGuard[] {
@@ -4913,6 +5139,90 @@ async function proposeStudentHours(
   });
 }
 
+// Approving or rejecting one training-hour request a student submitted. Bulk
+// approval of every pending request is a separate tool; this reviews exactly one
+// request, named by its own id, so a single mistaken submission can be declined
+// without touching the rest. The reviewed endpoint owns the one-transaction hour
+// write, re-checks the request is still pending and belongs to this student, and
+// writes its own decision and audit rows.
+async function proposeHoursRequestDecision(
+  ctx: AdminAuggieContext,
+  args: Record<string, unknown>,
+) {
+  requirePathPermission(ctx, STUDENT_PATH);
+  if (!exactKeys(args, ["studentId", "hourRequestId", "action"]))
+    throw new AdminAuggieError(
+      "The training-hour request proposal contains unsupported fields.",
+    );
+  const action = cleanText(args.action, 20);
+  if (action !== "approve" && action !== "reject")
+    throw new AdminAuggieError(
+      "Choose whether to approve or reject the training-hour request.",
+    );
+  const hourRequestId = cleanText(args.hourRequestId, 80);
+  if (!hourRequestId)
+    throw new AdminAuggieError(
+      "Name the exact training-hour request to review.",
+    );
+  const target = await requireEditableStudent(ctx, args.studentId);
+  // The same pending-request fingerprint the confirmation guard rebuilds, so a
+  // request anyone else reviewed after this preview — changing the pending count
+  // or the verified total — is caught before the reviewed endpoint is called.
+  const stateRow = await ctx.db
+    .prepare(
+      `SELECT CAST(s.active AS TEXT) || '|' || ${TOTAL_HOURS_SQL} || '|' ||
+        ${PENDING_HOURS_SQL} AS state FROM students s WHERE s.id = ?`,
+    )
+    .bind(target.id)
+    .first<{ state: string }>();
+  const expectedState =
+    stateRow?.state ?? `${target.active}|${hoursText(target.totalHours)}|0|0.00`;
+  const pendingCount = Number(expectedState.split("|")[2] || 0);
+  if (!pendingCount)
+    throw new AdminAuggieError(
+      `${target.publicId} has no pending training-hour request to review. Use the training-requests page.`,
+      409,
+      "ADMIN_AUGGIE_TARGET_STATE",
+    );
+  const stored: StoredTarget = { ...target, expectedState };
+  const approve = action === "approve";
+  return insertDelegatedOperation(ctx, {
+    toolName: approve ? "hours_request_approved" : "hours_request_rejected",
+    args: {
+      kind: "hours_request_decision",
+      action: approve ? "approve_hours_request" : "reject_hours_request",
+      targets: [stored],
+      route: "admin/student-hours-requests",
+      requiresSecondaryConfirmation: false,
+      requiredPath: STUDENT_PATH,
+      hourRequestId,
+      hoursRequestAction: action,
+      undoable: false,
+    },
+    primaryPhrase: `${approve ? "APPROVE" : "REJECT"} HOUR REQUEST ${target.publicId}`,
+    heading: {
+      en: approve
+        ? "Approve training-hour request"
+        : "Reject training-hour request",
+      th: approve ? "อนุมัติคำขอชั่วโมงฝึก" : "ปฏิเสธคำขอชั่วโมงฝึก",
+    },
+    records: [
+      {
+        studentId: target.publicId,
+        name: target.name,
+        dojo: target.dojoName,
+        before: `${target.totalHours} hours · ${pendingCount} pending`,
+        after: approve ? "request approved" : "request rejected",
+      },
+    ],
+    extraPreview: {
+      hourRequestId,
+      decision: action,
+      permanentRecord: true,
+    },
+  });
+}
+
 async function proposeStudentExamination(
   ctx: AdminAuggieContext,
   args: Record<string, unknown>,
@@ -5451,12 +5761,28 @@ type SiteSnapshot = {
   draftUpdatedAt: string | null;
 };
 
+type DownloadRecord = {
+  id: string;
+  slug: string;
+  title_en: string;
+  title_th: string;
+  description_en: string;
+  description_th: string;
+  category_label: string;
+  rank_label: string;
+  published: number;
+  sort_order: number;
+  object_key: string | null;
+  static_path: string | null;
+};
+
 type ContentObservation = {
   state: string;
   newsletter?: RecentEvent;
   gallery?: GallerySnapshot;
   site?: SiteSnapshot;
   dojo?: DojoRecord;
+  download?: DownloadRecord;
 };
 
 function contentUnavailable(message: string, status = 409): never {
@@ -5615,6 +5941,54 @@ function siteDraftState(snapshot: SiteSnapshot) {
   return `${snapshot.draftUpdatedAt || ""}|${sitePagesState(snapshot.pages)}`;
 }
 
+// The one download record a proposal targets, read straight from the reviewed
+// table by its exact id. Reading is a plain select; the write is still delegated
+// to the reviewed downloads endpoint, which owns the transaction and audit rows.
+async function readDownload(
+  ctx: AdminAuggieContext,
+  id: string,
+): Promise<DownloadRecord | undefined> {
+  if (!id) return undefined;
+  const row = await ctx.db
+    .prepare(
+      `SELECT id, slug, title_en, title_th, description_en, description_th,
+        category_label, rank_label, published, sort_order, object_key, static_path
+      FROM download_assets WHERE id = ? LIMIT 1`,
+    )
+    .bind(id)
+    .first<DownloadRecord>();
+  return row ?? undefined;
+}
+
+// The download fingerprint the guard compares. Any edit, publish, reorder or
+// file replacement by anyone else after the preview changes this string, so the
+// confirmation is refused before the reviewed endpoint is ever called.
+function downloadState(row: DownloadRecord) {
+  return [
+    row.id,
+    row.title_en || "",
+    row.title_th || "",
+    row.description_en || "",
+    row.description_th || "",
+    row.category_label || "",
+    row.rank_label || "",
+    row.published,
+    row.sort_order,
+    row.object_key || "",
+    row.static_path || "",
+  ].join("|");
+}
+
+function downloadRecord(row: DownloadRecord): ContentRecord {
+  return {
+    studentId: row.id,
+    name: row.title_en || row.slug,
+    dojo: row.category_label || "Uncategorized",
+    rank: row.rank_label || "",
+    status: `${row.published ? "published" : "draft"} · order ${row.sort_order}`,
+  };
+}
+
 // The same state string is built when the proposal is prepared and again when
 // it is confirmed. A record touched by anyone in between changes the string, so
 // the confirmation is refused before anything is sent to the reviewed endpoint.
@@ -5622,7 +5996,15 @@ async function observeContent(
   ctx: AdminAuggieContext,
   args: Pick<
     ContentArgs,
-    "kind" | "newsletterSlug" | "galleryId" | "albumId" | "pageRoute" | "dojoId"
+    | "kind"
+    | "newsletterSlug"
+    | "galleryId"
+    | "albumId"
+    | "pageRoute"
+    | "dojoId"
+    | "blockId"
+    | "textLocale"
+    | "downloadId"
   >,
 ): Promise<ContentObservation> {
   if (args.kind.startsWith("newsletter_")) {
@@ -5632,6 +6014,31 @@ async function observeContent(
     return {
       state: newsletter ? await sha256Hex(newsletterState(newsletter)) : "missing",
       newsletter,
+    };
+  }
+  if (args.kind === "download_update" || args.kind === "download_retire") {
+    const download = await readDownload(ctx, args.downloadId || "");
+    return {
+      state: download ? await sha256Hex(downloadState(download)) : "missing",
+      download,
+    };
+  }
+  if (args.kind === "site_page_text") {
+    const site = await readSiteContent(ctx);
+    const page = site.pages.find((entry) => entry.route === args.pageRoute);
+    return {
+      state: page
+        ? await sha256Hex(
+            `${site.draftUpdatedAt || ""}|${args.pageRoute || ""}|${
+              args.blockId || ""
+            }|${args.textLocale || ""}|${sitePageTextState(
+              page,
+              (args.textLocale || "en") as SiteLocale,
+              args.blockId || "",
+            )}`,
+          )
+        : "missing",
+      site,
     };
   }
   if (args.kind === "gallery_publish") {
@@ -5666,6 +6073,12 @@ async function observeContent(
 
 function contentSubjectKey(args: ContentArgs) {
   if (args.kind.startsWith("newsletter_")) return args.newsletterSlug || "";
+  if (args.kind === "download_update" || args.kind === "download_retire")
+    return args.downloadId || "";
+  if (args.kind === "site_page_text")
+    return `${args.pageRoute || ""}#${args.blockId || "page"}@${
+      args.textLocale || ""
+    }`;
   if (args.kind === "site_page_visibility") return args.pageRoute || "";
   if (args.kind === "site_publish") return "website";
   if (args.kind === "dojo_settings" || args.kind === "dojo_create")
@@ -6219,6 +6632,91 @@ async function proposeNewsletterDelete(
     warningTh:
       "ยังไม่มีการลบใด ๆ เมื่อยืนยันจะลบจดหมายข่าวนี้และเนื้อหาอย่างถาวร ไม่สามารถย้อนกลับหรือกู้คืนได้ จึงต้องยืนยันสองครั้งให้ตรงทุกตัวอักษร",
     extraPreview: { webAddress: slug, permanent: true },
+  });
+}
+
+const TEST_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// A test copy reaches exactly one address — the one the administrator typed into
+// the panel's own test-email field, never inferred from the chat message. The
+// address is validated here, carried only to the reviewed test endpoint, and
+// masked in the preview so the full address is not shown back in chat.
+async function proposeNewsletterTestSend(
+  ctx: AdminAuggieContext,
+  args: Record<string, unknown>,
+) {
+  requirePathPermission(ctx, WEBSITE_PATH);
+  if (!exactKeys(args, ["webAddress"]))
+    throw new AdminAuggieError(
+      "The test-send proposal contains unsupported fields.",
+    );
+  if (!newsletterPublishingEnabled(ctx.env))
+    throw new AdminAuggieError(
+      "Newsletter delivery is paused on the server. Nothing was sent.",
+      503,
+      "ADMIN_AUGGIE_CONFIGURATION",
+    );
+  if (missingBrevoEnv(ctx.env).length)
+    throw new AdminAuggieError(
+      "Subscriber email is not configured on the server. Nothing was sent.",
+      503,
+      "ADMIN_AUGGIE_CONFIGURATION",
+    );
+  const recipient = (ctx.testRecipient || "").trim().toLocaleLowerCase("en-US");
+  if (!recipient || recipient.length > 254 || !TEST_EMAIL.test(recipient))
+    throw new AdminAuggieError(
+      localized(
+        ctx.locale,
+        "Type a test-email address into the panel's test-email field first. I never take an email address from the chat message itself.",
+        "โปรดพิมพ์ที่อยู่อีเมลทดสอบในช่องอีเมลทดสอบของแผงก่อน ฉันจะไม่รับที่อยู่อีเมลจากข้อความแชทเอง",
+      ),
+      400,
+      "ADMIN_AUGGIE_TEST_RECIPIENT_REQUIRED",
+    );
+  const slug = parseWebAddress(args.webAddress);
+  const event = requireNewsletter(await readNewsletters(ctx), slug);
+  if (newsletterLifecycle(event) !== "active")
+    throw new AdminAuggieError(
+      `${slug} is ${newsletterStatusLabel(event)}. Restore it before sending a test.`,
+      409,
+      "ADMIN_AUGGIE_TARGET_STATE",
+    );
+  if (!event.title.trim() || (!event.body.trim() && !event.bodyContent))
+    throw new AdminAuggieError(
+      `${slug} needs a title and text before a test can be sent.`,
+      409,
+      "ADMIN_AUGGIE_TARGET_STATE",
+    );
+  const domain = recipient.split("@")[1] || "";
+  const masked = `…@${domain}`;
+  return insertContentOperation(ctx, {
+    toolName: "newsletter_test_sent",
+    affectedLabel: "newsletter",
+    args: {
+      kind: "newsletter_test_send",
+      action: "newsletter_test_sent",
+      targets: [],
+      route: "admin/newsletter-test",
+      requiresSecondaryConfirmation: false,
+      requiredPath: WEBSITE_PATH,
+      expectedState: await sha256Hex(newsletterState(event)),
+      affectedCount: 1,
+      newsletterSlug: slug,
+      testRecipient: recipient,
+    },
+    primaryPhrase: "SEND 1 TEST EMAIL",
+    records: [
+      {
+        ...newsletterRecord(event),
+        before: "not sent",
+        after: `test email to ${masked}`,
+      },
+    ],
+    heading: "Test email proposal",
+    headingTh: "ข้อเสนอส่งอีเมลทดสอบ",
+    warningEn: `No email has been sent. Confirming sends one test copy of this newsletter to ${masked} only. It does not reach any subscriber and does not put the newsletter on the website. Sending to subscribers stays a separate confirmed step.`,
+    warningTh: `ยังไม่มีการส่งอีเมล เมื่อยืนยันจะส่งจดหมายข่าวนี้ฉบับทดสอบไปยัง ${masked} เท่านั้น จะไม่ถึงสมาชิกและจะไม่นำจดหมายข่าวขึ้นเว็บไซต์ การส่งถึงสมาชิกยังคงเป็นขั้นตอนแยกที่ต้องยืนยัน`,
+    extraPreview: { webAddress: slug, testRecipientDomain: domain },
   });
 }
 
@@ -6805,6 +7303,221 @@ async function proposeSitePageVisibility(
   });
 }
 
+function previewSnippet(value: string) {
+  const oneLine = value.replace(/\s+/g, " ").trim();
+  return oneLine.length > 80 ? `${oneLine.slice(0, 80)}…` : oneLine || "(empty)";
+}
+
+// Editing the words on one website page, in one locale, inside the saved draft.
+// A block edit (block id given) changes that block's title and/or text; a
+// page-level edit changes the page title and/or its SEO fields. Only the fields
+// given are changed, and nothing goes to the public website until the draft is
+// published in a separate confirmed step.
+async function proposeSitePageText(
+  ctx: AdminAuggieContext,
+  args: Record<string, unknown>,
+) {
+  requirePathPermission(ctx, WEBSITE_PATH);
+  if (
+    !exactKeys(args, [
+      "route",
+      "locale",
+      "blockId",
+      "blockTitle",
+      "blockText",
+      "pageTitle",
+      "seoTitle",
+      "seoDescription",
+    ])
+  )
+    throw new AdminAuggieError("The page text proposal contains unsupported fields.");
+  const route = cleanText(args.route, 200);
+  if (!SITE_ROUTE.test(route))
+    throw new AdminAuggieError(
+      "Use the exact page web address shown in the website editor.",
+    );
+  const locale = cleanText(args.locale, 10) as SiteLocale;
+  if (!SITE_LOCALES.includes(locale))
+    throw new AdminAuggieError(
+      `Choose one of these languages: ${SITE_LOCALES.join(", ")}.`,
+    );
+  const blockId = args.blockId === undefined ? "" : cleanText(args.blockId, 140);
+  const snapshot = await readSiteContent(ctx);
+  const page = snapshot.pages.find((entry) => entry.route === route);
+  if (!page)
+    throw new AdminAuggieError(
+      `No website page uses the web address ${route}.`,
+      409,
+      "ADMIN_AUGGIE_TARGET_MISSING",
+    );
+  const expectedState = await sha256Hex(
+    `${snapshot.draftUpdatedAt || ""}|${route}|${blockId}|${locale}|${sitePageTextState(
+      page,
+      locale,
+      blockId,
+    )}`,
+  );
+  const baseArgs = {
+    route: "admin/site-content" as AdminApiRoute,
+    requiresSecondaryConfirmation: false,
+    requiredPath: WEBSITE_PATH,
+    expectedState,
+    affectedCount: 1,
+    pageRoute: route,
+    textLocale: locale,
+  };
+  const pageLabel = page.translations?.en?.title || route;
+  if (blockId) {
+    if (
+      args.pageTitle !== undefined ||
+      args.seoTitle !== undefined ||
+      args.seoDescription !== undefined
+    )
+      throw new AdminAuggieError(
+        "With a block id, change only the block title or text — not the page title or SEO fields.",
+      );
+    const block = page.blocks.find((entry) => entry.id === blockId);
+    if (!block)
+      throw new AdminAuggieError(
+        `No content block with the id ${blockId} is on ${route}.`,
+        409,
+        "ADMIN_AUGGIE_TARGET_MISSING",
+      );
+    const newBlockTitle =
+      args.blockTitle === undefined ? undefined : cleanText(args.blockTitle, 300);
+    const newBlockText =
+      args.blockText === undefined ? undefined : cleanMultiline(args.blockText, 8000);
+    if (newBlockTitle === undefined && newBlockText === undefined)
+      throw new AdminAuggieError(
+        "Give a new block title or new block text to change.",
+      );
+    const current = block.translations[locale];
+    const titleChanged =
+      newBlockTitle !== undefined && newBlockTitle !== (current?.title || "");
+    const textChanged =
+      newBlockText !== undefined && newBlockText !== (current?.text || "");
+    if (!titleChanged && !textChanged)
+      throw new AdminAuggieError(
+        "That block already has those words in this language.",
+        409,
+        "ADMIN_AUGGIE_TARGET_STATE",
+      );
+    const changed = [
+      titleChanged ? "title" : "",
+      textChanged ? "text" : "",
+    ].filter(Boolean);
+    return insertContentOperation(ctx, {
+      toolName: "site_page_text",
+      affectedLabel: "website block",
+      args: {
+        kind: "site_page_text",
+        action: "site_block_text_edited",
+        targets: [],
+        blockId,
+        ...(titleChanged ? { newBlockTitle } : {}),
+        ...(textChanged ? { newBlockText } : {}),
+        ...baseArgs,
+      },
+      primaryPhrase: `EDIT 1 WEBSITE BLOCK ${locale.toLocaleUpperCase("en-US")}`,
+      records: [
+        {
+          studentId: route,
+          name: `${pageLabel} · block ${blockId}`,
+          dojo: `Website page · ${locale}`,
+          rank: "",
+          status: changed.join(" + "),
+          before: previewSnippet(
+            textChanged ? current?.text || "" : current?.title || "",
+          ),
+          after: previewSnippet(
+            textChanged ? newBlockText || "" : newBlockTitle || "",
+          ),
+        },
+      ],
+      heading: "Website words proposal",
+      headingTh: "ข้อเสนอแก้ไขข้อความหน้าเว็บ",
+      warningEn:
+        "No change has been made. Confirming saves these words into the website draft only. The public website does not change until the website draft is published separately.",
+      warningTh:
+        "ยังไม่มีการเปลี่ยนแปลง เมื่อยืนยันจะบันทึกข้อความเหล่านี้เฉพาะในฉบับร่างของเว็บไซต์ เว็บไซต์สาธารณะจะยังไม่เปลี่ยนจนกว่าจะเผยแพร่ฉบับร่างแยกต่างหาก",
+      extraPreview: { route, locale, blockId, changed },
+    });
+  }
+  if (args.blockTitle !== undefined || args.blockText !== undefined)
+    throw new AdminAuggieError(
+      "To change a block's words, give its exact block id.",
+    );
+  const newPageTitle =
+    args.pageTitle === undefined ? undefined : cleanText(args.pageTitle, 300);
+  const newSeoTitle =
+    args.seoTitle === undefined ? undefined : cleanText(args.seoTitle, 300);
+  const newSeoDescription =
+    args.seoDescription === undefined
+      ? undefined
+      : cleanText(args.seoDescription, 600);
+  if (
+    newPageTitle === undefined &&
+    newSeoTitle === undefined &&
+    newSeoDescription === undefined
+  )
+    throw new AdminAuggieError(
+      "Give a new page title, SEO title or SEO description to change.",
+    );
+  const current = page.translations[locale];
+  const changed = [
+    newPageTitle !== undefined && newPageTitle !== (current?.title || "")
+      ? "title"
+      : "",
+    newSeoTitle !== undefined && newSeoTitle !== (current?.seoTitle || "")
+      ? "SEO title"
+      : "",
+    newSeoDescription !== undefined &&
+    newSeoDescription !== (current?.seoDescription || "")
+      ? "SEO description"
+      : "",
+  ].filter(Boolean);
+  if (!changed.length)
+    throw new AdminAuggieError(
+      "That page already has those words in this language.",
+      409,
+      "ADMIN_AUGGIE_TARGET_STATE",
+    );
+  return insertContentOperation(ctx, {
+    toolName: "site_page_text",
+    affectedLabel: "website page",
+    args: {
+      kind: "site_page_text",
+      action: "site_page_text_edited",
+      targets: [],
+      ...(newPageTitle !== undefined ? { newPageTitle } : {}),
+      ...(newSeoTitle !== undefined ? { newSeoTitle } : {}),
+      ...(newSeoDescription !== undefined ? { newSeoDescription } : {}),
+      ...baseArgs,
+    },
+    primaryPhrase: `EDIT 1 WEBSITE PAGE ${locale.toLocaleUpperCase("en-US")}`,
+    records: [
+      {
+        studentId: route,
+        name: pageLabel,
+        dojo: `Website page · ${locale}`,
+        rank: "",
+        status: changed.join(" + "),
+        before: previewSnippet(current?.title || ""),
+        after: previewSnippet(
+          newPageTitle === undefined ? current?.title || "" : newPageTitle,
+        ),
+      },
+    ],
+    heading: "Website words proposal",
+    headingTh: "ข้อเสนอแก้ไขข้อความหน้าเว็บ",
+    warningEn:
+      "No change has been made. Confirming saves these words into the website draft only. The public website does not change until the website draft is published separately.",
+    warningTh:
+      "ยังไม่มีการเปลี่ยนแปลง เมื่อยืนยันจะบันทึกข้อความเหล่านี้เฉพาะในฉบับร่างของเว็บไซต์ เว็บไซต์สาธารณะจะยังไม่เปลี่ยนจนกว่าจะเผยแพร่ฉบับร่างแยกต่างหาก",
+    extraPreview: { route, locale, changed },
+  });
+}
+
 async function proposeSitePublish(
   ctx: AdminAuggieContext,
   args: Record<string, unknown>,
@@ -6846,6 +7559,220 @@ async function proposeSitePublish(
       publishedPageCount: publishedPages.length,
       publishesWholeDraft: true,
     },
+  });
+}
+
+// Editing one download's plain details, its published state or its order. The
+// reviewed edit endpoint overwrites every editable field from the body, so the
+// unchanged ones are carried over from the record the server re-reads at
+// confirmation time; only the fields the administrator changed are stored here.
+// The PDF file itself is never touched by this tool.
+async function proposeDownloadUpdate(
+  ctx: AdminAuggieContext,
+  args: Record<string, unknown>,
+) {
+  requirePathPermission(ctx, DOWNLOADS_PATH);
+  if (
+    !exactKeys(args, [
+      "downloadId",
+      "titleEn",
+      "titleTh",
+      "descriptionEn",
+      "descriptionTh",
+      "category",
+      "rank",
+      "published",
+      "sortOrder",
+    ])
+  )
+    throw new AdminAuggieError("The download proposal contains unsupported fields.");
+  const downloadId = cleanText(args.downloadId, 80);
+  if (!downloadId)
+    throw new AdminAuggieError("Name the exact download to edit.");
+  const download = await readDownload(ctx, downloadId);
+  if (!download)
+    throw new AdminAuggieError(
+      `No download uses the id ${downloadId}.`,
+      409,
+      "ADMIN_AUGGIE_TARGET_MISSING",
+    );
+  const titleEn =
+    args.titleEn === undefined ? undefined : cleanText(args.titleEn, 160);
+  const titleTh =
+    args.titleTh === undefined ? undefined : cleanText(args.titleTh, 160);
+  const descriptionEn =
+    args.descriptionEn === undefined
+      ? undefined
+      : cleanText(args.descriptionEn, 600);
+  const descriptionTh =
+    args.descriptionTh === undefined
+      ? undefined
+      : cleanText(args.descriptionTh, 600);
+  const category =
+    args.category === undefined ? undefined : cleanText(args.category, 120);
+  const rank = args.rank === undefined ? undefined : cleanText(args.rank, 120);
+  const published =
+    args.published === undefined
+      ? undefined
+      : optionalBoolean(args.published, "Choose whether to publish the download.");
+  let sortOrder: number | undefined;
+  if (args.sortOrder !== undefined) {
+    sortOrder = Number(args.sortOrder);
+    if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 10_000)
+      throw new AdminAuggieError("Choose a sort order from 0 to 10,000.");
+  }
+  // The reviewed endpoint refuses an empty English title or category, so the
+  // resulting values — the change merged onto the current record — must keep both.
+  const effectiveTitleEn = titleEn ?? download.title_en;
+  const effectiveCategory = category ?? download.category_label;
+  if (!effectiveTitleEn)
+    throw new AdminAuggieError("A download needs an English title.");
+  if (!effectiveCategory)
+    throw new AdminAuggieError("A download needs a category.");
+  const changed = [
+    titleEn !== undefined && titleEn !== (download.title_en || "")
+      ? "English title"
+      : "",
+    titleTh !== undefined && titleTh !== (download.title_th || "")
+      ? "Thai title"
+      : "",
+    descriptionEn !== undefined &&
+    descriptionEn !== (download.description_en || "")
+      ? "English description"
+      : "",
+    descriptionTh !== undefined &&
+    descriptionTh !== (download.description_th || "")
+      ? "Thai description"
+      : "",
+    category !== undefined && category !== (download.category_label || "")
+      ? "category"
+      : "",
+    rank !== undefined && rank !== (download.rank_label || "") ? "rank" : "",
+    published !== undefined && published !== (download.published === 1)
+      ? published
+        ? "published"
+        : "unpublished"
+      : "",
+    sortOrder !== undefined && sortOrder !== download.sort_order ? "order" : "",
+  ].filter(Boolean);
+  if (!changed.length)
+    throw new AdminAuggieError(
+      "That download already has those details.",
+      409,
+      "ADMIN_AUGGIE_TARGET_STATE",
+    );
+  return insertContentOperation(ctx, {
+    toolName: "download_update",
+    affectedLabel: "download",
+    args: {
+      kind: "download_update",
+      action: "download_updated",
+      targets: [],
+      route: "admin/downloads",
+      requiresSecondaryConfirmation: false,
+      requiredPath: DOWNLOADS_PATH,
+      expectedState: await sha256Hex(downloadState(download)),
+      affectedCount: 1,
+      downloadId,
+      ...(titleEn !== undefined ? { downloadTitleEn: titleEn } : {}),
+      ...(titleTh !== undefined ? { downloadTitleTh: titleTh } : {}),
+      ...(descriptionEn !== undefined
+        ? { downloadDescriptionEn: descriptionEn }
+        : {}),
+      ...(descriptionTh !== undefined
+        ? { downloadDescriptionTh: descriptionTh }
+        : {}),
+      ...(category !== undefined ? { downloadCategory: category } : {}),
+      ...(rank !== undefined ? { downloadRank: rank } : {}),
+      ...(published !== undefined ? { downloadPublished: published } : {}),
+      ...(sortOrder !== undefined ? { downloadSortOrder: sortOrder } : {}),
+    },
+    primaryPhrase: `EDIT 1 DOWNLOAD`,
+    records: [
+      {
+        ...downloadRecord(download),
+        before: `${download.published ? "published" : "draft"} · ${
+          download.category_label || "Uncategorized"
+        }`,
+        after: changed.join(" + "),
+      },
+    ],
+    heading: "Download details proposal",
+    headingTh: "ข้อเสนอแก้ไขรายละเอียดไฟล์ดาวน์โหลด",
+    warningEn:
+      "No change has been made. Confirming saves these details to the download. Publishing it makes it visible to the public straight away; the PDF file itself is not changed here.",
+    warningTh:
+      "ยังไม่มีการเปลี่ยนแปลง เมื่อยืนยันจะบันทึกรายละเอียดเหล่านี้กับไฟล์ดาวน์โหลด การเผยแพร่จะทำให้สาธารณะเห็นทันที ไฟล์ PDF จะไม่ถูกเปลี่ยนที่นี่",
+    extraPreview: { downloadId, changed },
+  });
+}
+
+// Retiring one download. Archiving unpublishes it and keeps the record and file;
+// deleting removes the download record while the reviewed endpoint keeps the
+// stored file, and because it cannot be undone here it needs the second exact
+// confirmation.
+async function proposeDownloadRetire(
+  ctx: AdminAuggieContext,
+  args: Record<string, unknown>,
+) {
+  requirePathPermission(ctx, DOWNLOADS_PATH);
+  if (!exactKeys(args, ["downloadId", "mode"]))
+    throw new AdminAuggieError(
+      "The download retire proposal contains unsupported fields.",
+    );
+  const downloadId = cleanText(args.downloadId, 80);
+  const mode = cleanText(args.mode, 20);
+  if (mode !== "archive" && mode !== "delete")
+    throw new AdminAuggieError("Choose whether to archive or delete the download.");
+  if (!downloadId)
+    throw new AdminAuggieError("Name the exact download to retire.");
+  const download = await readDownload(ctx, downloadId);
+  if (!download)
+    throw new AdminAuggieError(
+      `No download uses the id ${downloadId}.`,
+      409,
+      "ADMIN_AUGGIE_TARGET_MISSING",
+    );
+  if (mode === "archive" && download.published !== 1)
+    throw new AdminAuggieError(
+      `${download.title_en || downloadId} is already unpublished.`,
+      409,
+      "ADMIN_AUGGIE_TARGET_STATE",
+    );
+  const permanent = mode === "delete";
+  return insertContentOperation(ctx, {
+    toolName: permanent ? "download_delete" : "download_archive",
+    affectedLabel: "download",
+    args: {
+      kind: "download_retire",
+      action: permanent ? "download_deleted" : "download_archived",
+      targets: [],
+      route: "admin/downloads",
+      requiresSecondaryConfirmation: permanent,
+      requiredPath: DOWNLOADS_PATH,
+      expectedState: await sha256Hex(downloadState(download)),
+      affectedCount: 1,
+      downloadId,
+      downloadRetireMode: mode,
+    },
+    primaryPhrase: permanent ? "DELETE 1 DOWNLOAD" : "ARCHIVE 1 DOWNLOAD",
+    secondaryPhrase: permanent ? "CONFIRM DELETE DOWNLOAD RECORD" : undefined,
+    records: [
+      {
+        ...downloadRecord(download),
+        before: download.published ? "published" : "draft",
+        after: permanent ? "record deleted" : "archived",
+      },
+    ],
+    heading: permanent ? "Delete download proposal" : "Archive download proposal",
+    headingTh: permanent ? "ข้อเสนอลบไฟล์ดาวน์โหลด" : "ข้อเสนอเก็บไฟล์ดาวน์โหลด",
+    warningEn: permanent
+      ? "Nothing has been deleted. Confirming removes this download record so it no longer appears anywhere. The stored PDF file is kept by the reviewed endpoint, but the record cannot be restored here, so it needs two exact confirmations."
+      : "No change has been made. Confirming unpublishes this download and keeps the record and file. You can publish it again afterwards.",
+    warningTh: permanent
+      ? "ยังไม่มีการลบใด ๆ เมื่อยืนยันจะลบระเบียนไฟล์ดาวน์โหลดนี้เพื่อไม่ให้ปรากฏที่ใดอีก ไฟล์ PDF ที่จัดเก็บไว้จะถูกเก็บไว้โดยปลายทางที่ตรวจสอบแล้ว แต่ระเบียนไม่สามารถกู้คืนที่นี่ได้ จึงต้องยืนยันสองครั้งให้ตรง"
+      : "ยังไม่มีการเปลี่ยนแปลง เมื่อยืนยันจะเลิกเผยแพร่ไฟล์ดาวน์โหลดนี้ และเก็บระเบียนกับไฟล์ไว้ คุณสามารถเผยแพร่ใหม่ได้ภายหลัง",
+    extraPreview: { downloadId, mode, permanent },
   });
 }
 
@@ -7521,6 +8448,8 @@ async function executeSelectedTool(ctx: AdminAuggieContext, call: ToolCall) {
     return proposeStudentDeletion(ctx, args);
   if (call.name === "propose_student_hours")
     return proposeStudentHours(ctx, args);
+  if (call.name === "propose_hours_request_decision")
+    return proposeHoursRequestDecision(ctx, args);
   if (call.name === "propose_student_examination")
     return proposeStudentExamination(ctx, args);
   if (call.name === "propose_student_create")
@@ -7558,6 +8487,8 @@ async function executeSelectedTool(ctx: AdminAuggieContext, call: ToolCall) {
     return proposeNewsletterSend(ctx, args);
   if (call.name === "propose_newsletter_delete")
     return proposeNewsletterDelete(ctx, args);
+  if (call.name === "propose_newsletter_test_send")
+    return proposeNewsletterTestSend(ctx, args);
   if (call.name === "list_gallery_albums") return listGalleryAlbums(ctx, args);
   if (call.name === "propose_gallery_album_update")
     return proposeGalleryAlbumUpdate(ctx, args);
@@ -7574,7 +8505,13 @@ async function executeSelectedTool(ctx: AdminAuggieContext, call: ToolCall) {
   if (call.name === "list_site_pages") return listSitePages(ctx, args);
   if (call.name === "propose_site_page_visibility")
     return proposeSitePageVisibility(ctx, args);
+  if (call.name === "propose_site_page_text")
+    return proposeSitePageText(ctx, args);
   if (call.name === "propose_site_publish") return proposeSitePublish(ctx, args);
+  if (call.name === "propose_download_update")
+    return proposeDownloadUpdate(ctx, args);
+  if (call.name === "propose_download_retire")
+    return proposeDownloadRetire(ctx, args);
   if (call.name === "list_dojos") return listDojos(ctx, args);
   if (call.name === "propose_dojo_settings")
     return proposeDojoSettings(ctx, args);
@@ -8005,6 +8942,7 @@ export async function handleAdminAuggieChat(
     "locale",
     "currentPath",
     "attachment",
+    "testRecipient",
   ]);
   const locale: AdminAuggieLocale = input.locale === "th" ? "th" : "en";
   const currentPath =
@@ -8112,6 +9050,11 @@ export async function handleAdminAuggieChat(
   // into the stored asset, which the two attachment-aware proposals reference.
   if (input.attachment !== undefined && input.attachment !== "")
     ctx.attachment = await resolveAdminAuggieAttachment(ctx, input.attachment);
+  // The test-email recipient comes from the panel's own field, resolved here
+  // before the model is ever called and never sent to it. Only its presence is
+  // carried; the test-send proposal validates the address itself.
+  if (typeof input.testRecipient === "string" && input.testRecipient.trim())
+    ctx.testRecipient = input.testRecipient.trim().slice(0, 254);
   let call: ToolCall;
   try {
     call = await runToolSelection(ctx, message);
@@ -8737,6 +9680,11 @@ function delegatedBody(args: DelegatedArgs): Record<string, unknown> {
   }
   if (args.kind === "student_hours")
     return { hours: args.hours, location: args.location || "" };
+  if (args.kind === "hours_request_decision")
+    return {
+      hourRequestId: args.hourRequestId,
+      action: args.hoursRequestAction,
+    };
   if (args.kind === "student_examination")
     return {
       currentRank: args.currentRank,
@@ -8914,6 +9862,7 @@ const SINGLE_STUDENT_KINDS = new Set<string>([
   "student_hours",
   "student_examination",
   "student_profile_decision",
+  "hours_request_decision",
 ]);
 
 async function readDelegatedStates(
@@ -9090,7 +10039,7 @@ function contentCall(
   observed: ContentObservation,
   operationId: string,
 ): {
-  method: "POST" | "PUT";
+  method: AdminApiMethod;
   body?: Record<string, unknown>;
   form?: Record<string, string>;
 } {
@@ -9184,6 +10133,40 @@ function contentCall(
         newsletterId: observed.newsletter!.id,
       },
     };
+  if (args.kind === "newsletter_test_send")
+    return {
+      method: "POST",
+      body: {
+        newsletterId: observed.newsletter!.id,
+        email: args.testRecipient,
+        confirmed: true,
+      },
+    };
+  // The reviewed edit endpoint overwrites every editable field from the body, so
+  // the unchanged ones are carried over from the record the server just re-read;
+  // only the fields the administrator changed came from the proposal.
+  if (args.kind === "download_update") {
+    const download = observed.download!;
+    return {
+      method: "PATCH",
+      body: {
+        id: download.id,
+        titleEn: args.downloadTitleEn ?? download.title_en,
+        titleTh: args.downloadTitleTh ?? download.title_th,
+        descriptionEn: args.downloadDescriptionEn ?? download.description_en,
+        descriptionTh: args.downloadDescriptionTh ?? download.description_th,
+        categoryLabel: args.downloadCategory ?? download.category_label,
+        rankLabel: args.downloadRank ?? download.rank_label,
+        published: args.downloadPublished ?? download.published === 1,
+        sortOrder: args.downloadSortOrder ?? download.sort_order,
+      },
+    };
+  }
+  if (args.kind === "download_retire")
+    return {
+      method: "DELETE",
+      body: { id: args.downloadId, mode: args.downloadRetireMode },
+    };
   if (args.kind === "gallery_publish")
     return {
       method: "POST",
@@ -9250,6 +10233,24 @@ function contentCall(
         expectedUpdatedAt: observed.site!.draftUpdatedAt,
       },
     };
+  if (args.kind === "site_page_text")
+    return {
+      method: "PUT",
+      body: {
+        content: {
+          sitePages: sitePageWithText(observed.site!.pages, args.pageRoute || "", {
+            locale: (args.textLocale || "en") as SiteLocale,
+            blockId: args.blockId || undefined,
+            title: args.blockId ? args.newBlockTitle : args.newPageTitle,
+            text: args.newBlockText,
+            seoTitle: args.newSeoTitle,
+            seoDescription: args.newSeoDescription,
+          }),
+          siteSettings: observed.site!.siteSettings,
+        },
+        expectedUpdatedAt: observed.site!.draftUpdatedAt,
+      },
+    };
   if (args.kind === "site_publish")
     return {
       method: "POST",
@@ -9299,7 +10300,12 @@ function contentSubjectMissing(args: ContentArgs, observed: ContentObservation) 
   // when the administrator confirms, so a second dojo is never made on the same
   // id and an existing one is never overwritten.
   if (args.kind === "dojo_create") return Boolean(observed.dojo);
-  if (args.kind === "site_page_visibility")
+  if (args.kind === "download_update" || args.kind === "download_retire")
+    return !observed.download;
+  if (
+    args.kind === "site_page_visibility" ||
+    args.kind === "site_page_text"
+  )
     return !observed.site?.pages.some((page) => page.route === args.pageRoute);
   if (args.kind === "site_publish") return !observed.site?.draftUpdatedAt;
   if (args.kind === "gallery_publish") return !observed.gallery?.draftUpdatedAt;

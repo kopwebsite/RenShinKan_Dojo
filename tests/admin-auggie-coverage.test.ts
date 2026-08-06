@@ -42,7 +42,14 @@ const COVERAGE: Record<string, string | string[]> = {
   "newsletters/save.ts": "propose_newsletter_create",
   "newsletters/send.ts": "propose_newsletter_send",
   "payment-proofs.ts": "propose_payment_proof_decision",
-  "site-content.ts": "propose_site_page_visibility",
+  // One file, three write tools: the PUT saves page visibility and page words,
+  // the POST publishes the whole draft. Editing the words is a separate proposal
+  // from publishing, which stays its own confirmed step.
+  "site-content.ts": [
+    "propose_site_page_visibility",
+    "propose_site_page_text",
+    "propose_site_publish",
+  ],
   "students/bulk.ts": "propose_bulk_student_action",
   "students/index.ts": "propose_student_create",
   // One file, two write methods: PUT edits the record, DELETE erases it forever.
@@ -64,19 +71,29 @@ const COVERAGE: Record<string, string | string[]> = {
   "publish.ts": "page-only", // Auggie publishes through site-content
   "publish-reconcile.ts": "page-only", // internal publishing recovery
 
-  // Panel uploads — the attach control uploads a photo through the reviewed
-  // media endpoint, then the returned media id is referenced in a proposal.
+  // Panel uploads — the attach control uploads a file through the reviewed
+  // endpoint, then the result is referenced in a proposal.
   "gallery-media.ts": "panel-upload: propose_gallery_photo_add",
   "site-media.ts": "panel-upload: propose_newsletter_create",
+  // Downloads has four write methods. Editing the record (PATCH) and retiring it
+  // (DELETE) travel the JSON delegation layer as reviewed proposals. Adding a new
+  // PDF (POST) and replacing one (PUT) are multipart uploads that cannot: the
+  // Auggie panel uploads the PDF straight through this same reviewed endpoint —
+  // the existing upload path, not a new one — and the draft it creates or the
+  // file it replaces is then managed by propose_download_update.
+  "downloads.ts": [
+    "propose_download_update",
+    "propose_download_retire",
+    "panel-upload: propose_download_update",
+    "panel-upload: propose_download_update",
+  ],
+  "newsletters/test.ts": "propose_newsletter_test_send",
+  "students/[id]/hours-requests.ts": "propose_hours_request_decision",
 
   // Known gaps — should be reachable from the chat, not built yet.
   "diagnostics.ts": "gap: site health check is not yet a tool",
-  "downloads.ts": "gap: downloads area is not yet a tool",
-  "newsletters/test.ts": "gap: newsletter test-send is not yet a tool",
   "students/upload.ts": "gap: student photo upload (stage 4)",
   "students/[id]/application.ts": "gap: admin exam application is not yet a tool",
-  "students/[id]/hours-requests.ts":
-    "gap: approving training-hour requests is not yet a tool",
   "students/[id]/share.ts": "gap: student share links are not yet a tool",
 };
 
@@ -150,10 +167,12 @@ describe("Admin Auggie administration coverage map", () => {
         name.startsWith("panel-upload:"),
       ),
     );
-    // Stage 4 wired the two media endpoints the attach control uploads through:
-    // a newsletter cover, and a gallery album photo. If a third appears here,
-    // it needs its own attachment tool and a decision above.
+    // The attach control uploads through three reviewed endpoints: a newsletter
+    // cover (site-media), a gallery album photo (gallery-media), and a download
+    // PDF added or replaced through the downloads endpoint itself. Each is a
+    // conscious decision above; a fourth appearing here needs the same.
     expect(panelUploads.map(([path]) => path).sort()).toEqual([
+      "downloads.ts",
       "gallery-media.ts",
       "site-media.ts",
     ]);

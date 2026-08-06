@@ -97,6 +97,17 @@ const delegated = vi.hoisted(() => {
   };
 });
 
+// Canned website content the reviewed site-content and newsletter reads return,
+// so the content-framework tools (site page words, newsletter test-send) can be
+// driven without standing up the whole editable-content store. Each test sets
+// what it needs; beforeEach resets it.
+const content = vi.hoisted(() => ({
+  sitePages: [] as Array<Record<string, unknown>>,
+  siteSettings: {} as Record<string, unknown>,
+  siteDraftUpdatedAt: "2026-08-05T00:00:00.000Z" as string | null,
+  recentEvents: [] as Array<Record<string, unknown>>,
+}));
+
 vi.mock("../functions/api/admin/examinations", () => ({
   onRequestPost: delegated.handler("admin/examinations"),
 }));
@@ -156,6 +167,44 @@ vi.mock("../functions/api/admin/students/bulk", () => ({
 vi.mock("../functions/api/admin/memberships", () => ({
   onRequestPost: delegated.handler("admin/memberships"),
 }));
+vi.mock("../functions/api/admin/students/[id]/hours-requests", () => ({
+  onRequestPost: delegated.handler("admin/student-hours-requests"),
+}));
+vi.mock("../functions/api/admin/downloads", () => ({
+  onRequestPatch: delegated.handler("admin/downloads-update"),
+  onRequestDelete: delegated.handler("admin/downloads-retire"),
+}));
+vi.mock("../functions/api/admin/newsletters/test", () => ({
+  onRequestPost: delegated.handler("admin/newsletter-test"),
+}));
+// The website editor read is mocked to hand back the canned content above; the
+// draft-save PUT is captured like every other delegated write.
+vi.mock("../functions/api/admin/site-content", () => ({
+  onRequestGet: async () =>
+    new Response(
+      JSON.stringify({
+        content: {
+          sitePages: content.sitePages,
+          siteSettings: content.siteSettings,
+        },
+        draftMeta: content.siteDraftUpdatedAt
+          ? { updatedAt: content.siteDraftUpdatedAt }
+          : null,
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    ),
+  onRequestPut: delegated.handler("admin/site-content"),
+  onRequestPost: delegated.handler("admin/site-content-publish"),
+}));
+vi.mock("../functions/_lib/storage", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../functions/_lib/storage")>();
+  return {
+    ...actual,
+    readEditableContentFromStorage: async () =>
+      ({ recentEvents: content.recentEvents }) as never,
+  };
+});
 
 import {
   AdminAuggieError,
@@ -195,6 +244,7 @@ const STUDENT_GUARD_PREFIXES = [
   "__student_profile__",
   "__bulk_student__",
   "__membership__",
+  "__hours_request__",
   "__rank__",
 ];
 
@@ -280,6 +330,9 @@ class FakeDb {
   studentHistory = new Map<string, Array<Record<string, unknown>>>();
   // The current paid AAT membership payment the server resolves when reversing.
   aatPaidPayments = new Map<string, { id: string; payment_date: string | null }>();
+  // Download records the reviewed downloads endpoint owns; Admin Auggie reads one
+  // by its exact id to build the guard fingerprint and preview.
+  downloads = new Map<string, Record<string, unknown>>();
   rankWrites = 0;
 
   // Mirrors the exact strings the server's own guard SQL builds, so a test
@@ -354,6 +407,8 @@ class FakeDb {
       query.includes("status = 'paid'")
     )
       return this.aatPaidPayments.get(String(values[0])) || null;
+    if (query.includes("FROM download_assets WHERE id = ?"))
+      return this.downloads.get(String(values[0])) || null;
     if (query.includes("WHERE idempotency_key = ?")) {
       return (
         [...this.operations.values()].find(
@@ -743,6 +798,12 @@ class FakeDb {
         targetId = String(values[1]);
         expected = String(values[2]);
         observed = this.delegatedGuardState(targetId)!;
+      } else if (String(values[1]).startsWith("__content__:")) {
+        // A content-framework guard carries its own observed state as a literal
+        // (the value the tool recomputed at confirmation), not a SQL subquery.
+        targetId = String(values[1]);
+        expected = String(values[2]);
+        observed = String(values[3]);
       } else {
         targetId = String(values[1]);
         expected = String(values[2]);
@@ -1027,6 +1088,10 @@ beforeEach(() => {
   delegated.state.status = 200;
   delegated.state.body = { ok: true };
   delegated.state.apply = undefined;
+  content.sitePages = [];
+  content.siteSettings = {};
+  content.siteDraftUpdatedAt = "2026-08-05T00:00:00.000Z";
+  content.recentEvents = [];
 });
 
 describe("Admin Auggie inference boundary", () => {
@@ -2330,6 +2395,182 @@ describe("Admin Auggie examination and payment tools", () => {
   });
 });
 
+describe("Admin Auggie permanent deletion", () => {
+  function archivedStudentDb(overrides: Partial<FakeStudent> = {}) {
+    const db = new FakeDb();
+    db.students.set(
+      "student-rsk-1001",
+      student({
+        active: 0,
+        archived_at: "2026-08-03T00:00:00.000Z",
+        public_visible: 0,
+        public_visible_before_archive: 1,
+        ...overrides,
+      }),
+    );
+    return db;
+  }
+
+  beforeEach(() => {
+    deletion.target = {
+      id: "student-rsk-1001",
+      public_student_id: "RSK-1001",
+      dojo_id: "dojo-rsk",
+      profile_image_url: null,
+      pending_profile_image_key: null,
+      archived_at: "2026-08-03T00:00:00.000Z",
+    };
+    deletion.plan = {
+      groups: [
+        { key: "trainingHours", label: "Training hour entries", count: 3 },
+        { key: "examinations", label: "Examination results", count: 1 },
+      ],
+      relatedRecords: 4,
+      totalRecords: 5,
+      auditEntriesRedacted: 2,
+      objectKeys: ["student-profiles/2026/08/one.webp"],
+      contributionMonths: [],
+      paymentRequestIds: [],
+    };
+  });
+
+  it("prepares a high-impact, two-phrase proposal and delegates the DELETE once", async () => {
+    const db = archivedStudentDb();
+    const proposal = await prepare(
+      db,
+      "propose_student_deletion",
+      { studentId: "RSK-1001" },
+      "delete-rsk-1001",
+    );
+    expect(proposal.operation.confirmationPhrase).toBe("DELETE RSK-1001");
+    expect(proposal.operation.secondaryConfirmationPhrase).toBe(
+      "CONFIRM PERMANENT DELETION RSK-1001",
+    );
+    expect(proposal.operation.requiresSecondaryConfirmation).toBe(true);
+    // Grave even at one record: it declares itself high-impact and offers no undo.
+    expect(
+      (proposal.operation as unknown as { highImpact: boolean }).highImpact,
+    ).toBe(true);
+    expect(proposal.operation.undoable).toBe(false);
+    expect(proposal.operation.path).toBe("/admin/students");
+    // The real deletion-preview total is carried into the warning the admin reads.
+    const warning = (proposal.operation as unknown as { warning: string })
+      .warning;
+    expect(warning).toContain("5 record");
+    expect(warning.toLowerCase()).toContain("cannot be undone");
+    expect(proposal.operation.preview.totalRecords).toBe(5);
+
+    // The exact phrase alone is not enough: the second deletion phrase is required.
+    await expect(
+      confirmAdminAuggieOperation(
+        operationRequest("/api/admin/auggie/confirm"),
+        env(db, vi.fn()),
+        proposal.operation.id,
+        proposal.operation.confirmationPhrase,
+        "en",
+      ),
+    ).rejects.toMatchObject({
+      code: "ADMIN_AUGGIE_SECOND_CONFIRMATION_REQUIRED",
+    });
+    expect(delegated.state.calls).toHaveLength(0);
+
+    const result = (await confirmAdminAuggieOperation(
+      operationRequest("/api/admin/auggie/confirm"),
+      env(db, vi.fn()),
+      proposal.operation.id,
+      proposal.operation.confirmationPhrase,
+      "en",
+      proposal.operation.secondaryConfirmationPhrase!,
+    )) as { undoable: boolean; count: number };
+    expect(result.undoable).toBe(false);
+    expect(result.count).toBe(1);
+    expect(delegated.state.calls).toHaveLength(1);
+    expect(delegated.state.calls[0].route).toBe("admin/student-delete");
+    expect(delegated.state.calls[0].params).toEqual({ id: "student-rsk-1001" });
+    expect(delegated.state.calls[0].url).toContain(
+      "/api/admin/students/student-rsk-1001",
+    );
+    // Only the small, server-built instruction is sent; both flags mark it the
+    // two-confirmation permanent deletion, and the exact text is rebuilt from
+    // the public ID the server resolved, never from the model.
+    expect(delegated.state.calls[0].body).toEqual({
+      action: "delete_permanently",
+      confirmed: true,
+      secondConfirmation: true,
+      studentId: "RSK-1001",
+      confirmationText: "DELETE RSK-1001",
+    });
+    expect(db.operations.get(proposal.operation.id)?.status).toBe("succeeded");
+    expect(
+      JSON.parse(
+        String(
+          db.audits.find(
+            (values) => values[1] === "admin_ai_write_succeeded",
+          )?.[13],
+        ),
+      ),
+    ).toMatchObject({ aiGenerated: true, aiAssistant: "admin_auggie" });
+  });
+
+  it("refuses to delete a student that is not archived", async () => {
+    const db = new FakeDb();
+    db.students.set("student-rsk-1001", student()); // active, never archived
+    await expect(
+      prepare(
+        db,
+        "propose_student_deletion",
+        { studentId: "RSK-1001" },
+        "delete-active",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TARGET_STATE" });
+    expect(db.operations.size).toBe(0);
+    expect(delegated.state.calls).toHaveLength(0);
+  });
+
+  it("keeps deletion inside the administrator's own dojo", async () => {
+    authState.session.role = "dojo";
+    authState.session.selectedDojoId = "dojo-cmu";
+    authState.session.allowedDojoIds = ["dojo-cmu"];
+    const db = archivedStudentDb(); // the student is in dojo-rsk
+    await expect(
+      prepare(
+        db,
+        "propose_student_deletion",
+        { studentId: "RSK-1001" },
+        "delete-cross-dojo",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TARGET_MISSING" });
+    expect(db.operations.size).toBe(0);
+    expect(delegated.state.calls).toHaveLength(0);
+  });
+
+  it("cancels the deletion if the record is restored after the preview", async () => {
+    const db = archivedStudentDb();
+    const proposal = await prepare(
+      db,
+      "propose_student_deletion",
+      { studentId: "RSK-1001" },
+      "delete-stale",
+    );
+    // The administrator restores the student before confirming.
+    const row = db.students.get("student-rsk-1001")!;
+    row.active = 1;
+    row.archived_at = null;
+    await expect(
+      confirmAdminAuggieOperation(
+        operationRequest("/api/admin/auggie/confirm"),
+        env(db, vi.fn()),
+        proposal.operation.id,
+        proposal.operation.confirmationPhrase,
+        "en",
+        proposal.operation.secondaryConfirmationPhrase!,
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_STALE" });
+    expect(delegated.state.calls).toHaveLength(0);
+    expect(db.students.has("student-rsk-1001")).toBe(true);
+  });
+});
+
 describe("Admin Auggie membership payments", () => {
   function membershipDb(overrides: Partial<FakeStudent> = {}) {
     const db = new FakeDb();
@@ -3113,6 +3354,574 @@ describe("Admin Auggie student history", () => {
     await expect(
       handleAdminAuggieChat(request("history for RSK-1001"), env(db, run)),
     ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TARGET_MISSING" });
+  });
+});
+
+function confirmOp(
+  db: FakeDb,
+  op: { id: string; confirmationPhrase: string },
+  secondary?: string,
+) {
+  return confirmAdminAuggieOperation(
+    operationRequest("/api/admin/auggie/confirm"),
+    env(db, vi.fn()),
+    op.id,
+    op.confirmationPhrase,
+    "en",
+    secondary,
+  );
+}
+
+describe("Admin Auggie training-hour request decisions", () => {
+  function hoursDb(pending: { count: number; hours: number } = { count: 1, hours: 2 }) {
+    const db = new FakeDb();
+    db.students.set("student-rsk-1001", student({ total_hours: 20 }));
+    if (pending.count) db.pendingHourRequests.set("student-rsk-1001", pending);
+    return db;
+  }
+
+  it("approves one submitted request through the reviewed endpoint after the exact phrase", async () => {
+    const db = hoursDb();
+    const proposal = await prepare(
+      db,
+      "propose_hours_request_decision",
+      { studentId: "RSK-1001", hourRequestId: "req-1", action: "approve" },
+      "hours-req-approve",
+    );
+    expect(proposal.operation.confirmationPhrase).toBe(
+      "APPROVE HOUR REQUEST RSK-1001",
+    );
+    expect(proposal.operation.requiresSecondaryConfirmation).toBeFalsy();
+    expect(proposal.operation.path).toBe("/admin/students");
+    expect(proposal.operation.undoable).toBe(false);
+    expect(delegated.state.calls).toHaveLength(0);
+
+    await confirmOp(db, proposal.operation);
+    const call = delegated.state.calls[0];
+    expect(call.route).toBe("admin/student-hours-requests");
+    expect(call.params.id).toBe("student-rsk-1001");
+    expect(call.headers["x-request-id"]).toBe(
+      `admin-auggie:${proposal.operation.id}`,
+    );
+    expect(call.body).toEqual({ hourRequestId: "req-1", action: "approve" });
+  });
+
+  it("rejects a single submitted request without changing the total", async () => {
+    const db = hoursDb();
+    const proposal = await prepare(
+      db,
+      "propose_hours_request_decision",
+      { studentId: "RSK-1001", hourRequestId: "req-9", action: "reject" },
+      "hours-req-reject",
+    );
+    expect(proposal.operation.confirmationPhrase).toBe(
+      "REJECT HOUR REQUEST RSK-1001",
+    );
+    await confirmOp(db, proposal.operation);
+    expect(delegated.state.calls[0].body).toEqual({
+      hourRequestId: "req-9",
+      action: "reject",
+    });
+  });
+
+  it("refuses when the student has no pending request to review", async () => {
+    const db = hoursDb({ count: 0, hours: 0 });
+    await expect(
+      prepare(
+        db,
+        "propose_hours_request_decision",
+        { studentId: "RSK-1001", hourRequestId: "req-1", action: "approve" },
+        "hours-req-none",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TARGET_STATE" });
+    expect(db.operations.size).toBe(0);
+    expect(delegated.state.calls).toHaveLength(0);
+  });
+
+  it("keeps a dojo administrator inside their own dojo (permission parity)", async () => {
+    authState.session.role = "dojo";
+    authState.session.selectedDojoId = "dojo-cmu";
+    authState.session.allowedDojoIds = ["dojo-cmu"];
+    const db = hoursDb(); // the student is in dojo-rsk
+    await expect(
+      prepare(
+        db,
+        "propose_hours_request_decision",
+        { studentId: "RSK-1001", hourRequestId: "req-1", action: "approve" },
+        "hours-req-scope",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TARGET_MISSING" });
+    expect(db.operations.size).toBe(0);
+  });
+
+  it("refuses once another reviewer changes the pending set after the preview", async () => {
+    const db = hoursDb({ count: 1, hours: 2 });
+    const proposal = await prepare(
+      db,
+      "propose_hours_request_decision",
+      { studentId: "RSK-1001", hourRequestId: "req-1", action: "approve" },
+      "hours-req-stale",
+    );
+    // Someone else reviews the request between the preview and the confirmation.
+    db.pendingHourRequests.set("student-rsk-1001", { count: 0, hours: 0 });
+    await expect(confirmOp(db, proposal.operation)).rejects.toMatchObject({
+      code: "ADMIN_AUGGIE_STALE",
+    });
+    expect(delegated.state.calls).toHaveLength(0);
+  });
+});
+
+describe("Admin Auggie downloads", () => {
+  function downloadRow(overrides: Record<string, unknown> = {}) {
+    return {
+      id: "dl-1",
+      slug: "handbook",
+      title_en: "Handbook",
+      title_th: "คู่มือ",
+      description_en: "The student handbook",
+      description_th: "",
+      category_label: "Guides",
+      rank_label: "",
+      published: 0,
+      sort_order: 100,
+      object_key: "downloads/handbook.pdf",
+      static_path: null,
+      ...overrides,
+    };
+  }
+  function downloadsDb(overrides: Record<string, unknown> = {}) {
+    const db = new FakeDb();
+    db.downloads.set("dl-1", downloadRow(overrides));
+    return db;
+  }
+
+  it("edits a download's words and publishes it, carrying unchanged fields over", async () => {
+    const db = downloadsDb();
+    const proposal = await prepare(
+      db,
+      "propose_download_update",
+      {
+        downloadId: "dl-1",
+        titleEn: "Student Handbook",
+        category: "Guides",
+        published: true,
+      },
+      "dl-update",
+    );
+    expect(proposal.operation.confirmationPhrase).toBe("EDIT 1 DOWNLOAD");
+    expect(proposal.operation.path).toBe("/admin/downloads");
+    expect(proposal.operation.requiresSecondaryConfirmation).toBeFalsy();
+    expect(delegated.state.calls).toHaveLength(0);
+
+    await confirmOp(db, proposal.operation);
+    const call = delegated.state.calls[0];
+    expect(call.route).toBe("admin/downloads-update");
+    // The reviewed edit overwrites every field, so the unchanged Thai title and
+    // sort order are carried over from the record while the changed ones apply.
+    expect(call.body).toEqual({
+      id: "dl-1",
+      titleEn: "Student Handbook",
+      titleTh: "คู่มือ",
+      descriptionEn: "The student handbook",
+      descriptionTh: "",
+      categoryLabel: "Guides",
+      rankLabel: "",
+      published: true,
+      sortOrder: 100,
+    });
+  });
+
+  it("refuses an edit that changes nothing", async () => {
+    const db = downloadsDb();
+    await expect(
+      prepare(
+        db,
+        "propose_download_update",
+        { downloadId: "dl-1", titleEn: "Handbook" },
+        "dl-nochange",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TARGET_STATE" });
+    expect(delegated.state.calls).toHaveLength(0);
+  });
+
+  it("archives a published download with one phrase", async () => {
+    const db = downloadsDb({ published: 1 });
+    const proposal = await prepare(
+      db,
+      "propose_download_retire",
+      { downloadId: "dl-1", mode: "archive" },
+      "dl-archive",
+    );
+    expect(proposal.operation.confirmationPhrase).toBe("ARCHIVE 1 DOWNLOAD");
+    expect(proposal.operation.requiresSecondaryConfirmation).toBeFalsy();
+    await confirmOp(db, proposal.operation);
+    expect(delegated.state.calls[0].route).toBe("admin/downloads-retire");
+    expect(delegated.state.calls[0].body).toEqual({ id: "dl-1", mode: "archive" });
+  });
+
+  it("requires the second phrase to permanently delete a download record", async () => {
+    const db = downloadsDb({ published: 1 });
+    const proposal = await prepare(
+      db,
+      "propose_download_retire",
+      { downloadId: "dl-1", mode: "delete" },
+      "dl-delete",
+    );
+    expect(proposal.operation.confirmationPhrase).toBe("DELETE 1 DOWNLOAD");
+    expect(proposal.operation.secondaryConfirmationPhrase).toBe(
+      "CONFIRM DELETE DOWNLOAD RECORD",
+    );
+    expect(proposal.operation.requiresSecondaryConfirmation).toBe(true);
+    await expect(confirmOp(db, proposal.operation)).rejects.toMatchObject({
+      code: "ADMIN_AUGGIE_SECOND_CONFIRMATION_REQUIRED",
+    });
+    expect(delegated.state.calls).toHaveLength(0);
+    await confirmOp(
+      db,
+      proposal.operation,
+      proposal.operation.secondaryConfirmationPhrase!,
+    );
+    expect(delegated.state.calls[0].body).toEqual({ id: "dl-1", mode: "delete" });
+  });
+
+  it("refuses to archive an already-unpublished download", async () => {
+    const db = downloadsDb({ published: 0 });
+    await expect(
+      prepare(
+        db,
+        "propose_download_retire",
+        { downloadId: "dl-1", mode: "archive" },
+        "dl-archive-noop",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TARGET_STATE" });
+  });
+
+  it("refuses a non-central administrator (permission parity)", async () => {
+    authState.session.role = "dojo";
+    authState.session.selectedDojoId = "dojo-cmu";
+    authState.session.allowedDojoIds = ["dojo-cmu"];
+    const db = downloadsDb();
+    await expect(
+      prepare(
+        db,
+        "propose_download_update",
+        { downloadId: "dl-1", titleEn: "New" },
+        "dl-perm",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_ROUTE_FORBIDDEN" });
+    expect(db.operations.size).toBe(0);
+  });
+
+  it("refuses once the download changed after the preview", async () => {
+    const db = downloadsDb();
+    const proposal = await prepare(
+      db,
+      "propose_download_update",
+      { downloadId: "dl-1", titleEn: "New Title" },
+      "dl-stale",
+    );
+    db.downloads.set("dl-1", downloadRow({ sort_order: 5 }));
+    await expect(confirmOp(db, proposal.operation)).rejects.toMatchObject({
+      code: "ADMIN_AUGGIE_STALE",
+    });
+    expect(delegated.state.calls).toHaveLength(0);
+  });
+});
+
+describe("Admin Auggie website page words", () => {
+  function block(overrides: Record<string, unknown> = {}) {
+    return {
+      id: "block-1",
+      type: "richText",
+      visible: true,
+      align: "left",
+      textColor: "ink",
+      background: "transparent",
+      font: "sans",
+      fontSize: "normal",
+      spacing: "normal",
+      imagePlacement: "left",
+      translations: {
+        en: {
+          title: "Welcome",
+          text: "Old paragraph.",
+          buttonLabel: "",
+          buttonUrl: "",
+          imageUrl: "",
+          imageAlt: "",
+        },
+        th: {
+          title: "",
+          text: "",
+          buttonLabel: "",
+          buttonUrl: "",
+          imageUrl: "",
+          imageAlt: "",
+        },
+      },
+      ...overrides,
+    };
+  }
+  function seedPage(route = "/dojo-updates") {
+    content.sitePages = [
+      {
+        id: "page-1",
+        route,
+        status: "draft",
+        translations: {
+          en: {
+            title: "Dojo Updates",
+            seoTitle: "Updates",
+            seoDescription: "The latest",
+          },
+          th: { title: "", seoTitle: "", seoDescription: "" },
+        },
+        blocks: [block()],
+        publishedAt: null,
+        publishedBy: null,
+      },
+    ];
+  }
+
+  it("edits a block's words on the dojo-updates page and saves them to the draft", async () => {
+    seedPage("/dojo-updates");
+    const db = new FakeDb();
+    const proposal = await prepare(
+      db,
+      "propose_site_page_text",
+      {
+        route: "/dojo-updates",
+        locale: "en",
+        blockId: "block-1",
+        blockText: "A fresh new paragraph.",
+      },
+      "site-text-block",
+    );
+    expect(proposal.operation.confirmationPhrase).toBe(
+      "EDIT 1 WEBSITE BLOCK EN",
+    );
+    expect(proposal.operation.path).toBe("/admin/website");
+    expect(delegated.state.calls).toHaveLength(0);
+
+    await confirmOp(db, proposal.operation);
+    const call = delegated.state.calls[0];
+    expect(call.route).toBe("admin/site-content");
+    const pages = (call.body.content as { sitePages: Array<Record<string, any>> })
+      .sitePages;
+    expect(pages[0].blocks[0].translations.en.text).toBe(
+      "A fresh new paragraph.",
+    );
+    // Only the edited field changed; the block title is untouched.
+    expect(pages[0].blocks[0].translations.en.title).toBe("Welcome");
+    expect(call.body.expectedUpdatedAt).toBe(content.siteDraftUpdatedAt);
+  });
+
+  it("edits the page title and SEO fields when no block id is given", async () => {
+    seedPage("/history");
+    const db = new FakeDb();
+    const proposal = await prepare(
+      db,
+      "propose_site_page_text",
+      {
+        route: "/history",
+        locale: "en",
+        pageTitle: "Our History",
+        seoDescription: "The story of the dojo",
+      },
+      "site-text-page",
+    );
+    expect(proposal.operation.confirmationPhrase).toBe("EDIT 1 WEBSITE PAGE EN");
+    await confirmOp(db, proposal.operation);
+    const pages = (
+      delegated.state.calls[0].body.content as {
+        sitePages: Array<Record<string, any>>;
+      }
+    ).sitePages;
+    expect(pages[0].translations.en.title).toBe("Our History");
+    expect(pages[0].translations.en.seoDescription).toBe(
+      "The story of the dojo",
+    );
+    expect(pages[0].translations.en.seoTitle).toBe("Updates");
+  });
+
+  it("refuses a block id that is not on the page", async () => {
+    seedPage("/dojo-updates");
+    const db = new FakeDb();
+    await expect(
+      prepare(
+        db,
+        "propose_site_page_text",
+        {
+          route: "/dojo-updates",
+          locale: "en",
+          blockId: "missing-block",
+          blockText: "hi",
+        },
+        "site-text-missing",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TARGET_MISSING" });
+  });
+
+  it("refuses an edit that changes nothing", async () => {
+    seedPage("/dojo-updates");
+    const db = new FakeDb();
+    await expect(
+      prepare(
+        db,
+        "propose_site_page_text",
+        {
+          route: "/dojo-updates",
+          locale: "en",
+          blockId: "block-1",
+          blockTitle: "Welcome",
+        },
+        "site-text-same",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TARGET_STATE" });
+  });
+
+  it("refuses a non-central administrator (permission parity)", async () => {
+    authState.session.role = "dojo";
+    authState.session.selectedDojoId = "dojo-cmu";
+    authState.session.allowedDojoIds = ["dojo-cmu"];
+    seedPage("/dojo-updates");
+    const db = new FakeDb();
+    await expect(
+      prepare(
+        db,
+        "propose_site_page_text",
+        { route: "/dojo-updates", locale: "en", pageTitle: "X" },
+        "site-text-perm",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_ROUTE_FORBIDDEN" });
+  });
+
+  it("refuses once the website draft changed after the preview", async () => {
+    seedPage("/dojo-updates");
+    const db = new FakeDb();
+    const proposal = await prepare(
+      db,
+      "propose_site_page_text",
+      {
+        route: "/dojo-updates",
+        locale: "en",
+        blockId: "block-1",
+        blockText: "New words.",
+      },
+      "site-text-stale",
+    );
+    content.siteDraftUpdatedAt = "2026-08-06T00:00:00.000Z";
+    await expect(confirmOp(db, proposal.operation)).rejects.toMatchObject({
+      code: "ADMIN_AUGGIE_STALE",
+    });
+    expect(delegated.state.calls).toHaveLength(0);
+  });
+});
+
+describe("Admin Auggie newsletter test-send", () => {
+  const brevoEnv = {
+    BREVO_API_KEY: "key",
+    BREVO_LIST_ID: "1",
+    BREVO_SENDER_EMAIL: "sender@example.test",
+    SITE_URL: "https://example.test",
+  };
+  function seedNewsletter() {
+    content.recentEvents = [
+      {
+        id: "evt-1",
+        slug: "summer-camp",
+        title: "Summer Camp",
+        body: "Come train with us.",
+        published: true,
+        lifecycleStatus: "active",
+        contentType: "newsletter",
+        date: "2026-08-01",
+        updatedAt: "2026-08-05T00:00:00.000Z",
+        newsletter: { status: "not_sent" },
+      },
+    ];
+  }
+  function testSendRequest(recipient: string | undefined, requestId: string) {
+    return new Request("https://example.test/api/admin/auggie/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Request-ID": requestId },
+      body: JSON.stringify({
+        message: "Send a test copy",
+        locale: "en",
+        currentPath: "/admin/website",
+        ...(recipient !== undefined ? { testRecipient: recipient } : {}),
+      }),
+    });
+  }
+  function runTestSend(
+    db: FakeDb,
+    recipient: string | undefined,
+    requestId: string,
+  ) {
+    return handleAdminAuggieChat(
+      testSendRequest(recipient, requestId),
+      env(
+        db,
+        vi.fn(async () =>
+          tool("propose_newsletter_test_send", { webAddress: "summer-camp" }),
+        ),
+        brevoEnv,
+      ),
+    ) as Promise<{
+      operation: {
+        id: string;
+        confirmationPhrase: string;
+        requiresSecondaryConfirmation?: boolean;
+        path: string;
+      };
+    }>;
+  }
+
+  it("sends a test to the panel-supplied recipient through the reviewed endpoint", async () => {
+    seedNewsletter();
+    const db = new FakeDb();
+    const proposal = await runTestSend(db, "auggie@example.test", "test-send-ok");
+    expect(proposal.operation.confirmationPhrase).toBe("SEND 1 TEST EMAIL");
+    expect(proposal.operation.requiresSecondaryConfirmation).toBeFalsy();
+    expect(proposal.operation.path).toBe("/admin/website");
+    expect(delegated.state.calls).toHaveLength(0);
+
+    await confirmOp(db, proposal.operation);
+    const call = delegated.state.calls[0];
+    expect(call.route).toBe("admin/newsletter-test");
+    expect(call.body).toEqual({
+      newsletterId: "evt-1",
+      email: "auggie@example.test",
+      confirmed: true,
+    });
+  });
+
+  it("refuses when no test recipient was typed into the panel field", async () => {
+    seedNewsletter();
+    const db = new FakeDb();
+    await expect(
+      runTestSend(db, undefined, "test-send-no-recipient"),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TEST_RECIPIENT_REQUIRED" });
+    expect(delegated.state.calls).toHaveLength(0);
+  });
+
+  it("refuses a malformed recipient supplied in the panel field", async () => {
+    seedNewsletter();
+    const db = new FakeDb();
+    await expect(
+      runTestSend(db, "not-an-email", "test-send-bad"),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TEST_RECIPIENT_REQUIRED" });
+  });
+
+  it("refuses a non-central administrator (permission parity)", async () => {
+    authState.session.role = "dojo";
+    authState.session.selectedDojoId = "dojo-cmu";
+    authState.session.allowedDojoIds = ["dojo-cmu"];
+    seedNewsletter();
+    const db = new FakeDb();
+    await expect(
+      runTestSend(db, "auggie@example.test", "test-send-perm"),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_ROUTE_FORBIDDEN" });
   });
 });
 

@@ -37,6 +37,11 @@ import {
   type AdminApiRoute,
 } from "./adminAuggieDelegation";
 import {
+  buildStudentDeletionPlan,
+  canPermanentlyDeleteStudent,
+  loadDeletionTarget,
+} from "./studentDeletion";
+import {
   albumRecord,
   albumWithDetails,
   albumWithPhotoCaptions,
@@ -66,6 +71,7 @@ import {
   GALLERY_IDS,
   type GalleryAlbum,
   type GalleryId,
+  type GalleryPhoto,
 } from "../../shared/gallery";
 import {
   NEWSLETTER_CATEGORIES,
@@ -98,7 +104,7 @@ import {
   writeFlowSession,
   type FlowSessionOwner,
 } from "./adminAuggieFlowStore";
-import type { RecentEvent, SitePage, SiteSettings } from "./content";
+import type { MediaItem, RecentEvent, SitePage, SiteSettings } from "./content";
 import { readEditableContentFromStorage, type StorageEnv } from "./storage";
 import {
   getBrevoSubscriberCount,
@@ -125,6 +131,17 @@ export type AdminAuggieEnv = StudentEnv &
 
 export type AdminAuggieLocale = "en" | "th";
 
+// A photo the administrator attached in the panel, already uploaded through the
+// reviewed media endpoint. Only the returned media id ever reaches the server;
+// the image bytes are never read here and never go anywhere near the model. The
+// url and mime type are re-read from the media_assets row the upload wrote, so
+// a proposal only ever references a stored asset the server itself resolved.
+export type AdminAuggieAttachment = {
+  id: string;
+  url: string;
+  mimeType: string;
+};
+
 export type AdminAuggieContext = {
   request: Request;
   env: AdminAuggieEnv;
@@ -134,6 +151,10 @@ export type AdminAuggieContext = {
   locale: AdminAuggieLocale;
   currentPath: string;
   requestId: string;
+  // Set only when the administrator attached a photo with this message. It is
+  // resolved once, before tool selection, and used only by the two proposals
+  // that reference a media id (a newsletter draft, or a gallery album).
+  attachment?: AdminAuggieAttachment;
 };
 
 type StudentTarget = {
@@ -186,7 +207,8 @@ type DelegatedKind =
   | "student_examination"
   | "student_profile_decision"
   | "bulk_student_action"
-  | "student_create";
+  | "student_create"
+  | "student_deletion";
 
 type DelegatedArgs = {
   kind: DelegatedKind;
@@ -258,10 +280,12 @@ type ContentKind =
   | "gallery_album_order"
   | "gallery_photo_captions"
   | "gallery_photo_order"
+  | "gallery_photo_add"
   | "gallery_publish"
   | "site_page_visibility"
   | "site_publish"
   | "dojo_settings"
+  | "dojo_create"
   | "newsletter_create";
 
 type ContentCaption = { photoId: string; caption?: string; alt?: string };
@@ -296,6 +320,13 @@ type ContentArgs = {
   shortName?: string;
   dojoActive?: boolean;
   sortOrder?: number;
+  // Set only when a brand-new dojo is being created. The identity fields a new
+  // dojo needs — the id, the 2-8 character code, the web-address slug and the
+  // logo path — are only carried here for the create path; an existing-dojo
+  // settings change never touches them.
+  dojoCode?: string;
+  dojoSlug?: string;
+  dojoLogoUrl?: string;
   // New newsletter fields. A newsletter made here is always an unpublished
   // draft, so nothing reaches the website or anybody's email until the
   // administrator publishes or sends it through the existing reviewed steps.
@@ -304,6 +335,13 @@ type ContentArgs = {
   newsletterBody?: string;
   newsletterCategory?: NewsletterCategory;
   newsletterDate?: string;
+  // A photo the administrator attached, resolved from the reviewed media
+  // endpoint and referenced by a proposal. The newsletter one is optional (a
+  // draft may be text only); the gallery one is the whole point of the tool.
+  // Both are built here from a stored media_assets row, never from model text,
+  // so the confirmed write only ever references an image the server resolved.
+  newsletterCoverMedia?: MediaItem;
+  addedPhoto?: GalleryPhoto;
 };
 
 type OperationArgsUnion =
@@ -454,6 +492,7 @@ const DELEGATED_KINDS = new Set<string>([
   "student_profile_decision",
   "bulk_student_action",
   "student_create",
+  "student_deletion",
 ]);
 // A bulk confirmation must never move more student records than an
 // administrator can read in one preview card, so it stays well under the
@@ -468,10 +507,12 @@ const CONTENT_KINDS = new Set<string>([
   "gallery_album_order",
   "gallery_photo_captions",
   "gallery_photo_order",
+  "gallery_photo_add",
   "gallery_publish",
   "site_page_visibility",
   "site_publish",
   "dojo_settings",
+  "dojo_create",
   "newsletter_create",
 ]);
 // One confirmation must cover no more records than an administrator can read in
@@ -867,7 +908,7 @@ export async function requireAdminAuggieContext(
   env: AdminAuggieEnv,
   locale: AdminAuggieLocale = "en",
   currentPath = "/admin/dashboard",
-) {
+): Promise<AdminAuggieContext> {
   if (!isSameOriginRequest(request))
     throw new AdminAuggieError("Forbidden.", 403, "ADMIN_AUGGIE_FORBIDDEN");
   const session = await getAuthorizedAdminSession(request, env);
@@ -893,6 +934,59 @@ export async function requireAdminAuggieContext(
       : "/admin/dashboard",
     requestId: requestIdentifier(request),
   } satisfies AdminAuggieContext;
+}
+
+// A media id is the plain UUID the reviewed upload endpoint returned. Nothing
+// else is ever accepted, so a proposal can only reference a real stored asset.
+const MEDIA_ASSET_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Turns the media id the panel sent into the trusted asset the server itself
+// stored. The image bytes are never read here; only the row the reviewed
+// upload endpoint wrote is re-read, so the url and type placed in a proposal
+// are the server's own, never anything the model or the client could shape.
+async function resolveAdminAuggieAttachment(
+  ctx: AdminAuggieContext,
+  raw: unknown,
+): Promise<AdminAuggieAttachment> {
+  const id = cleanText(raw, 80);
+  if (!MEDIA_ASSET_ID.test(id))
+    throw new AdminAuggieError(
+      localized(
+        ctx.locale,
+        "That attached photo could not be read. Please attach it again.",
+        "ไม่สามารถอ่านรูปที่แนบมาได้ โปรดแนบรูปอีกครั้ง",
+      ),
+      400,
+      "ADMIN_AUGGIE_ATTACHMENT_INVALID",
+    );
+  const row = await ctx.db
+    .prepare(
+      "SELECT id, public_url, mime_type FROM media_assets WHERE id = ? LIMIT 1",
+    )
+    .bind(id)
+    .first<{ id: string; public_url: string; mime_type: string }>();
+  if (!row || typeof row.public_url !== "string" || !row.public_url)
+    throw new AdminAuggieError(
+      localized(
+        ctx.locale,
+        "That attached photo is no longer available. Please upload it again.",
+        "รูปที่แนบมาไม่พร้อมใช้งานแล้ว โปรดอัปโหลดใหม่อีกครั้ง",
+      ),
+      409,
+      "ADMIN_AUGGIE_ATTACHMENT_MISSING",
+    );
+  if (!/^image\//i.test(String(row.mime_type)))
+    throw new AdminAuggieError(
+      localized(
+        ctx.locale,
+        "Only a photo can be attached here. Please attach an image.",
+        "ที่นี่แนบได้เฉพาะรูปภาพ โปรดแนบไฟล์รูปภาพ",
+      ),
+      400,
+      "ADMIN_AUGGIE_ATTACHMENT_TYPE",
+    );
+  return { id: row.id, url: row.public_url, mimeType: String(row.mime_type) };
 }
 
 type Destination = {
@@ -1120,7 +1214,7 @@ function toolSchemas(ctx: AdminAuggieContext) {
     {
       name: "navigate_admin",
       description:
-        "Open an administration page. Use this for uploads, media, private data, deletion, settings, audits, or anything no other tool covers.",
+        "Open an administration page. Use this for uploads, media, private data, settings, audits, or anything no other tool covers.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -1262,6 +1356,19 @@ function toolSchemas(ctx: AdminAuggieContext) {
           currentRank: { type: "string", enum: [...RANKS] },
           publicVisible: { type: "boolean" },
           dojoJoinedDate: { type: "string", minLength: 10, maxLength: 10 },
+        },
+        required: ["studentId"],
+      },
+    },
+    {
+      name: "propose_student_deletion",
+      description:
+        "Prepare permanently deleting one student, named by exact Student ID. This erases the record and everything linked to it forever, and cannot be undone. The student must already be archived; deleting forever is only for a record created by mistake. Do not choose this to make a student leave the dojo — that is archiving (propose_student_status).",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          studentId: { type: "string", minLength: 1, maxLength: 40 },
         },
         required: ["studentId"],
       },
@@ -1744,6 +1851,22 @@ function toolSchemas(ctx: AdminAuggieContext) {
         },
       },
       {
+        name: "propose_gallery_photo_add",
+        description:
+          "Prepare adding the photo the administrator attached to one album, named by its exact album id. Choose this only when the administrator attached a photo and wants it added to an album. The photo itself is not named here; the attached image is used.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            galleryId: { type: "string", enum: [...galleries] },
+            albumId: { type: "string", minLength: 1, maxLength: 140 },
+            caption: { type: "string", maxLength: 1000 },
+            alt: { type: "string", maxLength: 300 },
+          },
+          required: ["galleryId", "albumId"],
+        },
+      },
+      {
         name: "propose_gallery_publish",
         description:
           "Prepare publishing the gallery draft to the live public website.",
@@ -1784,6 +1907,26 @@ function toolSchemas(ctx: AdminAuggieContext) {
             sortOrder: { type: "integer", minimum: 0, maximum: 10000 },
           },
           required: ["dojoId"],
+        },
+      },
+      {
+        name: "propose_dojo_create",
+        description:
+          "Prepare creating one brand-new dojo. Give the dojo id (like dojo-example), its official name, short name and 2-8 character code. The web address, logo and display order can be left out and set later on the dojo settings page.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            dojoId: { type: "string", minLength: 1, maxLength: 80 },
+            officialName: { type: "string", minLength: 1, maxLength: 160 },
+            shortName: { type: "string", minLength: 1, maxLength: 100 },
+            code: { type: "string", minLength: 2, maxLength: 8 },
+            slug: { type: "string", minLength: 1, maxLength: 100 },
+            logoUrl: { type: "string", minLength: 1, maxLength: 300 },
+            sortOrder: { type: "integer", minimum: 0, maximum: 10000 },
+            active: { type: "boolean" },
+          },
+          required: ["dojoId", "officialName", "shortName", "code"],
         },
       },
     );
@@ -1840,6 +1983,11 @@ const TOOL_TOPICS: Record<string, ToolTopic> = {
   },
   propose_student_record_update: {
     words: /rank|belt|grade|correct|fix|change|update|edit|visible|website|joined|date/i,
+    paths: ["/admin/students"],
+  },
+  propose_student_deletion: {
+    words:
+      /delete|permanent|erase|remove (?:for good|forever|permanently)|purge|wipe|expunge/i,
     paths: ["/admin/students"],
   },
   propose_student_hours: {
@@ -1946,6 +2094,10 @@ const TOOL_TOPICS: Record<string, ToolTopic> = {
     words: /photo|picture|image|order|sort|arrange|rearrange/i,
     paths: ["/admin/galleries/"],
   },
+  propose_gallery_photo_add: {
+    words: /add|attach|upload|include|put|insert|new.*(?:photo|picture|image)|(?:photo|picture|image).*(?:album|gallery)|this (?:photo|picture|image)/i,
+    paths: ["/admin/galleries/"],
+  },
   propose_gallery_publish: {
     words: /gallery|publish|go live|album/i,
     paths: ["/admin/galleries/"],
@@ -1956,6 +2108,10 @@ const TOOL_TOPICS: Record<string, ToolTopic> = {
   },
   propose_dojo_settings: {
     words: /dojo|branch|club|name|active|order|setting/i,
+    paths: ["/admin/dojos"],
+  },
+  propose_dojo_create: {
+    words: /dojo|branch|club|new|create|make|add|open|found|set ?up|register/i,
     paths: ["/admin/dojos"],
   },
   start_guided_flow: {
@@ -2019,6 +2175,7 @@ const THAI_SUBJECTS: ReadonlyArray<readonly [RegExp, readonly string[]]> = [
       "list_gallery_albums",
       "propose_gallery_album_update",
       "propose_gallery_photo_captions",
+      "propose_gallery_photo_add",
       "propose_gallery_publish",
     ],
   ],
@@ -2047,7 +2204,7 @@ const THAI_SUBJECTS: ReadonlyArray<readonly [RegExp, readonly string[]]> = [
     ["start_guided_flow", "propose_student_create", "propose_newsletter_create"],
   ],
   [/เก็บถาวร|กู้คืน/, ["propose_student_status", "propose_newsletter_lifecycle"]],
-  [/ลบ/, ["propose_newsletter_delete"]],
+  [/ลบ/, ["propose_newsletter_delete", "propose_student_deletion"]],
   [/อากาศ|สภาพอากาศ|พยากรณ์|อุณหภูมิ|ฝนตก|ค้นหาข้อมูล/, ["look_up_information"]],
 ];
 
@@ -2064,6 +2221,129 @@ const ALWAYS_OFFERED = [
 
 const MAX_OFFERED_TOOLS = 12;
 
+// The administration section is split into the same areas an administrator sees
+// in the side menu. Tool selection is two-step: the server first routes the
+// message to one area (below, with no extra model round-trip), then the model
+// is shown only that area's actions. There are now far more tools than fit in
+// one prompt, so this is what keeps each message seeing a small, related set no
+// matter how many tools the whole site grows to. Every tool belongs to exactly
+// one area; the routing test enforces that, so a new tool cannot be added
+// without being placed in an area.
+export type ToolArea =
+  | "students"
+  | "examinations"
+  | "payments"
+  | "website"
+  | "galleries"
+  | "dojos"
+  | "downloads"
+  | "memberships"
+  | "system"
+  | "conversation";
+
+// Declaration order is the tie-break order when two areas match a message
+// equally well, so the more specific, more frequently used areas come first.
+export const TOOL_AREAS: Record<ToolArea, readonly string[]> = {
+  students: [
+    "search_students",
+    "read_student_history",
+    "propose_student_status",
+    "propose_bulk_student_action",
+    "propose_student_record_update",
+    "propose_student_deletion",
+    "propose_student_hours",
+    "propose_student_examination",
+    "propose_student_create",
+    "propose_student_profile_decision",
+    "start_guided_flow",
+  ],
+  examinations: [
+    "get_examination_summary",
+    "list_examination_applications",
+    "propose_examination_status",
+    "propose_examination_rejection",
+  ],
+  payments: [
+    "get_contribution_summary",
+    "propose_contribution_status",
+    "list_payment_proofs",
+    "propose_payment_proof_decision",
+  ],
+  website: [
+    "list_newsletters",
+    "propose_newsletter_create",
+    "propose_newsletter_website_state",
+    "propose_newsletter_lifecycle",
+    "propose_newsletter_send",
+    "propose_newsletter_delete",
+    "list_site_pages",
+    "propose_site_page_visibility",
+    "propose_site_publish",
+  ],
+  galleries: [
+    "list_gallery_albums",
+    "propose_gallery_album_update",
+    "propose_gallery_album_order",
+    "propose_gallery_photo_captions",
+    "propose_gallery_photo_order",
+    "propose_gallery_publish",
+  ],
+  dojos: ["list_dojos", "propose_dojo_settings", "propose_dojo_create"],
+  // No tools yet: the coverage map lists downloads and memberships as gaps. The
+  // areas exist so that when those tools are built they route here with a
+  // one-line change, and so a downloads or memberships message already has a
+  // named home rather than being lost among everything else.
+  downloads: [],
+  memberships: [],
+  system: [
+    "get_dashboard_summary",
+    "get_site_health",
+    "look_up_information",
+    "navigate_admin",
+  ],
+  conversation: ["converse"],
+};
+
+const AREA_ORDER = Object.keys(TOOL_AREAS) as ToolArea[];
+
+const TOOL_AREA: Record<string, ToolArea> = Object.fromEntries(
+  AREA_ORDER.flatMap((area) => TOOL_AREAS[area].map((name) => [name, area])),
+);
+
+function thaiToolMatches(message: string) {
+  const matches = new Set<string>();
+  for (const [pattern, names] of THAI_SUBJECTS)
+    if (pattern.test(message)) for (const name of names) matches.add(name);
+  return matches;
+}
+
+// One tool's affinity for this message and this page. Same signal the earlier
+// one-step shortlist used — kept in one place so the area router and the flat
+// baseline below score a tool identically.
+function toolAffinity(
+  name: string,
+  loweredMessage: string,
+  path: string,
+  thaiMatches: Set<string>,
+) {
+  const topic = TOOL_TOPICS[name];
+  let score = 0;
+  if (topic?.words.test(loweredMessage)) score += 2;
+  if (thaiMatches.has(name)) score += 2;
+  if (
+    topic?.paths.some((candidate) =>
+      candidate.endsWith("/") ? path.startsWith(candidate) : path === candidate,
+    )
+  )
+    score += 1;
+  return score;
+}
+
+// The earlier one-step shortlist: score every permitted tool and offer the top
+// few across all areas at once. It is kept, exported and unchanged in behaviour
+// only as the baseline the routing speed test measures the two-step approach
+// against — the same way adminAuggieToolCatalogue below is kept as the "whole
+// catalogue" baseline. Nothing on the live path calls it any more.
 export function relevantToolNames(input: {
   available: readonly string[];
   message: string;
@@ -2071,26 +2351,15 @@ export function relevantToolNames(input: {
 }) {
   const message = input.message.toLocaleLowerCase("en-US");
   const path = normalizeAdminPath(input.currentPath);
-  const thaiMatches = new Set<string>();
-  for (const [pattern, names] of THAI_SUBJECTS)
-    if (pattern.test(input.message)) for (const name of names) thaiMatches.add(name);
+  const thaiMatches = thaiToolMatches(input.message);
 
-  const scored = input.available.map((name) => {
-    const topic = TOOL_TOPICS[name];
-    let score = 0;
-    if (topic?.words.test(message)) score += 2;
-    if (thaiMatches.has(name)) score += 2;
-    if (
-      topic?.paths.some((candidate) =>
-        candidate.endsWith("/") ? path.startsWith(candidate) : path === candidate,
-      )
-    )
-      score += 1;
-    if ((ALWAYS_OFFERED as readonly string[]).includes(name)) score += 100;
-    return { name, score };
-  });
-
-  const chosen = scored
+  const chosen = input.available
+    .map((name) => ({
+      name,
+      score:
+        toolAffinity(name, message, path, thaiMatches) +
+        ((ALWAYS_OFFERED as readonly string[]).includes(name) ? 100 : 0),
+    }))
     .filter((entry) => entry.score > 0)
     .sort(
       (left, right) =>
@@ -2110,6 +2379,94 @@ export function relevantToolNames(input: {
   return chosen;
 }
 
+// Step one of the two-step selection: route the message to the admin area it is
+// about, from the message text and the current page alone — no model round-trip.
+// An area's strength is the strongest single tool match inside it, so a broad
+// area with many tools cannot drown out a precise one; the count of matching
+// tools only breaks a tie. A genuine dead-heat between two areas returns both,
+// so a message that truly spans two areas still reaches the right tool.
+// Everything else returns exactly one area, and a message about nothing returns
+// none.
+export function routeToolArea(input: {
+  available: readonly string[];
+  message: string;
+  currentPath: string;
+}): ToolArea[] {
+  const message = input.message.toLocaleLowerCase("en-US");
+  const path = normalizeAdminPath(input.currentPath);
+  const thaiMatches = thaiToolMatches(input.message);
+
+  const strength = new Map<ToolArea, { max: number; count: number }>();
+  for (const name of input.available) {
+    const score = toolAffinity(name, message, path, thaiMatches);
+    if (score <= 0) continue;
+    const area = TOOL_AREA[name];
+    if (!area) continue;
+    const current = strength.get(area) || { max: 0, count: 0 };
+    current.max = Math.max(current.max, score);
+    current.count += 1;
+    strength.set(area, current);
+  }
+
+  const ranked = [...strength.entries()].sort(
+    (left, right) =>
+      right[1].max - left[1].max ||
+      right[1].count - left[1].count ||
+      AREA_ORDER.indexOf(left[0]) - AREA_ORDER.indexOf(right[0]),
+  );
+  if (!ranked.length) return [];
+  const chosen: ToolArea[] = [ranked[0][0]];
+  const runnerUp = ranked[1];
+  if (
+    runnerUp &&
+    runnerUp[1].max === ranked[0][1].max &&
+    runnerUp[1].count === ranked[0][1].count
+  )
+    chosen.push(runnerUp[0]);
+  return chosen;
+}
+
+// Step two: offer the model the routed area's whole set of actions, plus the
+// always-offered safety tools (the page opener, the plain reply, student search
+// and the guided-flow starter). Offering the entire area — not only the tools
+// whose keywords matched — is what lets the model pick the exact action over a
+// small, related set even when the wording did not name it. A message that
+// routes nowhere falls back to the reading tools and the page opener, so there
+// is never a dead end. The cap is the same safety rail as before, and it can
+// only ever remove tools from the permitted set, never widen it.
+export function offeredToolNames(input: {
+  available: readonly string[];
+  message: string;
+  currentPath: string;
+}) {
+  const message = input.message.toLocaleLowerCase("en-US");
+  const path = normalizeAdminPath(input.currentPath);
+  const thaiMatches = thaiToolMatches(input.message);
+  const available = new Set(input.available);
+  const areas = routeToolArea(input);
+
+  const names = new Set<string>();
+  for (const name of ALWAYS_OFFERED) if (available.has(name)) names.add(name);
+  for (const area of areas)
+    for (const name of TOOL_AREAS[area]) if (available.has(name)) names.add(name);
+
+  if (!areas.length) {
+    for (const name of ["get_dashboard_summary", "list_newsletters", "list_dojos"])
+      if (available.has(name)) names.add(name);
+  }
+
+  const rank = (name: string) =>
+    ((ALWAYS_OFFERED as readonly string[]).includes(name) ? 100 : 0) +
+    toolAffinity(name, message, path, thaiMatches);
+  return [...names]
+    .sort(
+      (left, right) =>
+        rank(right) - rank(left) ||
+        input.available.indexOf(left) - input.available.indexOf(right),
+    )
+    .slice(0, MAX_OFFERED_TOOLS);
+}
+
 // The complete permission-filtered catalogue, before any shortlist is applied.
 // Exported so tests and the release speed check can measure exactly what used
 // to be sent on every single message.
@@ -2122,7 +2479,7 @@ export function adminAuggieToolCatalogue(permission: AdminPermission) {
 
 function selectedToolSchemas(ctx: AdminAuggieContext, message: string) {
   const all = allToolSchemas(ctx);
-  const names = relevantToolNames({
+  const names = offeredToolNames({
     available: all.map((entry) => entry.function.name),
     message,
     currentPath: ctx.currentPath,
@@ -2184,7 +2541,7 @@ async function runToolSelection(ctx: AdminAuggieContext, message: string) {
           {
             role: "system",
             content:
-              "Choose exactly one tool from the list. Never answer with prose. Never invent an ID, name, rank, date, amount, hours, web address, album id or photo id. Choose converse for a greeting, a thank you, small talk, or a message that names no administration task. Choose look_up_information for a question about the current weather in a place, or another plain outside fact. When a record is named only by a person's name, choose the matching search or list tool first. Choose read_student_history to see who changed one student and when. Choose get_site_health to report whether the website is healthy. Choose navigate_admin for uploads, media, private data, or anything no tool covers. Choose start_guided_flow when the administrator wants to create, add or record something but has not given the details. Every propose tool only prepares a change: the server rechecks everything and the administrator must type an exact confirmation before anything is written.",
+              "Choose exactly one tool from the list. Never answer with prose. Never invent an ID, name, rank, date, amount, hours, web address, album id or photo id. Choose converse for a greeting, a thank you, small talk, or a message that names no administration task. Choose look_up_information for a question about the current weather in a place, or another plain outside fact. When a record is named only by a person's name, choose the matching search or list tool first. Choose read_student_history to see who changed one student and when. Choose propose_student_deletion only to permanently erase one already-archived student named by an exact Student ID; making a student leave the dojo is archiving (propose_student_status), not deletion. Choose get_site_health to report whether the website is healthy. Choose navigate_admin for uploads, media, private data, or anything no tool covers. Choose start_guided_flow when the administrator wants to create, add or record something but has not given the details. Every propose tool only prepares a change: the server rechecks everything and the administrator must type an exact confirmation before anything is written.",
           },
           { role: "user", content: message },
         ],
@@ -2857,8 +3214,15 @@ function operationProposal(row: OperationRow, locale: AdminAuggieLocale) {
   const affectedDojos = Array.isArray(preview.dojos)
     ? preview.dojos.filter((dojo): dojo is string => typeof dojo === "string")
     : [];
+  // Most proposals earn "high impact" from their size, but some are grave even
+  // at one record. A proposal may set preview.highImpact to mark itself so —
+  // permanent deletion does, because erasing one student forever is not a small
+  // change however few rows it counts as.
   const highImpact =
-    confirmable && (affectedCount >= 10 || affectedDojos.length > 1);
+    confirmable &&
+    (affectedCount >= 10 ||
+      affectedDojos.length > 1 ||
+      preview.highImpact === true);
   // A website, newsletter or gallery proposal carries its own sentence because
   // the student wording ("recheck every Student ID") would not describe it.
   const previewWarning =
@@ -3441,6 +3805,15 @@ function delegatedStateSql(args: DelegatedArgs) {
         COALESCE(s.archived_at, '') || '|' || COALESCE(s.profile_status, '') AS state
       FROM students s WHERE s.id = ?`,
     );
+  // Permanent deletion proves the record is still the archived, inactive one in
+  // the same dojo that the preview showed. If it has since been restored, moved,
+  // or already deleted, the guard mismatches and nothing is erased.
+  if (args.kind === "student_deletion")
+    return studentStateSql(
+      `SELECT CAST(s.active AS TEXT) || '|' || COALESCE(s.archived_at, '') || '|' ||
+        s.dojo_id AS state
+      FROM students s WHERE s.id = ?`,
+    );
   if (args.kind === "student_hours")
     return studentStateSql(
       `SELECT CAST(s.active AS TEXT) || '|' || ${TOTAL_HOURS_SQL} AS state
@@ -3543,6 +3916,7 @@ const DELEGATED_GUARD_PREFIX: Record<DelegatedKind, string> = {
   student_profile_decision: "__student_profile__",
   bulk_student_action: "__bulk_student__",
   student_create: "__student_create__",
+  student_deletion: "__student_delete__",
 };
 
 function delegatedGuards(args: DelegatedArgs): DelegatedGuard[] {
@@ -4155,6 +4529,109 @@ async function proposeStudentRecordUpdate(
     extraPreview: {
       fields: changes.map((change) => change.field),
       undoable,
+    },
+  });
+}
+
+// Permanent deletion. Admin Auggie never erases a student itself: it resolves
+// the exact public Student ID inside the administrator's own dojo scope, shows
+// the very same deletion preview the reviewed page shows (built from the shared
+// plan the delete endpoint itself uses), and prepares a high-impact proposal
+// that needs BOTH the exact phrase and the second deletion phrase. On confirm
+// the reviewed DELETE endpoint owns the one-transaction erase. It is not
+// undoable, so no undo is ever offered.
+async function proposeStudentDeletion(
+  ctx: AdminAuggieContext,
+  args: Record<string, unknown>,
+) {
+  requirePathPermission(ctx, STUDENT_PATH);
+  if (!exactKeys(args, ["studentId"]))
+    throw new AdminAuggieError(
+      "The student deletion proposal contains unsupported fields.",
+    );
+  // Resolve the exact Student ID the administrator gave. resolveStudentTargets
+  // applies the same dojo scope and cross-dojo guard every other student tool
+  // uses, so a dojo administrator can only ever reach a student in their own
+  // dojo, and a missing ID is refused rather than guessed.
+  const [target] = await resolveStudentTargets(
+    ctx,
+    parseStudentIds([args.studentId], 1),
+  );
+  // Deleting forever is only for a record created by mistake, so it can only be
+  // prepared for a student that has already been archived. This mirrors the
+  // reviewed endpoint, which refuses to delete a record that is not archived.
+  if (!target.archivedAt)
+    throw new AdminAuggieError(
+      `${target.publicId} must be archived before it can be permanently deleted. Archive it first — deleting forever is only for a record created by mistake.`,
+      409,
+      "ADMIN_AUGGIE_TARGET_STATE",
+    );
+  // The real deletion preview, from the very same shared plan the reviewed
+  // preview and delete endpoints use, so the count shown is the count removed.
+  // This reads only; nothing is changed.
+  const deletionTarget = await loadDeletionTarget(ctx.db, target.id);
+  if (
+    !deletionTarget ||
+    !canPermanentlyDeleteStudent(ctx.session, deletionTarget.dojo_id)
+  )
+    throw new AdminAuggieError(
+      "One or more exact Student IDs is missing or outside your current scope.",
+      409,
+      "ADMIN_AUGGIE_TARGET_MISSING",
+    );
+  const plan = await buildStudentDeletionPlan(ctx.db, target.id, deletionTarget);
+  const stored: StoredTarget = {
+    ...target,
+    // Matches the student_deletion guard SQL: still inactive, still archived at
+    // exactly this moment, still in this dojo.
+    expectedState: [
+      Number(target.active || 0),
+      target.archivedAt || "",
+      target.dojoId,
+    ].join("|"),
+  };
+  const primaryPhrase = `DELETE ${target.publicId}`;
+  const secondaryPhrase = `CONFIRM PERMANENT DELETION ${target.publicId}`;
+  const groups = plan.groups
+    .filter((group) => group.count > 0)
+    .map((group) => ({ label: group.label, count: group.count }));
+  return insertDelegatedOperation(ctx, {
+    toolName: "student_deletion",
+    args: {
+      kind: "student_deletion",
+      action: "delete_permanently",
+      targets: [stored],
+      route: "admin/student-delete",
+      requiresSecondaryConfirmation: true,
+      requiredPath: STUDENT_PATH,
+      // Never undoable: the transaction leaves no record to put back.
+      undoable: false,
+    },
+    primaryPhrase,
+    secondaryPhrase,
+    records: [
+      {
+        studentId: target.publicId,
+        name: target.name,
+        dojo: target.dojoName,
+        rank: target.currentRank,
+      },
+    ],
+    extraPreview: {
+      highImpact: true,
+      undoable: false,
+      permanentDeletion: true,
+      totalRecords: plan.totalRecords,
+      relatedRecords: plan.relatedRecords,
+      storedFiles: plan.objectKeys.length,
+      auditEntriesRedacted: plan.auditEntriesRedacted,
+      groups,
+      warningEn: `This permanently erases ${target.publicId} and everything linked to it — ${plan.totalRecords} record(s) in total, including examinations, training hours and payments. It cannot be undone, and Auggie cannot put it back. No change has been made yet. Recheck the Student ID, then type both exact confirmation phrases below.`,
+      warningTh: `การนี้จะลบ ${target.publicId} และทุกอย่างที่เชื่อมโยงอย่างถาวร รวม ${plan.totalRecords} ระเบียน ทั้งการสอบ ชั่วโมงฝึก และการชำระเงิน ไม่สามารถย้อนกลับได้ และ Auggie ไม่สามารถกู้คืนได้ ยังไม่มีการเปลี่ยนแปลงใด ๆ โปรดตรวจรหัสนักเรียนอีกครั้ง แล้วพิมพ์ข้อความยืนยันทั้งสองด้านล่างให้ตรง`,
+    },
+    heading: {
+      en: "Permanent deletion — please read carefully",
+      th: "การลบถาวร — โปรดอ่านอย่างละเอียด",
     },
   });
 }
@@ -4966,7 +5443,8 @@ function contentSubjectKey(args: ContentArgs) {
   if (args.kind.startsWith("newsletter_")) return args.newsletterSlug || "";
   if (args.kind === "site_page_visibility") return args.pageRoute || "";
   if (args.kind === "site_publish") return "website";
-  if (args.kind === "dojo_settings") return args.dojoId || "";
+  if (args.kind === "dojo_settings" || args.kind === "dojo_create")
+    return args.dojoId || "";
   return `${args.galleryId || "all"}${args.albumId ? `:${args.albumId}` : ""}`;
 }
 
@@ -5194,6 +5672,13 @@ async function proposeNewsletterCreate(
     kind: "newsletter_create",
     newsletterSlug: slug,
   });
+  // An attached photo becomes the draft's cover image. It is built from the
+  // media asset the server itself resolved, never from model text, and the
+  // draft is still unpublished, so the photo reaches no reader until the
+  // administrator publishes the newsletter in a separate reviewed step.
+  const coverMedia: MediaItem | undefined = ctx.attachment
+    ? { id: ctx.attachment.id, src: ctx.attachment.url, alt: title, type: "image" }
+    : undefined;
   return insertContentOperation(ctx, {
     toolName: "newsletter_created",
     affectedLabel: "newsletter",
@@ -5213,6 +5698,7 @@ async function proposeNewsletterCreate(
       newsletterCategory: category,
       newsletterDate: date,
       published: false,
+      ...(coverMedia ? { newsletterCoverMedia: coverMedia } : {}),
     },
     primaryPhrase: "CREATE NEWSLETTER",
     records: [
@@ -5221,16 +5707,25 @@ async function proposeNewsletterCreate(
         name: title,
         dojo: category,
         rank: date,
-        status: localized(ctx.locale, "draft", "ฉบับร่าง"),
+        status: localized(
+          ctx.locale,
+          coverMedia ? "draft · with photo" : "draft",
+          coverMedia ? "ฉบับร่าง · มีรูปภาพ" : "ฉบับร่าง",
+        ),
       },
     ],
     heading: "New newsletter",
     headingTh: "จดหมายข่าวใหม่",
-    warningEn:
-      "Nothing has been saved yet. This creates an unpublished draft only: it does not go on the website and it does not email anybody. Publishing and sending stay separate steps that each need their own confirmation.",
-    warningTh:
-      "ยังไม่มีการบันทึก ขั้นตอนนี้สร้างเฉพาะฉบับร่างที่ยังไม่เผยแพร่ จะไม่ขึ้นเว็บไซต์และไม่ส่งอีเมลถึงใคร การเผยแพร่และการส่งเป็นขั้นตอนแยกที่ต้องยืนยันของตนเอง",
-    extraPreview: { title, summary, category, date, webAddress: slug },
+    warningEn: `Nothing has been saved yet. This creates an unpublished draft only${coverMedia ? ", with your attached photo as its cover image" : ""}: it does not go on the website and it does not email anybody. Publishing and sending stay separate steps that each need their own confirmation.`,
+    warningTh: `ยังไม่มีการบันทึก ขั้นตอนนี้สร้างเฉพาะฉบับร่างที่ยังไม่เผยแพร่${coverMedia ? " โดยใช้รูปที่แนบมาเป็นภาพหน้าปก" : ""} จะไม่ขึ้นเว็บไซต์และไม่ส่งอีเมลถึงใคร การเผยแพร่และการส่งเป็นขั้นตอนแยกที่ต้องยืนยันของตนเอง`,
+    extraPreview: {
+      title,
+      summary,
+      category,
+      date,
+      webAddress: slug,
+      photoAttached: Boolean(coverMedia),
+    },
   });
 }
 
@@ -5847,6 +6342,92 @@ async function proposeGalleryPhotoOrder(
   });
 }
 
+// Adds the photo the administrator attached to an existing album. The image was
+// already uploaded through the reviewed media endpoint; here only the media id
+// the server resolved is turned into a photo row and appended to the album, in
+// the gallery draft, through the very same reviewed gallery endpoint the page
+// uses. Nothing reaches the public website until the gallery is published in a
+// separate reviewed step.
+async function proposeGalleryPhotoAdd(
+  ctx: AdminAuggieContext,
+  args: Record<string, unknown>,
+) {
+  if (!exactKeys(args, ["galleryId", "albumId", "caption", "alt"]))
+    throw new AdminAuggieError(
+      "The add-photo proposal contains unsupported fields.",
+    );
+  if (!ctx.attachment)
+    throw new AdminAuggieError(
+      localized(
+        ctx.locale,
+        "Attach a photo first, then ask me to add it to the album.",
+        "โปรดแนบรูปก่อน แล้วจึงขอให้เพิ่มรูปนั้นลงในอัลบั้ม",
+      ),
+      400,
+      "ADMIN_AUGGIE_ATTACHMENT_REQUIRED",
+    );
+  const galleryId = parseGalleryId(ctx, args.galleryId);
+  const albumId = parseGalleryItemId(args.albumId, "album id");
+  const caption =
+    args.caption === undefined ? undefined : cleanText(args.caption, 1_000);
+  const alt = args.alt === undefined ? "" : cleanText(args.alt, 300);
+  const snapshot = await readGallery(ctx, galleryId);
+  const album = requireAlbum(snapshot, albumId);
+  // The upload always mints a fresh media id, so a repeat can only mean the same
+  // proposal is being re-read; refuse to append the same photo id twice.
+  if (album.photos.some((photo) => photo.id === ctx.attachment!.id))
+    throw new AdminAuggieError(
+      "That photo is already in this album.",
+      409,
+      "ADMIN_AUGGIE_TARGET_STATE",
+    );
+  const now = new Date().toISOString();
+  const addedPhoto: GalleryPhoto = {
+    id: ctx.attachment.id,
+    src: ctx.attachment.url,
+    alt,
+    ...(caption ? { caption } : {}),
+    visibility: "published",
+    createdAt: now,
+    updatedAt: now,
+  };
+  const draftWarning = galleryDraftWarning(
+    "adds this photo to the album",
+    "เพิ่มรูปนี้ลงในอัลบั้ม",
+  );
+  return insertContentOperation(ctx, {
+    toolName: "gallery_photo_add",
+    affectedLabel: "photo",
+    args: {
+      kind: "gallery_photo_add",
+      action: "gallery_photo_added",
+      targets: [],
+      route: "admin/galleries",
+      requiresSecondaryConfirmation: false,
+      requiredPath: galleryPath(galleryId),
+      expectedState: await sha256Hex(
+        galleryDraftState(snapshot, snapshot.albums),
+      ),
+      affectedCount: 1,
+      galleryId,
+      albumId,
+      addedPhoto,
+    },
+    primaryPhrase: "ADD 1 PHOTO",
+    records: [
+      {
+        ...photoRecord(addedPhoto),
+        before: `${album.title} · ${livePhotos(album).length} photo(s)`,
+        after: `${album.title} · ${livePhotos(album).length + 1} photo(s)`,
+      },
+    ],
+    heading: "Add photo proposal",
+    headingTh: "ข้อเสนอเพิ่มรูปภาพ",
+    ...draftWarning,
+    extraPreview: { galleryId, albumId, photoAttached: true },
+  });
+}
+
 async function proposeGalleryPublish(
   ctx: AdminAuggieContext,
   args: Record<string, unknown>,
@@ -6163,6 +6744,125 @@ async function proposeDojoSettings(
     warningTh:
       "ยังไม่มีการเปลี่ยนแปลง เมื่อยืนยันจะบันทึกชื่อโดโจ สถานะการใช้งาน หรือลำดับการแสดงผลทันที และหน้าโดโจสาธารณะจะเปลี่ยนตาม รหัสโดโจ ที่อยู่เว็บ โลโก้ และข้อมูลติดต่อจะไม่ถูกแก้ไข",
     extraPreview: { dojoId, changedFields: changes },
+  });
+}
+
+// Creating a dojo is central administration only, gated by the same dojo
+// settings page permission as every other dojo tool. Nothing is written here:
+// the proposal is prepared, proved that the id is still free, and only the
+// reviewed create endpoint performs the insert, its own uniqueness checks and
+// the audit row after the exact phrase is typed.
+async function proposeDojoCreate(
+  ctx: AdminAuggieContext,
+  args: Record<string, unknown>,
+) {
+  requirePathPermission(ctx, DOJO_SETTINGS_PATH);
+  if (
+    !exactKeys(args, [
+      "dojoId",
+      "officialName",
+      "shortName",
+      "code",
+      "slug",
+      "logoUrl",
+      "sortOrder",
+      "active",
+    ])
+  )
+    throw new AdminAuggieError("The new dojo proposal contains unsupported fields.");
+  const dojoId = cleanText(args.dojoId, 80).toLocaleLowerCase("en-US");
+  if (!DOJO_ID.test(dojoId))
+    throw new AdminAuggieError(
+      "Give the new dojo an id like dojo-example: small letters, numbers and hyphens only.",
+    );
+  const officialName = cleanText(args.officialName, 160);
+  if (!officialName)
+    throw new AdminAuggieError("The official dojo name cannot be empty.");
+  const shortName = cleanText(args.shortName, 100);
+  if (!shortName)
+    throw new AdminAuggieError("The short dojo name cannot be empty.");
+  const code = cleanText(args.code, 8).toLocaleUpperCase("en-US");
+  if (!/^[A-Z0-9]{2,8}$/.test(code))
+    throw new AdminAuggieError(
+      "The dojo code must be 2 to 8 letters or numbers.",
+    );
+  const slug =
+    (args.slug === undefined || cleanText(args.slug, 100) === ""
+      ? officialName
+      : cleanText(args.slug, 100))
+      .toLocaleLowerCase("en-US")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 100)
+      .replace(/-+$/g, "");
+  if (!NEWSLETTER_SLUG.test(slug))
+    throw new AdminAuggieError(
+      "The web address must be small letters, numbers and hyphens only, for example example-dojo.",
+    );
+  const logoUrl =
+    args.logoUrl === undefined || cleanText(args.logoUrl, 300) === ""
+      ? "/renshinkan-logo.png"
+      : cleanText(args.logoUrl, 300);
+  if (!SITE_ROUTE.test(logoUrl))
+    throw new AdminAuggieError(
+      "The logo path must start with a slash, for example /dojos/example.jpg.",
+    );
+  const sortOrder = args.sortOrder === undefined ? 0 : Number(args.sortOrder);
+  if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 10_000)
+    throw new AdminAuggieError("The display order must be a whole number 0-10,000.");
+  const active = args.active === undefined ? true : args.active;
+  if (typeof active !== "boolean")
+    throw new AdminAuggieError("Choose whether the new dojo is active.");
+  const existing = (await readDojos(ctx)).find((entry) => entry.id === dojoId);
+  if (existing)
+    throw new AdminAuggieError(
+      `A dojo already uses the id ${dojoId}. Choose a different id, or change the existing dojo instead.`,
+      409,
+      "ADMIN_AUGGIE_TARGET_STATE",
+    );
+  return insertContentOperation(ctx, {
+    toolName: "dojo_created",
+    affectedLabel: "dojo",
+    args: {
+      kind: "dojo_create",
+      action: "dojo_created",
+      targets: [],
+      route: "admin/dojos",
+      requiresSecondaryConfirmation: false,
+      requiredPath: DOJO_SETTINGS_PATH,
+      // A brand-new dojo has no record of its own to fingerprint. The guard
+      // proves the one thing that must still hold at confirmation: no dojo has
+      // since been created on this id.
+      expectedState: "missing",
+      affectedCount: 1,
+      dojoId,
+      officialName,
+      shortName,
+      dojoActive: active,
+      sortOrder,
+      dojoCode: code,
+      dojoSlug: slug,
+      dojoLogoUrl: logoUrl,
+    },
+    primaryPhrase: "CREATE 1 DOJO",
+    records: [
+      {
+        studentId: dojoId,
+        name: officialName,
+        dojo: shortName,
+        rank: code,
+        status: localized(
+          ctx.locale,
+          `${active ? "active" : "inactive"} · will be created`,
+          `${active ? "ใช้งาน" : "ปิดใช้งาน"} · จะถูกสร้าง`,
+        ),
+      },
+    ],
+    heading: "New dojo proposal",
+    headingTh: "ข้อเสนอสร้างโดโจใหม่",
+    warningEn: `No dojo has been created yet. Confirming creates a brand-new dojo "${officialName}" (${code}) at the web address ${slug}, and it will appear wherever dojos are listed. The logo can be replaced afterwards on the dojo settings page. Check the details, then type the exact phrase below.`,
+    warningTh: `ยังไม่มีการสร้างโดโจ เมื่อยืนยันจะสร้างโดโจใหม่ "${officialName}" (${code}) ที่อยู่เว็บ ${slug} และจะปรากฏในรายการโดโจ โลโก้เปลี่ยนภายหลังได้ในหน้าตั้งค่าโดโจ โปรดตรวจสอบรายละเอียด แล้วพิมพ์ข้อความยืนยันด้านล่างให้ตรง`,
+    extraPreview: { dojoId, code, slug, logoUrl },
   });
 }
 
@@ -6541,6 +7241,8 @@ async function executeSelectedTool(ctx: AdminAuggieContext, call: ToolCall) {
     return proposeBulkStudentAction(ctx, args);
   if (call.name === "propose_student_record_update")
     return proposeStudentRecordUpdate(ctx, args);
+  if (call.name === "propose_student_deletion")
+    return proposeStudentDeletion(ctx, args);
   if (call.name === "propose_student_hours")
     return proposeStudentHours(ctx, args);
   if (call.name === "propose_student_examination")
@@ -6587,6 +7289,8 @@ async function executeSelectedTool(ctx: AdminAuggieContext, call: ToolCall) {
     return proposeGalleryPhotoCaptions(ctx, args);
   if (call.name === "propose_gallery_photo_order")
     return proposeGalleryPhotoOrder(ctx, args);
+  if (call.name === "propose_gallery_photo_add")
+    return proposeGalleryPhotoAdd(ctx, args);
   if (call.name === "propose_gallery_publish")
     return proposeGalleryPublish(ctx, args);
   if (call.name === "list_site_pages") return listSitePages(ctx, args);
@@ -6596,6 +7300,7 @@ async function executeSelectedTool(ctx: AdminAuggieContext, call: ToolCall) {
   if (call.name === "list_dojos") return listDojos(ctx, args);
   if (call.name === "propose_dojo_settings")
     return proposeDojoSettings(ctx, args);
+  if (call.name === "propose_dojo_create") return proposeDojoCreate(ctx, args);
   throw new AdminAuggieError(
     localized(
       ctx.locale,
@@ -7021,6 +7726,7 @@ export async function handleAdminAuggieChat(
     "message",
     "locale",
     "currentPath",
+    "attachment",
   ]);
   const locale: AdminAuggieLocale = input.locale === "th" ? "th" : "en";
   const currentPath =
@@ -7123,6 +7829,11 @@ export async function handleAdminAuggieChat(
     }).catch(() => undefined);
     return outOfChatScopeReply(ctx, outOfScope);
   }
+  // An attached photo is resolved once, here, before the model is ever called.
+  // The image never reaches the model; only the id the panel sent is turned
+  // into the stored asset, which the two attachment-aware proposals reference.
+  if (input.attachment !== undefined && input.attachment !== "")
+    ctx.attachment = await resolveAdminAuggieAttachment(ctx, input.attachment);
   let call: ToolCall;
   try {
     call = await runToolSelection(ctx, message);
@@ -7730,6 +8441,22 @@ function delegatedBody(args: DelegatedArgs): Record<string, unknown> {
         : { publicVisible: args.publicVisible }),
       ...(args.dojoJoinedDate ? { dojoJoinedDate: args.dojoJoinedDate } : {}),
     };
+  if (args.kind === "student_deletion") {
+    // The reviewed DELETE endpoint owns the one-transaction erase and re-checks
+    // both of these itself: the exact public Student ID it re-reads, and the
+    // exact "DELETE <Student ID>" text. Both are rebuilt here from the public
+    // ID the server resolved, never from model output. Sending both flags is
+    // what makes the endpoint treat this as the two-confirmation permanent
+    // deletion rather than an archive.
+    const publicId = args.targets[0]?.publicId || "";
+    return {
+      action: "delete_permanently",
+      confirmed: true,
+      secondConfirmation: true,
+      studentId: publicId,
+      confirmationText: `DELETE ${publicId}`,
+    };
+  }
   if (args.kind === "student_hours")
     return { hours: args.hours, location: args.location || "" };
   if (args.kind === "student_examination")
@@ -7827,7 +8554,12 @@ async function executeDelegatedOperation(
     source: ctx.request,
     env: ctx.env,
     route: args.route,
-    method: args.kind === "student_record_update" ? "PUT" : "POST",
+    method:
+      args.kind === "student_record_update"
+        ? "PUT"
+        : args.kind === "student_deletion"
+          ? "DELETE"
+          : "POST",
     body: delegatedBody(args),
     requestId: delegatedRequestId,
     applicationId: args.applicationId,
@@ -7878,6 +8610,7 @@ async function executeDelegatedOperation(
 
 const SINGLE_STUDENT_KINDS = new Set<string>([
   "student_record_update",
+  "student_deletion",
   "student_hours",
   "student_examination",
   "student_profile_decision",
@@ -8084,7 +8817,16 @@ function contentCall(
           websitePublishRequested: false,
           notifySubscribers: false,
           showInCommunityCalendar: false,
-          media: [],
+          // An attached photo becomes the draft's cover. It is one media item the
+          // server already resolved from a stored asset; the reviewed save
+          // endpoint validates it exactly as it does a hand-added one.
+          media: args.newsletterCoverMedia ? [args.newsletterCoverMedia] : [],
+          ...(args.newsletterCoverMedia
+            ? {
+                image: args.newsletterCoverMedia,
+                coverImageId: args.newsletterCoverMedia.id,
+              }
+            : {}),
           tags: [],
           createdAt: now,
           updatedAt: now,
@@ -8173,6 +8915,12 @@ function contentCall(
               );
             if (args.kind === "gallery_photo_captions")
               return albumWithPhotoCaptions(album, args.captions || [], now)!;
+            if (args.kind === "gallery_photo_add")
+              return {
+                ...album,
+                photos: [...album.photos, args.addedPhoto!],
+                updatedAt: now,
+              };
             return albumWithPhotoOrder(album, args.photoIds || [], now)!;
           });
     return {
@@ -8211,6 +8959,25 @@ function contentCall(
         note: "Published from Admin Auggie after two exact confirmations",
       },
     };
+  // Creating a dojo is the one dojo write that does not read an existing record
+  // first: the identity fields were validated when the proposal was prepared and
+  // are sent straight to the reviewed create endpoint, which owns the insert, the
+  // uniqueness checks and the audit row.
+  if (args.kind === "dojo_create")
+    return {
+      method: "POST",
+      body: {
+        id: args.dojoId,
+        officialName: args.officialName,
+        shortName: args.shortName,
+        code: args.dojoCode,
+        slug: args.dojoSlug,
+        logoUrl: args.dojoLogoUrl,
+        active: args.dojoActive !== false,
+        sortOrder: args.sortOrder ?? 0,
+        contact: {},
+      },
+    };
   return {
     method: "PUT",
     body: dojoUpdateBody(observed.dojo!, {
@@ -8228,6 +8995,10 @@ function contentSubjectMissing(args: ContentArgs, observed: ContentObservation) 
   if (args.kind === "newsletter_create") return Boolean(observed.newsletter);
   if (args.kind.startsWith("newsletter_")) return !observed.newsletter;
   if (args.kind === "dojo_settings") return !observed.dojo;
+  // Creating a dojo needs the opposite proof: the dojo id must still be free
+  // when the administrator confirms, so a second dojo is never made on the same
+  // id and an existing one is never overwritten.
+  if (args.kind === "dojo_create") return Boolean(observed.dojo);
   if (args.kind === "site_page_visibility")
     return !observed.site?.pages.some((page) => page.route === args.pageRoute);
   if (args.kind === "site_publish") return !observed.site?.draftUpdatedAt;

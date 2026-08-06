@@ -141,6 +141,7 @@ vi.mock("../functions/api/admin/site-content", () => ({
 vi.mock("../functions/api/admin/dojos", () => ({
   onRequestGet: api.handler("dojos"),
   onRequestPut: api.handler("dojos"),
+  onRequestPost: api.handler("dojos"),
 }));
 
 import {
@@ -1188,6 +1189,90 @@ describe("Admin Auggie website page and dojo tools", () => {
         active: false,
       }),
     ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_ROUTE_FORBIDDEN" });
+    expect(writes()).toHaveLength(0);
+    expect(db.operations.size).toBe(0);
+  });
+
+  it("creates a brand-new dojo through the reviewed create endpoint after one exact phrase", async () => {
+    api.state.responses["GET dojos"] = { status: 200, body: { dojos: [dojoRow()] } };
+    const db = new FakeDb();
+    const proposal = await prepare(db, "propose_dojo_create", {
+      dojoId: "dojo-example",
+      officialName: "Example Aikido Dojo",
+      shortName: "Example",
+      code: "ex",
+    });
+    expect(proposal.operation.confirmationPhrase).toBe("CREATE 1 DOJO");
+    expect(proposal.operation.requiresSecondaryConfirmation).toBe(false);
+    expect(proposal.operation.path).toBe("/admin/dojos");
+    expect(proposal.operation.warning).toContain("Example Aikido Dojo");
+    expect(writes()).toHaveLength(0);
+
+    await confirm(db, proposal);
+    const call = writes()[0];
+    expect(call).toMatchObject({ route: "dojos", method: "POST" });
+    expect(call.headers["x-request-id"]).toBe(
+      `admin-auggie:${proposal.operation.id}`,
+    );
+    // The identity fields are taken from the proposal, the code is upper-cased,
+    // the web address is derived from the name, and the logo defaults to a path
+    // the administrator can replace later on the settings page.
+    expect(call.body).toEqual({
+      id: "dojo-example",
+      officialName: "Example Aikido Dojo",
+      shortName: "Example",
+      code: "EX",
+      slug: "example-aikido-dojo",
+      logoUrl: "/renshinkan-logo.png",
+      active: true,
+      sortOrder: 0,
+      contact: {},
+    });
+    const success = db.audits.find(
+      (values) => values[1] === "admin_ai_write_succeeded",
+    );
+    expect(JSON.parse(String(success?.[13]))).toMatchObject({
+      aiGenerated: true,
+      aiAssistant: "admin_auggie",
+      delegatedRoute: "admin/dojos",
+    });
+  });
+
+  it("refuses creating a dojo on an id that already exists", async () => {
+    api.state.responses["GET dojos"] = { status: 200, body: { dojos: [dojoRow()] } };
+    const db = new FakeDb();
+    await expect(
+      prepare(db, "propose_dojo_create", {
+        dojoId: "dojo-rsk",
+        officialName: "Another RenShinKan",
+        shortName: "Another",
+        code: "AR2",
+      }),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TARGET_STATE" });
+    expect(writes()).toHaveLength(0);
+    expect(db.operations.size).toBe(0);
+  });
+
+  it("never lets a dojo administrator create a dojo", async () => {
+    authState.session.role = "dojo";
+    authState.session.selectedDojoId = "dojo-cmu";
+    authState.session.allowedDojoIds = ["dojo-cmu"];
+    const db = new FakeDb();
+    const run = vi.fn(async () =>
+      tool("propose_dojo_create", {
+        dojoId: "dojo-new",
+        officialName: "New Dojo",
+        shortName: "New",
+        code: "NEW",
+      }),
+    );
+    await expect(
+      handleAdminAuggieChat(request("Create a new dojo"), env(db, run)),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_ROUTE_FORBIDDEN" });
+    const offered = (
+      run.mock.calls[0][1] as { tools: Array<{ function: { name: string } }> }
+    ).tools.map((entry) => entry.function.name);
+    expect(offered).not.toContain("propose_dojo_create");
     expect(writes()).toHaveLength(0);
     expect(db.operations.size).toBe(0);
   });

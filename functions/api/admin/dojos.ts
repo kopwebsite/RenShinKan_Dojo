@@ -25,6 +25,51 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   }) }, 200, { "Cache-Control": "no-store" });
 };
 
+export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
+  if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
+  const session = await getAuthorizedAdminSession(request, env);
+  if (!requiresCentralAdmin(session)) return jsonResponse({ error: "Only the RenShinKan administrator may manage dojos." }, session ? 403 : 401);
+  try {
+    const body = await request.json<Record<string, unknown>>();
+    const id = clean(body.id, 80).toLocaleLowerCase("en-US");
+    const officialName = clean(body.officialName, 160);
+    const shortName = clean(body.shortName, 100);
+    const code = clean(body.code, 8).toLocaleUpperCase("en-US");
+    const slug = clean(body.slug, 100).toLocaleLowerCase("en-US");
+    const logoUrl = clean(body.logoUrl, 300);
+    const sortOrder = Number(body.sortOrder);
+    const active = body.active === false ? 0 : 1;
+    const contact = body.contact && typeof body.contact === "object" ? body.contact : {};
+    if (!/^dojo-[a-z0-9-]+$/.test(id) || !officialName || !shortName || !/^[A-Z0-9]{2,8}$/.test(code)
+      || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || !/^\/[a-zA-Z0-9_./-]+$/.test(logoUrl)
+      || !Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 10_000) {
+      return jsonResponse({ error: "Check the dojo id, name, 2-8 character code, slug, logo path, and sort order." }, 400);
+    }
+    const contactJson = JSON.stringify(contact);
+    if (contactJson.length > 5_000) return jsonResponse({ error: "Dojo contact details are too long." }, 400);
+    const db = requireStudentDb(env);
+    const existing = await db.prepare("SELECT id FROM dojos WHERE id = ? LIMIT 1").bind(id).first();
+    if (existing) return jsonResponse({ error: "A dojo already uses that id." }, 409);
+    const now = new Date().toISOString();
+    await db.batch([
+      db.prepare(`INSERT INTO dojos (id, official_name, short_name, code, logo_url, slug,
+        active, sort_order, contact_json, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .bind(id, officialName, shortName, code, logoUrl, slug, active, sortOrder, contactJson, now, now),
+      auditStatement(db, {
+        actorType: "administrator", ...adminAuditMetadata(session!, request), action: "dojo_created",
+        entityType: "dojo", entityId: id,
+        newValues: { id, officialName, shortName, code, logoUrl, slug, active: Boolean(active), sortOrder, contact },
+        source: "admin_dojo_settings", requestId: requestIdentifier(request), summary: `Created ${officialName}`, createdAt: now,
+      }),
+    ]);
+    return jsonResponse({ ok: true, id }, 201, { "Cache-Control": "no-store" });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "The dojo could not be created.";
+    return jsonResponse({ error: message.includes("UNIQUE") ? "The dojo id, code, name, or slug is already in use." : message }, message.includes("UNIQUE") ? 409 : 400);
+  }
+};
+
 export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
   if (!isSameOriginRequest(request)) return jsonResponse({ error: "Forbidden" }, 403);
   const session = await getAuthorizedAdminSession(request, env);

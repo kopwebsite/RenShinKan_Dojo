@@ -19,7 +19,10 @@ import { adminAuggieToolCatalogue } from "../functions/_lib/adminAuggie";
 //                   machinery Auggie reaches a different way.
 //   "gap: ..."   -> should be reachable from the chat but is not built yet.
 
-const COVERAGE: Record<string, string> = {
+// A file with more than one write method (a PUT and a DELETE, say) lists one
+// tool per method, so closing the gap on one method cannot hide that another is
+// still uncovered.
+const COVERAGE: Record<string, string | string[]> = {
   // Covered — one Auggie tool per reviewed delegation route.
   "contributions.ts": "propose_contribution_status",
   "dojos.ts": "propose_dojo_settings",
@@ -33,7 +36,8 @@ const COVERAGE: Record<string, string> = {
   "site-content.ts": "propose_site_page_visibility",
   "students/bulk.ts": "propose_bulk_student_action",
   "students/index.ts": "propose_student_create",
-  "students/[id].ts": "propose_student_record_update",
+  // One file, two write methods: PUT edits the record, DELETE erases it forever.
+  "students/[id].ts": ["propose_student_record_update", "propose_student_deletion"],
   "students/[id]/exam.ts": "propose_student_examination",
   "students/[id]/hours.ts": "propose_student_hours",
   "students/[id]/profile-status.ts": "propose_student_profile_decision",
@@ -108,8 +112,10 @@ describe("Admin Auggie administration coverage map", () => {
       ),
     );
     for (const [path, value] of Object.entries(COVERAGE)) {
-      if (value === "page-only" || value.startsWith("gap:")) continue;
-      expect(toolNames.has(value), `${path} -> ${value}`).toBe(true);
+      for (const name of Array.isArray(value) ? value : [value]) {
+        if (name === "page-only" || name.startsWith("gap:")) continue;
+        expect(toolNames.has(name), `${path} -> ${name}`).toBe(true);
+      }
     }
   });
 });

@@ -111,6 +111,35 @@ vi.mock("../functions/api/admin/payment-proofs", () => ({
 }));
 vi.mock("../functions/api/admin/students/[id]", () => ({
   onRequestPut: delegated.handler("admin/student-record"),
+  onRequestDelete: delegated.handler("admin/student-delete"),
+}));
+
+// The permanent-deletion preview and plan are shared helpers the reviewed
+// delete endpoint also uses. They are stubbed here so the tests can assert what
+// Admin Auggie prepares and delegates without standing up every related table.
+const deletion = vi.hoisted(() => ({
+  target: null as Record<string, unknown> | null,
+  plan: {
+    groups: [
+      { key: "trainingHours", label: "Training hour entries", count: 3 },
+      { key: "examinations", label: "Examination results", count: 1 },
+    ],
+    relatedRecords: 4,
+    totalRecords: 5,
+    auditEntriesRedacted: 2,
+    objectKeys: ["student-profiles/2026/08/one.webp"],
+    contributionMonths: [],
+    paymentRequestIds: [],
+  },
+}));
+
+vi.mock("../functions/_lib/studentDeletion", () => ({
+  loadDeletionTarget: async (_db: unknown, _id: string) => deletion.target,
+  // Scope is already enforced by resolveStudentTargets before this is reached;
+  // the stub only stands in for the shared permission helper.
+  canPermanentlyDeleteStudent: (_session: unknown, dojoId: string) =>
+    Boolean(dojoId),
+  buildStudentDeletionPlan: async () => deletion.plan,
 }));
 vi.mock("../functions/api/admin/students/[id]/hours", () => ({
   onRequestPost: delegated.handler("admin/student-hours"),
@@ -156,6 +185,7 @@ type FakeStudent = {
 
 const STUDENT_GUARD_PREFIXES = [
   "__student_record__",
+  "__student_delete__",
   "__student_hours__",
   "__student_exam__",
   "__student_profile__",
@@ -245,6 +275,9 @@ class FakeDb {
     const row = this.students.get(studentId);
     if (!row) return "missing";
     const total = Number(row.total_hours || 0).toFixed(2);
+    // The permanent-deletion guard: still inactive, still archived, same dojo.
+    if (query.includes("s.dojo_id"))
+      return [row.active, row.archived_at || "", row.dojo_id].join("|");
     if (query.includes("s.public_visible") && query.includes("dojo_joined_date"))
       return [
         row.current_belt,

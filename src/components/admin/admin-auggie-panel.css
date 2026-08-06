@@ -549,6 +549,106 @@
   color: #8b2f24;
 }
 
+.admin-auggie__attach {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.6rem;
+  padding: 0.6rem 0.8rem;
+  border-top: 1px solid rgb(40 78 57 / 0.14);
+  background: #f5f2eb;
+}
+
+.admin-auggie__attach-use {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #4a4640;
+  font-size: 0.74rem;
+}
+
+.admin-auggie__attach-use select {
+  border: 1px solid #a9aaa1;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #292523;
+  padding: 0.32rem 0.4rem;
+  font: inherit;
+  font-size: 0.74rem;
+}
+
+.admin-auggie__attach-button {
+  display: inline-flex;
+  min-height: 2.2rem;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid #284e39;
+  border-radius: 0.55rem;
+  background: #fff;
+  color: #284e39;
+  padding: 0.32rem 0.6rem;
+  cursor: pointer;
+  font:
+    700 0.74rem/1.2 Inter,
+    "Noto Sans Thai",
+    sans-serif;
+}
+
+.admin-auggie__attach-button:hover:not(:disabled),
+.admin-auggie__attach-button:focus-visible {
+  background: #eef4ed;
+}
+
+.admin-auggie__attach-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.admin-auggie__attach-hint {
+  flex-basis: 100%;
+  margin: 0;
+  color: #6b675f;
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+.admin-auggie__attach-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid rgb(40 78 57 / 0.28);
+  border-radius: 0.6rem;
+  background: #fff;
+  padding: 0.3rem 0.5rem 0.3rem 0.3rem;
+  color: #284e39;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.admin-auggie__attach-chip img {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 0.4rem;
+  object-fit: cover;
+}
+
+.admin-auggie__attach-chip button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: #8b2f24;
+  padding: 0.2rem;
+  cursor: pointer;
+}
+
+.admin-auggie__attach-chip button:hover,
+.admin-auggie__attach-chip button:focus-visible {
+  background: #fceae7;
+}
+
 .admin-auggie__composer {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

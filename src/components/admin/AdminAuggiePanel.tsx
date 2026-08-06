@@ -2,6 +2,7 @@ import {
   Bot,
   CheckCircle2,
   ExternalLink,
+  ImagePlus,
   LoaderCircle,
   RefreshCw,
   RotateCcw,
@@ -165,6 +166,18 @@ const copy = {
     resultMessage: "The change was saved safely.",
     empty: "No matching records were returned in your current scope.",
     error: "The request failed safely. No action was taken.",
+    attachLabel: "Attach a photo",
+    attachUseLabel: "Use the photo for",
+    attachUseNewsletter: "A newsletter",
+    attachUseGallery: "A gallery album",
+    attaching: "Uploading photo…",
+    attached: "Photo attached",
+    attachRemove: "Remove the attached photo",
+    attachHint:
+      "WebP image, up to 5 MB. The photo itself is never sent to AI — only its stored id is used, and only in a proposal you confirm.",
+    attachTypeError: "Please choose a WebP image.",
+    attachSizeError: "That image is larger than 5 MB.",
+    attachError: "The photo could not be uploaded. Nothing was changed.",
     countLabels: {
       pendingProfiles: "Profile requests",
       pendingExams: "Exam payments",
@@ -226,6 +239,18 @@ const copy = {
     resultMessage: "บันทึกการเปลี่ยนแปลงอย่างปลอดภัยแล้ว",
     empty: "ไม่พบระเบียนที่ตรงกันในขอบเขตปัจจุบันของคุณ",
     error: "คำขอล้มเหลวอย่างปลอดภัย ไม่มีการดำเนินการใด ๆ",
+    attachLabel: "แนบรูปภาพ",
+    attachUseLabel: "ใช้รูปนี้สำหรับ",
+    attachUseNewsletter: "จดหมายข่าว",
+    attachUseGallery: "อัลบั้มแกลเลอรี",
+    attaching: "กำลังอัปโหลดรูป…",
+    attached: "แนบรูปแล้ว",
+    attachRemove: "นำรูปที่แนบออก",
+    attachHint:
+      "รูปแบบ WebP ไม่เกิน 5 MB ตัวรูปจะไม่ถูกส่งให้ AI ใช้เพียงรหัสรูปที่จัดเก็บไว้ และใช้เฉพาะในข้อเสนอที่คุณยืนยันเท่านั้น",
+    attachTypeError: "โปรดเลือกรูปแบบ WebP",
+    attachSizeError: "รูปมีขนาดเกิน 5 MB",
+    attachError: "ไม่สามารถอัปโหลดรูปได้ ไม่มีการเปลี่ยนแปลงใด ๆ",
     countLabels: {
       pendingProfiles: "คำขอโปรไฟล์",
       pendingExams: "การชำระค่าสอบ",
@@ -597,8 +622,14 @@ export function AdminAuggiePanel({
   const text = copy[locale];
   const location = useLocation();
   const navigate = useNavigate();
+  const { admin } = useAdminSession();
+  // Only the RenShinKan administrator may upload website or gallery media, so
+  // the attach control is offered to nobody else. The server enforces the same
+  // rule; this only keeps a button that could never work off the screen.
+  const canAttach = admin?.role === "central";
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState("");
   const [items, setItems] = useState<ConversationItem[]>([]);
   const [busy, setBusy] = useState(false);
@@ -613,6 +644,14 @@ export function AdminAuggiePanel({
   const [flowActive, setFlowActive] = useState(false);
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [attachUse, setAttachUse] = useState<"newsletter" | "gallery">(
+    "newsletter",
+  );
+  const [attachment, setAttachment] = useState<{
+    id: string;
+    url: string;
+  } | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (open) logEndRef.current?.scrollIntoView({ block: "nearest" });
@@ -658,10 +697,61 @@ export function AdminAuggiePanel({
     ]);
   }
 
+  // Uploads the chosen photo through the existing reviewed media endpoint — the
+  // same route the website and gallery pages use. The panel keeps only the id
+  // and preview url it returns; the image bytes are never sent to AI. The
+  // newsletter photo goes through the site-media route, the gallery photo
+  // through the gallery-media route, so each keeps its own audit trail.
+  async function uploadPhoto(file: File) {
+    if (uploading || busy) return;
+    setError("");
+    if (!file.type.startsWith("image/") || file.type !== "image/webp") {
+      setError(text.attachTypeError);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError(text.attachSizeError);
+      return;
+    }
+    setUploading(true);
+    try {
+      const body = new FormData();
+      body.append("files", file, file.name);
+      const endpoint =
+        attachUse === "gallery"
+          ? "/api/admin/gallery-media"
+          : "/api/admin/site-media";
+      const response = await fetch(endpoint, {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store",
+        headers: { "X-Request-ID": crypto.randomUUID() },
+        body,
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        asset?: { id?: string; url?: string };
+      };
+      if (!response.ok || !payload.asset?.id || !payload.asset.url) {
+        if (response.status === 401)
+          window.dispatchEvent(new CustomEvent("admin-session-invalid"));
+        throw new Error(payload.error || text.attachError);
+      }
+      setAttachment({ id: payload.asset.id, url: payload.asset.url });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : text.attachError);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     const latest = message.trim();
     if (!latest || busy) return;
+    const attachedId = attachment?.id;
     setMessage("");
     setError("");
     setBusy(true);
@@ -678,11 +768,16 @@ export function AdminAuggiePanel({
           message: latest,
           locale,
           currentPath: location.pathname,
+          ...(attachedId ? { attachment: attachedId } : {}),
         },
         text.error,
       );
       appendResponse(payload.response);
       setFlowActive(payload.response.kind === "flow");
+      // The id is now bound into the server's proposal, so the panel lets it
+      // go: a later message starts fresh unless the administrator attaches
+      // another photo.
+      setAttachment(null);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : text.error);
     } finally {
@@ -716,6 +811,7 @@ export function AdminAuggiePanel({
       setSecondConfirmations({});
       setFlowActive(false);
       setMessage("");
+      setAttachment(null);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : text.error);
     } finally {
@@ -934,6 +1030,72 @@ export function AdminAuggiePanel({
         )}
         <div ref={logEndRef} />
       </div>
+
+      {canAttach && (
+        <div className="admin-auggie__attach">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/webp"
+            className="sr-only"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void uploadPhoto(file);
+            }}
+          />
+          {attachment ? (
+            <div className="admin-auggie__attach-chip">
+              <img src={attachment.url} alt="" />
+              <span>{text.attached}</span>
+              <button
+                type="button"
+                onClick={() => setAttachment(null)}
+                aria-label={text.attachRemove}
+              >
+                <X size={15} aria-hidden="true" />
+              </button>
+            </div>
+          ) : (
+            <>
+              <label className="admin-auggie__attach-use">
+                <span>{text.attachUseLabel}</span>
+                <select
+                  value={attachUse}
+                  onChange={(event) =>
+                    setAttachUse(
+                      event.target.value === "gallery"
+                        ? "gallery"
+                        : "newsletter",
+                    )
+                  }
+                  disabled={uploading || busy}
+                >
+                  <option value="newsletter">{text.attachUseNewsletter}</option>
+                  <option value="gallery">{text.attachUseGallery}</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                className="admin-auggie__attach-button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading || busy}
+              >
+                {uploading ? (
+                  <LoaderCircle
+                    className="admin-auggie__spin"
+                    size={16}
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <ImagePlus size={16} aria-hidden="true" />
+                )}
+                <span>{uploading ? text.attaching : text.attachLabel}</span>
+              </button>
+              <p className="admin-auggie__attach-hint">{text.attachHint}</p>
+            </>
+          )}
+        </div>
+      )}
 
       <form className="admin-auggie__composer" onSubmit={submit}>
         <label className="sr-only" htmlFor="admin-auggie-message">

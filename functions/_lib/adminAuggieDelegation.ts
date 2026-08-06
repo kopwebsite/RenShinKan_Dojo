@@ -17,10 +17,14 @@ import {
 } from "../api/admin/site-content";
 import {
   onRequestGet as dojosGet,
+  onRequestPost as dojosPost,
   onRequestPut as dojosPut,
 } from "../api/admin/dojos";
 import { onRequestPost as studentsCreatePost } from "../api/admin/students/index";
-import { onRequestPut as studentRecordPut } from "../api/admin/students/[id]";
+import {
+  onRequestPut as studentRecordPut,
+  onRequestDelete as studentRecordDelete,
+} from "../api/admin/students/[id]";
 import { onRequestPost as studentHoursPost } from "../api/admin/students/[id]/hours";
 import { onRequestPost as studentExamPost } from "../api/admin/students/[id]/exam";
 import { onRequestPost as studentProfileStatusPost } from "../api/admin/students/[id]/profile-status";
@@ -46,12 +50,13 @@ export type AdminApiRoute =
   | "admin/dojos"
   | "admin/students-create"
   | "admin/student-record"
+  | "admin/student-delete"
   | "admin/student-hours"
   | "admin/student-exam"
   | "admin/student-profile-status"
   | "admin/students-bulk";
 
-export type AdminApiMethod = "GET" | "POST" | "PUT";
+export type AdminApiMethod = "GET" | "POST" | "PUT" | "DELETE";
 
 type DelegatedHandler = (context: {
   request: Request;
@@ -116,6 +121,7 @@ const ROUTES: Record<AdminApiRoute, RouteDefinition> = {
     handlers: {
       GET: dojosGet as unknown as DelegatedHandler,
       PUT: dojosPut as unknown as DelegatedHandler,
+      POST: dojosPost as unknown as DelegatedHandler,
     },
   },
   // Student record, hour, examination, profile and bulk writes keep the same
@@ -131,6 +137,15 @@ const ROUTES: Record<AdminApiRoute, RouteDefinition> = {
   "admin/student-record": {
     path: "/api/admin/students",
     handlers: { PUT: studentRecordPut as unknown as DelegatedHandler },
+  },
+  // Permanent deletion is delegated to the very same reviewed endpoint the
+  // Student page calls. The endpoint owns the one-transaction erase, refuses
+  // any record that is not already archived, checks the dojo, and re-checks the
+  // exact "DELETE <Student ID>" text itself, so nothing is deleted on a single
+  // confirmation and never from another dojo.
+  "admin/student-delete": {
+    path: "/api/admin/students",
+    handlers: { DELETE: studentRecordDelete as unknown as DelegatedHandler },
   },
   "admin/student-hours": {
     path: "/api/admin/students",
@@ -157,6 +172,7 @@ const ROUTES: Record<AdminApiRoute, RouteDefinition> = {
 // exact public Student ID, never a value taken from model output.
 const STUDENT_ROUTE_SUFFIX: Partial<Record<AdminApiRoute, string>> = {
   "admin/student-record": "",
+  "admin/student-delete": "",
   "admin/student-hours": "/hours",
   "admin/student-exam": "/exam",
   "admin/student-profile-status": "/profile-status",

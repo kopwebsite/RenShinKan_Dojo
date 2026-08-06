@@ -2342,6 +2342,7 @@ export const TOOL_AREAS: Record<ToolArea, readonly string[]> = {
     "propose_gallery_album_order",
     "propose_gallery_photo_captions",
     "propose_gallery_photo_order",
+    "propose_gallery_photo_add",
     "propose_gallery_publish",
   ],
   dojos: [
@@ -2504,12 +2505,32 @@ export function offeredToolNames(input: {
   const path = normalizeAdminPath(input.currentPath);
   const thaiMatches = thaiToolMatches(input.message);
   const available = new Set(input.available);
+
+  // Affinity is scored once here and reused for the cross-area safety net and
+  // the final ranking below, so a tool is never scored twice.
+  const affinity = new Map<string, number>();
+  let strongest = 0;
+  for (const name of input.available) {
+    const score = toolAffinity(name, message, path, thaiMatches);
+    affinity.set(name, score);
+    if (score > strongest) strongest = score;
+  }
   const areas = routeToolArea(input);
 
   const names = new Set<string>();
   for (const name of ALWAYS_OFFERED) if (available.has(name)) names.add(name);
   for (const area of areas)
     for (const name of TOOL_AREAS[area]) if (available.has(name)) names.add(name);
+
+  // Cross-area safety net: a few tools carry the same wording as a neighbouring
+  // area — recording an examination result sits under students yet talks of
+  // "examinations", and asking whether the site is healthy talks of "website".
+  // The area router can lean the wrong way on those, so the single strongest
+  // matches, wherever they sit, are always offered as well. This can only ever
+  // equal or beat the earlier flat shortlist's recall, never fall short of it.
+  if (strongest > 0)
+    for (const name of input.available)
+      if (affinity.get(name) === strongest) names.add(name);
 
   if (!areas.length) {
     for (const name of ["get_dashboard_summary", "list_newsletters", "list_dojos"])
@@ -2518,7 +2539,7 @@ export function offeredToolNames(input: {
 
   const rank = (name: string) =>
     ((ALWAYS_OFFERED as readonly string[]).includes(name) ? 100 : 0) +
-    toolAffinity(name, message, path, thaiMatches);
+    (affinity.get(name) ?? 0);
   return [...names]
     .sort(
       (left, right) =>

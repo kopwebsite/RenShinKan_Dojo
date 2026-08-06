@@ -184,6 +184,13 @@ class FakeDb {
   guards = new Map<string, string>();
   stateGuards = new Set<string>();
   audits: unknown[][] = [];
+  // The media assets the reviewed upload endpoint would have written. An
+  // attachment is only ever resolved from a row that already exists here, so a
+  // proposal can never reference an image the server did not itself store.
+  media = new Map<
+    string,
+    { id: string; public_url: string; mime_type: string }
+  >();
 
   prepare(query: string) {
     return new FakeStatement(this, query.replace(/\s+/g, " ").trim());
@@ -202,6 +209,8 @@ class FakeDb {
       return this.operations.get(String(values[0])) || null;
     if (query.includes("SELECT status FROM admin_ai_operations"))
       return this.operations.get(String(values[0])) || null;
+    if (query.includes("FROM media_assets WHERE id = ?"))
+      return this.media.get(String(values[0])) || null;
     return null;
   }
 
@@ -451,11 +460,20 @@ function tool(name: string, args: Record<string, unknown>) {
   };
 }
 
-function request(message: string, requestId = crypto.randomUUID()) {
+function request(
+  message: string,
+  requestId = crypto.randomUUID(),
+  attachment?: string,
+) {
   return new Request("https://example.test/api/admin/auggie/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Request-ID": requestId },
-    body: JSON.stringify({ message, locale: "en", currentPath: "/admin/website" }),
+    body: JSON.stringify({
+      message,
+      locale: "en",
+      currentPath: "/admin/website",
+      ...(attachment === undefined ? {} : { attachment }),
+    }),
   });
 }
 
@@ -493,9 +511,10 @@ async function prepare(
   toolName: string,
   args: Record<string, unknown>,
   requestId = crypto.randomUUID(),
+  attachment?: string,
 ) {
   return (await handleAdminAuggieChat(
-    request("Prepare this change", requestId),
+    request("Prepare this change", requestId, attachment),
     env(
       db,
       vi.fn(async () => tool(toolName, args)),
@@ -1275,5 +1294,198 @@ describe("Admin Auggie website page and dojo tools", () => {
     expect(offered).not.toContain("propose_dojo_create");
     expect(writes()).toHaveLength(0);
     expect(db.operations.size).toBe(0);
+  });
+});
+
+describe("Admin Auggie photo attachments", () => {
+  const IMAGE = {
+    id: "11111111-1111-4111-8111-111111111111",
+    public_url: "/uploads/admin/2026/08/summer.webp",
+    mime_type: "image/webp",
+  };
+  const newsletterArgs = {
+    title: "Summer camp report",
+    summary: "What happened at camp.",
+    body: "A long enough newsletter body for a draft.",
+    category: "Dojo News",
+    date: "2026-08-05",
+    webAddress: "summer-photos",
+  };
+
+  // Stands in for the media_assets row the reviewed upload endpoint would have
+  // written. The attachment is only ever resolved from a row that exists here.
+  function withImage(db: FakeDb, asset = IMAGE) {
+    db.media.set(asset.id, asset);
+    return asset.id;
+  }
+
+  function withAlbum(db: FakeDb) {
+    void db;
+    api.state.responses["GET galleries"] = {
+      status: 200,
+      body: galleryBody({ "on-the-mat": [album()] }),
+    };
+  }
+
+  it("adds an attached photo as the new newsletter's cover image", async () => {
+    const db = new FakeDb();
+    const mediaId = withImage(db);
+    const proposal = await prepare(
+      db,
+      "propose_newsletter_create",
+      newsletterArgs,
+      crypto.randomUUID(),
+      mediaId,
+    );
+    expect(proposal.operation.confirmationPhrase).toBe("CREATE NEWSLETTER");
+    expect(proposal.operation.preview.photoAttached).toBe(true);
+    expect(proposal.operation.warning).toContain("cover image");
+
+    await confirm(db, proposal);
+    const call = writes()[0];
+    expect(call.route).toBe("newsletter-save");
+    const event = JSON.parse(String(call.body.event));
+    expect(event.media).toHaveLength(1);
+    expect(event.media[0]).toMatchObject({
+      id: mediaId,
+      src: IMAGE.public_url,
+      type: "image",
+    });
+    expect(event.coverImageId).toBe(mediaId);
+    // A photo changes nothing about publishing: the draft is still unpublished
+    // and not sent, so nothing reaches the website or a subscriber here.
+    expect(event.published).toBe(false);
+  });
+
+  it("creates a text-only newsletter when nothing is attached", async () => {
+    const db = new FakeDb();
+    const proposal = await prepare(
+      db,
+      "propose_newsletter_create",
+      newsletterArgs,
+    );
+    expect(proposal.operation.preview.photoAttached).toBe(false);
+    await confirm(db, proposal);
+    const event = JSON.parse(String(writes()[0].body.event));
+    expect(event.media).toEqual([]);
+    expect(event.coverImageId).toBeUndefined();
+  });
+
+  it("adds an attached photo to a gallery album, in the draft only", async () => {
+    const db = new FakeDb();
+    const mediaId = withImage(db, {
+      id: "22222222-2222-4222-8222-222222222222",
+      public_url: "/uploads/admin/2026/08/mat.webp",
+      mime_type: "image/webp",
+    });
+    withAlbum(db);
+    const proposal = await prepare(
+      db,
+      "propose_gallery_photo_add",
+      {
+        galleryId: "on-the-mat",
+        albumId: "album-summer-camp",
+        caption: "New mat photo",
+      },
+      crypto.randomUUID(),
+      mediaId,
+    );
+    expect(proposal.operation.confirmationPhrase).toBe("ADD 1 PHOTO");
+    expect(proposal.operation.requiresSecondaryConfirmation).toBe(false);
+    expect(proposal.operation.undoable).toBe(false);
+    expect(proposal.operation.warning).toContain("gallery draft only");
+
+    await confirm(db, proposal);
+    const call = writes()[0];
+    expect(call.route).toBe("galleries");
+    expect(call.method).toBe("PUT");
+    const saved = (
+      call.body.albums as Record<string, Array<Record<string, unknown>>>
+    )["on-the-mat"];
+    const photos = saved[0].photos as Array<Record<string, unknown>>;
+    expect(photos).toHaveLength(4);
+    expect(photos[3]).toMatchObject({
+      id: mediaId,
+      src: "/uploads/admin/2026/08/mat.webp",
+      caption: "New mat photo",
+      visibility: "published",
+    });
+  });
+
+  it("refuses to add a gallery photo when nothing is attached", async () => {
+    const db = new FakeDb();
+    withAlbum(db);
+    await expect(
+      prepare(db, "propose_gallery_photo_add", {
+        galleryId: "on-the-mat",
+        albumId: "album-summer-camp",
+      }),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_ATTACHMENT_REQUIRED" });
+    expect(db.operations.size).toBe(0);
+    expect(writes()).toHaveLength(0);
+  });
+
+  it("refuses an attachment that is not an image", async () => {
+    const db = new FakeDb();
+    const mediaId = withImage(db, {
+      id: "33333333-3333-4333-8333-333333333333",
+      public_url: "/uploads/admin/2026/08/notes.pdf",
+      mime_type: "application/pdf",
+    });
+    await expect(
+      prepare(
+        db,
+        "propose_newsletter_create",
+        newsletterArgs,
+        crypto.randomUUID(),
+        mediaId,
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_ATTACHMENT_TYPE" });
+    expect(db.operations.size).toBe(0);
+  });
+
+  it("refuses an attachment whose media id is not stored", async () => {
+    const db = new FakeDb();
+    await expect(
+      prepare(
+        db,
+        "propose_newsletter_create",
+        newsletterArgs,
+        crypto.randomUUID(),
+        "44444444-4444-4444-8444-444444444444",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_ATTACHMENT_MISSING" });
+  });
+
+  it("refuses an attachment id that is not a media id", async () => {
+    const db = new FakeDb();
+    await expect(
+      prepare(
+        db,
+        "propose_newsletter_create",
+        newsletterArgs,
+        crypto.randomUUID(),
+        "not-a-media-id",
+      ),
+    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_ATTACHMENT_INVALID" });
+  });
+
+  it("never sends the attached photo or its id to the model", async () => {
+    const db = new FakeDb();
+    const mediaId = withImage(db);
+    withAlbum(db);
+    const run = vi.fn(async () =>
+      tool("propose_gallery_photo_add", {
+        galleryId: "on-the-mat",
+        albumId: "album-summer-camp",
+      }),
+    );
+    await handleAdminAuggieChat(
+      request("Add this photo to the summer album", crypto.randomUUID(), mediaId),
+      env(db, run),
+    );
+    const sentToModel = JSON.stringify(run.mock.calls[0]);
+    expect(sentToModel).not.toContain(mediaId);
+    expect(sentToModel).not.toContain("uploads/admin");
   });
 });

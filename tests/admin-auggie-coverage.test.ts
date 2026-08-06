@@ -17,6 +17,13 @@ import { adminAuggieToolCatalogue } from "../functions/_lib/adminAuggie";
 //   "page-only"  -> deliberately kept out of the chat: passwords and sign-in,
 //                   the audit-log record itself, and the internal publishing
 //                   machinery Auggie reaches a different way.
+//   "panel-upload: <tool>"
+//                -> the Auggie panel uploads a file straight through this
+//                   reviewed media endpoint (an image upload cannot travel the
+//                   JSON delegation layer), and the returned media id is then
+//                   referenced by <tool> in a proposal the administrator
+//                   confirms. Still the same reviewed endpoint, same admin-only
+//                   permission — just reached by the panel, not by delegation.
 //   "gap: ..."   -> should be reachable from the chat but is not built yet.
 
 // A file with more than one write method (a PUT and a DELETE, say) lists one
@@ -57,12 +64,15 @@ const COVERAGE: Record<string, string | string[]> = {
   "publish.ts": "page-only", // Auggie publishes through site-content
   "publish-reconcile.ts": "page-only", // internal publishing recovery
 
+  // Panel uploads — the attach control uploads a photo through the reviewed
+  // media endpoint, then the returned media id is referenced in a proposal.
+  "gallery-media.ts": "panel-upload: propose_gallery_photo_add",
+  "site-media.ts": "panel-upload: propose_newsletter_create",
+
   // Known gaps — should be reachable from the chat, not built yet.
   "diagnostics.ts": "gap: site health check is not yet a tool",
   "downloads.ts": "gap: downloads area is not yet a tool",
-  "gallery-media.ts": "gap: gallery photo upload (stage 4)",
   "newsletters/test.ts": "gap: newsletter test-send is not yet a tool",
-  "site-media.ts": "gap: site media upload (stage 4)",
   "students/upload.ts": "gap: student photo upload (stage 4)",
   "students/[id]/application.ts": "gap: admin exam application is not yet a tool",
   "students/[id]/hours-requests.ts":
@@ -118,8 +128,40 @@ describe("Admin Auggie administration coverage map", () => {
     );
     for (const [path, value] of Object.entries(COVERAGE)) {
       for (const name of Array.isArray(value) ? value : [value]) {
-        if (name === "page-only" || name.startsWith("gap:")) continue;
+        if (
+          name === "page-only" ||
+          name.startsWith("gap:") ||
+          name.startsWith("panel-upload:")
+        )
+          continue;
         expect(toolNames.has(name), `${path} -> ${name}`).toBe(true);
+      }
+    }
+  });
+
+  it("wires each panel-upload endpoint to a real, permitted attachment tool", () => {
+    const toolNames = new Set(
+      adminAuggieToolCatalogue("renshinkan_super_admin").map(
+        (entry) => entry.function.name,
+      ),
+    );
+    const panelUploads = Object.entries(COVERAGE).filter(([, value]) =>
+      (Array.isArray(value) ? value : [value]).some((name) =>
+        name.startsWith("panel-upload:"),
+      ),
+    );
+    // Stage 4 wired the two media endpoints the attach control uploads through:
+    // a newsletter cover, and a gallery album photo. If a third appears here,
+    // it needs its own attachment tool and a decision above.
+    expect(panelUploads.map(([path]) => path).sort()).toEqual([
+      "gallery-media.ts",
+      "site-media.ts",
+    ]);
+    for (const [path, value] of panelUploads) {
+      for (const name of Array.isArray(value) ? value : [value]) {
+        if (!name.startsWith("panel-upload:")) continue;
+        const tool = name.slice("panel-upload:".length).trim();
+        expect(toolNames.has(tool), `${path} -> ${tool}`).toBe(true);
       }
     }
   });

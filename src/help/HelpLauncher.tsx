@@ -189,20 +189,23 @@ export function HelpLauncher({
   const open = manuallyOpen || new URLSearchParams(location.search).has("help");
 
   const close = useCallback(() => {
-    setManuallyOpen(false);
-    const params = new URLSearchParams(location.search);
-    if (params.delete("help")) {
+    const currentUrl = new URL(window.location.href);
+    const params = currentUrl.searchParams;
+    const hadHelpParameter = params.has("help");
+    params.delete("help");
+    if (hadHelpParameter) {
       const nextSearch = params.toString();
       navigate(
         {
-          pathname: location.pathname,
+          pathname: currentUrl.pathname,
           search: nextSearch ? `?${nextSearch}` : "",
-          hash: location.hash,
+          hash: currentUrl.hash,
         },
         { replace: true },
       );
     }
-  }, [location.hash, location.pathname, location.search, navigate]);
+    setManuallyOpen(false);
+  }, [navigate]);
 
   return (
     <>

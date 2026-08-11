@@ -273,6 +273,19 @@ const ADD_TRAINING_HOURS: FlowDefinition = {
       label: { en: "Hours to add", th: "ชั่วโมงที่เพิ่ม" },
     },
     {
+      key: "entryDate",
+      type: "date",
+      ask: {
+        en: "What date was the training?",
+        th: "ฝึกในวันที่เท่าไร",
+      },
+      hint: {
+        en: "Use YYYY-MM-DD, for example 2026-08-10.",
+        th: "ใช้รูปแบบ YYYY-MM-DD เช่น 2026-08-10",
+      },
+      label: { en: "Training date", th: "วันที่ฝึก" },
+    },
+    {
       key: "location",
       type: "shortText",
       optional: true,
@@ -454,6 +467,8 @@ const CANCEL_WORDS = [
   "never mind",
   "nevermind",
   "forget it",
+  "don't do that",
+  "do not do that",
   "ยกเลิก",
   "หยุด",
   "เลิก",

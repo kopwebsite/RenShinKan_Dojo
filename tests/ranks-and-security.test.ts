@@ -6,6 +6,7 @@ import {
   createSessionCookie,
   hasValidAdminSession,
   isSameOriginRequest,
+  jsonResponse,
   recordFailedAdminLoginAttempt,
 } from "../functions/_lib/auth";
 import {
@@ -138,6 +139,30 @@ describe("student and administrator security", () => {
         }),
       ),
     ).toBe(false);
+  });
+
+  it("keeps database and secret diagnostics out of JSON error responses", async () => {
+    const databaseResponse = jsonResponse(
+      { error: "D1_ERROR: UNIQUE constraint failed: students.public_student_id" },
+      400,
+    );
+    const secretResponse = jsonResponse(
+      { error: "Cloudflare API rejected Authorization: Bearer sensitive-token" },
+      500,
+    );
+    const validationResponse = jsonResponse(
+      { error: "Enter a valid contribution amount." },
+      400,
+    );
+
+    await expect(databaseResponse.json()).resolves.toEqual({
+      error:
+        "The request could not be completed. Please try again or contact the site administrator.",
+    });
+    await expect(secretResponse.text()).resolves.not.toContain("sensitive-token");
+    await expect(validationResponse.json()).resolves.toEqual({
+      error: "Enter a valid contribution amount.",
+    });
   });
 
   it("validates Turnstile success, action, hostname, expiration, and replay responses", async () => {

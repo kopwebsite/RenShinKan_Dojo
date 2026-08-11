@@ -433,7 +433,7 @@ const thaiPhrases: Record<string, string> = {
   "Strong confirmation required": "ต้องมีการยืนยันอย่างชัดเจน",
   "Start a new examination cycle": "เริ่มรอบการสอบใหม่",
   "The current cycle will close permanently.": "รอบการสอบปัจจุบันจะปิดอย่างถาวร",
-  "This will update the current cycle and add a permanent audit entry. It will not change historical cycles.": "การดำเนินการนี้จะอัปเดตรอบปัจจุบันและเพิ่มบันทึกตรวจสอบถาวร โดยไม่เปลี่ยนรอบย้อนหลัง",
+  "This will update the current cycle and add a 90-day audit entry. It will not change historical cycles.": "การดำเนินการนี้จะอัปเดตรอบปัจจุบันและเพิ่มบันทึกตรวจสอบที่เก็บไว้ 90 วัน โดยไม่เปลี่ยนรอบย้อนหลัง",
   "Public galleries": "แกลเลอรีสาธารณะ",
   "Albums": "อัลบั้ม",
   "Photos": "รูปภาพ",

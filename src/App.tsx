@@ -35,6 +35,7 @@ const AdminDojosPage = lazy(() => import("./pages/AdminDojosPage").then((module)
 const AdminWorkflowPage = lazy(() => import("./pages/AdminWorkflowPage").then((module) => ({ default: module.AdminWorkflowPage })));
 const AdminGalleryPage = lazy(() => import("./pages/AdminGalleryPage").then((module) => ({ default: module.AdminGalleryPage })));
 const AdminDownloadsPage = lazy(() => import("./pages/AdminDownloadsPage").then((module) => ({ default: module.AdminDownloadsPage })));
+const AdminSiteEditorPage = lazy(() => import("./pages/AdminSiteEditorPage").then((module) => ({ default: module.AdminSiteEditorPage })));
 
 function RouteFallback() {
   return (
@@ -68,7 +69,7 @@ function AdminRouteFrame() {
               <Route path="/admin/downloads" element={<AdminDownloadsPage />} />
               <Route path="/admin/galleries/:galleryId" element={<AdminGalleryPage />} />
               <Route path="/admin/dojo-updates" element={<Navigate to="/admin/website" replace />} />
-              <Route path="/admin/site-editor" element={<Navigate to="/admin/website" replace />} />
+              <Route path="/admin/site-editor" element={<AdminSiteEditorPage />} />
               <Route path="/admin/students" element={<AdminStudentsPage />} />
               <Route path="/admin/profile-requests" element={<AdminStudentsPage mode="profileRequests" />} />
               <Route path="/admin/training-requests" element={<AdminStudentsPage mode="trainingRequests" />} />

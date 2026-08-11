@@ -558,7 +558,7 @@ export function AdminPaymentProofs({
             </header>
             <p>
               {review.action === "approve"
-                ? "Confirming updates the related payment and records a permanent audit entry."
+                ? "Confirming updates the related payment and records a 90-day audit entry."
                 : "Rejecting leaves the related payment unconfirmed and records the decision in the audit log."}
             </p>
             <footer>

@@ -237,7 +237,7 @@ export function AdminMonthlyContributions({ report }: { report: (message: string
 
     {pending ? <div className="admin-confirm-backdrop" role="presentation"><section className="admin-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="contribution-status-title">
       <header><div><p className="eyebrow">Confirm ledger change</p><h2 id="contribution-status-title">Mark {pending.studentIds.length} contribution{pending.studentIds.length === 1 ? "" : "s"} {adminStatusLabel(pending.status).toLowerCase()}?</h2></div><button aria-label="Close" onClick={() => setPending(null)}><X /></button></header>
-      <p>This updates {monthLabel(data.month)} only and adds a permanent audit entry. “Paid” should be selected only after verifying payment.</p>
+      <p>This updates {monthLabel(data.month)} only and adds a 90-day audit entry. “Paid” should be selected only after verifying payment.</p>
       {pending.studentIds.length <= 5 ? <ul>{pendingNames.map((row) => <li key={row.student_id}>{row.student_name} · {row.public_student_id}</li>)}</ul> : null}
       <label>Contribution type<select value="renshinkan_monthly" disabled><option value="renshinkan_monthly">Monthly RenShinKan Student Contribution</option></select></label>
       <label>Amount in THB <small>Optional.</small><input type="number" min="0" step="0.01" value={pending.amount} onChange={(event) => setPending({ ...pending, amount: event.target.value })} /></label>

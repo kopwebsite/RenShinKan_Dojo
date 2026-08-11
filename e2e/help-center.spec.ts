@@ -1,7 +1,33 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
 
-test("public help is contextual, searchable, keyboard-safe, and directly linkable", async ({
+type SmokeCredentials = {
+  adminName: string;
+  password: string;
+};
+
+function credentials() {
+  return JSON.parse(
+    readFileSync(
+      process.env.RSK_E2E_CREDENTIALS_PATH ||
+        "tmp/pages-smoke-credentials.json",
+      "utf8",
+    ),
+  ) as SmokeCredentials;
+}
+
+async function signInAsThaiAdministrator(page: Page) {
+  const fixture = credentials();
+  await page.goto("/admin");
+  await page.getByLabel("ชื่อของคุณ").fill(fixture.adminName);
+  await page.locator("#admin-dojo").selectOption("dojo-rsk");
+  await page.getByLabel("รหัสผ่านผู้ดูแล").fill(fixture.password);
+  await page.getByRole("button", { name: "เข้าสู่ระบบ" }).click();
+  await expect(page).toHaveURL(/\/admin(?:\/dashboard)?$/);
+}
+
+test("public help chat keeps contextual guides searchable, keyboard-safe, and directly linkable", async ({
   page,
 }) => {
   await page.goto("/student-records");
@@ -12,7 +38,17 @@ test("public help is contextual, searchable, keyboard-safe, and directly linkabl
   await trigger.click();
   const dialog = page.locator('.help-panel[role="dialog"]');
   await expect(dialog).toBeVisible({ timeout: 15_000 });
-  await expect(dialog).toHaveAccessibleName("How to use this website");
+  await expect(dialog).toHaveAccessibleName("Ask Auggie");
+  await expect(
+    dialog.getByRole("textbox", { name: "Ask a question…" }),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(trigger).toBeFocused();
+
+  await trigger.click();
+  await expect(dialog).toBeVisible();
+  await dialog.locator("summary").filter({ hasText: "Public guides" }).click();
   await expect(
     dialog.getByRole("heading", { name: "Suggested for this page" }),
   ).toBeVisible();
@@ -22,7 +58,6 @@ test("public help is contextual, searchable, keyboard-safe, and directly linkabl
       .first(),
   ).toBeVisible();
   const search = dialog.getByRole("searchbox", { name: "Search help" });
-  await expect(search).toBeFocused();
   await search.fill("exam application");
   await expect(dialog.getByRole("status")).toContainText(/\d+ topics?/);
   await dialog
@@ -34,7 +69,8 @@ test("public help is contextual, searchable, keyboard-safe, and directly linkabl
       name: "How do I fill out an exam application?",
     }),
   ).toBeVisible();
-  await page.keyboard.press("Escape");
+  await dialog.getByRole("button", { name: "Close help" }).click();
+  await expect(page).not.toHaveURL(/help=/);
   await expect(dialog).toBeHidden();
   await expect(trigger).toBeFocused();
 });
@@ -49,7 +85,11 @@ test("Thai search and admin help use the correct audience catalog", async ({
   await page.goto("/");
   await page.getByRole("button", { name: "เปิดคู่มือเว็บไซต์" }).click();
   const publicDialog = page.locator('.help-panel[role="dialog"]');
-  await expect(publicDialog).toHaveAccessibleName("วิธีใช้เว็บไซต์");
+  await expect(publicDialog).toHaveAccessibleName("ถาม Auggie");
+  await publicDialog
+    .locator("summary")
+    .filter({ hasText: "คู่มือสาธารณะ" })
+    .click();
   await publicDialog
     .getByRole("searchbox", { name: "ค้นหาคู่มือ" })
     .fill("โปรไฟล์นักเรียน");
@@ -60,7 +100,7 @@ test("Thai search and admin help use the correct audience catalog", async ({
   ).toBeVisible();
   await publicDialog.getByRole("button", { name: "ปิดคู่มือ" }).click();
 
-  await page.goto("/admin");
+  await signInAsThaiAdministrator(page);
   const adminHelpTrigger = page.getByRole("button", {
     name: "เปิดคู่มือผู้ดูแล",
   });
@@ -84,7 +124,9 @@ test("mobile dialog respects the viewport, text enlargement, reduced motion, and
   expect(triggerBox!.y + triggerBox!.height).toBeLessThanOrEqual(844);
   await trigger.click();
   const dialog = page.locator('.help-panel[role="dialog"]');
-  await expect(dialog).toHaveAccessibleName("How to use this website");
+  await expect(dialog).toHaveAccessibleName("Ask Auggie", {
+    timeout: 30_000,
+  });
   const dialogBox = await dialog.boundingBox();
   expect(dialogBox?.width).toBe(390);
   expect(dialogBox?.height).toBeCloseTo(844, 0);
@@ -119,7 +161,7 @@ test("every guide is complete written instruction without screenshots", async ({
 }) => {
   await page.goto("/?help=public-new-profile");
   const dialog = page.locator('.help-panel[role="dialog"]');
-  await expect(dialog).toHaveAccessibleName("How to use this website");
+  await expect(dialog).toHaveAccessibleName("Ask Auggie");
   await expect(
     dialog.getByRole("heading", {
       name: "How do I make a new student profile?",

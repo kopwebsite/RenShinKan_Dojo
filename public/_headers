@@ -101,6 +101,10 @@
   Cache-Control: private, no-store
   X-Robots-Tag: noindex, nofollow
 
+/records
+  Cache-Control: private, no-store
+  X-Robots-Tag: noindex, nofollow
+
 /records/*
   Cache-Control: private, no-store
   X-Robots-Tag: noindex, nofollow

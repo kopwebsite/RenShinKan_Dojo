@@ -98,6 +98,32 @@ describe("help launcher runtime", () => {
     expect(document.getElementById("root")?.hasAttribute("inert")).toBe(false);
   });
 
+  it("removes a guide deep link when the dialog closes", async () => {
+    history.replaceState({}, "", "/student-records?help=public-exam-application");
+    await act(async () =>
+      root.render(
+        <BrowserRouter>
+          <LanguageProvider>
+            <HelpLauncher audience="public" />
+          </LanguageProvider>
+        </BrowserRouter>,
+      ),
+    );
+    await waitFor(
+      () => Boolean(document.getElementById("public-help-title")),
+      "Deep-linked help panel did not finish loading",
+    );
+    const close = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Close help"]',
+    )!;
+    await act(async () => close.click());
+    await waitFor(
+      () => !document.querySelector('[role="dialog"]'),
+      "Deep-linked help panel did not close",
+    );
+    expect(window.location.search).toBe("");
+  });
+
   it("uses complete Thai UI copy and Thai search without a DOM translation adapter", async () => {
     localStorage.setItem("rsk-lang", "th");
     await act(async () =>

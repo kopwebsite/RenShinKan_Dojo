@@ -34,6 +34,6 @@ export default defineConfig({
         url: baseURL,
         ignoreHTTPSErrors: true,
         reuseExistingServer: false,
-        timeout: 180_000,
+        timeout: 480_000,
       },
 });

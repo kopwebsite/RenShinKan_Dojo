@@ -1,5 +1,5 @@
 import { normalizeRank, promoteRank, rankIndex, RANKS } from "../../shared/ranks";
-import { isCanonicalDate } from "../../shared/date";
+import { bangkokCanonicalDate, isCanonicalDate } from "../../shared/date";
 import {
   canAccessAdminPath,
   normalizeAdminPath,
@@ -108,6 +108,27 @@ import {
   type FlowSessionOwner,
 } from "./adminAuggieFlowStore";
 import {
+  appendConversationTurn,
+  clearConversationSession,
+  deleteExpiredConversationSessions,
+  modelConversationContext,
+  modelConversationMessages,
+  newConversationState,
+  readConversationSession,
+  writeConversationSession,
+  type ConversationContext,
+  type ConversationEntity,
+  type ConversationOwner,
+  type ConversationState,
+} from "./adminAuggieConversation";
+import {
+  adminAuggieDailyBudget,
+  getAdminAuggieUsageSummary,
+  recordAdminAuggieUsage,
+  tokenUsageFromAiOutput,
+  type AdminAuggieUsageSummary,
+} from "./adminAuggieUsage";
+import {
   SITE_LOCALES,
   type MediaItem,
   type RecentEvent,
@@ -136,6 +157,7 @@ export type AdminAuggieEnv = StudentEnv &
   BrevoEnv & {
     AI?: WorkersAiBinding;
     ADMIN_AUGGIE_MODEL?: string;
+    ADMIN_AUGGIE_DAILY_TOKEN_BUDGET?: string;
     NEWSLETTER_PUBLISHING_ENABLED?: string;
   };
 
@@ -169,6 +191,7 @@ export type AdminAuggieContext = {
   // own recipient field. It never reaches the model and is resolved once, before
   // tool selection; only the test-send proposal reads it.
   testRecipient?: string;
+  conversation?: ConversationState;
 };
 
 type StudentTarget = {
@@ -253,6 +276,7 @@ type DelegatedArgs = {
   dojoJoinedDate?: string;
   previousDojoJoinedDate?: string;
   hours?: number;
+  entryDate?: string;
   levels?: number;
   location?: string;
   examinationDate?: string;
@@ -807,7 +831,7 @@ export function detectSensitiveAdminAuggieInput(message: string) {
 
 // Subjects that never belong in the chat, whatever the wording: passwords,
 // signing in or out, and administrator accounts; and clearing the audit log,
-// which is the permanent record of what everyone did. These are recognised
+// which follows a server-managed retention policy. These are recognised
 // before any model call, refused politely, and the administrator is pointed to
 // the right place instead.
 const CREDENTIAL_SUBJECT =
@@ -1223,8 +1247,8 @@ const DESTINATIONS: Destination[] = [
     key: "audit",
     path: "/admin/audit",
     domain: "audit",
-    en: "Open the permanent audit history. Auggie does not send raw audit details to AI.",
-    th: "เปิดประวัติการตรวจสอบถาวร Auggie จะไม่ส่งรายละเอียดดิบให้ AI",
+    en: "Open the retained audit history. Entries are kept for 90 days, and Auggie does not send raw audit details to AI.",
+    th: "เปิดประวัติการตรวจสอบที่เก็บไว้ 90 วัน Auggie จะไม่ส่งรายละเอียดดิบให้ AI",
   },
 ];
 
@@ -1316,7 +1340,20 @@ function toolSchemas(ctx: AdminAuggieContext) {
     {
       name: "converse",
       description:
-        "Reply to a greeting, a thank you, small talk, or a message that names no administration task. Choose this instead of guessing a tool. It only sends one short friendly reply with a few examples, and never reads, invents or changes anything.",
+        "Reply naturally to greetings, thanks, general dojo-administration explanations, or an ambiguous follow-up. Never include a current database fact in reply. Ask a concise follow-up question when information is missing. Reply primarily in the administrator's current language.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          reply: { type: "string", minLength: 1, maxLength: 900 },
+          unresolvedQuestion: { type: "string", maxLength: 300 },
+        },
+      },
+    },
+    {
+      name: "show_capabilities",
+      description:
+        "Show a concise human-readable list of what Auggie can do. Choose for help, what can you do, show commands, or the Thai equivalent. Never expose internal tool names.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -1379,6 +1416,44 @@ function toolSchemas(ctx: AdminAuggieContext) {
           limit: { type: "integer", minimum: 1, maximum: 20 },
         },
         required: ["query"],
+      },
+    },
+    {
+      name: "get_student_overview",
+      description:
+        "Read a safe current overview for one student: status, dojo, rank, recorded training total, recent training, latest examination, current contribution/payment states and pending requests. Use the exact Student ID from selected conversation context. Reading only.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          studentId: { type: "string", minLength: 1, maxLength: 40 },
+        },
+        required: ["studentId"],
+      },
+    },
+    {
+      name: "list_training_requests",
+      description:
+        "Read pending training-hour requests in the administrator's current dojo scope. Reading only; no confirmation is needed.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: { limit: { type: "integer", minimum: 1, maximum: 20 } },
+      },
+    },
+    {
+      name: "continue_training_hours",
+      description:
+        "Conversationally collect or correct an add-training-hours task. Use selected student context when studentId is omitted. Supply only details known from the current message or conversation: exact studentId, hours, entryDate YYYY-MM-DD, and optional location. The server asks for anything missing and only prepares a proposal when complete. Use this for corrections to a pending hours proposal too.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          studentId: { type: "string", minLength: 1, maxLength: 40 },
+          hours: { type: "number", exclusiveMinimum: 0, maximum: 1000 },
+          entryDate: { type: "string", minLength: 10, maxLength: 10 },
+          location: { type: "string", maxLength: 200 },
+        },
       },
     },
     {
@@ -1477,16 +1552,17 @@ function toolSchemas(ctx: AdminAuggieContext) {
     {
       name: "propose_student_hours",
       description:
-        "Prepare adding training hours to one student, named by exact Student ID.",
+        "Prepare adding training hours to one student, named by exact Student ID, for an exact YYYY-MM-DD training date. Prefer continue_training_hours when any detail is missing or this is a correction.",
       parameters: {
         type: "object",
         additionalProperties: false,
         properties: {
           studentId: { type: "string", minLength: 1, maxLength: 40 },
           hours: { type: "number", exclusiveMinimum: 0, maximum: 1000 },
+          entryDate: { type: "string", minLength: 10, maxLength: 10 },
           location: { type: "string", maxLength: 200 },
         },
-        required: ["studentId", "hours"],
+        required: ["studentId", "hours", "entryDate"],
       },
     },
     {
@@ -1652,6 +1728,19 @@ function toolSchemas(ctx: AdminAuggieContext) {
           additionalProperties: false,
           properties: {
             month: { type: "string", minLength: 7, maxLength: 7 },
+          },
+        },
+      },
+      {
+        name: "list_unpaid_contributions",
+        description:
+          "Read the students in the RenShinKan monthly contribution roster who are awaiting payment or have submitted nothing for a month. Reading only; no confirmation is needed.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            month: { type: "string", minLength: 7, maxLength: 7 },
+            limit: { type: "integer", minimum: 1, maximum: 20 },
           },
         },
       },
@@ -2087,18 +2176,31 @@ function toolSchemas(ctx: AdminAuggieContext) {
       },
     );
   }
+  definitions.push({
+    name: "read_recent_admin_activity",
+    description:
+      "Read a minimal recent admin activity summary in the caller's permitted scope. Use for what changed yesterday, recent changes, or recent admin work. Reading only.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        days: { type: "integer", minimum: 1, maximum: 14 },
+        limit: { type: "integer", minimum: 1, maximum: 20 },
+      },
+    },
+  });
   if (canAccessAdminPath(DOJO_SETTINGS_PATH, ctx.permission)) {
     definitions.push(
-      {
-        name: "list_dojos",
+    {
+      name: "list_dojos",
         description:
           "List the dojos with their exact dojo id, names, code, active state and order.",
         parameters: {
           type: "object",
           additionalProperties: false,
           properties: {},
-        },
       },
+    },
       {
         name: "propose_dojo_settings",
         description:
@@ -2166,6 +2268,11 @@ const TOOL_TOPICS: Record<string, ToolTopic> = {
     words: /dashboard|summary|overview|count|how many|waiting|pending|today/i,
     paths: ["/admin/dashboard"],
   },
+  show_capabilities: {
+    words:
+      /\bhelp\b|what can you do|show commands|what can i ask|capabilit|how can you help/i,
+    paths: [],
+  },
   get_site_health: {
     words:
       /health|healthy|status|is the site (?:ok|up|down|working|healthy)|diagnostic|degraded|outage|is everything (?:ok|working)/i,
@@ -2182,6 +2289,21 @@ const TOOL_TOPICS: Record<string, ToolTopic> = {
   search_students: {
     words: /student|find|search|look ?up|who is|name|roster|member|pupil/i,
     paths: ["/admin/students", "/admin/profile-requests"],
+  },
+  get_student_overview: {
+    words:
+      /\b(?:student|their|his|her|hours?|training|exams?|examinations?|rank|status|payments?|contributions?|overview|summary|last|recent)\b/i,
+    paths: ["/admin/students", "/admin/examination-records"],
+  },
+  list_training_requests: {
+    words:
+      /pending training|training request|hour request|submitted hours|unresolved request|needs review/i,
+    paths: ["/admin/training-requests", "/admin/students"],
+  },
+  continue_training_hours: {
+    words:
+      /add|record|change|correct|actually|make it|use|instead|hour|training|yesterday|saturday|date/i,
+    paths: ["/admin/students", "/admin/training-requests"],
   },
   read_student_history: {
     words:
@@ -2244,6 +2366,11 @@ const TOOL_TOPICS: Record<string, ToolTopic> = {
   },
   get_contribution_summary: {
     words: /contribution|monthly|dues|subscription|month/i,
+    paths: ["/admin/monthly-contributions"],
+  },
+  list_unpaid_contributions: {
+    words:
+      /who.*(?:hasn.t|has not|unpaid|not paid|owes)|unpaid|not paid|nothing submitted|awaiting payment/i,
     paths: ["/admin/monthly-contributions"],
   },
   propose_contribution_status: {
@@ -2372,6 +2499,11 @@ const TOOL_TOPICS: Record<string, ToolTopic> = {
       /weather|forecast|temperature|raining|climate|humid|wind|sunny|snow|how (hot|cold)|degrees|look ?up|search the (web|internet)|on the internet|google/i,
     paths: [],
   },
+  read_recent_admin_activity: {
+    words:
+      /what changed|recent (?:change|activity)|changed yesterday|admin activity|did i change|audit history/i,
+    paths: ["/admin/dashboard", "/admin/audit"],
+  },
 };
 
 // Thai wording for the same subjects. An administrator working in Thai must get
@@ -2381,6 +2513,7 @@ const THAI_SUBJECTS: ReadonlyArray<readonly [RegExp, readonly string[]]> = [
     /นักเรียน|สมาชิก|ประวัติ|รายชื่อ/,
     [
       "search_students",
+      "get_student_overview",
       "propose_student_status",
       "propose_student_record_update",
       "propose_student_create",
@@ -2391,6 +2524,9 @@ const THAI_SUBJECTS: ReadonlyArray<readonly [RegExp, readonly string[]]> = [
     /ชั่วโมง|ฝึก|ฝึกซ้อม/,
     [
       "propose_student_hours",
+      "continue_training_hours",
+      "get_student_overview",
+      "list_training_requests",
       "propose_hours_request_decision",
       "propose_bulk_student_action",
       "start_guided_flow",
@@ -2453,7 +2589,11 @@ const THAI_SUBJECTS: ReadonlyArray<readonly [RegExp, readonly string[]]> = [
   [/โดโจ/, ["list_dojos", "propose_dojo_settings"]],
   [
     /เงินสมทบ|รายเดือน|ค่าบำรุง/,
-    ["get_contribution_summary", "propose_contribution_status"],
+    [
+      "get_contribution_summary",
+      "list_unpaid_contributions",
+      "propose_contribution_status",
+    ],
   ],
   [
     /หลักฐาน|สลิป|ชำระเงิน|โอนเงิน/,
@@ -2466,6 +2606,14 @@ const THAI_SUBJECTS: ReadonlyArray<readonly [RegExp, readonly string[]]> = [
   ],
   [/โปรไฟล์|คำขอ/, ["propose_student_profile_decision"]],
   [/สรุป|แดชบอร์ด|ภาพรวม|จำนวน/, ["get_dashboard_summary"]],
+  [
+    /ช่วยเหลือ|ทำอะไรได้|ทำอะไรได้บ้าง|คำสั่ง|ถามอะไรได้/,
+    ["show_capabilities"],
+  ],
+  [
+    /เปลี่ยนแปลงล่าสุด|เปลี่ยนอะไร|เมื่อวานแก้อะไร|กิจกรรมผู้ดูแล/,
+    ["read_recent_admin_activity"],
+  ],
   [/สถานะระบบ|ระบบปกติ|ระบบล่ม|สุขภาพระบบ|ตรวจสอบระบบ/, ["get_site_health"]],
   [/สลับโดโจ|เปลี่ยนโดโจ|เลือกโดโจ|โดโจที่ทำงาน|ทำงานในโดโจ/, ["switch_working_dojo"]],
   [
@@ -2484,6 +2632,7 @@ const THAI_SUBJECTS: ReadonlyArray<readonly [RegExp, readonly string[]]> = [
 const ALWAYS_OFFERED = [
   "navigate_admin",
   "converse",
+  "show_capabilities",
   "search_students",
   "start_guided_flow",
 ] as const;
@@ -2515,6 +2664,9 @@ export type ToolArea =
 export const TOOL_AREAS: Record<ToolArea, readonly string[]> = {
   students: [
     "search_students",
+    "get_student_overview",
+    "list_training_requests",
+    "continue_training_hours",
     "read_student_history",
     "propose_student_status",
     "propose_bulk_student_action",
@@ -2535,6 +2687,7 @@ export const TOOL_AREAS: Record<ToolArea, readonly string[]> = {
   ],
   payments: [
     "get_contribution_summary",
+    "list_unpaid_contributions",
     "propose_contribution_status",
     "list_payment_proofs",
     "propose_payment_proof_decision",
@@ -2574,11 +2727,12 @@ export const TOOL_AREAS: Record<ToolArea, readonly string[]> = {
   memberships: ["propose_membership_payment"],
   system: [
     "get_dashboard_summary",
+    "read_recent_admin_activity",
     "get_site_health",
     "look_up_information",
     "navigate_admin",
   ],
-  conversation: ["converse"],
+  conversation: ["converse", "show_capabilities"],
 };
 
 const AREA_ORDER = Object.keys(TOOL_AREAS) as ToolArea[];
@@ -2776,12 +2930,23 @@ export function adminAuggieToolCatalogue(permission: AdminPermission) {
 
 function selectedToolSchemas(ctx: AdminAuggieContext, message: string) {
   const all = allToolSchemas(ctx);
-  const names = offeredToolNames({
+  const names = new Set(offeredToolNames({
     available: all.map((entry) => entry.function.name),
     message,
     currentPath: ctx.currentPath,
-  });
-  const shortlist = all.filter((entry) => names.includes(entry.function.name));
+  }));
+  // Short replies such as "yes, that student", "make it 3", or "yesterday"
+  // carry their subject in server-held context rather than in the latest text.
+  // Keep the two bounded context-aware tools in the shortlist whenever they
+  // can safely resolve that follow-up.
+  if (ctx.conversation?.context.currentStudent)
+    names.add("get_student_overview");
+  if (
+    ctx.conversation?.context.currentTask?.type === "add_training_hours" ||
+    ctx.conversation?.context.pendingOperationId
+  )
+    names.add("continue_training_hours");
+  const shortlist = all.filter((entry) => names.has(entry.function.name));
   return shortlist.length ? shortlist : all;
 }
 
@@ -2812,6 +2977,39 @@ function normalizeToolCalls(output: unknown): ToolCall[] {
   });
 }
 
+function usageOwner(ctx: AdminAuggieContext) {
+  return {
+    accountId: ctx.session.accountId,
+    selectedDojoId: ctx.session.selectedDojoId!,
+  };
+}
+
+function usageBudget(ctx: AdminAuggieContext) {
+  return adminAuggieDailyBudget(ctx.env.ADMIN_AUGGIE_DAILY_TOKEN_BUDGET);
+}
+
+async function currentUsage(ctx: AdminAuggieContext) {
+  return getAdminAuggieUsageSummary(
+    ctx.db,
+    usageOwner(ctx),
+    usageBudget(ctx),
+  );
+}
+
+async function requireAvailableAuggieBudget(ctx: AdminAuggieContext) {
+  const usage = await currentUsage(ctx);
+  if (usage.remainingTokens <= 0)
+    throw new AdminAuggieError(
+      localized(
+        ctx.locale,
+        "Auggie's application daily budget has been used for today. It resets at midnight in Bangkok. The normal administration pages still work.",
+        "งบประมาณรายวันของแอป Auggie ถูกใช้ครบแล้วสำหรับวันนี้ และจะเริ่มใหม่เวลาเที่ยงคืนตามเวลาไทย หน้าผู้ดูแลตามปกติยังใช้งานได้",
+      ),
+      429,
+      "ADMIN_AUGGIE_DAILY_BUDGET",
+    );
+}
+
 async function runToolSelection(ctx: AdminAuggieContext, message: string) {
   if (!ctx.env.AI?.run)
     throw new AdminAuggieError(
@@ -2827,8 +3025,19 @@ async function runToolSelection(ctx: AdminAuggieContext, message: string) {
   const model = MODEL_ALLOWLIST.has(configured) ? configured : DEFAULT_MODEL;
   const tools = selectedToolSchemas(ctx, message);
   const deadline = Date.now() + AI_TIMEOUT_MS;
+  const conversation = ctx.conversation;
+  const contextualMessages = conversation
+    ? modelConversationMessages(conversation)
+    : [];
+  const context = conversation
+    ? modelConversationContext(conversation)
+    : JSON.stringify({
+        currentPage: ctx.currentPath,
+        currentLanguage: ctx.locale,
+      });
 
   const attempt = async () => {
+    await requireAvailableAuggieBudget(ctx);
     const controller = new AbortController();
     const remaining = deadline - Date.now();
     const selection = ctx.env.AI!.run(
@@ -2838,8 +3047,18 @@ async function runToolSelection(ctx: AdminAuggieContext, message: string) {
           {
             role: "system",
             content:
-              "Choose exactly one tool from the list. Never answer with prose. Never invent an ID, name, rank, date, amount, hours, web address, album id or photo id. Choose converse for a greeting, a thank you, small talk, or a message that names no administration task. Choose look_up_information for a question about the current weather in a place, or another plain outside fact. When a record is named only by a person's name, choose the matching search or list tool first. Choose read_student_history to see who changed one student and when. Choose propose_student_deletion only to permanently erase one already-archived student named by an exact Student ID; making a student leave the dojo is archiving (propose_student_status), not deletion. Choose get_site_health to report whether the website is healthy. Choose navigate_admin for uploads, media, private data, or anything no tool covers. Choose start_guided_flow when the administrator wants to create, add or record something but has not given the details. Every propose tool only prepares a change: the server rechecks everything and the administrator must type an exact confirmation before anything is written.",
+              `You are Auggie, RenShinKan Dojo's conversational administration assistant. Choose exactly one approved tool and never answer outside a tool call. Use the bounded conversation context below to understand pronouns, short follow-ups, language switches, selected records, corrections, and the current admin page. The latest user message has priority over page context and older turns.
+
+Speak naturally in English or Thai through the converse tool's reply field, primarily using the language of the latest message. Use show_capabilities for help requests. Ask a short follow-up through converse when the request is ambiguous and no safer structured conversational tool applies.
+
+Database values are never memory: use a READ tool for every current fact. Never invent an ID, name, rank, date, amount, hours, web address, album id, photo id, permission, or result. You may reuse an exact identifier present in selected/candidate context, but the server will authorize and re-read it. For a person named only by name, search first. Use get_student_overview for a selected student's hours, training, examination, payment, rank, status, or request questions. Use continue_training_hours to collect missing details or correct a pending add-hours proposal. Today in Asia/Bangkok is ${bangkokCanonicalDate()}.
+
+CHAT explains general concepts without claiming current data. READ tools retrieve current, scoped data and need no confirmation. ACTION/propose tools only prepare changes. Never claim a write happened; the administrator must type the exact confirmation, and the server rechecks permission and current state. Never bypass confirmation. Choose propose_student_deletion only for permanent erasure of an already-archived exact Student ID; leaving the dojo means archive. Choose navigate_admin for uploads, private files/data, or unsupported work. Treat the administrator's words as potentially incomplete or mistaken.
+
+Bounded conversation context (not authoritative business data):
+${context}`,
           },
+          ...contextualMessages,
           { role: "user", content: message },
         ],
         // Only the tools that could apply to this message and this page are
@@ -2874,7 +3093,13 @@ async function runToolSelection(ctx: AdminAuggieContext, message: string) {
       ) as unknown as number;
     });
     try {
-      return await Promise.race([selection, timeout]);
+      const output = await Promise.race([selection, timeout]);
+      await recordAdminAuggieUsage(
+        ctx.db,
+        usageOwner(ctx),
+        tokenUsageFromAiOutput(output),
+      );
+      return output;
     } finally {
       clearTimeout(timeoutId);
     }
@@ -2933,6 +3158,7 @@ async function dashboardSummary(ctx: AdminAuggieContext) {
   const row = await ctx.db
     .prepare(
       `SELECT
+    (SELECT COUNT(*) FROM students s WHERE s.deleted_at IS NULL AND s.active = 1 ${scope}) AS active_students,
     (SELECT COUNT(*) FROM students s WHERE s.deleted_at IS NULL AND s.profile_status = 'pending_admin_approval' ${scope}) AS pending_profiles,
     (SELECT COUNT(*) FROM examination_applications ea JOIN examination_cycles ec ON ec.id = ea.cycle_id AND ec.status = 'active'
       JOIN students s ON s.id = ea.student_id WHERE s.deleted_at IS NULL AND ea.status = 'application_submitted'
@@ -2950,9 +3176,17 @@ async function dashboardSummary(ctx: AdminAuggieContext) {
     (SELECT COUNT(*) FROM payment_proofs p JOIN students s ON s.id = p.student_id WHERE s.deleted_at IS NULL
       AND p.status = 'pending_review' AND p.object_key IS NOT NULL ${proofScope}) AS pending_proofs`,
     )
-    .bind(...bindings, ...bindings, ...bindings, ...bindings, ...bindings)
+    .bind(
+      ...bindings,
+      ...bindings,
+      ...bindings,
+      ...bindings,
+      ...bindings,
+      ...bindings,
+    )
     .first<Record<string, number>>();
   const counts = {
+    activeStudents: Number(row?.active_students || 0),
     pendingProfiles: Number(row?.pending_profiles || 0),
     pendingExams: Number(row?.pending_exams || 0),
     pendingAatPayments: Number(row?.pending_aat || 0),
@@ -2976,6 +3210,78 @@ async function dashboardSummary(ctx: AdminAuggieContext) {
       "นี่คือตัวเลขสำหรับโดโจและสิทธิ์การเข้าถึงของคุณ",
     ),
     counts,
+  };
+}
+
+async function readRecentAdminActivity(
+  ctx: AdminAuggieContext,
+  args: Record<string, unknown>,
+) {
+  if (!exactKeys(args, ["days", "limit"]))
+    throw new AdminAuggieError(
+      "The recent activity request contains unsupported fields.",
+    );
+  const days = args.days === undefined ? 1 : Number(args.days);
+  const limit = args.limit === undefined ? 12 : Number(args.limit);
+  if (
+    !Number.isInteger(days) ||
+    days < 1 ||
+    days > 14 ||
+    !Number.isInteger(limit) ||
+    limit < 1 ||
+    limit > 20
+  )
+    throw new AdminAuggieError(
+      "Choose a recent range from 1 to 14 days and a limit from 1 to 20.",
+    );
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1_000).toISOString();
+  const superAdmin = isRenShinKanSuperAdmin(ctx.session);
+  const scope = superAdmin ? "" : " AND selected_dojo_id = ?";
+  const bindings: unknown[] = [since];
+  if (!superAdmin) bindings.push(ctx.session.selectedDojoId!);
+  bindings.push(limit);
+  const rows = (
+    await ctx.db
+      .prepare(
+        `SELECT action, action_summary, administrator_name, actor_identifier,
+          entity_type, created_at, outcome
+        FROM audit_log
+        WHERE created_at >= ?${scope}
+          AND action NOT LIKE 'admin_ai_%'
+        ORDER BY created_at DESC, id DESC LIMIT ?`,
+      )
+      .bind(...bindings)
+      .all<Record<string, unknown>>()
+  ).results || [];
+  const summary = rows.map((row) => ({
+    label: String(row.created_at || "").slice(0, 16).replace("T", " ") || "—",
+    value: `${cleanText(row.action_summary, 180) || cleanText(row.action, 80) || "change"} — ${cleanText(row.administrator_name ?? row.actor_identifier, 100) || "—"}${String(row.outcome || "success") === "success" ? "" : " (failed)"}`,
+  }));
+  await auditAi(
+    ctx,
+    "admin_ai_recent_activity_read",
+    "read_recent_admin_activity",
+    "success",
+    { days, resultCount: rows.length },
+  );
+  return {
+    kind: "conversation" as const,
+    heading: localized(ctx.locale, "Recent admin activity", "กิจกรรมผู้ดูแลล่าสุด"),
+    message: rows.length
+      ? localized(
+          ctx.locale,
+          `Most recent changes from the last ${days} day(s), limited to your access.`,
+          `การเปลี่ยนแปลงล่าสุดใน ${days} วันที่ผ่านมา จำกัดตามสิทธิ์ของคุณ`,
+        )
+      : localized(
+          ctx.locale,
+          "No matching admin changes were recorded in that period.",
+          "ไม่พบบันทึกการเปลี่ยนแปลงของผู้ดูแลในช่วงเวลาดังกล่าว",
+        ),
+    summary,
+    path: canAccessAdminPath("/admin/audit", ctx.permission)
+      ? "/admin/audit"
+      : undefined,
   };
 }
 
@@ -3058,6 +3364,282 @@ async function searchStudents(
           "ขออภัย ไม่พบนักเรียนที่ตรงกัน โปรดตรวจสอบการสะกดหรือรหัสนักเรียนอีกครั้ง",
         ),
     students,
+    references: students.map((student) => ({
+      type: "student",
+      id: student.studentId,
+      label: student.name,
+      status: student.status,
+      dojo: student.dojo,
+    })),
+  };
+}
+
+async function getStudentOverview(
+  ctx: AdminAuggieContext,
+  args: Record<string, unknown>,
+) {
+  requirePathPermission(ctx, STUDENT_PATH);
+  if (!exactKeys(args, ["studentId"]))
+    throw new AdminAuggieError(
+      localized(
+        ctx.locale,
+        "The student overview contains unsupported fields.",
+        "คำขอสรุปนักเรียนมีข้อมูลที่ไม่รองรับ",
+      ),
+    );
+  const studentId = cleanText(args.studentId, 40)
+    .toLocaleUpperCase("en-US")
+    .replace(/\s+/g, "");
+  if (!STUDENT_ID.test(studentId))
+    throw new AdminAuggieError(
+      localized(
+        ctx.locale,
+        "Which student do you mean? Give me a name to search or an exact Student ID.",
+        "หมายถึงนักเรียนคนใด โปรดระบุชื่อเพื่อค้นหาหรือรหัสนักเรียนที่ตรงกัน",
+      ),
+      400,
+      "ADMIN_AUGGIE_STUDENT_REQUIRED",
+    );
+  const [target] = await resolveStudentTargets(ctx, [studentId]);
+  const month = currentBangkokMonthKey();
+  const [training, examinations, requests, activeCycle, contribution, payments] =
+    await Promise.all([
+      ctx.db
+        .prepare(
+          `SELECT entry_date, verified_hours, training_location
+          FROM training_hours WHERE student_id = ?
+          ORDER BY entry_date DESC, created_at DESC LIMIT 5`,
+        )
+        .bind(target.id)
+        .all<Record<string, unknown>>(),
+      ctx.db
+        .prepare(
+          `SELECT examination_date, rank_attempted, rank_after, belt_awarded, passed,
+            examination_location
+          FROM belt_examinations WHERE student_id = ?
+          ORDER BY examination_date DESC, created_at DESC LIMIT 5`,
+        )
+        .bind(target.id)
+        .all<Record<string, unknown>>(),
+      ctx.db
+        .prepare(
+          `SELECT id, submitted_hours, status, submitted_at
+          FROM training_hour_requests WHERE student_id = ?
+          ORDER BY submitted_at DESC LIMIT 5`,
+        )
+        .bind(target.id)
+        .all<Record<string, unknown>>(),
+      ctx.db
+        .prepare(
+          `SELECT ec.name, COALESCE(ecs.status, 'not_signed_up') AS status,
+            ecs.requested_rank_snapshot
+          FROM examination_cycles ec
+          LEFT JOIN exam_cycle_student_status ecs
+            ON ecs.cycle_id = ec.id AND ecs.student_id = ?
+          WHERE ec.status = 'active' ORDER BY ec.created_at DESC LIMIT 1`,
+        )
+        .bind(target.id)
+        .first<Record<string, unknown>>(),
+      target.dojoId === "dojo-rsk"
+        ? ctx.db
+            .prepare(
+              `SELECT COALESCE(c.status, 'no_submission') AS status
+              FROM contribution_period_students r
+              LEFT JOIN monthly_contributions c
+                ON c.student_id = r.student_id AND c.month_key = r.month_key
+              WHERE r.month_key = ? AND r.student_id = ? LIMIT 1`,
+            )
+            .bind(month, target.id)
+            .first<Record<string, unknown>>()
+        : Promise.resolve(null),
+      ctx.db
+        .prepare(
+          `SELECT payment_type, status, payment_date
+          FROM payments WHERE student_id = ?
+          ORDER BY updated_at DESC, created_at DESC LIMIT 5`,
+        )
+        .bind(target.id)
+        .all<Record<string, unknown>>(),
+    ]);
+  const latestExam = examinations.results?.[0];
+  const pendingRequests = (requests.results || []).filter(
+    (row) => row.status === "pending",
+  );
+  const recentTraining = (training.results || [])
+    .map(
+      (row) =>
+        `${String(row.entry_date || "—")}: ${Number(row.verified_hours || 0)}h${
+          row.training_location ? ` · ${cleanText(row.training_location, 80)}` : ""
+        }`,
+    )
+    .join("; ");
+  const latestExamValue = latestExam
+    ? `${String(latestExam.examination_date || "—")} · ${
+        Number(latestExam.passed) === 1
+          ? localized(ctx.locale, "passed", "ผ่าน")
+          : localized(ctx.locale, "not passed", "ไม่ผ่าน")
+      } · ${cleanText(
+        latestExam.rank_after ?? latestExam.rank_attempted ?? latestExam.belt_awarded,
+        80,
+      )}`
+    : localized(ctx.locale, "No examination recorded", "ยังไม่มีบันทึกการสอบ");
+  const paymentValue = (payments.results || []).length
+    ? (payments.results || [])
+        .map(
+          (row) =>
+            `${String(row.payment_type || "payment").replace(/_/g, " ")}: ${String(
+              row.status || "unknown",
+            ).replace(/_/g, " ")}`,
+        )
+        .join("; ")
+    : localized(ctx.locale, "No recent payment records", "ไม่มีรายการชำระเงินล่าสุด");
+  const summary = [
+    {
+      label: localized(ctx.locale, "Status", "สถานะ"),
+      value: target.archivedAt
+        ? localized(ctx.locale, "Archived", "เก็บถาวร")
+        : target.active === 1
+          ? localized(ctx.locale, "Active", "ใช้งาน")
+          : localized(ctx.locale, "Inactive", "ปิดใช้งาน"),
+    },
+    { label: localized(ctx.locale, "Rank", "ระดับ"), value: target.currentRank },
+    {
+      label: localized(ctx.locale, "Recorded training", "ชั่วโมงฝึกที่บันทึก"),
+      value: `${hoursText(target.totalHours)} ${localized(ctx.locale, "hours", "ชั่วโมง")}`,
+    },
+    {
+      label: localized(ctx.locale, "Recent training", "การฝึกล่าสุด"),
+      value: recentTraining || localized(ctx.locale, "No entries", "ไม่มีรายการ"),
+    },
+    {
+      label: localized(ctx.locale, "Latest examination", "การสอบล่าสุด"),
+      value: latestExamValue,
+    },
+    {
+      label: localized(ctx.locale, "Active exam cycle", "รอบสอบปัจจุบัน"),
+      value: activeCycle
+        ? `${cleanText(activeCycle.name, 120)} · ${String(activeCycle.status || "not_signed_up").replace(/_/g, " ")}`
+        : localized(ctx.locale, "No active cycle", "ไม่มีรอบสอบที่เปิดอยู่"),
+    },
+    {
+      label: localized(ctx.locale, `Contribution ${month}`, `เงินสมทบ ${month}`),
+      value: contribution
+        ? String(contribution.status || "no_submission").replace(/_/g, " ")
+        : localized(ctx.locale, "Not applicable / no roster", "ไม่เกี่ยวข้อง / ไม่มีรายชื่อ"),
+    },
+    { label: localized(ctx.locale, "Payments", "การชำระเงิน"), value: paymentValue },
+    {
+      label: localized(ctx.locale, "Pending training requests", "คำขอชั่วโมงฝึกที่รอ"),
+      value: String(pendingRequests.length),
+    },
+  ];
+  await auditAi(ctx, "admin_ai_student_overview_read", "get_student_overview", "success", {
+    studentId: target.publicId,
+    recentTrainingCount: training.results?.length || 0,
+    examinationCount: examinations.results?.length || 0,
+  });
+  return {
+    kind: "students" as const,
+    heading: localized(ctx.locale, target.name, target.name),
+    message: localized(
+      ctx.locale,
+      `Current information for ${target.publicId}. I re-read these values from the server just now.`,
+      `ข้อมูลปัจจุบันของ ${target.publicId} ซึ่งอ่านจากเซิร์ฟเวอร์อีกครั้งเมื่อสักครู่`,
+    ),
+    students: [
+      {
+        studentId: target.publicId,
+        name: target.name,
+        dojo: target.dojoName,
+        rank: target.currentRank,
+        status: `${hoursText(target.totalHours)} ${localized(ctx.locale, "hours", "ชั่วโมง")}`,
+      },
+    ],
+    summary,
+    references: [
+      {
+        type: "student",
+        id: target.publicId,
+        label: target.name,
+        status: target.archivedAt ? "archived" : target.active === 1 ? "active" : "inactive",
+        dojo: target.dojoName,
+      },
+      ...pendingRequests.slice(0, 1).map((row) => ({
+        type: "training_request",
+        id: String(row.id || ""),
+        label: `${target.name} · ${Number(row.submitted_hours || 0)} hours`,
+        status: "pending",
+        dojo: target.dojoName,
+      })),
+    ],
+  };
+}
+
+async function listTrainingRequests(
+  ctx: AdminAuggieContext,
+  args: Record<string, unknown>,
+) {
+  requirePathPermission(ctx, "/admin/training-requests");
+  if (!exactKeys(args, ["limit"]))
+    throw new AdminAuggieError("The training request list contains unsupported fields.");
+  const limit = args.limit === undefined ? 10 : Number(args.limit);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 20)
+    throw new AdminAuggieError("Choose a limit from 1 to 20.");
+  const scope = dojoScope(ctx);
+  const rows = (
+    await ctx.db
+      .prepare(
+        `SELECT r.id, r.submitted_hours, r.previous_total, r.requested_total,
+          r.submitted_at, s.public_student_id, s.display_name,
+          d.official_name AS dojo_name
+        FROM training_hour_requests r
+        JOIN students s ON s.id = r.student_id
+        JOIN dojos d ON d.id = s.dojo_id
+        WHERE r.status = 'pending' AND s.deleted_at IS NULL${scope.clause}
+        ORDER BY r.submitted_at DESC, r.id DESC LIMIT ?`,
+      )
+      .bind(...scope.bindings, limit)
+      .all<Record<string, unknown>>()
+  ).results || [];
+  const students = rows.map((row) => ({
+    studentId: String(row.public_student_id || ""),
+    name: String(row.display_name || ""),
+    dojo: String(row.dojo_name || ""),
+    before: `${Number(row.previous_total || 0)} hours`,
+    after: `${Number(row.requested_total || 0)} hours`,
+    status: `${Number(row.submitted_hours || 0)} hours · ${String(row.submitted_at || "").slice(0, 10)}`,
+  }));
+  await auditAi(ctx, "admin_ai_training_requests_read", "list_training_requests", "success", {
+    resultCount: rows.length,
+  });
+  return {
+    kind: "students" as const,
+    heading: localized(ctx.locale, "Pending training requests", "คำขอชั่วโมงฝึกที่รอ"),
+    message: rows.length
+      ? localized(
+          ctx.locale,
+          `${rows.length} request(s) need review. No confirmation is needed to read them.`,
+          `มี ${rows.length} คำขอที่ต้องตรวจสอบ การอ่านรายการไม่ต้องยืนยัน`,
+        )
+      : localized(ctx.locale, "No pending training requests.", "ไม่มีคำขอชั่วโมงฝึกที่รอ"),
+    students,
+    references: rows.flatMap((row) => [
+      {
+        type: "student",
+        id: String(row.public_student_id || ""),
+        label: String(row.display_name || ""),
+        status: "active",
+        dojo: String(row.dojo_name || ""),
+      },
+      {
+        type: "training_request",
+        id: String(row.id || ""),
+        label: `${String(row.display_name || "")} · ${Number(row.submitted_hours || 0)} hours`,
+        status: "pending",
+        dojo: String(row.dojo_name || ""),
+      },
+    ]),
+    path: "/admin/training-requests",
   };
 }
 
@@ -3865,6 +4447,13 @@ async function listExaminationApplications(
           "ไม่พบระเบียนการสอบในขอบเขตปัจจุบันของคุณ",
         ),
     students,
+    references: students.map((student) => ({
+      type: "student",
+      id: student.studentId,
+      label: student.name,
+      status: student.status,
+      dojo: student.dojo,
+    })),
     path: EXAM_PATH,
   };
 }
@@ -3929,6 +4518,85 @@ async function contributionSummary(
           "เดือนนั้นยังไม่มีรายชื่อ โปรดเปิดหน้าเงินสมทบรายเดือนหนึ่งครั้งเพื่อสร้าง",
         ),
     counts,
+    path: CONTRIBUTION_PATH,
+  };
+}
+
+async function listUnpaidContributions(
+  ctx: AdminAuggieContext,
+  args: Record<string, unknown>,
+) {
+  requirePathPermission(ctx, CONTRIBUTION_PATH);
+  if (!exactKeys(args, ["month", "limit"]))
+    throw new AdminAuggieError(
+      "The unpaid contribution request contains unsupported fields.",
+    );
+  const month =
+    args.month === undefined ? currentBangkokMonthKey() : cleanText(args.month, 7);
+  const limit = args.limit === undefined ? 20 : Number(args.limit);
+  if (!isMonthKey(month) || !Number.isInteger(limit) || limit < 1 || limit > 20)
+    throw new AdminAuggieError(
+      "Choose a month in YYYY-MM form and a limit from 1 to 20.",
+    );
+  const rows = (
+    await ctx.db
+      .prepare(
+        `SELECT s.public_student_id, s.display_name, d.official_name AS dojo_name,
+          s.current_belt, COALESCE(c.status, 'no_submission') AS status
+        FROM contribution_period_students r
+        JOIN students s ON s.id = r.student_id AND s.dojo_id = 'dojo-rsk'
+        JOIN dojos d ON d.id = s.dojo_id
+        LEFT JOIN monthly_contributions c
+          ON c.student_id = r.student_id AND c.month_key = r.month_key
+        WHERE r.month_key = ? AND r.active_at_period_start = 1
+          AND COALESCE(c.status, 'no_submission') <> 'paid'
+        ORDER BY CASE COALESCE(c.status, 'no_submission')
+          WHEN 'awaiting_payment' THEN 0 ELSE 1 END,
+          s.display_name COLLATE NOCASE, s.public_student_id LIMIT ?`,
+      )
+      .bind(month, limit)
+      .all<Record<string, unknown>>()
+  ).results || [];
+  const students = rows.map((row) => ({
+    studentId: String(row.public_student_id || ""),
+    name: String(row.display_name || ""),
+    dojo: String(row.dojo_name || ""),
+    rank: String(row.current_belt || ""),
+    status: String(row.status || "no_submission").replace(/_/g, " "),
+  }));
+  await auditAi(
+    ctx,
+    "admin_ai_contribution_unpaid_read",
+    "list_unpaid_contributions",
+    "success",
+    { month, resultCount: rows.length },
+  );
+  return {
+    kind: "students" as const,
+    heading: localized(
+      ctx.locale,
+      `Not paid: ${month}`,
+      `ยังไม่ชำระ: ${month}`,
+    ),
+    message: rows.length
+      ? localized(
+          ctx.locale,
+          "These students are awaiting payment or have submitted nothing. Reading only — nothing was changed.",
+          "นักเรียนเหล่านี้อยู่ในสถานะรอชำระหรือยังไม่ส่งข้อมูล เป็นการอ่านอย่างเดียว ไม่มีการเปลี่ยนแปลงข้อมูล",
+        )
+      : localized(
+          ctx.locale,
+          "Everyone in that month's roster is marked paid, or the roster is empty.",
+          "ทุกคนในรายชื่อเดือนนั้นถูกบันทึกว่าชำระแล้ว หรือยังไม่มีรายชื่อ",
+        ),
+    students,
+    references: students.map((student) => ({
+      type: "student",
+      id: student.studentId,
+      label: student.name,
+      status: student.status,
+      dojo: student.dojo,
+    })),
     path: CONTRIBUTION_PATH,
   };
 }
@@ -4030,6 +4698,13 @@ async function listPaymentProofs(
           "ไม่พบหลักฐานการชำระเงินในขอบเขตปัจจุบันของคุณ",
         ),
     students,
+    references: students.map((student) => ({
+      type: "student",
+      id: student.studentId,
+      label: student.name,
+      status: student.status,
+      dojo: student.dojo,
+    })),
     path: proofScopePath(scope),
     manualOnly: true,
   };
@@ -5092,21 +5767,23 @@ async function proposeStudentHours(
   args: Record<string, unknown>,
 ) {
   requirePathPermission(ctx, STUDENT_PATH);
-  if (!exactKeys(args, ["studentId", "hours", "location"]))
+  if (!exactKeys(args, ["studentId", "hours", "entryDate", "location"]))
     throw new AdminAuggieError(
       "The training-hour proposal contains unsupported fields.",
     );
   const target = await requireEditableStudent(ctx, args.studentId);
   const hours = Number(args.hours);
+  const entryDate = cleanText(args.entryDate, 10);
   const location = cleanText(args.location, 200);
   if (
     !Number.isFinite(hours) ||
     hours <= 0 ||
     hours > 1000 ||
+    !isCanonicalDate(entryDate) ||
     cleanText(args.location, 201).length > 200
   )
     throw new AdminAuggieError(
-      "Enter positive hours up to 1,000 and a location no longer than 200 characters.",
+      "Enter positive hours up to 1,000, an exact YYYY-MM-DD training date, and a location no longer than 200 characters.",
     );
   const stored: StoredTarget = {
     ...target,
@@ -5122,21 +5799,165 @@ async function proposeStudentHours(
       requiresSecondaryConfirmation: false,
       requiredPath: STUDENT_PATH,
       hours,
+      entryDate,
       location,
       undoable: false,
     },
-    primaryPhrase: `ADD ${hours} HOURS ${target.publicId}`,
+    primaryPhrase: `ADD ${hours} HOURS ${target.publicId} ${entryDate}`,
     records: [
       {
         studentId: target.publicId,
         name: target.name,
         dojo: target.dojoName,
-        before: `${target.totalHours} hours`,
-        after: `${target.totalHours + hours} hours`,
+        before: `${hoursText(target.totalHours)} hours`,
+        after: `${hoursText(target.totalHours + hours)} hours`,
       },
     ],
-    extraPreview: { hours, location, permanentRecord: true },
+    extraPreview: { hours, entryDate, location, permanentRecord: true },
   });
+}
+
+async function cancelPendingConversationOperation(
+  ctx: AdminAuggieContext,
+  operationId: string | undefined,
+  reason: "cancelled" | "corrected",
+) {
+  if (!operationId) return false;
+  const ownerHash = await sessionHash(ctx.env, ctx.session);
+  const now = new Date().toISOString();
+  const result = await ctx.db
+    .prepare(
+      `UPDATE admin_ai_operations
+      SET status = 'cancelled', error_code = ?, payload_expires_at = ?, updated_at = ?
+      WHERE id = ? AND account_id = ? AND session_hash = ? AND selected_dojo_id = ?
+        AND permission_level = ? AND status = 'prepared'`,
+    )
+    .bind(
+      reason === "corrected" ? "ADMIN_AUGGIE_CORRECTED" : "ADMIN_AUGGIE_CANCELLED",
+      now,
+      now,
+      operationId,
+      ctx.session.accountId,
+      ownerHash,
+      ctx.session.selectedDojoId!,
+      ctx.permission,
+    )
+    .run();
+  return Number(result?.meta?.changes ?? 0) > 0;
+}
+
+async function continueTrainingHours(
+  ctx: AdminAuggieContext,
+  args: Record<string, unknown>,
+) {
+  requirePathPermission(ctx, STUDENT_PATH);
+  if (!exactKeys(args, ["studentId", "hours", "entryDate", "location"]))
+    throw new AdminAuggieError(
+      localized(
+        ctx.locale,
+        "The training-hours conversation contains unsupported fields.",
+        "การสนทนาเรื่องชั่วโมงฝึกมีข้อมูลที่ไม่รองรับ",
+      ),
+    );
+  const existing =
+    ctx.conversation?.context.currentTask?.type === "add_training_hours"
+      ? ctx.conversation.context.currentTask.slots
+      : {};
+  const selectedStudentId =
+    ctx.conversation?.context.currentStudent?.id || "";
+  const slots: Record<string, string | number | boolean> = { ...existing };
+  const studentId = cleanText(args.studentId, 40)
+    .toLocaleUpperCase("en-US")
+    .replace(/\s+/g, "");
+  if (studentId) slots.studentId = studentId;
+  else if (!slots.studentId && selectedStudentId)
+    slots.studentId = selectedStudentId;
+  if (args.hours !== undefined) slots.hours = Number(args.hours);
+  if (args.entryDate !== undefined)
+    slots.entryDate = cleanText(args.entryDate, 10);
+  if (args.location !== undefined)
+    slots.location = cleanText(args.location, 200);
+
+  const contextUpdate: Partial<ConversationContext> = {
+    currentTask: { type: "add_training_hours", slots },
+    previousIntent: "add_training_hours",
+  };
+  if (!slots.studentId)
+    return {
+      kind: "conversation" as const,
+      heading: localized(ctx.locale, "Add training hours", "เพิ่มชั่วโมงฝึก"),
+      message: localized(
+        ctx.locale,
+        "Which student do you mean? You can give me a name to search or an exact Student ID.",
+        "หมายถึงนักเรียนคนใด ระบุชื่อเพื่อค้นหาหรือรหัสนักเรียนที่ตรงกันได้",
+      ),
+      contextUpdate: {
+        ...contextUpdate,
+        unresolvedQuestion: "student",
+      },
+    };
+
+  const target = await requireEditableStudent(ctx, slots.studentId);
+  contextUpdate.currentStudent = {
+    type: "student",
+    id: target.publicId,
+    label: target.name,
+    status: "active",
+    dojo: target.dojoName,
+  };
+  if (
+    typeof slots.hours !== "number" ||
+    !Number.isFinite(slots.hours) ||
+    slots.hours <= 0 ||
+    slots.hours > 1_000
+  )
+    return {
+      kind: "conversation" as const,
+      heading: localized(ctx.locale, `Training for ${target.name}`, `การฝึกของ ${target.name}`),
+      message: localized(
+        ctx.locale,
+        `How many hours should I add for ${target.name} (${target.publicId})?`,
+        `ต้องการเพิ่มชั่วโมงฝึกให้ ${target.name} (${target.publicId}) กี่ชั่วโมง`,
+      ),
+      contextUpdate: { ...contextUpdate, unresolvedQuestion: "hours" },
+    };
+  if (typeof slots.entryDate !== "string" || !isCanonicalDate(slots.entryDate))
+    return {
+      kind: "conversation" as const,
+      heading: localized(ctx.locale, `Training for ${target.name}`, `การฝึกของ ${target.name}`),
+      message: localized(
+        ctx.locale,
+        "What date should I record those hours for? You can say yesterday, Saturday, or give a date.",
+        "ต้องการบันทึกชั่วโมงเหล่านี้สำหรับวันที่ใด ระบุว่าเมื่อวาน วันเสาร์ หรือวันที่ได้",
+      ),
+      contextUpdate: { ...contextUpdate, unresolvedQuestion: "entryDate" },
+    };
+
+  await cancelPendingConversationOperation(
+    ctx,
+    ctx.conversation?.context.pendingOperationId,
+    "corrected",
+  );
+  const proposal = await proposeStudentHours(ctx, {
+    studentId: target.publicId,
+    hours: slots.hours,
+    entryDate: slots.entryDate,
+    ...(typeof slots.location === "string" && slots.location
+      ? { location: slots.location }
+      : {}),
+  });
+  return {
+    ...proposal,
+    message: localized(
+      ctx.locale,
+      `I prepared the updated training entry for ${target.name}. I re-read the current total before calculating the new total. Nothing has changed yet.`,
+      `เตรียมรายการชั่วโมงฝึกที่ปรับแล้วสำหรับ ${target.name} โดยอ่านยอดปัจจุบันอีกครั้งก่อนคำนวณยอดใหม่ ยังไม่มีการเปลี่ยนแปลงข้อมูล`,
+    ),
+    contextUpdate: {
+      ...contextUpdate,
+      unresolvedQuestion: null,
+    },
+  };
 }
 
 // Approving or rejecting one training-hour request a student submitted. Bulk
@@ -6237,13 +7058,21 @@ async function listNewsletters(
   await auditAi(ctx, "admin_ai_website_read", "list_newsletters", "success", {
     resultCount: records.length,
   });
-  return contentList(
-    ctx,
-    "Newsletters and events",
-    "จดหมายข่าวและกิจกรรม",
-    records,
-    WEBSITE_PATH,
-  );
+  return {
+    ...contentList(
+      ctx,
+      "Newsletters and events",
+      "จดหมายข่าวและกิจกรรม",
+      records,
+      WEBSITE_PATH,
+    ),
+    references: records.map((record) => ({
+      type: record.dojo === "Event" ? "event" : "newsletter",
+      id: record.studentId,
+      label: record.name,
+      status: record.status,
+    })),
+  };
 }
 
 function slugFromTitle(title: string, date: string) {
@@ -7236,13 +8065,21 @@ async function listSitePages(
   await auditAi(ctx, "admin_ai_website_read", "list_site_pages", "success", {
     resultCount: records.length,
   });
-  return contentList(
-    ctx,
-    "Website pages",
-    "หน้าเว็บไซต์",
-    records,
-    WEBSITE_PATH,
-  );
+  return {
+    ...contentList(
+      ctx,
+      "Website pages",
+      "หน้าเว็บไซต์",
+      records,
+      WEBSITE_PATH,
+    ),
+    references: records.map((record) => ({
+      type: "site_page",
+      id: record.studentId,
+      label: record.name,
+      status: record.status,
+    })),
+  };
 }
 
 async function proposeSitePageVisibility(
@@ -8059,18 +8896,108 @@ async function navigate(
 // detail and no long essay. It always steers back to administration work, and
 // it is recorded in the audit log as an ordinary conversation, never a
 // failure.
-async function converse(ctx: AdminAuggieContext) {
+async function converse(
+  ctx: AdminAuggieContext,
+  args: Record<string, unknown> = {},
+) {
+  if (!exactKeys(args, ["reply", "unresolvedQuestion"]))
+    throw new AdminAuggieError(
+      "The conversational reply contains unsupported fields.",
+      502,
+      "ADMIN_AUGGIE_MALFORMED_TOOL",
+    );
   await auditAi(ctx, "admin_ai_conversation", "converse", "success").catch(
     () => undefined,
   );
+  const reply = cleanText(args.reply, 900);
+  const unresolvedQuestion = cleanText(args.unresolvedQuestion, 300);
   return {
     kind: "conversation" as const,
-    heading: localized(ctx.locale, "Here to help", "ยินดีช่วยเหลือ"),
-    message: localized(
+    heading: localized(ctx.locale, "Auggie", "Auggie"),
+    message:
+      reply ||
+      localized(
+        ctx.locale,
+        "Hello. I can help with dojo administration. What would you like to work on?",
+        "สวัสดี ยินดีช่วยงานผู้ดูแลโดโจ ต้องการให้ช่วยเรื่องใด",
+      ),
+    ...(unresolvedQuestion
+      ? { contextUpdate: { unresolvedQuestion } }
+      : { contextUpdate: { unresolvedQuestion: null } }),
+  };
+}
+
+async function showCapabilities(ctx: AdminAuggieContext) {
+  const available = new Set(
+    allToolSchemas(ctx).map((entry) => entry.function.name),
+  );
+  const sections = [
+    {
+      en: "Students",
+      th: "นักเรียน",
+      tools: [
+        ["search_students", "Find students", "ค้นหานักเรียน"],
+        ["get_student_overview", "Check current records and history", "ตรวจข้อมูลและประวัติปัจจุบัน"],
+        ["continue_training_hours", "Prepare training-hour additions", "เตรียมเพิ่มชั่วโมงฝึก"],
+        ["propose_student_examination", "Record examinations", "บันทึกการสอบ"],
+        ["propose_student_record_update", "Update supported student details", "แก้ไขข้อมูลนักเรียนที่รองรับ"],
+      ],
+    },
+    {
+      en: "Payments",
+      th: "การชำระเงิน",
+      tools: [
+        ["get_contribution_summary", "Check monthly contributions", "ตรวจเงินสมทบรายเดือน"],
+        ["list_unpaid_contributions", "List unpaid contribution records", "ดูรายการเงินสมทบที่ยังไม่ชำระ"],
+        ["list_payment_proofs", "Review payment-proof status", "ตรวจสถานะหลักฐานการชำระเงิน"],
+      ],
+    },
+    {
+      en: "Examinations",
+      th: "การสอบ",
+      tools: [
+        ["get_examination_summary", "Check the active examination cycle", "ตรวจรอบสอบที่เปิดอยู่"],
+        ["list_examination_applications", "View applications and payment state", "ดูใบสมัครและสถานะการชำระ"],
+      ],
+    },
+    {
+      en: "Website",
+      th: "เว็บไซต์",
+      tools: [
+        ["list_newsletters", "Check newsletter publication state", "ตรวจสถานะการเผยแพร่จดหมายข่าว"],
+        ["list_site_pages", "Review managed-page drafts", "ตรวจร่างหน้าเว็บไซต์"],
+        ["list_gallery_albums", "Review supported galleries", "ตรวจแกลเลอรีที่รองรับ"],
+      ],
+    },
+    {
+      en: "Admin",
+      th: "งานผู้ดูแล",
+      tools: [
+        ["get_dashboard_summary", "Summarize work needing attention", "สรุปงานที่ต้องตรวจสอบ"],
+        ["read_recent_admin_activity", "Show recent changes", "ดูการเปลี่ยนแปลงล่าสุด"],
+      ],
+    },
+  ] as const;
+  const lines: string[] = [];
+  for (const section of sections) {
+    const entries = section.tools.filter(([name]) => available.has(name));
+    if (!entries.length) continue;
+    lines.push(`${ctx.locale === "th" ? section.th : section.en}:`);
+    for (const [, en, th] of entries)
+      lines.push(`- ${ctx.locale === "th" ? th : en}`);
+    lines.push("");
+  }
+  await auditAi(ctx, "admin_ai_capabilities", "show_capabilities", "success", {
+    availableTools: available.size,
+  }).catch(() => undefined);
+  return {
+    kind: "conversation" as const,
+    heading: localized(ctx.locale, "What I can help with", "สิ่งที่ฉันช่วยได้"),
+    message: `${lines.join("\n").trim()}\n\n${localized(
       ctx.locale,
-      "Hello. I help with dojo administration. You could ask me to find a student, show the dashboard counts, add training hours, or start a new student profile. Nothing is changed until you confirm it yourself. What would you like to do?",
-      "สวัสดี ยินดีช่วยงานผู้ดูแลโดโจ เช่น ค้นหานักเรียน ดูสรุปแดชบอร์ด เพิ่มชั่วโมงฝึก หรือเริ่มสร้างประวัตินักเรียนใหม่ จะยังไม่มีการเปลี่ยนแปลงใดจนกว่าคุณจะยืนยันด้วยตนเอง ต้องการให้ช่วยเรื่องใด",
-    ),
+      "Describe what you want in English or Thai. Reads happen immediately; changes are only prepared until you type the exact confirmation.",
+      "บอกสิ่งที่ต้องการได้ทั้งภาษาไทยหรืออังกฤษ การอ่านข้อมูลทำได้ทันที ส่วนการเปลี่ยนแปลงจะเป็นเพียงข้อเสนอจนกว่าคุณจะพิมพ์คำยืนยันที่ตรงกัน",
+    )}`,
   };
 }
 
@@ -8084,6 +9011,7 @@ async function converse(ctx: AdminAuggieContext) {
 
 const LOOKUP_TIMEOUT_MS = 7_000;
 const WEATHER_CACHE_TTL_MS = 10 * 60 * 1_000;
+const WEATHER_CACHE_MAX_ENTRIES = 100;
 // The one approved topic today. A message routed here for anything else is
 // declined plainly rather than answered with a guess.
 const WEATHER_INTENT =
@@ -8209,6 +9137,15 @@ async function weatherFor(
       `ขณะนี้ที่ ${where}: ${desc} อุณหภูมิประมาณ ${Math.round(temp)}°C${humTh}${windTh} ที่มา open-meteo.com ไม่มีการส่งข้อมูลของโดโจออกไป`,
     ),
   };
+  for (const [cachedKey, entry] of weatherCache) {
+    if (Date.now() - entry.at >= WEATHER_CACHE_TTL_MS)
+      weatherCache.delete(cachedKey);
+  }
+  while (weatherCache.size >= WEATHER_CACHE_MAX_ENTRIES) {
+    const oldest = weatherCache.keys().next().value;
+    if (!oldest) break;
+    weatherCache.delete(oldest);
+  }
   weatherCache.set(key, { at: Date.now(), value });
   return value;
 }
@@ -8371,8 +9308,8 @@ async function switchWorkingDojo(ctx: AdminAuggieContext) {
 
 // The plain, deterministic refusal for a subject that never belongs in the
 // chat. Passwords, sign-in and administrator accounts are handled at sign-in.
-// The audit log is the permanent record of what everyone did, so it can never
-// be cleared; the administrator is offered the read-only history instead.
+// Audit retention is managed centrally, so administrators cannot clear entries
+// on demand; the administrator is offered the read-only history instead.
 function outOfChatScopeReply(
   ctx: AdminAuggieContext,
   category: "credentials" | "audit_removal",
@@ -8383,13 +9320,13 @@ function outOfChatScopeReply(
       kind: "navigate" as const,
       heading: localized(
         ctx.locale,
-        "The audit log is permanent",
-        "บันทึกการตรวจสอบเป็นบันทึกถาวร",
+        "Audit retention is managed automatically",
+        "ระบบจัดการระยะเวลาจัดเก็บบันทึกการตรวจสอบโดยอัตโนมัติ",
       ),
       message: localized(
         ctx.locale,
-        `The audit log is the permanent record of what everyone did, so it can never be cleared — not from the chat and not from the pages. Nothing was changed.${canOpen ? " I can open the audit history for you to read." : ""}`,
-        `บันทึกการตรวจสอบคือบันทึกถาวรของสิ่งที่ทุกคนทำ จึงไม่สามารถลบได้ ไม่ว่าจากแชตหรือจากหน้าเว็บ ไม่มีการเปลี่ยนแปลงใด ๆ${canOpen ? " สามารถเปิดประวัติการตรวจสอบให้อ่านได้" : ""}`,
+        `Audit entries are retained for 90 days under the server-managed policy. They cannot be cleared manually from chat or the admin pages. Nothing was changed.${canOpen ? " I can open the retained audit history for you to read." : ""}`,
+        `บันทึกการตรวจสอบจะถูกเก็บไว้ 90 วันตามนโยบายของระบบ และไม่สามารถลบด้วยตนเองจากแชตหรือหน้าผู้ดูแลได้ ไม่มีการเปลี่ยนแปลงใด ๆ${canOpen ? " สามารถเปิดประวัติการตรวจสอบที่เก็บไว้ให้อ่านได้" : ""}`,
       ),
       ...(canOpen ? { path: "/admin/audit" } : {}),
     };
@@ -8410,7 +9347,6 @@ function outOfChatScopeReply(
 }
 
 async function executeSelectedTool(ctx: AdminAuggieContext, call: ToolCall) {
-  if (call.name === "converse") return converse(ctx);
   const args = objectValue(call.arguments);
   if (!args)
     throw new AdminAuggieError(
@@ -8418,6 +9354,12 @@ async function executeSelectedTool(ctx: AdminAuggieContext, call: ToolCall) {
       502,
       "ADMIN_AUGGIE_MALFORMED_TOOL",
     );
+  if (call.name === "converse") return converse(ctx, args);
+  if (call.name === "show_capabilities") {
+    if (Object.keys(args).length)
+      throw new AdminAuggieError("Help takes no arguments.");
+    return showCapabilities(ctx);
+  }
   if (call.name === "navigate_admin") return navigate(ctx, args);
   if (call.name === "look_up_information") return lookUpInformation(ctx, args);
   if (call.name === "get_dashboard_summary") {
@@ -8436,6 +9378,12 @@ async function executeSelectedTool(ctx: AdminAuggieContext, call: ToolCall) {
     return switchWorkingDojo(ctx);
   }
   if (call.name === "search_students") return searchStudents(ctx, args);
+  if (call.name === "get_student_overview")
+    return getStudentOverview(ctx, args);
+  if (call.name === "list_training_requests")
+    return listTrainingRequests(ctx, args);
+  if (call.name === "continue_training_hours")
+    return continueTrainingHours(ctx, args);
   if (call.name === "read_student_history")
     return readStudentHistory(ctx, args);
   if (call.name === "propose_student_status")
@@ -8471,6 +9419,8 @@ async function executeSelectedTool(ctx: AdminAuggieContext, call: ToolCall) {
     return proposeExaminationRejection(ctx, args);
   if (call.name === "get_contribution_summary")
     return contributionSummary(ctx, args);
+  if (call.name === "list_unpaid_contributions")
+    return listUnpaidContributions(ctx, args);
   if (call.name === "propose_contribution_status")
     return proposeContributionStatus(ctx, args);
   if (call.name === "list_payment_proofs") return listPaymentProofs(ctx, args);
@@ -8516,6 +9466,8 @@ async function executeSelectedTool(ctx: AdminAuggieContext, call: ToolCall) {
   if (call.name === "propose_dojo_settings")
     return proposeDojoSettings(ctx, args);
   if (call.name === "propose_dojo_create") return proposeDojoCreate(ctx, args);
+  if (call.name === "read_recent_admin_activity")
+    return readRecentAdminActivity(ctx, args);
   throw new AdminAuggieError(
     localized(
       ctx.locale,
@@ -8549,6 +9501,189 @@ async function flowOwner(ctx: AdminAuggieContext): Promise<FlowSessionOwner> {
     selectedDojoId: ctx.session.selectedDojoId!,
     permission: ctx.permission,
   };
+}
+
+async function conversationOwner(
+  ctx: AdminAuggieContext,
+): Promise<ConversationOwner> {
+  return flowOwner(ctx);
+}
+
+function conversationEntity(value: unknown): ConversationEntity | undefined {
+  const entry = objectValue(value);
+  const type = cleanText(entry?.type, 40) as ConversationEntity["type"];
+  const id = cleanText(entry?.id, 120);
+  const label = cleanText(entry?.label, 160);
+  const allowed = new Set([
+    "student",
+    "newsletter",
+    "event",
+    "payment",
+    "payment_proof",
+    "examination_application",
+    "dojo",
+    "site_page",
+    "training_request",
+  ]);
+  if (!allowed.has(type) || !id || !label) return undefined;
+  return {
+    type,
+    id,
+    label,
+    ...(cleanText(entry?.status, 100)
+      ? { status: cleanText(entry?.status, 100) }
+      : {}),
+    ...(cleanText(entry?.dojo, 160)
+      ? { dojo: cleanText(entry?.dojo, 160) }
+      : {}),
+  };
+}
+
+function applyConversationResponse(
+  state: ConversationState,
+  response: Record<string, unknown>,
+) {
+  const update = objectValue(response.contextUpdate);
+  const entityFields = [
+    "currentStudent",
+    "currentNewsletter",
+    "currentEvent",
+    "currentPayment",
+    "currentApplication",
+    "currentTrainingRequest",
+    "currentDojo",
+    "currentSitePage",
+  ] as const;
+  if (update) {
+    for (const field of entityFields) {
+      if (update[field] === null) delete state.context[field];
+      else {
+        const entity = conversationEntity(update[field]);
+        if (entity) state.context[field] = entity;
+      }
+    }
+    const task = objectValue(update.currentTask);
+    const slots = objectValue(task?.slots);
+    if (update.currentTask === null) delete state.context.currentTask;
+    else if (task && slots && cleanText(task.type, 80)) {
+      state.context.currentTask = {
+        type: cleanText(task.type, 80),
+        slots: Object.fromEntries(
+          Object.entries(slots)
+            .filter(
+              (item): item is [string, string | number | boolean] =>
+                typeof item[1] === "string" ||
+                typeof item[1] === "number" ||
+                typeof item[1] === "boolean",
+            )
+            .slice(0, 16),
+        ),
+      };
+    }
+    for (const field of [
+      "previousIntent",
+      "unresolvedQuestion",
+      "pendingOperationId",
+      "lastOperationId",
+    ] as const) {
+      if (update[field] === null) delete state.context[field];
+      else if (cleanText(update[field], field === "unresolvedQuestion" ? 400 : 100))
+        state.context[field] = cleanText(
+          update[field],
+          field === "unresolvedQuestion" ? 400 : 100,
+        );
+    }
+  }
+
+  const references = Array.isArray(response.references)
+    ? response.references.map(conversationEntity).filter(Boolean)
+    : [];
+  const students = references.filter(
+    (entry): entry is ConversationEntity => entry?.type === "student",
+  );
+  if (students.length === 1) {
+    state.context.currentStudent = students[0];
+    delete state.context.candidateStudents;
+  } else if (students.length > 1) {
+    delete state.context.currentStudent;
+    state.context.candidateStudents = students.slice(0, 12);
+  }
+  const trainingRequest = references.find(
+    (entry) => entry?.type === "training_request",
+  );
+  if (trainingRequest) state.context.currentTrainingRequest = trainingRequest;
+  const singleReference = (
+    type: ConversationEntity["type"],
+  ): ConversationEntity | undefined => {
+    const matching = references.filter((entry) => entry?.type === type);
+    return matching.length === 1 ? matching[0] : undefined;
+  };
+  const selectedNewsletter = singleReference("newsletter");
+  const selectedEvent = singleReference("event");
+  const selectedPayment =
+    singleReference("payment") || singleReference("payment_proof");
+  const selectedApplication = singleReference("examination_application");
+  const selectedDojo = singleReference("dojo");
+  const selectedPage = singleReference("site_page");
+  if (selectedNewsletter)
+    state.context.currentNewsletter = selectedNewsletter;
+  if (selectedEvent) state.context.currentEvent = selectedEvent;
+  if (selectedPayment) state.context.currentPayment = selectedPayment;
+  if (selectedApplication)
+    state.context.currentApplication = selectedApplication;
+  if (selectedDojo) state.context.currentDojo = selectedDojo;
+  if (selectedPage) state.context.currentSitePage = selectedPage;
+
+  const operation = objectValue(response.operation);
+  const operationId = cleanText(operation?.id, 80);
+  if (operationId) state.context.pendingOperationId = operationId;
+  if (response.kind === "result" && response.operationCompleted === true) {
+    const result = objectValue(response.result);
+    const completedId = cleanText(result?.operationId, 80);
+    if (completedId) state.context.lastOperationId = completedId;
+    delete state.context.pendingOperationId;
+    delete state.context.currentTask;
+    delete state.context.unresolvedQuestion;
+  }
+  delete response.contextUpdate;
+  delete response.references;
+}
+
+function resetConversationCommand(message: string) {
+  const command = message
+    .normalize("NFKC")
+    .trim()
+    .toLocaleLowerCase("en-US")
+    .replace(/[.!?]+$/, "")
+    .replace(/\s+/g, " ");
+  return [
+    "reset",
+    "reset chat",
+    "start over",
+    "new conversation",
+    "เริ่มใหม่",
+    "รีเซ็ต",
+    "ล้างแชต",
+  ].includes(command);
+}
+
+function confirmationLines(message: string) {
+  return message
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function undoConversationCommand(message: string) {
+  const command = message
+    .normalize("NFKC")
+    .trim()
+    .toLocaleLowerCase("en-US")
+    .replace(/[.!?]+$/, "")
+    .replace(/\s+/g, " ");
+  return ["undo", "undo that", "put it back", "ย้อนกลับ", "ยกเลิกรายการล่าสุด"].includes(
+    command,
+  );
 }
 
 async function flowRuntimeFor(
@@ -8711,6 +9846,7 @@ async function completeGuidedFlow(
     return proposeStudentHours(ctx, {
       studentId: answers.studentId,
       hours: Number(answers.hours),
+      entryDate: answers.entryDate,
       ...optional("location"),
     });
   if (state.flowId === "record_exam_result")
@@ -8892,23 +10028,35 @@ export async function getAdminAuggieFlowSession(
   currentPath: string,
 ) {
   const ctx = await requireAdminAuggieContext(request, env, locale, currentPath);
-  await deleteExpiredFlowSessions(ctx.db).catch(() => undefined);
+  await Promise.all([
+    deleteExpiredFlowSessions(ctx.db),
+    deleteExpiredConversationSessions(ctx.db),
+  ]).catch(() => undefined);
   const owner = await flowOwner(ctx);
-  const saved = await readFlowSession(ctx.db, owner);
-  if (!saved) return { response: null };
-  if (!canAccessAdminPath(FLOW_PATHS[saved.state.flowId], ctx.permission)) {
-    await clearFlowSession(ctx.db, owner);
-    return { response: null };
-  }
-  const runtime = await flowRuntimeFor(ctx, saved.state.flowId);
-  return {
-    response: flowGuidedResponse(
+  const [saved, conversation, usage] = await Promise.all([
+    readFlowSession(ctx.db, owner),
+    readConversationSession(ctx.db, owner),
+    currentUsage(ctx),
+  ]);
+  let response: Record<string, unknown> | null = null;
+  let expiresAt = conversation?.expiresAt;
+  if (saved && canAccessAdminPath(FLOW_PATHS[saved.state.flowId], ctx.permission)) {
+    const runtime = await flowRuntimeFor(ctx, saved.state.flowId);
+    response = flowGuidedResponse(
       ctx,
       saved.state,
       runtime,
       flowText(ctx.locale, FLOW_WORDING.resumed),
-    ),
-    expiresAt: saved.expiresAt,
+    );
+    expiresAt = saved.expiresAt;
+  } else if (saved) {
+    await clearFlowSession(ctx.db, owner);
+  }
+  return {
+    response,
+    messages: conversation?.messages || [],
+    expiresAt,
+    usage,
   };
 }
 
@@ -8920,17 +10068,44 @@ export async function resetAdminAuggieFlowSession(
 ) {
   const ctx = await requireAdminAuggieContext(request, env, locale, currentPath);
   const owner = await flowOwner(ctx);
-  const saved = await readFlowSession(ctx.db, owner);
-  await clearFlowSession(ctx.db, owner);
+  const [saved, conversation] = await Promise.all([
+    readFlowSession(ctx.db, owner),
+    readConversationSession(ctx.db, owner),
+  ]);
+  await cancelPendingConversationOperation(
+    ctx,
+    conversation?.context.pendingOperationId,
+    "cancelled",
+  ).catch(() => undefined);
+  await Promise.all([
+    clearFlowSession(ctx.db, owner),
+    clearConversationSession(ctx.db, owner),
+  ]);
   if (saved)
     await auditAi(ctx, "admin_ai_guided_flow_cleared", "guided_flow", "success", {
       flowId: saved.state.flowId,
       answeredCount: saved.state.order.length,
     }).catch(() => undefined);
   return {
-    cleared: Boolean(saved),
+    cleared: Boolean(saved || conversation),
     message: flowText(ctx.locale, FLOW_WORDING.startedOver),
+    usage: await currentUsage(ctx),
   };
+}
+
+export async function getAdminAuggieUsage(
+  request: Request,
+  env: AdminAuggieEnv,
+  locale: AdminAuggieLocale = "en",
+  currentPath = "/admin/dashboard",
+): Promise<AdminAuggieUsageSummary> {
+  const ctx = await requireAdminAuggieContext(
+    request,
+    env,
+    locale,
+    currentPath,
+  );
+  return currentUsage(ctx);
 }
 
 export async function handleAdminAuggieChat(
@@ -8981,20 +10156,72 @@ export async function handleAdminAuggieChat(
       429,
       "ADMIN_AUGGIE_RATE_LIMIT",
     );
+  const owner = await flowOwner(ctx);
+  await Promise.all([
+    deleteExpiredFlowSessions(ctx.db),
+    deleteExpiredConversationSessions(ctx.db),
+  ]).catch(() => undefined);
+  const savedConversation = await readConversationSession(ctx.db, owner);
+  const conversation =
+    savedConversation ||
+    newConversationState(locale, ctx.currentPath, {
+      type: "dojo",
+      id: ctx.session.selectedDojoId!,
+      label: ctx.session.selectedDojoId!,
+    });
+  conversation.locale = locale;
+  conversation.currentPath = ctx.currentPath;
+  ctx.conversation = conversation;
+
+  const respond = async (raw: unknown) => {
+    const response = objectValue(raw) || {
+      kind: "conversation",
+      heading: "Auggie",
+      message: localized(
+        locale,
+        "I handled that safely.",
+        "ดำเนินการอย่างปลอดภัยแล้ว",
+      ),
+    };
+    applyConversationResponse(conversation, response);
+    appendConversationTurn(conversation, message, response);
+    await writeConversationSession(ctx.db, owner, conversation);
+    return response;
+  };
+
+  if (resetConversationCommand(message)) {
+    await cancelPendingConversationOperation(
+      ctx,
+      conversation.context.pendingOperationId,
+      "cancelled",
+    ).catch(() => undefined);
+    await Promise.all([
+      clearFlowSession(ctx.db, owner),
+      clearConversationSession(ctx.db, owner),
+    ]);
+    return {
+      kind: "result" as const,
+      heading: localized(locale, "Started over", "เริ่มใหม่แล้ว"),
+      message: localized(
+        locale,
+        "I cleared this conversation, its selected records, unfinished task, and pending proposal. No dojo records were changed.",
+        "ล้างบทสนทนา รายการที่เลือก งานที่ยังไม่เสร็จ และข้อเสนอที่รอยืนยันแล้ว โดยไม่มีการเปลี่ยนแปลงข้อมูลโดโจ",
+      ),
+    };
+  }
   // A guided conversation already in progress is answered entirely here. The
   // message is not sent to the model, so the promise that only a first request
   // ever reaches AI holds for every step of the conversation.
-  const owner = await flowOwner(ctx);
-  await deleteExpiredFlowSessions(ctx.db).catch(() => undefined);
   const active = await readFlowSession(ctx.db, owner);
   if (active) {
     try {
-      return await continueGuidedFlow(
+      const response = await continueGuidedFlow(
         ctx,
         active.state,
         cleanFlowText(input.message, MAX_MESSAGE_CHARS),
         owner,
       );
+      return respond(response);
     } catch (error) {
       const known =
         error instanceof AdminAuggieError
@@ -9011,12 +10238,106 @@ export async function handleAdminAuggieChat(
       throw known;
     }
   }
-  if (flowCommand(message) === "cancel")
-    return {
+  if (undoConversationCommand(message)) {
+    if (conversation.context.pendingOperationId)
+      return respond({
+        kind: "conversation" as const,
+        heading: localized(locale, "Nothing has changed yet", "ยังไม่มีการเปลี่ยนแปลง"),
+        message: localized(
+          locale,
+          "The current item is only a proposal, so there is nothing to undo. Type cancel to discard it, or type its exact confirmation to save it.",
+          "รายการปัจจุบันยังเป็นเพียงข้อเสนอ จึงยังไม่มีสิ่งใดให้ย้อนกลับ พิมพ์ ยกเลิก เพื่อทิ้งข้อเสนอ หรือพิมพ์ข้อความยืนยันให้ตรงเพื่อบันทึก",
+        ),
+      });
+    if (!conversation.context.lastOperationId)
+      return respond({
+        kind: "conversation" as const,
+        heading: localized(locale, "Nothing to undo", "ไม่มีรายการให้ย้อนกลับ"),
+        message: localized(
+          locale,
+          "There is no completed Auggie operation in this conversation to undo.",
+          "ไม่มีรายการ Auggie ที่เสร็จแล้วในบทสนทนานี้ให้ย้อนกลับ",
+        ),
+      });
+    return respond(
+      await prepareAdminAuggieUndo(
+        request,
+        env,
+        conversation.context.lastOperationId,
+        locale,
+      ),
+    );
+  }
+  if (flowCommand(message) === "cancel") {
+    const cancelled = await cancelPendingConversationOperation(
+      ctx,
+      conversation.context.pendingOperationId,
+      "cancelled",
+    );
+    delete conversation.context.pendingOperationId;
+    delete conversation.context.currentTask;
+    delete conversation.context.unresolvedQuestion;
+    return respond({
       kind: "result" as const,
       heading: flowText(locale, FLOW_WORDING.cancelHeading),
-      message: flowText(locale, FLOW_WORDING.nothingToCancel),
-    };
+      message: cancelled
+        ? localized(
+            locale,
+            "I cancelled the pending proposal. Nothing was changed.",
+            "ยกเลิกข้อเสนอที่รอยืนยันแล้ว โดยไม่มีการเปลี่ยนแปลงข้อมูล",
+          )
+        : flowText(locale, FLOW_WORDING.nothingToCancel),
+    });
+  }
+
+  const pendingOperationId = conversation.context.pendingOperationId;
+  if (pendingOperationId) {
+    try {
+      const pendingRow = await loadBoundOperation(ctx, pendingOperationId);
+      const proposal = operationProposal(pendingRow, locale);
+      const lines = confirmationLines(message);
+      if (
+        proposal.executable &&
+        proposal.confirmationPhrase &&
+        lines[0] === proposal.confirmationPhrase
+      ) {
+        const result = await confirmAdminAuggieOperation(
+          request,
+          env,
+          pendingOperationId,
+          lines[0],
+          locale,
+          lines[1] || "",
+        );
+        delete conversation.context.pendingOperationId;
+        delete conversation.context.currentTask;
+        delete conversation.context.unresolvedQuestion;
+        return respond({
+          kind: "result" as const,
+          heading: localized(locale, "Saved", "บันทึกแล้ว"),
+          message: localized(
+            locale,
+            "The server rechecked your access and the current records, then saved the confirmed change.",
+            "เซิร์ฟเวอร์ตรวจสอบสิทธิ์และข้อมูลปัจจุบันอีกครั้ง แล้วบันทึกการเปลี่ยนแปลงที่ยืนยันแล้ว",
+          ),
+          result,
+          operationCompleted: true,
+        });
+      }
+      if (!proposal.executable) delete conversation.context.pendingOperationId;
+    } catch (error) {
+      if (
+        error instanceof AdminAuggieError &&
+        [
+          "ADMIN_AUGGIE_OPERATION_MISSING",
+          "ADMIN_AUGGIE_EXPIRED",
+          "ADMIN_AUGGIE_NOT_CONFIRMABLE",
+        ].includes(error.code)
+      )
+        delete conversation.context.pendingOperationId;
+      else throw error;
+    }
+  }
 
   const sensitiveCategory = detectSensitiveAdminAuggieInput(message);
   if (sensitiveCategory) {
@@ -9043,7 +10364,7 @@ export async function handleAdminAuggieChat(
     await auditAi(ctx, "admin_ai_out_of_scope", "converse", "success", {
       category: outOfScope,
     }).catch(() => undefined);
-    return outOfChatScopeReply(ctx, outOfScope);
+    return respond(outOfChatScopeReply(ctx, outOfScope));
   }
   // An attached photo is resolved once, here, before the model is ever called.
   // The image never reaches the model; only the id the panel sent is turned
@@ -9088,7 +10409,7 @@ export async function handleAdminAuggieChat(
         "ADMIN_AUGGIE_MALFORMED_TOOL",
       );
     try {
-      return await startGuidedFlow(ctx, wanted, owner);
+      return respond(await startGuidedFlow(ctx, wanted, owner));
     } catch (error) {
       const known =
         error instanceof AdminAuggieError
@@ -9105,7 +10426,7 @@ export async function handleAdminAuggieChat(
     }
   }
   try {
-    return await executeSelectedTool(ctx, call);
+    return respond(await executeSelectedTool(ctx, call));
   } catch (error) {
     const known =
       error instanceof AdminAuggieError
@@ -9679,7 +11000,11 @@ function delegatedBody(args: DelegatedArgs): Record<string, unknown> {
     };
   }
   if (args.kind === "student_hours")
-    return { hours: args.hours, location: args.location || "" };
+    return {
+      hours: args.hours,
+      entryDate: args.entryDate,
+      location: args.location || "",
+    };
   if (args.kind === "hours_request_decision")
     return {
       hourRequestId: args.hourRequestId,

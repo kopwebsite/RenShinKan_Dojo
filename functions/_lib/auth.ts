@@ -37,6 +37,27 @@ export type AdminSession = {
   selectedDojoId: string | null;
 };
 
+const INTERNAL_ERROR_PATTERN =
+  /\b(?:SQLITE|SQL error|D1(?:Database|_ERROR)?)\b|(?:UNIQUE|FOREIGN KEY|CHECK|NOT NULL) constraint|no such (?:table|column)|database is locked|\b(?:SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)\s+(?:FROM|INTO|TABLE|INDEX|TRIGGER|[a-z_]+\s+SET)\b|Cloudflare API|binding parameter|\.prepare\b|Authorization:\s*Bearer|\b(?:API[_ -]?KEY|API[_ -]?TOKEN|SESSION_SECRET)\b/i;
+
+function safeResponseData(data: unknown) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return data;
+  const value = data as Record<string, unknown>;
+  let changed = false;
+  const safe = { ...value };
+  for (const key of ["error", "warning", "storageWarning"] as const) {
+    const message = value[key];
+    if (typeof message !== "string" || !INTERNAL_ERROR_PATTERN.test(message))
+      continue;
+    safe[key] =
+      key === "error"
+        ? "The request could not be completed. Please try again or contact the site administrator."
+        : "Some status details are temporarily unavailable.";
+    changed = true;
+  }
+  return changed ? safe : data;
+}
+
 export function jsonResponse(
   data: unknown,
   status = 200,
@@ -46,7 +67,7 @@ export function jsonResponse(
   responseHeaders.set("Content-Type", "application/json; charset=utf-8");
   if (!responseHeaders.has("Cache-Control"))
     responseHeaders.set("Cache-Control", "private, no-store");
-  return new Response(JSON.stringify(data), {
+  return new Response(JSON.stringify(safeResponseData(data)), {
     status,
     headers: responseHeaders,
   });

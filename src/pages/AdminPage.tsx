@@ -1427,6 +1427,13 @@ export function AdminPage() {
           </p>
         </div>
         <div className="grid gap-3">
+          <a
+            href="/admin/site-editor"
+            className="btn-secondary justify-center whitespace-nowrap"
+          >
+            <ExternalLink size={18} aria-hidden="true" />
+            Structured page editor
+          </a>
           <button
             type="button"
             onClick={() => setConfirmOpen(true)}

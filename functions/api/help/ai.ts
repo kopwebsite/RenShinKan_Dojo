@@ -1,15 +1,19 @@
 import { isSameOriginRequest, jsonResponse } from "../../_lib/auth";
 import {
-  classifyPublicHelpQuestion,
-  containsPrivateHelpInput,
+  converseWithPublicHelp,
   PublicHelpRequestError,
+  publicOperationalGrounding,
   readPublicHelpRequest,
+  restrictedPublicHelpAnswer,
+  restrictedPublicHelpRequest,
+  unverifiedScheduleAnswer,
+  type PublicHelpEnvironment,
 } from "../../_lib/publicHelpAi";
 import { consumeRateLimit } from "../../_lib/rateLimit";
 
 const RATE_LIMIT_RULE = {
   endpoint: "public-help-ai",
-  limit: 10,
+  limit: 30,
   windowSeconds: 10 * 60,
   lockSeconds: 10 * 60,
 } as const;
@@ -49,25 +53,21 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return unavailable(503);
   }
 
-  if (containsPrivateHelpInput(input.question)) {
-    return jsonResponse({ outcome: "private" });
-  }
+  const restriction = restrictedPublicHelpRequest(input.message);
+  if (restriction)
+    return jsonResponse(restrictedPublicHelpAnswer(input, restriction));
   if (!env.AI) return unavailable(503);
 
   try {
-    const classification = await classifyPublicHelpQuestion(
-      env.AI,
-      input.question,
+    const grounding = await publicOperationalGrounding(
+      env as PublicHelpEnvironment,
       input.locale,
+      input.page,
     );
-    if (!classification) return unavailable(503);
-    if (classification.decision === "match") {
-      return jsonResponse({
-        outcome: "match",
-        topicId: classification.topicId,
-      });
-    }
-    return jsonResponse({ outcome: classification.decision });
+    const scheduleAnswer = unverifiedScheduleAnswer(input, grounding);
+    if (scheduleAnswer) return jsonResponse(scheduleAnswer);
+    const answer = await converseWithPublicHelp(env.AI, input, grounding);
+    return answer ? jsonResponse(answer) : unavailable(503);
   } catch {
     return unavailable(503);
   }

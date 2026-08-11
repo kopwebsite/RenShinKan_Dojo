@@ -136,13 +136,13 @@ function d1(sql) {
     "STUDENT_DB",
     "--config",
     "wrangler.toml",
+    ...(targetEnv ? ["--env", targetEnv] : []),
     targetEnv ? "--remote" : "--local",
     "--json",
     "--command",
     // One line: a newline inside the argument is truncated on Windows.
     sql.replace(/\s+/g, " ").trim(),
   ];
-  if (targetEnv) commandArgs.splice(5, 0, "--env", targetEnv);
   const output = execFileSync(process.execPath, commandArgs, {
     cwd: repository,
     encoding: "utf8",

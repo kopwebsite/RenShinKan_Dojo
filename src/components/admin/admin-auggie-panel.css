@@ -54,6 +54,14 @@
   font-size: 0.78rem;
 }
 
+.admin-auggie__usage {
+  display: block;
+  margin-top: 0.28rem;
+  color: #6c625c;
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
 .admin-auggie__eyebrow,
 .admin-auggie__manual {
   display: inline-flex;
@@ -289,6 +297,21 @@
   line-height: 1.45;
 }
 
+.admin-auggie__intro details {
+  margin-top: 0.65rem;
+  color: #5c5550;
+  font-size: 0.76rem;
+}
+
+.admin-auggie__intro summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.admin-auggie__message {
+  white-space: pre-line;
+}
+
 .admin-auggie__examples {
   margin-top: 0.85rem;
 }
@@ -456,27 +479,33 @@
   font-weight: 800;
 }
 
-.admin-auggie__operation form {
+.admin-auggie__typed-confirmation {
   display: grid;
   gap: 0.55rem;
   margin-top: 0.7rem;
 }
 
-.admin-auggie__operation label {
+.admin-auggie__typed-confirmation > div {
   display: grid;
   gap: 0.3rem;
+}
+
+.admin-auggie__typed-confirmation p {
   color: #504944;
-  font-size: 0.75rem;
+  font-size: 0.75rem !important;
   font-weight: 700;
 }
 
 .admin-auggie__operation code {
   width: fit-content;
+  max-width: 100%;
   border-radius: 0.35rem;
   background: #f0ece2;
   padding: 0.3rem 0.42rem;
   color: #5c2d22;
   font-weight: 800;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .admin-auggie__operation input,

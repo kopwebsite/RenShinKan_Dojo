@@ -910,6 +910,7 @@ describe("Admin Auggie guided training hours and examinations", () => {
       "not-an-id",
       "RSK-1001",
       "3",
+      "2026-08-10",
       "Chiang Mai",
     ]);
 
@@ -917,7 +918,9 @@ describe("Admin Auggie guided training hours and examinations", () => {
     expect(steps[2].flow?.step).toBe(2);
     const final = steps[steps.length - 1];
     expect(final.kind).toBe("proposal");
-    expect(final.operation?.confirmationPhrase).toBe("ADD 3 HOURS RSK-1001");
+    expect(final.operation?.confirmationPhrase).toBe(
+      "ADD 3 HOURS RSK-1001 2026-08-10",
+    );
     expect(delegatedState.calls).toHaveLength(0);
   });
 

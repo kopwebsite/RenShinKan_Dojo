@@ -402,7 +402,7 @@ const en: Topic[] = [
     category: "administration",
     href: "/admin/audit",
     title: "How do I check an earlier admin change?",
-    summary: "Search the permanent audit history.",
+    summary: "Search the audit history retained for the last 90 days.",
     steps: [
       "Open the **Audit log**.",
       "Search by student, administrator, dojo, or date.",

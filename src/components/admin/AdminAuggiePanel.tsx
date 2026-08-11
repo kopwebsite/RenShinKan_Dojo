@@ -1,11 +1,9 @@
 import {
   Bot,
-  CheckCircle2,
   ExternalLink,
   ImagePlus,
   LoaderCircle,
   RefreshCw,
-  RotateCcw,
   Send,
   ShieldCheck,
   X,
@@ -58,6 +56,9 @@ type Operation = {
     month?: string;
     cycle?: string;
     amount?: number | null;
+    hours?: number;
+    entryDate?: string;
+    location?: string;
     coveredStudentCount?: number;
   };
 };
@@ -104,7 +105,7 @@ type AssistantResponse = {
 
 type OperationResult = {
   ok?: boolean;
-  operationId: string;
+  operationId?: string;
   action?: string;
   count?: number;
   records?: StudentPreview[];
@@ -116,6 +117,17 @@ type ConversationItem =
   | { id: string; role: "user"; text: string }
   | { id: string; role: "assistant"; response: AssistantResponse };
 
+type UsageSummary = {
+  date: string;
+  label: string;
+  budgetTokens: number;
+  totalTokens: number;
+  remainingTokens: number;
+  calls: number;
+  unreportedCalls: number;
+  providerQuota: false;
+};
+
 const copy = {
   en: {
     label: "Open Admin Auggie",
@@ -126,16 +138,18 @@ const copy = {
     requestsAndHours: (requests: number, hours: number) =>
       `${requests} request(s) · ${hours} hours`,
     intro:
-      "Ask for a summary or a count, find a student, or check the weather in a place. Auggie can walk you through making a new student profile, adding training hours, recording an examination result, or writing a newsletter — one question at a time. Nothing is created or changed until you type the exact confirmation phrase yourself, and money, permanent deletion, the public website and real emails need a second phrase.",
+      "Ask Auggie a dojo administration question in English or Thai. Type help to see what it can do.",
+    privacyLabel: "Privacy and AI use",
     privacy:
-      "Only the request you type is sent to AI, so it can work out what you want. Once a step-by-step conversation starts, nothing more is sent to AI. A weather question sends only the place name to a weather service. Nothing about your students, records or money is ever sent to AI or to any outside service, and no chat transcript is kept. Your saved answers are held against your own sign-in and dojo, clear when you sign out or start over, and expire on their own after two hours.",
+      "Your typed messages, recent brief replies, and minimal references for selected records may be sent to Cloudflare Workers AI to understand follow-ups. Those references can include a student name, Student ID, dojo, and status already shown in this chat. Full database rows, files, proof images, questionnaire answers, and private notes are not added to the model request. Do not type secrets or extra private details into the chat. A weather question sends only the place name to a weather service. Reads and writes run on the server under your current access. Nothing writes automatically: you must type the exact confirmation phrase yourself; money, permanent, or high-impact changes need a second phrase. The bounded transcript is tied to this sign-in and dojo, expires after two hours, and clears on reset or sign-out.",
+    usage: (used: number, budget: number, remaining: number) =>
+      `Auggie daily budget: ${used.toLocaleString()} / ${budget.toLocaleString()} tokens · ${remaining.toLocaleString()} remaining`,
+    usageMissing: "Provider usage unavailable for some calls",
     examplesTitle: "Try asking",
     examples: [
       "Show me the dashboard summary",
       "Find Student ID RSK-1001",
-      "How many paid the monthly contribution in 2026-07?",
-      "Start a new student profile",
-      "What is the weather in Chiang Mai right now?",
+      "Add 3 training hours to RSK-1001 for yesterday",
     ],
     placeholder: "Example: Find Student ID RSK-1001",
     send: "Send",
@@ -143,7 +157,7 @@ const copy = {
     startOver: "Start over",
     startOverBusy: "Clearing…",
     startOverConfirm:
-      "You are part way through something. Starting over will clear the answers you have given so far. Nothing you have already saved is affected. Start over?",
+      "Starting over clears this chat, selected records, unfinished tasks, and pending proposals. Permanent dojo data and today's usage are not erased. Start over?",
     startedAgo: (age: string) => `Started ${age}`,
     justNow: "just now",
     minutesAgo: (count: number) =>
@@ -154,9 +168,9 @@ const copy = {
     close: "Close Admin Auggie",
     open: "Open page",
     manual: "Manual review required",
-    confirmation: "Exact confirmation phrase",
-    secondConfirmation:
-      "Second exact confirmation (money, payslip, permanent deletion, public website, or real email send)",
+    confirmation:
+      "To approve this proposal, type this exact phrase in the chat box:",
+    secondConfirmation: "On a new line, type the second exact phrase:",
     confirm: "Confirm separate write",
     confirming: "Confirming transaction…",
     undo: "Prepare safe undo",
@@ -185,6 +199,7 @@ const copy = {
       pendingTrainingHours: "Training hours",
       pendingMonthlyContributions: "Monthly contributions",
       pendingPaymentProofs: "Payment proofs",
+      activeStudents: "Active students",
       total: "On the roster",
       paid: "Paid",
       awaitingPayment: "Awaiting payment",
@@ -200,16 +215,18 @@ const copy = {
       `${requests} คำขอ · ${hours} ชั่วโมง`,
     description: "ผู้ช่วยงานผู้ดูแลตามขอบเขตสิทธิ์",
     intro:
-      "ขอสรุปหรือจำนวน ค้นหานักเรียน หรือดูสภาพอากาศของสถานที่ได้ Auggie ช่วยแนะนำทีละขั้นในการสร้างประวัตินักเรียนใหม่ เพิ่มชั่วโมงฝึก บันทึกผลการสอบ หรือเขียนจดหมายข่าว โดยถามทีละคำถาม จะไม่มีการสร้างหรือเปลี่ยนแปลงใดจนกว่าคุณจะพิมพ์ข้อความยืนยันให้ตรงด้วยตนเอง และเรื่องการเงิน การลบถาวร เว็บไซต์สาธารณะ และการส่งอีเมลจริง ต้องยืนยันครั้งที่สอง",
+      "ถาม Auggie เรื่องงานผู้ดูแลโดโจได้ทั้งภาษาไทยและอังกฤษ พิมพ์ ช่วยเหลือ เพื่อดูสิ่งที่ทำได้",
+    privacyLabel: "ความเป็นส่วนตัวและการใช้ AI",
     privacy:
-      "ส่งให้ AI เฉพาะคำขอที่คุณพิมพ์ เพื่อให้เข้าใจว่าคุณต้องการสิ่งใด เมื่อเริ่มการสนทนาแบบทีละขั้นแล้ว จะไม่มีการส่งข้อมูลใดให้ AI อีก คำถามเรื่องอากาศจะส่งเพียงชื่อสถานที่ไปยังบริการพยากรณ์อากาศเท่านั้น ข้อมูลนักเรียน ประวัติ หรือการเงินของคุณจะไม่ถูกส่งให้ AI หรือบริการภายนอกใด ๆ และไม่มีการเก็บประวัติแชต คำตอบที่กรอกไว้ผูกกับการเข้าสู่ระบบและโดโจของคุณ จะถูกล้างเมื่อออกจากระบบหรือเริ่มใหม่ และหมดอายุเองภายในสองชั่วโมง",
+      "ข้อความที่พิมพ์ คำตอบสั้น ๆ ล่าสุด และข้อมูลอ้างอิงขั้นต่ำของรายการที่เลือก อาจถูกส่งไปยัง Cloudflare Workers AI เพื่อเข้าใจคำถามต่อเนื่อง ข้อมูลอ้างอิงอาจมีชื่อนักเรียน รหัสนักเรียน โดโจ และสถานะที่แสดงในแชตแล้ว ระบบจะไม่เพิ่มแถวฐานข้อมูลเต็ม ไฟล์ รูปหลักฐาน คำตอบแบบสอบถาม หรือบันทึกส่วนตัวลงในคำขอของโมเดล โปรดอย่าพิมพ์รหัสลับหรือข้อมูลส่วนตัวที่ไม่จำเป็นในแชต คำถามเรื่องสภาพอากาศจะส่งเฉพาะชื่อสถานที่ไปยังบริการพยากรณ์อากาศ การอ่านและเขียนทำบนเซิร์ฟเวอร์ตามสิทธิ์ปัจจุบัน ประวัติแบบจำกัดผูกกับการเข้าสู่ระบบและโดโจนี้ หมดอายุในสองชั่วโมง และล้างเมื่อเริ่มใหม่หรือออกจากระบบ",
+    usage: (used: number, budget: number, remaining: number) =>
+      `งบรายวันของ Auggie: ${used.toLocaleString()} / ${budget.toLocaleString()} โทเค็น · เหลือ ${remaining.toLocaleString()}`,
+    usageMissing: "ไม่มีข้อมูลการใช้จากผู้ให้บริการสำหรับบางคำขอ",
     examplesTitle: "ลองถามดู",
     examples: [
       "ขอสรุปแดชบอร์ด",
       "ค้นหารหัสนักเรียน RSK-1001",
-      "เดือน 2026-07 มีใครชำระเงินสมทบบ้าง",
-      "เริ่มสร้างประวัตินักเรียนใหม่",
-      "อากาศที่เชียงใหม่ตอนนี้เป็นอย่างไร",
+      "เพิ่มชั่วโมงฝึก 3 ชั่วโมงให้ RSK-1001 สำหรับเมื่อวาน",
     ],
     placeholder: "ตัวอย่าง: ค้นหารหัสนักเรียน RSK-1001",
     send: "ส่ง",
@@ -217,7 +234,7 @@ const copy = {
     startOver: "เริ่มใหม่",
     startOverBusy: "กำลังล้างข้อมูล…",
     startOverConfirm:
-      "คุณกำลังทำรายการค้างอยู่ การเริ่มใหม่จะล้างคำตอบที่กรอกไว้ ข้อมูลที่บันทึกไปแล้วจะไม่ได้รับผลกระทบ ต้องการเริ่มใหม่หรือไม่",
+      "การเริ่มใหม่จะล้างบทสนทนา รายการที่เลือก งานที่ยังไม่เสร็จ และข้อเสนอที่รอยืนยัน แต่จะไม่ลบข้อมูลถาวรของโดโจหรือยอดใช้งานวันนี้ ต้องการเริ่มใหม่หรือไม่",
     startedAgo: (age: string) => `เริ่มเมื่อ ${age}`,
     justNow: "เมื่อสักครู่",
     minutesAgo: (count: number) => `${count} นาทีที่แล้ว`,
@@ -227,9 +244,9 @@ const copy = {
     close: "ปิด Admin Auggie",
     open: "เปิดหน้า",
     manual: "ต้องตรวจสอบด้วยตนเอง",
-    confirmation: "ข้อความยืนยันที่ตรงกันทุกตัวอักษร",
-    secondConfirmation:
-      "ข้อความยืนยันครั้งที่สอง (การเงิน หลักฐานการชำระเงิน การลบถาวร เว็บไซต์สาธารณะ หรือการส่งอีเมลจริง)",
+    confirmation:
+      "หากอนุมัติข้อเสนอนี้ ให้พิมพ์ข้อความต่อไปนี้ในช่องแชตให้ตรงทุกตัวอักษร:",
+    secondConfirmation: "ขึ้นบรรทัดใหม่แล้วพิมพ์ข้อความยืนยันที่สองให้ตรง:",
     confirm: "ยืนยันการเขียนข้อมูลแยกต่างหาก",
     confirming: "กำลังยืนยันธุรกรรม…",
     undo: "เตรียมการย้อนกลับอย่างปลอดภัย",
@@ -258,6 +275,7 @@ const copy = {
       pendingTrainingHours: "ชั่วโมงฝึก",
       pendingMonthlyContributions: "เงินสมทบรายเดือน",
       pendingPaymentProofs: "หลักฐานการชำระเงิน",
+      activeStudents: "นักเรียนที่ใช้งาน",
       total: "รายชื่อทั้งหมด",
       paid: "ชำระแล้ว",
       awaitingPayment: "รอชำระ",
@@ -306,6 +324,24 @@ function conversationAge(startedAt: string, locale: Locale) {
   if (minutes < 1) return text.startedAgo(text.justNow);
   if (minutes < 60) return text.startedAgo(text.minutesAgo(minutes));
   return text.startedAgo(text.hoursAgo(Math.floor(minutes / 60)));
+}
+
+function workingStatus(message: string, locale: Locale) {
+  if (/contribution|paid|payment|เงินสมทบ|ชำระ/i.test(message))
+    return locale === "th"
+      ? "กำลังตรวจข้อมูลการชำระเงิน…"
+      : "Checking contribution and payment records…";
+  if (
+    /add|change|update|archive|publish|เพิ่ม|เปลี่ยน|แก้|เผยแพร่/i.test(message)
+  )
+    return locale === "th"
+      ? "กำลังตรวจข้อมูลปัจจุบันและเตรียมข้อเสนอ…"
+      : "Checking current records and preparing the proposal…";
+  if (/student|exam|training|นักเรียน|สอบ|ชั่วโมง|ฝึก/i.test(message))
+    return locale === "th"
+      ? "กำลังตรวจข้อมูลนักเรียน…"
+      : "Checking student records…";
+  return copy[locale].sending;
 }
 
 function GuidedFlowCard({
@@ -373,24 +409,10 @@ function safeRecords(value: unknown): StudentPreview[] {
 function ResponseCard({
   response,
   locale,
-  busyAction,
-  confirmation,
-  secondConfirmation,
-  onConfirmation,
-  onSecondConfirmation,
-  onConfirm,
-  onUndo,
   onNavigate,
 }: {
   response: AssistantResponse;
   locale: Locale;
-  busyAction: string;
-  confirmation: string;
-  secondConfirmation: string;
-  onConfirmation(value: string): void;
-  onSecondConfirmation(value: string): void;
-  onConfirm(operation: Operation): void;
-  onUndo(operationId: string): void;
   onNavigate(path: string): void;
 }) {
   const text = copy[locale];
@@ -404,11 +426,6 @@ function ResponseCard({
   const expired = operation
     ? Date.parse(operation.expiresAt) <= Date.now()
     : false;
-  const undoAvailable = Boolean(
-    result?.operationId &&
-    result.undoUntil &&
-    Date.parse(result.undoUntil) > Date.now(),
-  );
 
   return (
     <article className="admin-auggie__response">
@@ -416,7 +433,7 @@ function ResponseCard({
         <Bot size={18} aria-hidden="true" />
         <h3>{response.heading}</h3>
       </div>
-      <p>{response.message}</p>
+      <p className="admin-auggie__message">{response.message}</p>
 
       {response.flow && <GuidedFlowCard flow={response.flow} locale={locale} />}
 
@@ -481,6 +498,14 @@ function ResponseCard({
         </div>
       )}
 
+      {result?.undoUntil && Date.parse(result.undoUntil) > Date.now() && (
+        <p className="admin-auggie__manual">
+          {locale === "th"
+            ? "หากต้องการเตรียมการย้อนกลับอย่างปลอดภัย ให้พิมพ์ ย้อนกลับ"
+            : "Type undo to prepare a separate safe reversal proposal."}
+        </p>
+      )}
+
       {operation && (
         <div className="admin-auggie__operation">
           <dl className="admin-auggie__operation-summary">
@@ -502,6 +527,24 @@ function ResponseCard({
                   "—"}
               </dd>
             </div>
+            {operation.preview?.entryDate && (
+              <div>
+                <dt>{locale === "th" ? "วันที่" : "Date"}</dt>
+                <dd>{operation.preview.entryDate}</dd>
+              </div>
+            )}
+            {operation.preview?.hours !== undefined && (
+              <div>
+                <dt>{locale === "th" ? "ชั่วโมงที่เพิ่ม" : "Hours to add"}</dt>
+                <dd>{operation.preview.hours}</dd>
+              </div>
+            )}
+            {operation.preview?.location && (
+              <div>
+                <dt>{locale === "th" ? "สถานที่" : "Location"}</dt>
+                <dd>{operation.preview.location}</dd>
+              </div>
+            )}
           </dl>
           <p
             className={`admin-auggie__warning${operation.highImpact ? " admin-auggie__warning--high-impact" : ""}`}
@@ -509,62 +552,16 @@ function ResponseCard({
             {expired ? text.expired : operation.warning}
           </p>
           {operation.executable && operation.confirmationPhrase && !expired ? (
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                onConfirm(operation);
-              }}
-            >
-              <label htmlFor={`admin-auggie-confirm-${operation.id}`}>
-                {text.confirmation}
-                <code>{operation.confirmationPhrase}</code>
-              </label>
-              <input
-                id={`admin-auggie-confirm-${operation.id}`}
-                value={confirmation}
-                onChange={(event) => onConfirmation(event.target.value)}
-                autoComplete="off"
-                spellCheck={false}
-              />
+            <div className="admin-auggie__typed-confirmation">
+              <p>{text.confirmation}</p>
+              <code>{operation.confirmationPhrase}</code>
               {operation.secondaryConfirmationPhrase && (
-                <>
-                  <label htmlFor={`admin-auggie-confirm-2-${operation.id}`}>
-                    {text.secondConfirmation}
-                    <code>{operation.secondaryConfirmationPhrase}</code>
-                  </label>
-                  <input
-                    id={`admin-auggie-confirm-2-${operation.id}`}
-                    value={secondConfirmation}
-                    onChange={(event) =>
-                      onSecondConfirmation(event.target.value)
-                    }
-                    autoComplete="off"
-                    spellCheck={false}
-                  />
-                </>
+                <div>
+                  <p>{text.secondConfirmation}</p>
+                  <code>{operation.secondaryConfirmationPhrase}</code>
+                </div>
               )}
-              <button
-                type="submit"
-                disabled={
-                  busyAction.length > 0 ||
-                  confirmation !== operation.confirmationPhrase ||
-                  (Boolean(operation.secondaryConfirmationPhrase) &&
-                    secondConfirmation !==
-                      operation.secondaryConfirmationPhrase)
-                }
-              >
-                {busyAction === operation.id ? (
-                  <LoaderCircle
-                    className="admin-auggie__spin"
-                    size={17}
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <CheckCircle2 size={17} aria-hidden="true" />
-                )}
-                {busyAction === operation.id ? text.confirming : text.confirm}
-              </button>
-            </form>
+            </div>
           ) : (
             <button type="button" onClick={() => onNavigate(operation.path)}>
               <ExternalLink size={17} aria-hidden="true" /> {text.open}
@@ -580,28 +577,6 @@ function ResponseCard({
           onClick={() => onNavigate(response.path!)}
         >
           <ExternalLink size={17} aria-hidden="true" /> {text.open}
-        </button>
-      )}
-
-      {undoAvailable && result && (
-        <button
-          type="button"
-          className="admin-auggie__undo"
-          disabled={busyAction.length > 0}
-          onClick={() => onUndo(result.operationId)}
-        >
-          {busyAction === `undo:${result.operationId}` ? (
-            <LoaderCircle
-              className="admin-auggie__spin"
-              size={17}
-              aria-hidden="true"
-            />
-          ) : (
-            <RotateCcw size={17} aria-hidden="true" />
-          )}
-          {busyAction === `undo:${result.operationId}`
-            ? text.undoing
-            : text.undo}
         </button>
       )}
     </article>
@@ -633,15 +608,9 @@ export function AdminAuggiePanel({
   const [message, setMessage] = useState("");
   const [items, setItems] = useState<ConversationItem[]>([]);
   const [busy, setBusy] = useState(false);
-  const [busyAction, setBusyAction] = useState("");
+  const [working, setWorking] = useState(text.sending);
   const [error, setError] = useState("");
-  const [confirmations, setConfirmations] = useState<Record<string, string>>(
-    {},
-  );
-  const [secondConfirmations, setSecondConfirmations] = useState<
-    Record<string, string>
-  >({});
-  const [flowActive, setFlowActive] = useState(false);
+  const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [attachUse, setAttachUse] = useState<"newsletter" | "gallery">(
@@ -673,17 +642,47 @@ export function AdminAuggiePanel({
       headers: { "X-Request-ID": crypto.randomUUID() },
     })
       .then((response) => (response.ok ? response.json() : null))
-      .then((payload: { response?: AssistantResponse | null } | null) => {
-        if (cancelled || !payload?.response) return;
-        setItems([
-          {
-            id: crypto.randomUUID(),
-            role: "assistant",
-            response: payload.response,
-          },
-        ]);
-        setFlowActive(payload.response.kind === "flow");
-      })
+      .then(
+        (
+          payload: {
+            response?: AssistantResponse | null;
+            messages?: Array<
+              | { role: "user"; text: string }
+              | { role: "assistant"; response: AssistantResponse }
+            >;
+            usage?: UsageSummary;
+          } | null,
+        ) => {
+          if (cancelled || !payload) return;
+          const restored: ConversationItem[] = (payload.messages || []).map(
+            (entry) =>
+              entry.role === "user"
+                ? { id: crypto.randomUUID(), role: "user", text: entry.text }
+                : {
+                    id: crypto.randomUUID(),
+                    role: "assistant",
+                    response: entry.response,
+                  },
+          );
+          if (payload.response) {
+            const last = restored.at(-1);
+            if (last?.role === "assistant" && last.response.kind === "flow")
+              restored[restored.length - 1] = {
+                id: crypto.randomUUID(),
+                role: "assistant",
+                response: payload.response,
+              };
+            else if (!restored.length)
+              restored.push({
+                id: crypto.randomUUID(),
+                role: "assistant",
+                response: payload.response,
+              });
+          }
+          setItems(restored);
+          setUsage(payload.usage || null);
+        },
+      )
       .catch(() => undefined);
     return () => {
       cancelled = true;
@@ -755,6 +754,7 @@ export function AdminAuggiePanel({
     setMessage("");
     setError("");
     setBusy(true);
+    setWorking(workingStatus(latest, locale));
     setItems((current) => [
       ...current.slice(-8),
       { id: crypto.randomUUID(), role: "user", text: latest },
@@ -762,6 +762,7 @@ export function AdminAuggiePanel({
     try {
       const payload = await requestAuggie<{
         response: AssistantResponse;
+        usage?: UsageSummary;
       }>(
         "/api/admin/auggie/chat",
         {
@@ -773,13 +774,18 @@ export function AdminAuggiePanel({
         text.error,
       );
       appendResponse(payload.response);
-      setFlowActive(payload.response.kind === "flow");
+      if (payload.usage) setUsage(payload.usage);
       // The id is now bound into the server's proposal, so the panel lets it
       // go: a later message starts fresh unless the administrator attaches
       // another photo.
       setAttachment(null);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : text.error);
+      appendResponse({
+        kind: "conversation",
+        heading:
+          locale === "th" ? "ยังดำเนินการไม่ได้" : "I couldn't complete that",
+        message: reason instanceof Error ? reason.message : text.error,
+      });
     } finally {
       setBusy(false);
       requestAnimationFrame(() => inputRef.current?.focus());
@@ -790,7 +796,7 @@ export function AdminAuggiePanel({
   // conversation already part way through is confirmed first.
   async function startOver() {
     if (resetting) return;
-    if (flowActive && !confirmingReset) {
+    if (items.length > 0 && !confirmingReset) {
       setConfirmingReset(true);
       return;
     }
@@ -798,7 +804,7 @@ export function AdminAuggiePanel({
     setResetting(true);
     setError("");
     try {
-      await requestAuggie(
+      const payload = await requestAuggie<{ usage?: UsageSummary }>(
         "/api/admin/auggie/reset",
         {
           locale,
@@ -807,9 +813,7 @@ export function AdminAuggiePanel({
         text.error,
       );
       setItems([]);
-      setConfirmations({});
-      setSecondConfirmations({});
-      setFlowActive(false);
+      if (payload.usage) setUsage(payload.usage);
       setMessage("");
       setAttachment(null);
     } catch (reason) {
@@ -817,57 +821,6 @@ export function AdminAuggiePanel({
     } finally {
       setResetting(false);
       requestAnimationFrame(() => inputRef.current?.focus());
-    }
-  }
-
-  async function confirm(operation: Operation) {
-    if (busyAction) return;
-    setBusyAction(operation.id);
-    setError("");
-    try {
-      const payload = await requestAuggie<{ result: OperationResult }>(
-        "/api/admin/auggie/confirm",
-        {
-          operationId: operation.id,
-          phrase: confirmations[operation.id] || "",
-          secondPhrase: secondConfirmations[operation.id] || "",
-          locale,
-        },
-        text.error,
-      );
-      appendResponse({
-        kind: "result",
-        heading: text.resultTitle,
-        message: text.resultMessage,
-        result: payload.result,
-      });
-      setConfirmations((current) => ({ ...current, [operation.id]: "" }));
-      setSecondConfirmations((current) => ({
-        ...current,
-        [operation.id]: "",
-      }));
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : text.error);
-    } finally {
-      setBusyAction("");
-    }
-  }
-
-  async function undo(operationId: string) {
-    if (busyAction) return;
-    setBusyAction(`undo:${operationId}`);
-    setError("");
-    try {
-      const payload = await requestAuggie<{ response: AssistantResponse }>(
-        "/api/admin/auggie/undo",
-        { operationId, locale },
-        text.error,
-      );
-      appendResponse(payload.response);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : text.error);
-    } finally {
-      setBusyAction("");
     }
   }
 
@@ -896,6 +849,19 @@ export function AdminAuggiePanel({
           </span>
           <h2 id="admin-auggie-title">{text.title}</h2>
           <p id="admin-auggie-description">{text.description}</p>
+          {usage && (
+            <small
+              className="admin-auggie__usage"
+              title="Application budget, not the Cloudflare provider quota"
+            >
+              {text.usage(
+                usage.totalTokens,
+                usage.budgetTokens,
+                usage.remainingTokens,
+              )}
+              {usage.unreportedCalls > 0 ? ` · ${text.usageMissing}` : ""}
+            </small>
+          )}
         </div>
         <div className="admin-auggie__header-actions">
           <button
@@ -949,7 +915,10 @@ export function AdminAuggiePanel({
       >
         <div className="admin-auggie__intro">
           <p>{text.intro}</p>
-          <small>{text.privacy}</small>
+          <details>
+            <summary>{text.privacyLabel}</summary>
+            <small>{text.privacy}</small>
+          </details>
           {items.length === 0 && (
             <div className="admin-auggie__examples">
               <p className="admin-auggie__examples-title">
@@ -983,32 +952,6 @@ export function AdminAuggiePanel({
               key={item.id}
               response={item.response}
               locale={locale}
-              busyAction={busyAction}
-              confirmation={
-                item.response.operation
-                  ? confirmations[item.response.operation.id] || ""
-                  : ""
-              }
-              secondConfirmation={
-                item.response.operation
-                  ? secondConfirmations[item.response.operation.id] || ""
-                  : ""
-              }
-              onConfirmation={(value) => {
-                const id = item.response.operation?.id;
-                if (id)
-                  setConfirmations((current) => ({ ...current, [id]: value }));
-              }}
-              onSecondConfirmation={(value) => {
-                const id = item.response.operation?.id;
-                if (id)
-                  setSecondConfirmations((current) => ({
-                    ...current,
-                    [id]: value,
-                  }));
-              }}
-              onConfirm={confirm}
-              onUndo={undo}
               onNavigate={openPath}
             />
           ),
@@ -1020,7 +963,7 @@ export function AdminAuggiePanel({
               size={17}
               aria-hidden="true"
             />{" "}
-            {text.sending}
+            {working}
           </p>
         )}
         {error && (

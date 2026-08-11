@@ -2196,11 +2196,16 @@ describe("Admin Auggie examination and payment tools", () => {
     const proposal = await prepare(
       db,
       "propose_student_hours",
-      { studentId: "RSK-1001", hours: 2.5, location: "Bangkok dojo" },
+      {
+        studentId: "RSK-1001",
+        hours: 2.5,
+        entryDate: "2026-08-10",
+        location: "Bangkok dojo",
+      },
       "student-hours-1001",
     );
     expect(proposal.operation.confirmationPhrase).toBe(
-      "ADD 2.5 HOURS RSK-1001",
+      "ADD 2.5 HOURS RSK-1001 2026-08-10",
     );
     const result = (await confirmAdminAuggieOperation(
       operationRequest("/api/admin/auggie/confirm"),
@@ -2213,6 +2218,7 @@ describe("Admin Auggie examination and payment tools", () => {
     expect(delegated.state.calls[0].route).toBe("admin/student-hours");
     expect(delegated.state.calls[0].body).toEqual({
       hours: 2.5,
+      entryDate: "2026-08-10",
       location: "Bangkok dojo",
     });
     await expect(
@@ -4038,7 +4044,9 @@ describe("Admin Auggie out-of-chat subjects", () => {
     )) as { kind: string; message: string; path?: string };
     expect(run).not.toHaveBeenCalled();
     expect(response.kind).toBe("navigate");
-    expect(response.message).toMatch(/permanent record|never be cleared/i);
+    expect(response.message).toMatch(
+      /retained for 90 days|cannot be cleared manually/i,
+    );
     expect(response.path).toBe("/admin/audit");
     expect(delegated.state.calls).toHaveLength(0);
   });

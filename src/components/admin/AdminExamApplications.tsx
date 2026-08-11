@@ -458,7 +458,7 @@ export function AdminExamApplications({ report, admin, dojos, mode = "applicatio
 
     {pending ? <div className="admin-confirm-backdrop" role="presentation"><section className="admin-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="exam-status-title">
       <header><div><p className="eyebrow">Confirm status change</p><h2 id="exam-status-title">Mark {pending.studentIds.length} student{pending.studentIds.length === 1 ? "" : "s"} {adminStatusLabel(pending.status).toLowerCase()}?</h2></div><button aria-label="Close" onClick={() => setPending(null)}><X /></button></header>
-      <p>This will update the current cycle and add a permanent audit entry. It will not change historical cycles.</p>
+      <p>This will update the current cycle and add a 90-day audit entry. It will not change historical cycles.</p>
       {pending.studentIds.length <= 5 ? <ul>{selectionNames.filter((student) => pending.studentIds.includes(student.student_id)).map((student) => <li key={student.student_id}>{student.student_name} · {student.public_student_id}</li>)}</ul> : null}
       <footer><button className="btn-secondary" onClick={() => setPending(null)}>Cancel</button><button className="btn-primary" disabled={saving} onClick={() => void updateStatus()}>{saving ? <LoaderCircle className="spin" size={16} /> : <CheckCircle2 size={16} />} Confirm status change</button></footer>
     </section></div> : null}

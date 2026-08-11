@@ -29,7 +29,7 @@ reference pack is treated as interaction guidance, not as a visual template.
 - `/admin/students` — student database plus examination applications, AAT
   annual contributions, RenShinKan monthly contributions, and payment proofs.
 - `/admin/memberships` — redirects to the AAT section of Students.
-- `/admin/audit` — scoped permanent audit history.
+- `/admin/audit` — scoped audit history retained for 90 days.
 - `/admin/dojos` — central-only dojo settings.
 - `/admin/site-editor` — central-only multilingual structured page editor,
   revision history, rollback, and publishing.

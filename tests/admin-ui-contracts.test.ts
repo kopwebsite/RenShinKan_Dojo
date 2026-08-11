@@ -101,9 +101,16 @@ describe("unified administration UI contracts", () => {
     // The honest copy names the confirmation rail and the second phrase.
     expect(panel).toContain("type the exact confirmation phrase yourself");
     expect(panel).toContain("need a second phrase");
-    // A weather question sends only the place name, nothing about the dojo.
+    // The disclosure names the bounded student reference that can reach the
+    // model and the richer records that are deliberately excluded.
     expect(panel).toContain("place name to a weather service");
     expect(compact(panel)).toContain(
+      "Those references can include a student name, Student ID, dojo, and status",
+    );
+    expect(compact(panel)).toContain(
+      "Full database rows, files, proof images, questionnaire answers, and private notes are not added",
+    );
+    expect(panel).not.toContain(
       "Nothing about your students, records or money is ever sent to AI",
     );
     // Example asks are shown when the panel is empty, in both languages.

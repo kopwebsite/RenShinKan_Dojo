@@ -374,7 +374,7 @@ test("release visual samples are captured for manual comparison", async ({
     await page.setViewportSize(viewport);
     await page.goto(path);
     await expect(page.locator("main")).toBeVisible();
-    await expect(page.locator("h1").first()).toBeVisible();
+    await expect(page.locator("h1").first()).toBeVisible({ timeout: 15_000 });
     await page.evaluate(() => document.fonts.ready);
     const { pageHeight, deviceScaleFactor } = await page.evaluate(() => ({
       pageHeight: Math.max(

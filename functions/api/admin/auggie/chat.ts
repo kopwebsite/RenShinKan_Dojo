@@ -1,6 +1,7 @@
 import { jsonResponse } from "../../../_lib/auth";
 import {
   adminAuggieErrorResponse,
+  getAdminAuggieUsage,
   handleAdminAuggieChat,
   type AdminAuggieEnv,
 } from "../../../_lib/adminAuggie";
@@ -13,7 +14,8 @@ export const onRequestPost: PagesFunction<AdminAuggieEnv> = async ({
 }) => {
   try {
     const response = await handleAdminAuggieChat(request, env);
-    return jsonResponse({ ok: true, response }, 200, {
+    const usage = await getAdminAuggieUsage(request, env);
+    return jsonResponse({ ok: true, response, usage }, 200, {
       "Cache-Control": "private, no-store",
     });
   } catch (error) {

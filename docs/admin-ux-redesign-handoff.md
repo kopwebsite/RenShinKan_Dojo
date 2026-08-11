@@ -22,7 +22,7 @@ the source of truth.
 - `/admin/dojo-updates#media-library` — media library
 - `/admin/site-editor` — structured site pages and publishing
 - `/admin/dojos` — dojo settings
-- `/admin/audit` — permanent audit log
+- `/admin/audit` — audit log retained for 90 days
 
 ## Role and security behavior
 

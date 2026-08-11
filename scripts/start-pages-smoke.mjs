@@ -1,23 +1,83 @@
 import {
+  cpSync,
   mkdirSync,
   readFileSync,
   readdirSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { pbkdf2Sync, randomBytes } from "node:crypto";
 
 // Keep mutable Miniflare state under Wrangler's ignored working directory so
 // D1/KV/R2 writes cannot trigger Pages source-watch reloads mid-request.
 const state = ".wrangler/pages-smoke-state";
+const smokeProjectDirectory = join(tmpdir(), "renshinkan-dojo-pages-smoke");
 const fixtureDirectory = "tmp/pages-smoke-fixtures";
 const credentialPath = "tmp/pages-smoke-credentials.json";
+const smokeWranglerConfig = `${smokeProjectDirectory}/wrangler.jsonc`;
 rmSync(state, { recursive: true, force: true });
+rmSync(smokeProjectDirectory, { recursive: true, force: true });
 rmSync(fixtureDirectory, { recursive: true, force: true });
 mkdirSync(state, { recursive: true });
+mkdirSync(smokeProjectDirectory, { recursive: true });
 mkdirSync("tmp", { recursive: true });
+cpSync("functions", `${smokeProjectDirectory}/functions`, { recursive: true });
+cpSync("shared", `${smokeProjectDirectory}/shared`, { recursive: true });
+cpSync("src", `${smokeProjectDirectory}/src`, { recursive: true });
+cpSync("dist", `${smokeProjectDirectory}/dist`, { recursive: true });
+symlinkSync(
+  resolve("node_modules"),
+  `${smokeProjectDirectory}/node_modules`,
+  "junction",
+);
+const tomlPath = (path) => resolve(path).replaceAll("\\", "/");
+writeFileSync(
+  smokeWranglerConfig,
+  `${JSON.stringify(
+    {
+      name: "renshinkan-dojo-pages-smoke",
+      pages_build_output_dir: "./dist",
+      compatibility_date: "2026-07-15",
+      vars: {
+        APP_ENV: "local",
+        BUILD_ID: "local-development",
+        SITE_URL: "https://127.0.0.1:8788",
+        ALLOWED_ORIGIN: "https://127.0.0.1:8788",
+        VITE_SITE_URL: "https://127.0.0.1:8788",
+        VITE_TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
+        RENSHINKAN_MONTHLY_CONTRIBUTION_AMOUNT: "1800",
+        AAT_ANNUAL_CONTRIBUTION_AMOUNT: "1200",
+        UPLOADS_ENABLED: "true",
+        NEWSLETTER_PUBLISHING_ENABLED: "true",
+        ADMIN_AUGGIE_DAILY_TOKEN_BUDGET: "100000",
+      },
+      kv_namespaces: [
+        { binding: "CONTENT_KV", id: "00000000000000000000000000000000" },
+      ],
+      r2_buckets: [
+        {
+          binding: "MEDIA_BUCKET",
+          bucket_name: "renshinkan-dojo-media-local",
+        },
+      ],
+      d1_databases: [
+        {
+          binding: "STUDENT_DB",
+          database_name: "renshinkan-student-records-local",
+          database_id: "00000000-0000-4000-8000-000000000000",
+          migrations_dir: tomlPath("migrations"),
+        },
+      ],
+    },
+    null,
+    2,
+  )}\n`,
+  "utf8",
+);
 const password = randomBytes(24).toString("base64url");
 const sessionSecret = randomBytes(48).toString("base64url");
 const studentPepper = randomBytes(48).toString("base64url");
@@ -41,39 +101,15 @@ const localSchema = readdirSync("migrations")
   .sort()
   .map((name) => `-- ${name}\n${readFileSync(`migrations/${name}`, "utf8")}`)
   .join("\n\n");
-writeFileSync(localSchemaPath, `${localSchema}\n`, "utf8");
-const migrate = spawnSync(
-  process.execPath,
-  [
-    resolve("node_modules/wrangler/bin/wrangler.js"),
-    "d1",
-    "execute",
-    "STUDENT_DB",
-    "--local",
-    `--persist-to=${state}`,
-    `--file=${localSchemaPath}`,
-    "--yes",
-  ],
-  { stdio: "inherit", shell: false },
+const smokeFixture = readFileSync(
+  "tests/fixtures/previous-production-v0023.sql",
+  "utf8",
 );
-if (migrate.status !== 0) process.exit(migrate.status || 1);
-
-const seed = spawnSync(
-  process.execPath,
-  [
-    resolve("node_modules/wrangler/bin/wrangler.js"),
-    "d1",
-    "execute",
-    "STUDENT_DB",
-    "--local",
-    `--persist-to=${state}`,
-    "--file=tests/fixtures/previous-production-v0023.sql",
-    "--yes",
-  ],
-  { stdio: "inherit", shell: false },
+writeFileSync(
+  localSchemaPath,
+  `${localSchema}\n\n-- Sanitized smoke fixture\n${smokeFixture}\n`,
+  "utf8",
 );
-if (seed.status !== 0) process.exit(seed.status || 1);
-
 const fixtures = spawnSync(
   process.execPath,
   [
@@ -97,52 +133,73 @@ const prepareSmokeContent = spawnSync(
 if (prepareSmokeContent.status !== 0)
   process.exit(prepareSmokeContent.status || 1);
 
-const seedContent = spawnSync(
-  process.execPath,
-  [
-    resolve("node_modules/wrangler/bin/wrangler.js"),
-    "kv",
-    "key",
-    "put",
-    "site:editable-content",
-    `--path=${smokeContentPath}`,
-    "--binding=CONTENT_KV",
-    "--local",
-    `--persist-to=${state}`,
-  ],
-  { stdio: "inherit", shell: false },
-);
-if (seedContent.status !== 0) process.exit(seedContent.status || 1);
+const wranglerPath = resolve("node_modules/wrangler/bin/wrangler.js");
+function runWranglerSetup(args) {
+  const result = spawnSync(process.execPath, [wranglerPath, ...args], {
+    stdio: "inherit",
+    shell: false,
+  });
+  if (result.status !== 0) process.exit(result.status || 1);
+}
 
-const seedProfileImage = spawnSync(
-  process.execPath,
-  [
-    resolve("node_modules/wrangler/bin/wrangler.js"),
-    "r2",
-    "object",
-    "put",
-    "renshinkan-dojo-media-local/student-profiles/2026/07/00000000-0000-4000-8000-000000000001.webp",
-    "--file=public/optimized/brand/renshinkan-logo.webp",
-    "--content-type=image/webp",
-    "--local",
-    `--persist-to=${state}`,
-    "--force",
-  ],
-  { stdio: "inherit", shell: false },
-);
-if (seedProfileImage.status !== 0) process.exit(seedProfileImage.status || 1);
+runWranglerSetup([
+  "d1",
+  "execute",
+  "STUDENT_DB",
+  "--local",
+  `--persist-to=${state}`,
+  `--file=${localSchemaPath}`,
+  "--yes",
+]);
+runWranglerSetup([
+  "kv",
+  "key",
+  "put",
+  "site:editable-content",
+  `--path=${smokeContentPath}`,
+  "--binding=CONTENT_KV",
+  "--local",
+  `--persist-to=${state}`,
+]);
+runWranglerSetup([
+  "r2",
+  "object",
+  "put",
+  "renshinkan-dojo-media-local/student-profiles/2026/07/00000000-0000-4000-8000-000000000001.webp",
+  "--file=public/optimized/brand/renshinkan-logo.webp",
+  "--content-type=image/webp",
+  "--local",
+  `--persist-to=${state}`,
+  "--force",
+]);
 
 const server = spawn(
   process.execPath,
   [
-    resolve("node_modules/wrangler/bin/wrangler.js"),
+    wranglerPath,
     "pages",
     "dev",
     "dist",
     "--ip=127.0.0.1",
     "--port=8788",
     "--local-protocol=https",
-    `--persist-to=${state}`,
+    `--persist-to=${tomlPath(state)}`,
+    "--binding",
+    "APP_ENV=local",
+    "--binding",
+    "BUILD_ID=local-development",
+    "--binding",
+    "VITE_TURNSTILE_SITE_KEY=1x00000000000000000000AA",
+    "--binding",
+    "RENSHINKAN_MONTHLY_CONTRIBUTION_AMOUNT=1800",
+    "--binding",
+    "AAT_ANNUAL_CONTRIBUTION_AMOUNT=1200",
+    "--binding",
+    "UPLOADS_ENABLED=true",
+    "--binding",
+    "NEWSLETTER_PUBLISHING_ENABLED=true",
+    "--binding",
+    "ADMIN_AUGGIE_DAILY_TOKEN_BUDGET=100000",
     "--binding",
     `SESSION_SECRET=${sessionSecret}`,
     "--binding",
@@ -160,7 +217,7 @@ const server = spawn(
     "--binding",
     "PERFORMANCE_DIAGNOSTICS=true",
   ],
-  { stdio: "inherit", shell: false },
+  { cwd: smokeProjectDirectory, stdio: "inherit", shell: false },
 );
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, () => server.kill(signal));

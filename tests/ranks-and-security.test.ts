@@ -143,11 +143,15 @@ describe("student and administrator security", () => {
 
   it("keeps database and secret diagnostics out of JSON error responses", async () => {
     const databaseResponse = jsonResponse(
-      { error: "D1_ERROR: UNIQUE constraint failed: students.public_student_id" },
+      {
+        error: "D1_ERROR: UNIQUE constraint failed: students.public_student_id",
+      },
       400,
     );
     const secretResponse = jsonResponse(
-      { error: "Cloudflare API rejected Authorization: Bearer sensitive-token" },
+      {
+        error: "Cloudflare API rejected Authorization: Bearer sensitive-token",
+      },
       500,
     );
     const validationResponse = jsonResponse(
@@ -159,10 +163,15 @@ describe("student and administrator security", () => {
       error:
         "The request could not be completed. Please try again or contact the site administrator.",
     });
-    await expect(secretResponse.text()).resolves.not.toContain("sensitive-token");
+    await expect(secretResponse.text()).resolves.not.toContain(
+      "sensitive-token",
+    );
     await expect(validationResponse.json()).resolves.toEqual({
       error: "Enter a valid contribution amount.",
     });
+    expect(validationResponse.headers.get("X-Robots-Tag")).toBe(
+      "noindex, nofollow",
+    );
   });
 
   it("validates Turnstile success, action, hostname, expiration, and replay responses", async () => {

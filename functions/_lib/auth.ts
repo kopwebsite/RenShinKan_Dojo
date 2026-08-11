@@ -67,6 +67,8 @@ export function jsonResponse(
   responseHeaders.set("Content-Type", "application/json; charset=utf-8");
   if (!responseHeaders.has("Cache-Control"))
     responseHeaders.set("Cache-Control", "private, no-store");
+  if (!responseHeaders.has("X-Robots-Tag"))
+    responseHeaders.set("X-Robots-Tag", "noindex, nofollow");
   return new Response(JSON.stringify(safeResponseData(data)), {
     status,
     headers: responseHeaders,

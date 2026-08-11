@@ -1,4 +1,5 @@
 import type { AdminPermission } from "../../shared/adminPermissions";
+import { isFlowId, type FlowState } from "./adminAuggieFlows";
 import type { D1Database } from "./studentRecords";
 
 export const CONVERSATION_TTL_MS = 2 * 60 * 60 * 1_000;
@@ -49,6 +50,7 @@ export type ConversationContext = {
   currentSitePage?: ConversationEntity;
   candidateStudents?: ConversationEntity[];
   currentTask?: ConversationTask;
+  pausedFlow?: FlowState;
   previousIntent?: string;
   unresolvedQuestion?: string;
   pendingOperationId?: string;
@@ -141,6 +143,34 @@ function parseTask(value: unknown): ConversationTask | undefined {
   return { type, slots: safeSlots };
 }
 
+function parsePausedFlow(value: unknown): FlowState | undefined {
+  const entry = plainObject(value);
+  const answers = plainObject(entry?.answers);
+  if (!entry || !answers || !isFlowId(entry.flowId)) return undefined;
+  const safeAnswers = Object.fromEntries(
+    Object.entries(answers)
+      .filter((item): item is [string, string] => typeof item[1] === "string")
+      .slice(0, 16)
+      .map(([key, answer]) => [cleanText(key, 60), cleanText(answer, 1_600)]),
+  );
+  const order = Array.isArray(entry.order)
+    ? entry.order
+        .filter(
+          (key): key is string =>
+            typeof key === "string" && cleanText(key, 60) in safeAnswers,
+        )
+        .map((key) => cleanText(key, 60))
+        .slice(0, 16)
+    : [];
+  return {
+    flowId: entry.flowId,
+    answers: safeAnswers,
+    order,
+    startedAt:
+      cleanText(entry.startedAt, 40) || new Date(0).toISOString(),
+  };
+}
+
 function parseContext(value: string): ConversationContext {
   try {
     const parsed = plainObject(JSON.parse(value));
@@ -179,6 +209,9 @@ function parseContext(value: string): ConversationContext {
       ...(candidates.length ? { candidateStudents: candidates } : {}),
       ...(parseTask(parsed.currentTask)
         ? { currentTask: parseTask(parsed.currentTask) }
+        : {}),
+      ...(parsePausedFlow(parsed.pausedFlow)
+        ? { pausedFlow: parsePausedFlow(parsed.pausedFlow) }
         : {}),
       ...(cleanText(parsed.previousIntent, 100)
         ? { previousIntent: cleanText(parsed.previousIntent, 100) }
@@ -392,6 +425,12 @@ export function modelConversationContext(
       },
       candidateStudents: state.context.candidateStudents,
       currentTask: state.context.currentTask,
+      pausedTask: state.context.pausedFlow
+        ? {
+            type: state.context.pausedFlow.flowId,
+            answeredCount: state.context.pausedFlow.order.length,
+          }
+        : undefined,
       previousIntent: state.context.previousIntent,
       unresolvedQuestion: state.context.unresolvedQuestion,
       pendingOperationId: state.context.pendingOperationId,

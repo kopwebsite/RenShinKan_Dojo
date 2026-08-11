@@ -197,6 +197,7 @@ export type AdminAuggieContext = {
   // tool selection; only the test-send proposal reads it.
   testRecipient?: string;
   conversation?: ConversationState;
+  activeFlow?: FlowState;
 };
 
 type StudentTarget = {
@@ -1445,6 +1446,22 @@ function toolSchemas(ctx: AdminAuggieContext) {
       },
     },
     {
+      name: "list_profile_requests",
+      description:
+        "List profile requests with each student's name, exact Student ID, status, and dojo. Reading only; never returns the submitted image or private form details.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          status: {
+            type: "string",
+            enum: ["pending", "approved", "rejected"],
+          },
+          limit: { type: "integer", minimum: 1, maximum: 20 },
+        },
+      },
+    },
+    {
       name: "continue_training_hours",
       description:
         "Conversationally collect or correct an add-training-hours task. Use selected student context when studentId is omitted. Supply only details known from the current message or conversation: exact studentId, hours, entryDate YYYY-MM-DD, and optional location. The server asks for anything missing and only prepares a proposal when complete. Use this for corrections to a pending hours proposal too.",
@@ -1635,6 +1652,18 @@ function toolSchemas(ctx: AdminAuggieContext) {
         additionalProperties: false,
         properties: { flow: { type: "string", enum: flows } },
         required: ["flow"],
+      },
+    });
+  }
+  if (ctx.activeFlow) {
+    definitions.push({
+      name: "answer_guided_flow",
+      description:
+        "Choose only when the entire latest message answers the guided flow's current question. Never choose for a question, interruption, topic switch, pause, cancellation, correction request, or resume request.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
       },
     });
   }
@@ -2299,6 +2328,11 @@ const TOOL_TOPICS: Record<string, ToolTopic> = {
       /pending training|training request|hour request|submitted hours|unresolved request|needs review/i,
     paths: ["/admin/training-requests", "/admin/students"],
   },
+  list_profile_requests: {
+    words:
+      /profile request|pending profile|waiting profile|profile.*(?:dojo|name|who|how many)|who.*profile/i,
+    paths: ["/admin/profile-requests", "/admin/students"],
+  },
   continue_training_hours: {
     words:
       /add|record|change|correct|actually|make it|use|instead|hour|training|yesterday|saturday|date/i,
@@ -2498,6 +2532,10 @@ const TOOL_TOPICS: Record<string, ToolTopic> = {
       "/admin/training-requests",
     ],
   },
+  answer_guided_flow: {
+    words: /a^/,
+    paths: [],
+  },
   look_up_information: {
     words:
       /weather|forecast|temperature|raining|climate|humid|wind|sunny|snow|how (hot|cold)|degrees|look ?up|search the (web|internet)|on the internet|google/i,
@@ -2608,7 +2646,10 @@ const THAI_SUBJECTS: ReadonlyArray<readonly [RegExp, readonly string[]]> = [
     /ประวัติการแก้ไข|ใครแก้ไข|ใครเปลี่ยน|ใครแก้|บันทึกการเปลี่ยน|ประวัติการเปลี่ยน/,
     ["read_student_history"],
   ],
-  [/โปรไฟล์|คำขอ/, ["propose_student_profile_decision"]],
+  [
+    /โปรไฟล์|คำขอ/,
+    ["list_profile_requests", "propose_student_profile_decision"],
+  ],
   [/สรุป|แดชบอร์ด|ภาพรวม|จำนวน/, ["get_dashboard_summary"]],
   [
     /ช่วยเหลือ|ทำอะไรได้|ทำอะไรได้บ้าง|คำสั่ง|ถามอะไรได้/,
@@ -2683,6 +2724,7 @@ export const TOOL_AREAS: Record<ToolArea, readonly string[]> = {
     "search_students",
     "get_student_overview",
     "list_training_requests",
+    "list_profile_requests",
     "continue_training_hours",
     "read_student_history",
     "propose_student_status",
@@ -2749,7 +2791,7 @@ export const TOOL_AREAS: Record<ToolArea, readonly string[]> = {
     "look_up_information",
     "navigate_admin",
   ],
-  conversation: ["converse", "show_capabilities"],
+  conversation: ["converse", "show_capabilities", "answer_guided_flow"],
 };
 
 const AREA_ORDER = Object.keys(TOOL_AREAS) as ToolArea[];
@@ -2952,7 +2994,15 @@ export function adminAuggieToolCatalogue(permission: AdminPermission) {
   return allToolSchemas({
     permission,
     currentPath: "/admin/dashboard",
-  } as AdminAuggieContext);
+    // The exported catalogue is the union used by routing/coverage tests. The
+    // live request only includes this control while a guided flow is active.
+    activeFlow: {
+      flowId: "create_student",
+      answers: {},
+      order: [],
+      startedAt: new Date(0).toISOString(),
+    },
+  } as unknown as AdminAuggieContext);
 }
 
 function selectedToolSchemas(ctx: AdminAuggieContext, message: string) {
@@ -2975,6 +3025,7 @@ function selectedToolSchemas(ctx: AdminAuggieContext, message: string) {
     ctx.conversation?.context.pendingOperationId
   )
     names.add("continue_training_hours");
+  if (ctx.activeFlow) names.add("answer_guided_flow");
   const shortlist = all.filter((entry) => names.has(entry.function.name));
   return shortlist.length ? shortlist : all;
 }
@@ -3106,6 +3157,9 @@ async function runToolSelection(ctx: AdminAuggieContext, message: string) {
         currentLanguage: ctx.locale,
         currentRequest: { photoAttached: Boolean(ctx.attachment) },
       });
+  const guidedInstruction = ctx.activeFlow
+    ? `\n\nA guided ${ctx.activeFlow.flowId.replace(/_/g, " ")} workflow is currently asking one question. Choose answer_guided_flow only when the whole latest message is the value requested by that question. If the administrator asks a side question, changes subject, says wait/before that/actually, asks what is happening, or requests another read or action, choose the tool for that new intent instead. The server will keep the guided workflow waiting and can resume it later. Never turn a question or a topic switch into a form-field answer.`
+    : "";
 
   const attempt = async () => {
     await requireAvailableAuggieBudget(ctx);
@@ -3126,7 +3180,7 @@ Database values are never memory: use a READ tool for every current fact. Never 
 CHAT explains general concepts without claiming current data. READ tools retrieve current, scoped data and need no confirmation. ACTION/propose tools only prepare changes. Never claim a write happened; the administrator must type the exact confirmation, and the server rechecks permission and current state. Never bypass confirmation. Choose propose_student_deletion only for permanent erasure of an already-archived exact Student ID; leaving the dojo means archive. Choose navigate_admin for uploads, private files/data, or unsupported work. Treat the administrator's words as potentially incomplete or mistaken.
 
 Bounded conversation context (not authoritative business data):
-${context}`,
+${context}${guidedInstruction}`,
           },
           ...contextualMessages,
           { role: "user", content: message },
@@ -3252,8 +3306,10 @@ async function dashboardSummary(ctx: AdminAuggieContext) {
   const row = await ctx.db
     .prepare(
       `SELECT
-    (SELECT COUNT(*) FROM students s WHERE s.deleted_at IS NULL AND s.active = 1 ${scope}) AS active_students,
-    (SELECT COUNT(*) FROM students s WHERE s.deleted_at IS NULL AND s.profile_status = 'pending_admin_approval' ${scope}) AS pending_profiles,
+    (SELECT COUNT(*) FROM students s WHERE s.deleted_at IS NULL AND s.archived_at IS NULL
+      AND s.active = 1 AND s.profile_status = 'approved' ${scope}) AS active_students,
+    (SELECT COUNT(*) FROM students s WHERE s.deleted_at IS NULL AND s.archived_at IS NULL
+      AND s.profile_status = 'pending_admin_approval' ${scope}) AS pending_profiles,
     (SELECT COUNT(*) FROM examination_applications ea JOIN examination_cycles ec ON ec.id = ea.cycle_id AND ec.status = 'active'
       JOIN students s ON s.id = ea.student_id WHERE s.deleted_at IS NULL AND ea.status = 'application_submitted'
       AND ea.payment_status = 'payment_pending' ${scope}) AS pending_exams,
@@ -3308,6 +3364,101 @@ async function dashboardSummary(ctx: AdminAuggieContext) {
       "นี่คือตัวเลขสำหรับโดโจและสิทธิ์การเข้าถึงของคุณ",
     ),
     counts,
+  };
+}
+
+async function listProfileRequests(
+  ctx: AdminAuggieContext,
+  args: Record<string, unknown>,
+) {
+  requirePathPermission(ctx, PROFILE_REQUEST_PATH);
+  if (!exactKeys(args, ["status", "limit"]))
+    throw new AdminAuggieError(
+      "The profile request list contains unsupported fields.",
+    );
+  const requestedStatus = cleanText(args.status, 20) || "pending";
+  const statuses = {
+    pending: "pending_admin_approval",
+    approved: "approved",
+    rejected: "rejected",
+  } as const;
+  if (!(requestedStatus in statuses))
+    throw new AdminAuggieError(
+      "Choose pending, approved, or rejected profile requests.",
+    );
+  const limit = args.limit === undefined ? 20 : Number(args.limit);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 20)
+    throw new AdminAuggieError("Choose a limit from 1 to 20.");
+  const scope = dojoScope(ctx);
+  const profileStatus = statuses[requestedStatus as keyof typeof statuses];
+  const rows =
+    (
+      await ctx.db
+        .prepare(
+          `SELECT s.public_student_id, s.display_name, s.current_belt,
+          s.profile_status, s.updated_at, d.official_name AS dojo_name,
+          COUNT(*) OVER() AS total_count
+        FROM students s JOIN dojos d ON d.id = s.dojo_id
+        WHERE s.deleted_at IS NULL AND s.archived_at IS NULL
+          AND s.profile_status = ?${scope.clause}
+        ORDER BY s.updated_at DESC, s.display_name COLLATE NOCASE, s.id
+        LIMIT ?`,
+        )
+        .bind(profileStatus, ...scope.bindings, limit)
+        .all<Record<string, unknown>>()
+    ).results || [];
+  const total = Number(rows[0]?.total_count || 0);
+  const students = rows.map((row) => ({
+    studentId: String(row.public_student_id || ""),
+    name: String(row.display_name || ""),
+    dojo: String(row.dojo_name || ""),
+    rank: String(row.current_belt || ""),
+    status: requestedStatus,
+  }));
+  await auditAi(
+    ctx,
+    "admin_ai_profile_requests_read",
+    "list_profile_requests",
+    "success",
+    { status: requestedStatus, total, resultCount: students.length },
+  );
+  return {
+    kind: "students" as const,
+    heading: localized(
+      ctx.locale,
+      requestedStatus === "pending"
+        ? "Pending profile requests"
+        : `${requestedStatus[0].toUpperCase()}${requestedStatus.slice(1)} profiles`,
+      requestedStatus === "pending"
+        ? "คำขอโปรไฟล์ที่รออนุมัติ"
+        : `โปรไฟล์สถานะ ${requestedStatus}`,
+    ),
+    message: students.length
+      ? localized(
+          ctx.locale,
+          `There ${total === 1 ? "is" : "are"} ${total} ${requestedStatus} profile request${total === 1 ? "" : "s"} in your permitted dojo scope. Each name and dojo below was read from the server just now.`,
+          `มีคำขอโปรไฟล์สถานะ ${requestedStatus} จำนวน ${total} รายการในขอบเขตโดโจที่คุณดูแล รายชื่อและโดโจด้านล่างอ่านจากเซิร์ฟเวอร์เมื่อสักครู่`,
+        )
+      : localized(
+          ctx.locale,
+          `There are no ${requestedStatus} profile requests in your permitted dojo scope.`,
+          `ไม่มีคำขอโปรไฟล์สถานะ ${requestedStatus} ในขอบเขตโดโจที่คุณดูแล`,
+        ),
+    students,
+    summary: [
+      {
+        label: localized(ctx.locale, "Total", "ทั้งหมด"),
+        value: String(total),
+      },
+    ],
+    path: PROFILE_REQUEST_PATH,
+    references: students.map((student) => ({
+      type: "student",
+      id: student.studentId,
+      label: student.name,
+      status: student.status,
+      dojo: student.dojo,
+    })),
   };
 }
 
@@ -9216,6 +9367,11 @@ async function showCapabilities(ctx: AdminAuggieContext) {
       tools: [
         ["search_students", "Find students", "ค้นหานักเรียน"],
         [
+          "list_profile_requests",
+          "List profile requests and their dojos",
+          "ดูคำขอโปรไฟล์และโดโจของแต่ละคน",
+        ],
+        [
           "get_student_overview",
           "Check current records and history",
           "ตรวจข้อมูลและประวัติปัจจุบัน",
@@ -9717,6 +9873,8 @@ async function executeSelectedTool(ctx: AdminAuggieContext, call: ToolCall) {
     return getStudentOverview(ctx, args);
   if (call.name === "list_training_requests")
     return listTrainingRequests(ctx, args);
+  if (call.name === "list_profile_requests")
+    return listProfileRequests(ctx, args);
   if (call.name === "continue_training_hours")
     return continueTrainingHours(ctx, args);
   if (call.name === "read_student_history")
@@ -10004,6 +10162,97 @@ function resetConversationCommand(message: string) {
   ].includes(command);
 }
 
+type GuidedConversationControl =
+  | "pause"
+  | "resume"
+  | "status"
+  | "cancel_and_switch"
+  | null;
+
+function normalizedConversationCommand(message: string) {
+  return message
+    .normalize("NFKC")
+    .trim()
+    .toLocaleLowerCase("en-US")
+    .replace(/[.!?]+$/, "")
+    .replace(/\s+/g, " ");
+}
+
+function guidedConversationControl(message: string): GuidedConversationControl {
+  const command = normalizedConversationCommand(message);
+  if (
+    [
+      "pause",
+      "pause this",
+      "hold on",
+      "wait",
+      "let's come back to this",
+      "lets come back to this",
+      "พักไว้ก่อน",
+      "หยุดไว้ก่อน",
+      "เดี๋ยวก่อน",
+      "เปลี่ยนเรื่องก่อน",
+    ].includes(command)
+  )
+    return "pause";
+  if (
+    [
+      "continue",
+      "carry on",
+      "resume",
+      "resume this",
+      "resume what we were doing",
+      "go back to what we were doing",
+      "go back to the student",
+      "continue creating the student",
+      "กลับไปทำต่อ",
+      "ทำต่อ",
+      "กลับไปสร้างนักเรียนต่อ",
+      "โอเค กลับไปทำต่อ",
+      "โอเค กลับไปสร้างนักเรียนต่อ",
+    ].includes(command)
+  )
+    return "resume";
+  if (
+    [
+      "what were we doing",
+      "where were we",
+      "what is waiting",
+      "what did we pause",
+      "ก่อนหน้านั้นทำอะไรอยู่",
+      "เราทำอะไรค้างอยู่",
+    ].includes(command)
+  )
+    return "status";
+  if (
+    /\b(?:forget (?:that|it)|never mind|cancel (?:that|this)).*(?:show|find|list|tell|what|who|how)|\bchange (?:the )?task\b|\bswitch (?:the )?task\b/i.test(
+      command,
+    ) ||
+    /(?:ยกเลิก|ไม่เอาแล้ว).*(?:แสดง|หา|ดู|บอก)|เปลี่ยนเรื่องก่อน/.test(
+      command,
+    )
+  )
+    return "cancel_and_switch";
+  return null;
+}
+
+function guidedMessageNeedsRouting(message: string) {
+  const value = normalizedConversationCommand(message);
+  if (guidedConversationControl(value)) return true;
+  return (
+    /[?？]/.test(value) ||
+    /^(?:wait|before|actually|first|instead|show|find|list|tell|who|what|when|where|why|how|can you|could you|is there|are there|did |do |does )\b/i.test(
+      value,
+    ) ||
+    /\b(?:show|find|list|tell me|how many|who (?:has|is|are)|what (?:is|are|needs|changed)|unpaid|pending (?:profile|payment|request)|change task|switch task)\b/i.test(
+      value,
+    ) ||
+    /เดี๋ยวก่อน|ก่อนหน้านั้น|จริง ๆ|จริงๆ|เปลี่ยนเรื่อง|แสดง|ค้นหา|ช่วยหา|บอก|ใคร|อะไร|เมื่อไหร่|ที่ไหน|ทำไม|กี่(?:คน|รายการ)?|หรือยัง|มี.*ไหม/.test(
+      value,
+    )
+  );
+}
+
 function confirmationLines(message: string) {
   return message
     .split(/\r?\n/)
@@ -10078,6 +10327,13 @@ function flowGuidedResponse(
       ),
       canGoBack: state.order.length > 0,
       startedAt: state.startedAt,
+    },
+    contextUpdate: {
+      currentTask: {
+        type: state.flowId,
+        slots: { phase: "guided", answeredCount: answered },
+      },
+      unresolvedQuestion: field ? flowText(ctx.locale, field.ask) : null,
     },
   };
 }
@@ -10262,6 +10518,77 @@ async function startGuidedFlow(
     FLOW_WORDING.opening(flowQuestionCount(flow, runtime)),
   )}`;
   return flowGuidedResponse(ctx, state, runtime, lead);
+}
+
+function guidedFlowName(locale: AdminAuggieLocale, flowId: FlowId) {
+  return flowText(locale, flowDefinition(flowId).title);
+}
+
+function withWaitingFlowReminder(
+  ctx: AdminAuggieContext,
+  response: unknown,
+  state: FlowState,
+) {
+  const value = objectValue(response);
+  if (!value) return response;
+  const message = cleanText(value.message, 1_600);
+  const reminder = localized(
+    ctx.locale,
+    `The ${guidedFlowName(ctx.locale, state.flowId)} workflow is still waiting at the same question. Say “continue” whenever you want to return to it.`,
+    `งาน ${guidedFlowName(ctx.locale, state.flowId)} ยังค้างอยู่ที่คำถามเดิม พิมพ์ “ทำต่อ” เมื่อต้องการกลับไปทำงานนี้`,
+  );
+  return {
+    ...value,
+    message: [message, reminder].filter(Boolean).join("\n\n"),
+  };
+}
+
+async function pauseGuidedFlow(
+  ctx: AdminAuggieContext,
+  owner: FlowSessionOwner,
+  state: FlowState,
+) {
+  const conversation = ctx.conversation;
+  if (!conversation) return false;
+  if (conversation.context.pausedFlow) return false;
+  conversation.context.pausedFlow = {
+    ...state,
+    answers: { ...state.answers },
+    order: [...state.order],
+  };
+  conversation.context.currentTask = {
+    type: state.flowId,
+    slots: { phase: "paused", answeredCount: state.order.length },
+  };
+  delete conversation.context.unresolvedQuestion;
+  // Persist the paused copy before removing the active row. If a later tool
+  // fails, the workflow still has a resumable server-side state.
+  await writeConversationSession(ctx.db, owner, conversation);
+  await clearFlowSession(ctx.db, owner);
+  return true;
+}
+
+async function resumePausedGuidedFlow(
+  ctx: AdminAuggieContext,
+  owner: FlowSessionOwner,
+) {
+  const state = ctx.conversation?.context.pausedFlow;
+  if (!state || !isFlowId(state.flowId)) return null;
+  requirePathPermission(ctx, FLOW_PATHS[state.flowId]);
+  const runtime = await flowRuntimeFor(ctx, state.flowId);
+  await writeFlowSession(ctx.db, owner, state);
+  delete ctx.conversation!.context.pausedFlow;
+  ctx.conversation!.context.currentTask = {
+    type: state.flowId,
+    slots: { phase: "guided", answeredCount: state.order.length },
+  };
+  await writeConversationSession(ctx.db, owner, ctx.conversation!);
+  return flowGuidedResponse(
+    ctx,
+    state,
+    runtime,
+    flowText(ctx.locale, FLOW_WORDING.resumed),
+  );
 }
 
 async function continueGuidedFlow(
@@ -10591,19 +10918,211 @@ export async function handleAdminAuggieChat(
   // bytes, is exposed to inference.
   if (input.attachment !== undefined && input.attachment !== "")
     ctx.attachment = await resolveAdminAuggieAttachment(ctx, input.attachment);
-  // A guided conversation already in progress is answered entirely here. The
-  // message is not sent to the model, so the promise that only a first request
-  // ever reaches AI holds for every step of the conversation.
+  // Ordinary field values stay deterministic and server-only. Messages that
+  // look like questions, interruptions, or task controls get one bounded pass
+  // through the same permission-filtered router used by the rest of Auggie.
   const active = await readFlowSession(ctx.db, owner);
   if (active) {
     try {
-      const response = await continueGuidedFlow(
-        ctx,
+      ctx.activeFlow = active.state;
+      const runtime = await flowRuntimeFor(ctx, active.state.flowId);
+      const field = currentField(
+        flowDefinition(active.state.flowId),
+        runtime,
         active.state,
-        cleanFlowText(input.message, MAX_MESSAGE_CHARS),
-        owner,
       );
-      return respond(response);
+      conversation.context.currentTask = {
+        type: active.state.flowId,
+        slots: {
+          phase: "guided",
+          answeredCount: active.state.order.length,
+        },
+      };
+      if (field)
+        conversation.context.unresolvedQuestion = flowText(locale, field.ask);
+
+      const pendingId = conversation.context.pendingOperationId;
+      if (pendingId) {
+        const pendingRow = await loadBoundOperation(ctx, pendingId);
+        const proposal = operationProposal(pendingRow, locale);
+        const lines = confirmationLines(message);
+        if (
+          proposal.executable &&
+          proposal.confirmationPhrase &&
+          lines[0] === proposal.confirmationPhrase
+        ) {
+          const result = await confirmAdminAuggieOperation(
+            request,
+            env,
+            pendingId,
+            lines[0],
+            locale,
+            lines[1] || "",
+          );
+          delete conversation.context.pendingOperationId;
+          return respond(
+            withWaitingFlowReminder(
+              ctx,
+              {
+                kind: "result",
+                heading: localized(locale, "Saved", "บันทึกแล้ว"),
+                message: localized(
+                  locale,
+                  "The server rechecked your access and current records, then saved the confirmed side task.",
+                  "เซิร์ฟเวอร์ตรวจสอบสิทธิ์และข้อมูลปัจจุบันอีกครั้ง แล้วบันทึกงานแทรกที่ยืนยันแล้ว",
+                ),
+                result,
+                operationCompleted: true,
+              },
+              active.state,
+            ),
+          );
+        }
+        if (flowCommand(message) === "cancel") {
+          await cancelPendingConversationOperation(ctx, pendingId, "cancelled");
+          delete conversation.context.pendingOperationId;
+          return respond(
+            withWaitingFlowReminder(
+              ctx,
+              {
+                kind: "result",
+                heading: flowText(locale, FLOW_WORDING.cancelHeading),
+                message: localized(
+                  locale,
+                  "I cancelled the pending proposal. Nothing was changed.",
+                  "ยกเลิกข้อเสนอที่รอยืนยันแล้ว โดยไม่มีการเปลี่ยนแปลงข้อมูล",
+                ),
+              },
+              active.state,
+            ),
+          );
+        }
+      }
+
+      const command = guidedConversationControl(message);
+      if (command === "resume" || command === "status")
+        return respond(
+          flowGuidedResponse(
+            ctx,
+            active.state,
+            runtime,
+            command === "resume"
+              ? flowText(locale, FLOW_WORDING.resumed)
+              : localized(
+                  locale,
+                  `We are part-way through ${guidedFlowName(locale, active.state.flowId)}. Nothing has been saved yet.`,
+                  `เรากำลังทำงาน ${guidedFlowName(locale, active.state.flowId)} ค้างอยู่ และยังไม่มีการบันทึกข้อมูล`,
+                ),
+          ),
+        );
+      if (command === "pause") {
+        const paused = await pauseGuidedFlow(ctx, owner, active.state);
+        return respond({
+          kind: "result" as const,
+          heading: localized(locale, "Task paused", "พักงานไว้แล้ว"),
+          message: paused
+            ? localized(
+                locale,
+                `I paused ${guidedFlowName(locale, active.state.flowId)} at the current question. Say “continue” whenever you want to resume it.`,
+                `พักงาน ${guidedFlowName(locale, active.state.flowId)} ไว้ที่คำถามปัจจุบันแล้ว พิมพ์ “ทำต่อ” เมื่อต้องการกลับมาทำต่อ`,
+              )
+            : localized(
+                locale,
+                "One other task is already paused, so I kept this workflow at its current question. Finish, cancel, or resume the paused task before starting another nested task.",
+                "มีงานอื่นพักอยู่แล้ว จึงเก็บงานนี้ไว้ที่คำถามปัจจุบัน โปรดทำงานที่พักไว้ให้เสร็จ ยกเลิก หรือกลับไปทำต่อก่อนเริ่มงานซ้อนอีกงาน",
+              ),
+        });
+      }
+
+      const directCommand = flowCommand(message);
+      if (
+        directCommand ||
+        !guidedMessageNeedsRouting(message) ||
+        detectSensitiveAdminAuggieInput(message)
+      )
+        return respond(
+          await continueGuidedFlow(
+            ctx,
+            active.state,
+            cleanFlowText(input.message, MAX_MESSAGE_CHARS),
+            owner,
+          ),
+        );
+
+      const call = await runToolSelection(ctx, message);
+      // An explicit cancel-and-switch command must never be accepted as the
+      // value for the field that was waiting. If the model cannot identify the
+      // replacement task, cancel exactly what the administrator asked us to
+      // cancel and ask them to restate the new task instead of corrupting the
+      // old workflow with the whole sentence as a field value.
+      if (
+        command === "cancel_and_switch" &&
+        (call.name === "answer_guided_flow" ||
+          (call.name === "start_guided_flow" &&
+            objectValue(call.arguments)?.flow === active.state.flowId))
+      ) {
+        await clearFlowSession(ctx.db, owner);
+        delete conversation.context.currentTask;
+        delete conversation.context.unresolvedQuestion;
+        return respond({
+          kind: "conversation" as const,
+          heading: localized(locale, "Task cancelled", "ยกเลิกงานแล้ว"),
+          message: localized(
+            locale,
+            "I cancelled the guided task. Please tell me the new task again so I can identify it safely.",
+            "ยกเลิกงานแบบทีละขั้นแล้ว โปรดบอกงานใหม่อีกครั้งเพื่อให้ฉันระบุงานได้อย่างปลอดภัย",
+          ),
+        });
+      }
+      if (
+        call.name === "answer_guided_flow" ||
+        (call.name === "start_guided_flow" &&
+          objectValue(call.arguments)?.flow === active.state.flowId)
+      )
+        return respond(
+          await continueGuidedFlow(
+            ctx,
+            active.state,
+            cleanFlowText(input.message, MAX_MESSAGE_CHARS),
+            owner,
+          ),
+        );
+
+      if (call.name === "start_guided_flow") {
+        const wanted = objectValue(call.arguments)?.flow;
+        if (!isFlowId(wanted))
+          throw new AdminAuggieError(
+            "I could not safely identify the new guided task.",
+            502,
+            "ADMIN_AUGGIE_MALFORMED_TOOL",
+          );
+        if (!(await pauseGuidedFlow(ctx, owner, active.state)))
+          return respond({
+            kind: "conversation" as const,
+            heading: localized(locale, "One task at a time", "ทำทีละงาน"),
+            message: localized(
+              locale,
+              "One workflow is active and another is already paused. Finish, cancel, or resume one of them before starting a third task.",
+              "มีงานหนึ่งกำลังทำและอีกงานพักอยู่แล้ว โปรดทำให้เสร็จ ยกเลิก หรือกลับไปทำงานใดงานหนึ่งก่อนเริ่มงานที่สาม",
+            ),
+          });
+        return respond(await startGuidedFlow(ctx, wanted, owner));
+      }
+
+      if (command === "cancel_and_switch") {
+        await clearFlowSession(ctx.db, owner);
+        delete conversation.context.currentTask;
+        delete conversation.context.unresolvedQuestion;
+        return respond(await executeSelectedTool(ctx, call));
+      }
+
+      return respond(
+        withWaitingFlowReminder(
+          ctx,
+          await executeSelectedTool(ctx, call),
+          active.state,
+        ),
+      );
     } catch (error) {
       const known =
         error instanceof AdminAuggieError
@@ -10624,6 +11143,41 @@ export async function handleAdminAuggieChat(
         },
       ).catch(() => undefined);
       throw known;
+    }
+  }
+  const pausedFlow = conversation.context.pausedFlow;
+  if (pausedFlow) {
+    const control = guidedConversationControl(message);
+    if (control === "resume") {
+      const resumed = await resumePausedGuidedFlow(ctx, owner);
+      if (resumed) return respond(resumed);
+    }
+    if (control === "status")
+      return respond({
+        kind: "conversation" as const,
+        heading: localized(locale, "A task is paused", "มีงานที่พักไว้"),
+        message: localized(
+          locale,
+          `${guidedFlowName(locale, pausedFlow.flowId)} is paused after ${pausedFlow.order.length} answer${pausedFlow.order.length === 1 ? "" : "s"}. Nothing has been saved. Say “continue” to return to it or “cancel” to discard it.`,
+          `งาน ${guidedFlowName(locale, pausedFlow.flowId)} พักไว้หลังตอบแล้ว ${pausedFlow.order.length} ข้อ และยังไม่มีการบันทึก พิมพ์ “ทำต่อ” เพื่อกลับไปทำ หรือ “ยกเลิก” เพื่อทิ้งงานนี้`,
+        ),
+      });
+    if (
+      flowCommand(message) === "cancel" &&
+      !conversation.context.pendingOperationId
+    ) {
+      delete conversation.context.pausedFlow;
+      delete conversation.context.currentTask;
+      delete conversation.context.unresolvedQuestion;
+      return respond({
+        kind: "result" as const,
+        heading: flowText(locale, FLOW_WORDING.cancelHeading),
+        message: localized(
+          locale,
+          "I discarded the paused workflow. Nothing was saved or changed.",
+          "ทิ้งงานที่พักไว้แล้ว โดยไม่มีการบันทึกหรือเปลี่ยนแปลงข้อมูล",
+        ),
+      });
     }
   }
   if (undoConversationCommand(message)) {

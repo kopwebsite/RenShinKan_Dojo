@@ -113,6 +113,12 @@ type FlowResponse = {
     confirmationPhrase?: string;
     preview?: Record<string, unknown>;
   };
+  students?: Array<{
+    studentId: string;
+    name: string;
+    dojo: string;
+    status: string;
+  }>;
   flow?: {
     id: string;
     question: string;
@@ -170,6 +176,7 @@ class FakeStatement {
 
 class FakeDb {
   flowSessions = new Map<string, FlowSessionRow>();
+  conversations = new Map<string, Record<string, unknown>>();
   operations = new Map<string, Record<string, unknown>>();
   claims = new Set<string>();
   guards = new Set<string>();
@@ -212,6 +219,12 @@ class FakeDb {
       if (!row) return null;
       if (row.permission_level !== String(values[3])) return null;
       return row.expires_at > String(values[4]) ? row : null;
+    }
+    if (query.includes("FROM admin_ai_conversation_sessions")) {
+      const row = this.conversations.get(
+        this.sessionKey(String(values[0]), String(values[1]), String(values[2])),
+      );
+      return row && String(row.expires_at) > String(values[4]) ? row : null;
     }
     if (query.includes("WHERE idempotency_key = ?"))
       return (
@@ -260,6 +273,22 @@ class FakeDb {
       return this.dojos
         .filter((row) => row.active === 1)
         .map((row) => ({ id: row.id, official_name: row.official_name }));
+    if (
+      query.includes("FROM students s JOIN dojos d") &&
+      query.includes("COUNT(*) OVER() AS total_count")
+    ) {
+      const wantedStatus = String(values[0]);
+      const matches = this.students.filter(
+        (row) =>
+          !row.deleted_at &&
+          !row.archived_at &&
+          row.profile_status === wantedStatus,
+      );
+      return matches.map((row) => ({
+        ...row,
+        total_count: matches.length,
+      }));
+    }
     if (query.includes("FROM students s JOIN dojos d")) {
       const ids = values.map(String);
       return this.students
@@ -290,6 +319,23 @@ class FakeDb {
       });
       return { success: true, meta: { changes: 1 } };
     }
+    if (query.startsWith("INSERT INTO admin_ai_conversation_sessions")) {
+      this.conversations.set(
+        this.sessionKey(String(values[1]), String(values[2]), String(values[3])),
+        {
+          locale: values[5],
+          current_path: values[6],
+          summary_text: values[7],
+          messages_json: values[8],
+          context_json: values[9],
+          started_at: values[10],
+          expires_at: values[11],
+          created_at: values[12],
+          updated_at: values[13],
+        },
+      );
+      return { success: true, meta: { changes: 1 } };
+    }
     if (query.startsWith("DELETE FROM admin_ai_flow_sessions")) {
       if (query.includes("expires_at <= ?")) {
         const now = String(values[0]);
@@ -313,6 +359,22 @@ class FakeDb {
           row.session_hash === String(values[1])
         )
           this.flowSessions.delete(key);
+      return { success: true, meta: { changes: 1 } };
+    }
+    if (query.startsWith("DELETE FROM admin_ai_conversation_sessions")) {
+      if (query.includes("expires_at <= ?")) {
+        const now = String(values[0]);
+        for (const [key, row] of [...this.conversations])
+          if (String(row.expires_at) <= now) this.conversations.delete(key);
+      } else {
+        this.conversations.delete(
+          this.sessionKey(
+            String(values[0]),
+            String(values[1]),
+            String(values[2]),
+          ),
+        );
+      }
       return { success: true, meta: { changes: 1 } };
     }
     if (query.startsWith("INSERT INTO audit_log")) {
@@ -414,6 +476,7 @@ class FakeDb {
 
   async batch(statements: FakeStatement[]) {
     const flowSessions = new Map(this.flowSessions);
+    const conversations = new Map(this.conversations);
     const operations = new Map(
       [...this.operations].map(([id, row]) => [id, { ...row }]),
     );
@@ -426,6 +489,7 @@ class FakeDb {
       return results;
     } catch (error) {
       this.flowSessions = flowSessions;
+      this.conversations = conversations;
       this.operations = operations;
       this.claims = claims;
       this.guards = guards;
@@ -523,6 +587,148 @@ beforeEach(() => {
 });
 
 describe("Admin Auggie guided conversations", () => {
+  it("answers a profile-request side question and resumes the same unanswered step", async () => {
+    const db = new FakeDb();
+    db.students.push({
+      ...db.students[0],
+      id: "student-rsk-1002",
+      public_student_id: "RSK-1002",
+      display_name: "Pending Student",
+      profile_status: "pending_admin_approval",
+    });
+    const run = vi
+      .fn()
+      .mockResolvedValueOnce(tool("start_guided_flow", { flow: "create_student" }))
+      .mockResolvedValueOnce(
+        tool("list_profile_requests", { status: "pending", limit: 20 }),
+      );
+
+    const started = (await handleAdminAuggieChat(
+      chat("Create a new student."),
+      env(db, run),
+    )) as FlowResponse;
+    expect(started.flow?.step).toBe(1);
+
+    const sideAnswer = (await handleAdminAuggieChat(
+      chat(
+        "Wait, before we do that, how many pending profile requests are there and what dojos are they from?",
+      ),
+      env(db, run),
+    )) as FlowResponse;
+    expect(sideAnswer.students).toEqual([
+      expect.objectContaining({
+        studentId: "RSK-1002",
+        name: "Pending Student",
+        dojo: "RenShinKan",
+      }),
+    ]);
+    expect(sideAnswer.message).toContain("workflow is still waiting");
+    expect([...db.flowSessions.values()][0].answers_json).toBe("{}");
+
+    const resumed = (await handleAdminAuggieChat(
+      chat("Continue."),
+      env(db, run),
+    )) as FlowResponse;
+    expect(resumed.flow?.step).toBe(1);
+    expect(resumed.flow?.question).toContain("name in English");
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+
+  it("supports the same interruption and resume controls in mixed Thai and English", async () => {
+    const db = new FakeDb();
+    db.students.push({
+      ...db.students[0],
+      id: "student-rsk-1002",
+      public_student_id: "RSK-1002",
+      display_name: "นักเรียนรออนุมัติ",
+      profile_status: "pending_admin_approval",
+    });
+    const run = vi
+      .fn()
+      .mockResolvedValueOnce(tool("start_guided_flow", { flow: "create_student" }))
+      .mockResolvedValueOnce(
+        tool("list_profile_requests", { status: "pending", limit: 20 }),
+      );
+
+    await handleAdminAuggieChat(
+      chat("สร้างนักเรียนใหม่", "th"),
+      env(db, run),
+    );
+    const sideAnswer = (await handleAdminAuggieChat(
+      chat("เดี๋ยวก่อน ตอนนี้มี profile requests ที่รออนุมัติกี่คน", "th"),
+      env(db, run),
+    )) as FlowResponse;
+    expect(sideAnswer.students?.[0]).toMatchObject({ studentId: "RSK-1002" });
+    expect(sideAnswer.message).toContain("พิมพ์ “ทำต่อ”");
+
+    const resumed = (await handleAdminAuggieChat(
+      chat("โอเค กลับไปสร้างนักเรียนต่อ", "th"),
+      env(db, run),
+    )) as FlowResponse;
+    expect(resumed.flow?.step).toBe(1);
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+
+  it("never stores a cancel-and-switch sentence as a guided field answer", async () => {
+    const db = new FakeDb();
+    const run = vi
+      .fn()
+      .mockResolvedValueOnce(tool("start_guided_flow", { flow: "create_student" }))
+      // Deliberately simulate a bad model choice. The deterministic task
+      // controller must still honor the administrator's explicit cancellation.
+      .mockResolvedValueOnce(tool("answer_guided_flow", {}));
+
+    await handleAdminAuggieChat(chat("Create a new student."), env(db, run));
+    const cancelled = (await handleAdminAuggieChat(
+      chat("Forget that and show me the dashboard instead."),
+      env(db, run),
+    )) as FlowResponse;
+
+    expect(cancelled.heading).toBe("Task cancelled");
+    expect(cancelled.message).toContain("tell me the new task again");
+    expect(db.flowSessions.size).toBe(0);
+    expect(db.operations.size).toBe(0);
+  });
+
+  it("persists one explicitly paused workflow and restores its exact step", async () => {
+    const db = new FakeDb();
+    const run = flowStarter("create_student");
+    await handleAdminAuggieChat(
+      chat("Create a new student."),
+      env(db, run),
+    );
+    await handleAdminAuggieChat(chat("John Smith"), env(db, run));
+
+    const paused = (await handleAdminAuggieChat(
+      chat("Pause this."),
+      env(db, run),
+    )) as FlowResponse;
+    expect(paused.heading).toBe("Task paused");
+    expect(db.flowSessions.size).toBe(0);
+    const stored = [...db.conversations.values()][0];
+    expect(JSON.parse(String(stored.context_json))).toMatchObject({
+      pausedFlow: {
+        flowId: "create_student",
+        answers: { englishName: "John Smith" },
+      },
+    });
+
+    const status = (await handleAdminAuggieChat(
+      chat("What were we doing?"),
+      env(db, run),
+    )) as FlowResponse;
+    expect(status.message).toContain("paused after 1 answer");
+
+    const resumed = (await handleAdminAuggieChat(
+      chat("Resume what we were doing."),
+      env(db, run),
+    )) as FlowResponse;
+    expect(resumed.flow?.step).toBe(2);
+    expect(resumed.flow?.question).toContain("name in Thai");
+    expect(db.flowSessions.size).toBe(1);
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
   it("asks for a new student profile one question at a time and says how many there are", async () => {
     const db = new FakeDb();
     const run = flowStarter("create_student");

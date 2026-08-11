@@ -41,6 +41,7 @@ const CASES: Array<{ message: string; expect: string; note: string }> = [
   { message: "hello there", expect: "converse", note: "greeting" },
   // Students.
   { message: "Find Student ID RSK-1001", expect: "search_students", note: "find student" },
+  { message: "List pending profile requests and their dojos", expect: "list_profile_requests", note: "profile requests" },
   { message: "Who changed RSK-1001 and when?", expect: "read_student_history", note: "history" },
   { message: "Archive RSK-1001", expect: "propose_student_status", note: "archive" },
   { message: "Add 3 training hours to RSK-1001", expect: "propose_student_hours", note: "hours" },

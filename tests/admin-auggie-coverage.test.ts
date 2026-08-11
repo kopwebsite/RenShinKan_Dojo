@@ -94,12 +94,27 @@ const COVERAGE: Record<string, string | string[]> = {
   "newsletters/test.ts": "propose_newsletter_test_send",
   "students/[id]/hours-requests.ts": "propose_hours_request_decision",
 
-  // Known gaps — should be reachable from the chat, not built yet.
-  "diagnostics.ts": "gap: site health check is not yet a tool",
-  "students/upload.ts": "gap: student photo upload (stage 4)",
-  "students/[id]/application.ts":
-    "gap: admin exam application is not yet a tool",
-  "students/[id]/share.ts": "gap: student share links are not yet a tool",
+  // Explicit boundaries for write endpoints that are equivalent to an existing
+  // tool or intentionally retained in a reviewed page.
+  // Diagnostics is read-only even though its endpoint is POST; Auggie exposes
+  // the equivalent get_site_health read tool and never mutates diagnostic
+  // state.
+  "diagnostics.ts": "get_site_health",
+  // Profile images are private multipart uploads with a purpose-specific R2
+  // path. Keep that human-reviewed upload on the student page: Auggie's generic
+  // media attachment is intentionally a different, central-admin-only path and
+  // must not be silently repurposed as a private student image.
+  "students/upload.ts": "page-only",
+  // The student detail payment buttons and the roster operate on the same
+  // examination/application state. Auggie delegates the equivalent paid/unpaid
+  // transition through the bounded current-cycle endpoint; private PDF
+  // questionnaire answers remain on the reviewed student page.
+  "students/[id]/application.ts": "propose_examination_status",
+  // Owner-share links are short-lived private capabilities. Creating, copying,
+  // and revoking their URLs stays on the selected student's reviewed page so a
+  // private capability URL is never placed in model-visible chat or AI operation
+  // history. Auggie can still find the student and navigate the administrator.
+  "students/[id]/share.ts": "page-only",
 };
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");

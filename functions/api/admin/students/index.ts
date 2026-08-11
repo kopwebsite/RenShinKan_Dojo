@@ -176,7 +176,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         "s.profile_status = 'pending_admin_approval' AND s.archived_at IS NULL",
       );
     else if (status === "active")
-      conditions.push("s.active = 1 AND s.archived_at IS NULL");
+      conditions.push(
+        "s.active = 1 AND s.archived_at IS NULL AND s.profile_status = 'approved'",
+      );
 
     const summaryConditions = [
       "s.deleted_at IS NULL",
@@ -207,9 +209,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       db
         .prepare(
           `SELECT COUNT(*) AS total,
-      SUM(CASE WHEN active = 1 THEN 1 ELSE 0 END) AS active,
+      SUM(CASE WHEN active = 1 AND archived_at IS NULL AND profile_status = 'approved' THEN 1 ELSE 0 END) AS active,
       SUM(CASE WHEN archived_at IS NOT NULL THEN 1 ELSE 0 END) AS archived,
-      SUM(CASE WHEN profile_status = 'pending_admin_approval' THEN 1 ELSE 0 END) AS pending_profiles
+      SUM(CASE WHEN archived_at IS NULL AND profile_status = 'pending_admin_approval' THEN 1 ELSE 0 END) AS pending_profiles
       FROM students s WHERE ${summaryConditions.join(" AND ")}`,
         )
         .bind(...summaryBindings),

@@ -116,17 +116,28 @@ test("all public routes render without same-origin failures or runtime errors", 
 });
 
 test("responsive layouts reflow at every required viewport", async ({
-  page,
+  browser,
+  baseURL,
 }) => {
   for (const viewport of viewports) {
-    await page.setViewportSize(viewport);
     for (const path of ["/", "/student-records"] as const) {
-      await page.goto(path, {
-        waitUntil: "domcontentloaded",
-        timeout: 60_000,
-      });
-      await expect(page.locator("main")).toBeVisible();
-      await expectNoHorizontalOverflow(page);
+      // A fresh page prevents WebKit from restoring the previous document when
+      // a viewport change and the next top-level navigation happen together.
+      // That browser race can otherwise interrupt page.goto with the URL from
+      // the preceding loop even though the layout itself is healthy.
+      const context = await browser.newContext({ baseURL, viewport });
+      const sample = await context.newPage();
+      try {
+        const response = await sample.goto(path, {
+          waitUntil: "domcontentloaded",
+          timeout: 60_000,
+        });
+        expect(response?.status(), path).toBeLessThan(400);
+        await expect(sample.locator("main")).toBeVisible();
+        await expectNoHorizontalOverflow(sample);
+      } finally {
+        await context.close();
+      }
     }
   }
 });
@@ -364,50 +375,73 @@ test("expired admin sessions fail closed and private responses are not cached", 
 });
 
 test("release visual samples are captured for manual comparison", async ({
-  page,
+  browser,
+  baseURL,
 }, testInfo) => {
   mkdirSync("tmp/release-visual", { recursive: true });
   for (const [name, viewport, path] of [
     ["home-desktop", { width: 1440, height: 900 }, "/"],
     ["records-mobile", { width: 390, height: 844 }, "/student-records"],
   ] as const) {
-    await page.setViewportSize(viewport);
-    await page.goto(path);
-    await expect(page.locator("main")).toBeVisible();
-    await expect(page.locator("h1").first()).toBeVisible({ timeout: 15_000 });
-    await page.evaluate(() => document.fonts.ready);
-    const { pageHeight, deviceScaleFactor } = await page.evaluate(() => ({
-      pageHeight: Math.max(
-        document.documentElement.scrollHeight,
-        document.body.scrollHeight,
-      ),
-      deviceScaleFactor: window.devicePixelRatio || 1,
-    }));
-    const maxFullPageHeight = Math.floor(30_000 / deviceScaleFactor);
-    if (pageHeight <= maxFullPageHeight) {
-      await page.screenshot({
-        path: `tmp/release-visual/${testInfo.project.name}-${name}.png`,
-        fullPage: true,
-        animations: "disabled",
+    // Keep each visual sample in an isolated document. Firefox can otherwise
+    // carry a pending form/document navigation from the very tall home-page
+    // capture into the next sample, producing a POST to the next page instead
+    // of the GET requested by page.goto.
+    const context = await browser.newContext({ baseURL, viewport });
+    const sample = await context.newPage();
+    try {
+      const response = await sample.goto(path, {
+        waitUntil: "domcontentloaded",
+        timeout: 60_000,
       });
-    } else {
-      const segmentHeight = viewport.height;
-      for (let y = 0, part = 1; y < pageHeight; y += segmentHeight, part += 1) {
-        await page.evaluate((scrollTop) => window.scrollTo(0, scrollTop), y);
-        await page.evaluate(
-          () =>
-            new Promise<void>((resolve) =>
-              requestAnimationFrame(() =>
-                requestAnimationFrame(() => resolve()),
-              ),
-            ),
-        );
-        await page.screenshot({
-          path: `tmp/release-visual/${testInfo.project.name}-${name}-part-${part}.png`,
+      expect(response?.status(), path).toBeLessThan(400);
+      await expect(sample.locator("main")).toBeVisible({ timeout: 15_000 });
+      await expect(sample.locator("h1").first()).toBeVisible({
+        timeout: 15_000,
+      });
+      await sample.evaluate(() => document.fonts.ready);
+      const { pageHeight, deviceScaleFactor } = await sample.evaluate(() => ({
+        pageHeight: Math.max(
+          document.documentElement.scrollHeight,
+          document.body.scrollHeight,
+        ),
+        deviceScaleFactor: window.devicePixelRatio || 1,
+      }));
+      const maxFullPageHeight = Math.floor(30_000 / deviceScaleFactor);
+      if (pageHeight <= maxFullPageHeight) {
+        await sample.screenshot({
+          path: `tmp/release-visual/${testInfo.project.name}-${name}.png`,
+          fullPage: true,
           animations: "disabled",
         });
+      } else {
+        const segmentHeight = viewport.height;
+        for (
+          let y = 0, part = 1;
+          y < pageHeight;
+          y += segmentHeight, part += 1
+        ) {
+          await sample.evaluate(
+            (scrollTop) => window.scrollTo(0, scrollTop),
+            y,
+          );
+          await sample.evaluate(
+            () =>
+              new Promise<void>((resolve) =>
+                requestAnimationFrame(() =>
+                  requestAnimationFrame(() => resolve()),
+                ),
+              ),
+          );
+          await sample.screenshot({
+            path: `tmp/release-visual/${testInfo.project.name}-${name}-part-${part}.png`,
+            animations: "disabled",
+          });
+        }
+        await sample.evaluate(() => window.scrollTo(0, 0));
       }
-      await page.evaluate(() => window.scrollTo(0, 0));
+    } finally {
+      await context.close();
     }
   }
 });

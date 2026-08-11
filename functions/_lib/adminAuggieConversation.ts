@@ -279,7 +279,9 @@ export async function writeConversationSession(
   state: ConversationState,
   now = new Date().toISOString(),
 ) {
-  const expiresAt = new Date(Date.parse(now) + CONVERSATION_TTL_MS).toISOString();
+  const expiresAt = new Date(
+    Date.parse(now) + CONVERSATION_TTL_MS,
+  ).toISOString();
   const messages = state.messages.slice(-MAX_CONVERSATION_MESSAGES);
   await db
     .prepare(
@@ -371,7 +373,10 @@ export function modelConversationMessages(state: ConversationState) {
   );
 }
 
-export function modelConversationContext(state: ConversationState) {
+export function modelConversationContext(
+  state: ConversationState,
+  currentRequest: { photoAttached?: boolean } = {},
+) {
   return JSON.stringify(
     {
       summary: state.summary || undefined,
@@ -393,6 +398,11 @@ export function modelConversationContext(state: ConversationState) {
       lastOperationId: state.context.lastOperationId,
       currentPage: state.currentPath,
       currentLanguage: state.locale,
+      currentRequest: {
+        // Only availability reaches inference. The stored id, URL, bytes,
+        // filename, and media metadata stay on the server.
+        photoAttached: currentRequest.photoAttached === true,
+      },
     },
     null,
     2,
@@ -431,9 +441,7 @@ export async function deleteExpiredConversationSessions(
   now = new Date().toISOString(),
 ) {
   const result = await db
-    .prepare(
-      `DELETE FROM admin_ai_conversation_sessions WHERE expires_at <= ?`,
-    )
+    .prepare(`DELETE FROM admin_ai_conversation_sessions WHERE expires_at <= ?`)
     .bind(now)
     .run();
   return Number(result?.meta?.changes ?? 0);

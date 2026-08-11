@@ -23,6 +23,19 @@ describe("help center content contracts", () => {
     expect(sources).not.toContain("MutationObserver");
   });
 
+  it("keeps lazy help independent from a separately preloaded CSS chunk and recovers stale deployments once", () => {
+    const panel = readFileSync(resolve("src/help/HelpPanel.tsx"), "utf8");
+    const launcher = readFileSync(resolve("src/help/HelpLauncher.tsx"), "utf8");
+    const main = readFileSync(resolve("src/main.tsx"), "utf8");
+    expect(launcher).toContain('import("./HelpPanel")');
+    expect(panel).toContain('import helpStyles from "./help.css?inline"');
+    expect(panel).not.toContain('import "./help.css"');
+    expect(panel).toContain("data-renshinkan-help-styles");
+    expect(main).toContain('window.addEventListener("vite:preloadError"');
+    expect(main).toContain("window.location.reload()");
+    expect(main).toContain("preloadRecoveryKey");
+  });
+
   it("ships the same complete public topic set in all four locales", () => {
     const english = getPublicHelpCatalog("en");
     expect(english.articles).toHaveLength(40);

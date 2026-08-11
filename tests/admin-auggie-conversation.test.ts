@@ -133,10 +133,11 @@ describe("Admin Auggie bounded conversation memory", () => {
     expect(state.messages).toHaveLength(12);
     expect(state.summary).toContain("message 0");
     expect(modelConversationMessages(state)).toHaveLength(8);
-    const context = modelConversationContext(state);
+    const context = modelConversationContext(state, { photoAttached: true });
     expect(context).toContain("RSK-1001");
     expect(context).toContain("operation-one");
     expect(context).toContain("add_training_hours");
+    expect(context).toContain('"photoAttached": true');
   });
 
   it("persists only inside the account/session/dojo owner and clears on reset", async () => {

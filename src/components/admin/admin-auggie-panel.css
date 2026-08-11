@@ -588,24 +588,6 @@
   background: #f5f2eb;
 }
 
-.admin-auggie__attach-use {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: #4a4640;
-  font-size: 0.74rem;
-}
-
-.admin-auggie__attach-use select {
-  border: 1px solid #a9aaa1;
-  border-radius: 0.5rem;
-  background: #fff;
-  color: #292523;
-  padding: 0.32rem 0.4rem;
-  font: inherit;
-  font-size: 0.74rem;
-}
-
 .admin-auggie__attach-button {
   display: inline-flex;
   min-height: 2.2rem;

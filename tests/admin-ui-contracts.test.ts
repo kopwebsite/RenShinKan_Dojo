@@ -61,15 +61,17 @@ describe("unified administration UI contracts", () => {
     expect(records).toContain("window.history.pushState");
     expect(records).toContain('window.addEventListener("popstate"');
     expect(passport).toContain('role="tablist"');
-    expect(passport).toContain('onKeyDown={(event) =>');
+    expect(passport).toContain("onKeyDown={(event) =>");
     expect(passport).toContain('event.key === "Home"');
     expect(passport).toContain('event.key === "End"');
-    expect(passport).toContain('const OWNER_TABS');
+    expect(passport).toContain("const OWNER_TABS");
     expect(passport).not.toContain("StudentTaskList");
   });
 
   it("always shows the requested monthly contribution graph, including sparse history", () => {
-    const contributions = file("src/components/admin/AdminMonthlyContributions.tsx");
+    const contributions = file(
+      "src/components/admin/AdminMonthlyContributions.tsx",
+    );
     expect(contributions).toContain('className="contribution-chart"');
     expect(contributions).toContain("data.graph.map");
     expect(contributions).toContain("Accessible monthly contribution totals");
@@ -81,10 +83,22 @@ describe("unified administration UI contracts", () => {
     const profile = file("src/pages/StudentRecordsPage.tsx");
     const migration = file("migrations/0017_student_names_and_dates.sql");
     const passport = file("src/components/studentPassport/DigitalPassport.tsx");
-    for (const value of ["English name", "Thai name", "Account created date", "Joined dojo date"]) expect(students).toContain(value);
+    for (const value of [
+      "English name",
+      "Thai name",
+      "Account created date",
+      "Joined dojo date",
+    ])
+      expect(students).toContain(value);
     expect(profile).toContain('name="englishName"');
     expect(profile).toContain('name="thaiName"');
-    for (const column of ["english_name", "thai_name", "account_created_date", "dojo_joined_date"]) expect(migration).toContain(column);
+    for (const column of [
+      "english_name",
+      "thai_name",
+      "account_created_date",
+      "dojo_joined_date",
+    ])
+      expect(migration).toContain(column);
     expect(passport).toContain("owner.accountCreatedDate");
     expect(passport).toContain("owner.dojoJoinedDate");
   });
@@ -97,7 +111,9 @@ describe("unified administration UI contracts", () => {
       "Auggie can never open private files or upload media",
     );
     expect(panel).not.toContain("ส่งให้ AI เฉพาะคำขอแรกของคุณ");
-    expect(panel).not.toContain("Auggie ไม่สามารถเปิดไฟล์ส่วนตัวหรืออัปโหลดสื่อได้");
+    expect(panel).not.toContain(
+      "Auggie ไม่สามารถเปิดไฟล์ส่วนตัวหรืออัปโหลดสื่อได้",
+    );
     // The honest copy names the confirmation rail and the second phrase.
     expect(panel).toContain("type the exact confirmation phrase yourself");
     expect(panel).toContain("need a second phrase");
@@ -119,18 +135,39 @@ describe("unified administration UI contracts", () => {
     expect(panel).toContain("Find Student ID RSK-1001");
     expect(panel).toContain("ลองถามดู");
     expect(panel).toContain("บริการพยากรณ์อากาศ");
+    // A photo is context-neutral: the conversation chooses its eventual use.
+    expect(panel).toContain('attachLabel: "Add photo"');
+    expect(panel).toContain('fetch("/api/admin/auggie/photo"');
+    expect(panel).not.toContain("attachUseLabel");
+    expect(panel).not.toContain("attachUseNewsletter");
+    expect(panel).not.toContain("attachUseGallery");
+    expect(panel).toContain(
+      "payload.response.operation?.preview?.photoAttached === true",
+    );
   });
 
   it("keeps all new shell, dashboard, and student task translations in parity", () => {
-    const languages = ["en", "th", "ja", "zh-CN"].map((language) =>
-      JSON.parse(file(`src/i18n/${language}.json`)) as Record<"adminShell" | "adminDashboard" | "studentTasks", Record<string, string>>,
+    const languages = ["en", "th", "ja", "zh-CN"].map(
+      (language) =>
+        JSON.parse(file(`src/i18n/${language}.json`)) as Record<
+          "adminShell" | "adminDashboard" | "studentTasks",
+          Record<string, string>
+        >,
     );
 
-    for (const section of ["adminShell", "adminDashboard", "studentTasks"] as const) {
+    for (const section of [
+      "adminShell",
+      "adminDashboard",
+      "studentTasks",
+    ] as const) {
       const expectedKeys = Object.keys(languages[0][section]).sort();
       for (const dictionary of languages) {
         expect(Object.keys(dictionary[section]).sort()).toEqual(expectedKeys);
-        expect(Object.values(dictionary[section]).every((value) => value.trim().length > 0)).toBe(true);
+        expect(
+          Object.values(dictionary[section]).every(
+            (value) => value.trim().length > 0,
+          ),
+        ).toBe(true);
       }
     }
   });

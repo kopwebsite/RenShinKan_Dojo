@@ -19,8 +19,10 @@ import {
   type CSSProperties,
   type FormEvent,
   type KeyboardEvent,
+  type ReactNode,
   type RefObject,
 } from "react";
+import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router";
 import { AccessibleDialog } from "../components/AccessibleDialog";
 import { getAdminHelpCatalog } from "./content/admin";
@@ -47,7 +49,7 @@ import type {
   HelpCatalog,
   HelpLocale,
 } from "./types";
-import "./help.css";
+import helpStyles from "./help.css?inline";
 
 /** Renders only the help catalog's small `**control name**` convention. */
 function StepText({ text }: { text: string }) {
@@ -815,8 +817,9 @@ export function HelpPanel({
   onClose(): void;
   triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
+  let panel: ReactNode;
   if (audience === "public" && (locale === "en" || locale === "th")) {
-    return (
+    panel = (
       <PublicChatPanel
         catalog={getPublicHelpCatalog(locale)}
         locale={locale}
@@ -824,19 +827,30 @@ export function HelpPanel({
         triggerRef={triggerRef}
       />
     );
+  } else {
+    const catalog =
+      audience === "admin"
+        ? getAdminHelpCatalog(locale === "th" ? "th" : "en")
+        : getPublicHelpCatalog(
+            locale === "ja" || locale === "zh-CN" ? locale : "en",
+          );
+    panel = (
+      <StaticHelpPanel
+        catalog={catalog}
+        audience={audience}
+        onClose={onClose}
+        triggerRef={triggerRef}
+      />
+    );
   }
-  const catalog =
-    audience === "admin"
-      ? getAdminHelpCatalog(locale === "th" ? "th" : "en")
-      : getPublicHelpCatalog(
-          locale === "ja" || locale === "zh-CN" ? locale : "en",
-        );
+
   return (
-    <StaticHelpPanel
-      catalog={catalog}
-      audience={audience}
-      onClose={onClose}
-      triggerRef={triggerRef}
-    />
+    <>
+      {createPortal(
+        <style data-renshinkan-help-styles>{helpStyles}</style>,
+        document.head,
+      )}
+      {panel}
+    </>
   );
 }

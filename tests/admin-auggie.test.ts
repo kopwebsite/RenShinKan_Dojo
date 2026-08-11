@@ -208,6 +208,7 @@ vi.mock("../functions/_lib/storage", async (importOriginal) => {
 
 import {
   AdminAuggieError,
+  adminAuggieToolCatalogue,
   confirmAdminAuggieOperation,
   detectOutOfChatScope,
   detectSensitiveAdminAuggieInput,
@@ -329,7 +330,10 @@ class FakeDb {
   pendingHourRequests = new Map<string, { count: number; hours: number }>();
   studentHistory = new Map<string, Array<Record<string, unknown>>>();
   // The current paid AAT membership payment the server resolves when reversing.
-  aatPaidPayments = new Map<string, { id: string; payment_date: string | null }>();
+  aatPaidPayments = new Map<
+    string,
+    { id: string; payment_date: string | null }
+  >();
   // Download records the reviewed downloads endpoint owns; Admin Auggie reads one
   // by its exact id to build the guard fingerprint and preview.
   downloads = new Map<string, Record<string, unknown>>();
@@ -347,7 +351,10 @@ class FakeDb {
     // The permanent-deletion guard: still inactive, still archived, same dojo.
     if (query.includes("s.dojo_id"))
       return [row.active, row.archived_at || "", row.dojo_id].join("|");
-    if (query.includes("s.public_visible") && query.includes("dojo_joined_date"))
+    if (
+      query.includes("s.public_visible") &&
+      query.includes("dojo_joined_date")
+    )
       return [
         row.current_belt,
         row.public_visible,
@@ -448,9 +455,13 @@ class FakeDb {
     }
     if (query.includes("AS state")) {
       if (query.includes("FROM examination_applications WHERE id = ?"))
-        return { state: this.delegatedGuardState(`__exam_application__:${values[0]}`) };
+        return {
+          state: this.delegatedGuardState(`__exam_application__:${values[0]}`),
+        };
       if (query.includes("FROM contribution_period_students r"))
-        return { state: this.contributionRoster.get(String(values[1])) || null };
+        return {
+          state: this.contributionRoster.get(String(values[1])) || null,
+        };
       if (query.includes("FROM payment_proofs WHERE id = ?"))
         return { state: this.proofs.get(String(values[0]))?.status || null };
       if (query.includes("FROM students s WHERE s.id = ?"))
@@ -480,8 +491,7 @@ class FakeDb {
 
   all(statement: FakeStatement) {
     const { query, values } = statement;
-    if (query.includes("FROM dojos WHERE active = 1"))
-      return this.dojoRows;
+    if (query.includes("FROM dojos WHERE active = 1")) return this.dojoRows;
     if (query.includes("FROM audit_log WHERE student_id = ?")) {
       return (this.studentHistory.get(String(values[0])) || []).slice(
         0,
@@ -525,8 +535,7 @@ class FakeDb {
         .filter(
           (studentId) =>
             this.contributionRoster.has(studentId) &&
-            (!scoped ||
-              this.students.get(studentId)?.dojo_id === "dojo-rsk"),
+            (!scoped || this.students.get(studentId)?.dojo_id === "dojo-rsk"),
         )
         .map((studentId) => ({
           student_id: studentId,
@@ -1231,6 +1240,29 @@ describe("Admin Auggie inference boundary", () => {
       run.mock.calls[0][1] as { tools: Array<{ function: { name: string } }> }
     ).tools.map((entry) => entry.function.name);
     expect(offered).toContain("converse");
+  });
+
+  it("requires a real conversational reply and preserves both goals in a compound request", async () => {
+    const converseSchema = adminAuggieToolCatalogue(
+      "renshinkan_super_admin",
+    ).find((entry) => entry.function.name === "converse")!;
+    expect(converseSchema.function.parameters.required).toContain("reply");
+
+    const db = new FakeDb();
+    const run = vi.fn();
+    const response = (await handleAdminAuggieChat(
+      request(
+        "I am thinking about adding two students and also approving some training hour requests. Can you help me with that?",
+      ),
+      env(db, run),
+    )) as { kind: string; message: string };
+
+    expect(response.kind).toBe("conversation");
+    expect(response.message).toMatch(/both goals/i);
+    expect(response.message).toMatch(/two students/i);
+    expect(response.message).toMatch(/training-hour requests/i);
+    expect(response.message).toMatch(/which should we start/i);
+    expect(run).not.toHaveBeenCalled();
   });
 
   it("cancels a chunked body once the byte limit is crossed", async () => {
@@ -2086,7 +2118,8 @@ describe("Admin Auggie examination and payment tools", () => {
     db.students.set("student-rsk-1001", student({ current_belt: "6 Kyu" }));
     delegated.state.apply = (call: DelegatedCall) => {
       const row = db.students.get("student-rsk-1001")!;
-      if (call.body.currentBelt) row.current_belt = String(call.body.currentBelt);
+      if (call.body.currentBelt)
+        row.current_belt = String(call.body.currentBelt);
     };
     const proposal = await prepare(
       db,
@@ -2126,8 +2159,9 @@ describe("Admin Auggie examination and payment tools", () => {
     expect(
       JSON.parse(
         String(
-          db.audits.find((values) => values[1] === "admin_ai_write_succeeded")
-            ?.[13],
+          db.audits.find(
+            (values) => values[1] === "admin_ai_write_succeeded",
+          )?.[13],
         ),
       ),
     ).toMatchObject({ aiGenerated: true, aiAssistant: "admin_auggie" });
@@ -2334,9 +2368,7 @@ describe("Admin Auggie examination and payment tools", () => {
       "en",
       proposal.operation.secondaryConfirmationPhrase!,
     );
-    expect(delegated.state.calls[0].route).toBe(
-      "admin/student-profile-status",
-    );
+    expect(delegated.state.calls[0].route).toBe("admin/student-profile-status");
     expect(delegated.state.calls[0].body).toEqual({ action: "approve" });
   });
 
@@ -2589,10 +2621,17 @@ describe("Admin Auggie membership payments", () => {
     const proposal = await prepare(
       db,
       "propose_membership_payment",
-      { studentId: "RSK-1001", action: "mark_paid", paymentDate: "2026-08-06", aatNumber: "AAT-123" },
+      {
+        studentId: "RSK-1001",
+        action: "mark_paid",
+        paymentDate: "2026-08-06",
+        aatNumber: "AAT-123",
+      },
       "membership-paid-1001",
     );
-    expect(proposal.operation.confirmationPhrase).toBe("RECORD MEMBERSHIP RSK-1001");
+    expect(proposal.operation.confirmationPhrase).toBe(
+      "RECORD MEMBERSHIP RSK-1001",
+    );
     expect(proposal.operation.secondaryConfirmationPhrase).toBe(
       "CONFIRM MEMBERSHIP MONEY",
     );
@@ -2610,7 +2649,9 @@ describe("Admin Auggie membership payments", () => {
         proposal.operation.confirmationPhrase,
         "en",
       ),
-    ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_SECOND_CONFIRMATION_REQUIRED" });
+    ).rejects.toMatchObject({
+      code: "ADMIN_AUGGIE_SECOND_CONFIRMATION_REQUIRED",
+    });
     expect(delegated.state.calls).toHaveLength(0);
 
     await confirmAdminAuggieOperation(
@@ -2655,10 +2696,16 @@ describe("Admin Auggie membership payments", () => {
     const proposal = await prepare(
       db,
       "propose_membership_payment",
-      { studentId: "RSK-1001", action: "mark_unpaid", reason: "recorded by mistake" },
+      {
+        studentId: "RSK-1001",
+        action: "mark_unpaid",
+        reason: "recorded by mistake",
+      },
       "membership-unpaid-1001",
     );
-    expect(proposal.operation.confirmationPhrase).toBe("REVERSE MEMBERSHIP RSK-1001");
+    expect(proposal.operation.confirmationPhrase).toBe(
+      "REVERSE MEMBERSHIP RSK-1001",
+    );
     expect(proposal.operation.secondaryConfirmationPhrase).toBe(
       "CONFIRM MEMBERSHIP REVERSAL",
     );
@@ -2702,7 +2749,11 @@ describe("Admin Auggie membership payments", () => {
       prepare(
         db,
         "propose_membership_payment",
-        { studentId: "RSK-1001", action: "mark_paid", paymentDate: "2026-08-06" },
+        {
+          studentId: "RSK-1001",
+          action: "mark_paid",
+          paymentDate: "2026-08-06",
+        },
         "membership-scope-1001",
       ),
     ).rejects.toMatchObject({ code: "ADMIN_AUGGIE_TARGET_MISSING" });
@@ -2876,11 +2927,7 @@ describe("Admin Auggie bulk student actions", () => {
     expect(delegated.state.calls[0].route).toBe("admin/students-bulk");
     expect(delegated.state.calls[0].body).toEqual({
       action: "add_hours",
-      studentIds: [
-        "student-rsk-1001",
-        "student-rsk-1002",
-        "student-rsk-1003",
-      ],
+      studentIds: ["student-rsk-1001", "student-rsk-1002", "student-rsk-1003"],
       hours: 3,
       location: "Bangkok dojo",
     });
@@ -2890,8 +2937,9 @@ describe("Admin Auggie bulk student actions", () => {
     expect(
       JSON.parse(
         String(
-          db.audits.find((values) => values[1] === "admin_ai_write_succeeded")
-            ?.[13],
+          db.audits.find(
+            (values) => values[1] === "admin_ai_write_succeeded",
+          )?.[13],
         ),
       ),
     ).toMatchObject({
@@ -2982,9 +3030,11 @@ describe("Admin Auggie bulk student actions", () => {
     delegated.state.apply = (call: DelegatedCall) => {
       for (const id of call.body.studentIds as string[]) {
         const row = db.students.get(id)!;
-        row.current_belt = { "6 Kyu": "5 Kyu", "5 Kyu": "4 Kyu", "4 Kyu": "3 Kyu" }[
-          row.current_belt
-        ]!;
+        row.current_belt = {
+          "6 Kyu": "5 Kyu",
+          "5 Kyu": "4 Kyu",
+          "4 Kyu": "3 Kyu",
+        }[row.current_belt]!;
       }
     };
     const proposal = await prepare(
@@ -3343,9 +3393,9 @@ describe("Admin Auggie student history", () => {
     expect(response.summary?.[0].value).toContain("Auggie Test Admin");
     expect(response.summary?.[0].label).toBe("2026-07-15 09:30");
     expect(delegated.state.calls).toHaveLength(0);
-    expect(db.audits.some((values) => values[1] === "admin_ai_audit_read")).toBe(
-      true,
-    );
+    expect(
+      db.audits.some((values) => values[1] === "admin_ai_audit_read"),
+    ).toBe(true);
   });
 
   it("refuses history for a student outside the administrator's dojo", async () => {
@@ -3379,7 +3429,9 @@ function confirmOp(
 }
 
 describe("Admin Auggie training-hour request decisions", () => {
-  function hoursDb(pending: { count: number; hours: number } = { count: 1, hours: 2 }) {
+  function hoursDb(
+    pending: { count: number; hours: number } = { count: 1, hours: 2 },
+  ) {
     const db = new FakeDb();
     db.students.set("student-rsk-1001", student({ total_hours: 20 }));
     if (pending.count) db.pendingHourRequests.set("student-rsk-1001", pending);
@@ -3562,7 +3614,10 @@ describe("Admin Auggie downloads", () => {
     expect(proposal.operation.requiresSecondaryConfirmation).toBeFalsy();
     await confirmOp(db, proposal.operation);
     expect(delegated.state.calls[0].route).toBe("admin/downloads-retire");
-    expect(delegated.state.calls[0].body).toEqual({ id: "dl-1", mode: "archive" });
+    expect(delegated.state.calls[0].body).toEqual({
+      id: "dl-1",
+      mode: "archive",
+    });
   });
 
   it("requires the second phrase to permanently delete a download record", async () => {
@@ -3587,7 +3642,10 @@ describe("Admin Auggie downloads", () => {
       proposal.operation,
       proposal.operation.secondaryConfirmationPhrase!,
     );
-    expect(delegated.state.calls[0].body).toEqual({ id: "dl-1", mode: "delete" });
+    expect(delegated.state.calls[0].body).toEqual({
+      id: "dl-1",
+      mode: "delete",
+    });
   });
 
   it("refuses to archive an already-unpublished download", async () => {
@@ -3712,8 +3770,9 @@ describe("Admin Auggie website page words", () => {
     await confirmOp(db, proposal.operation);
     const call = delegated.state.calls[0];
     expect(call.route).toBe("admin/site-content");
-    const pages = (call.body.content as { sitePages: Array<Record<string, any>> })
-      .sitePages;
+    const pages = (
+      call.body.content as { sitePages: Array<Record<string, any>> }
+    ).sitePages;
     expect(pages[0].blocks[0].translations.en.text).toBe(
       "A fresh new paragraph.",
     );
@@ -3736,7 +3795,9 @@ describe("Admin Auggie website page words", () => {
       },
       "site-text-page",
     );
-    expect(proposal.operation.confirmationPhrase).toBe("EDIT 1 WEBSITE PAGE EN");
+    expect(proposal.operation.confirmationPhrase).toBe(
+      "EDIT 1 WEBSITE PAGE EN",
+    );
     await confirmOp(db, proposal.operation);
     const pages = (
       delegated.state.calls[0].body.content as {
@@ -3850,7 +3911,10 @@ describe("Admin Auggie newsletter test-send", () => {
   function testSendRequest(recipient: string | undefined, requestId: string) {
     return new Request("https://example.test/api/admin/auggie/chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Request-ID": requestId },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Request-ID": requestId,
+      },
       body: JSON.stringify({
         message: "Send a test copy",
         locale: "en",
@@ -3886,7 +3950,11 @@ describe("Admin Auggie newsletter test-send", () => {
   it("sends a test to the panel-supplied recipient through the reviewed endpoint", async () => {
     seedNewsletter();
     const db = new FakeDb();
-    const proposal = await runTestSend(db, "auggie@example.test", "test-send-ok");
+    const proposal = await runTestSend(
+      db,
+      "auggie@example.test",
+      "test-send-ok",
+    );
     expect(proposal.operation.confirmationPhrase).toBe("SEND 1 TEST EMAIL");
     expect(proposal.operation.requiresSecondaryConfirmation).toBeFalsy();
     expect(proposal.operation.path).toBe("/admin/website");

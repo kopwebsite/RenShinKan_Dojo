@@ -60,6 +60,7 @@ type Operation = {
     entryDate?: string;
     location?: string;
     coveredStudentCount?: number;
+    photoAttached?: boolean;
   };
 };
 
@@ -180,10 +181,7 @@ const copy = {
     resultMessage: "The change was saved safely.",
     empty: "No matching records were returned in your current scope.",
     error: "The request failed safely. No action was taken.",
-    attachLabel: "Attach a photo",
-    attachUseLabel: "Use the photo for",
-    attachUseNewsletter: "A newsletter",
-    attachUseGallery: "A gallery album",
+    attachLabel: "Add photo",
     attaching: "Uploading photo…",
     attached: "Photo attached",
     attachRemove: "Remove the attached photo",
@@ -256,10 +254,7 @@ const copy = {
     resultMessage: "บันทึกการเปลี่ยนแปลงอย่างปลอดภัยแล้ว",
     empty: "ไม่พบระเบียนที่ตรงกันในขอบเขตปัจจุบันของคุณ",
     error: "คำขอล้มเหลวอย่างปลอดภัย ไม่มีการดำเนินการใด ๆ",
-    attachLabel: "แนบรูปภาพ",
-    attachUseLabel: "ใช้รูปนี้สำหรับ",
-    attachUseNewsletter: "จดหมายข่าว",
-    attachUseGallery: "อัลบั้มแกลเลอรี",
+    attachLabel: "เพิ่มรูป",
     attaching: "กำลังอัปโหลดรูป…",
     attached: "แนบรูปแล้ว",
     attachRemove: "นำรูปที่แนบออก",
@@ -613,9 +608,6 @@ export function AdminAuggiePanel({
   const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const [attachUse, setAttachUse] = useState<"newsletter" | "gallery">(
-    "newsletter",
-  );
   const [attachment, setAttachment] = useState<{
     id: string;
     url: string;
@@ -696,11 +688,10 @@ export function AdminAuggiePanel({
     ]);
   }
 
-  // Uploads the chosen photo through the existing reviewed media endpoint — the
-  // same route the website and gallery pages use. The panel keeps only the id
-  // and preview url it returns; the image bytes are never sent to AI. The
-  // newsletter photo goes through the site-media route, the gallery photo
-  // through the gallery-media route, so each keeps its own audit trail.
+  // Uploads the chosen photo through one context-neutral Admin Auggie endpoint.
+  // The panel keeps only the id and preview URL it returns; image bytes are
+  // never sent to AI. The following conversation decides whether a confirmed
+  // newsletter or gallery proposal uses the stored photo.
   async function uploadPhoto(file: File) {
     if (uploading || busy) return;
     setError("");
@@ -716,11 +707,7 @@ export function AdminAuggiePanel({
     try {
       const body = new FormData();
       body.append("files", file, file.name);
-      const endpoint =
-        attachUse === "gallery"
-          ? "/api/admin/gallery-media"
-          : "/api/admin/site-media";
-      const response = await fetch(endpoint, {
+      const response = await fetch("/api/admin/auggie/photo", {
         method: "POST",
         credentials: "include",
         cache: "no-store",
@@ -775,10 +762,14 @@ export function AdminAuggiePanel({
       );
       appendResponse(payload.response);
       if (payload.usage) setUsage(payload.usage);
-      // The id is now bound into the server's proposal, so the panel lets it
-      // go: a later message starts fresh unless the administrator attaches
-      // another photo.
-      setAttachment(null);
+      // Keep the photo available while Auggie asks follow-up questions. It is
+      // removed only after a proposal proves that it actually bound the stored
+      // asset; otherwise the administrator can remove it explicitly.
+      if (
+        attachedId &&
+        payload.response.operation?.preview?.photoAttached === true
+      )
+        setAttachment(null);
     } catch (reason) {
       appendResponse({
         kind: "conversation",
@@ -1000,23 +991,6 @@ export function AdminAuggiePanel({
             </div>
           ) : (
             <>
-              <label className="admin-auggie__attach-use">
-                <span>{text.attachUseLabel}</span>
-                <select
-                  value={attachUse}
-                  onChange={(event) =>
-                    setAttachUse(
-                      event.target.value === "gallery"
-                        ? "gallery"
-                        : "newsletter",
-                    )
-                  }
-                  disabled={uploading || busy}
-                >
-                  <option value="newsletter">{text.attachUseNewsletter}</option>
-                  <option value="gallery">{text.attachUseGallery}</option>
-                </select>
-              </label>
               <button
                 type="button"
                 className="admin-auggie__attach-button"

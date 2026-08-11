@@ -53,7 +53,10 @@ const COVERAGE: Record<string, string | string[]> = {
   "students/bulk.ts": "propose_bulk_student_action",
   "students/index.ts": "propose_student_create",
   // One file, two write methods: PUT edits the record, DELETE erases it forever.
-  "students/[id].ts": ["propose_student_record_update", "propose_student_deletion"],
+  "students/[id].ts": [
+    "propose_student_record_update",
+    "propose_student_deletion",
+  ],
   "students/[id]/exam.ts": "propose_student_examination",
   "students/[id]/hours.ts": "propose_student_hours",
   "students/[id]/profile-status.ts": "propose_student_profile_decision",
@@ -71,10 +74,11 @@ const COVERAGE: Record<string, string | string[]> = {
   "publish.ts": "page-only", // Auggie publishes through site-content
   "publish-reconcile.ts": "page-only", // internal publishing recovery
 
-  // Panel uploads — the attach control uploads a file through the reviewed
-  // endpoint, then the result is referenced in a proposal.
-  "gallery-media.ts": "panel-upload: propose_gallery_photo_add",
-  "site-media.ts": "panel-upload: propose_newsletter_create",
+  // The website and gallery editors retain their own page upload routes. Admin
+  // Auggie uses its context-neutral /auggie/photo route instead, so the user no
+  // longer has to classify a photo before the conversation can understand it.
+  "gallery-media.ts": "page-only",
+  "site-media.ts": "page-only",
   // Downloads has four write methods. Editing the record (PATCH) and retiring it
   // (DELETE) travel the JSON delegation layer as reviewed proposals. Adding a new
   // PDF (POST) and replacing one (PUT) are multipart uploads that cannot: the
@@ -93,7 +97,8 @@ const COVERAGE: Record<string, string | string[]> = {
   // Known gaps — should be reachable from the chat, not built yet.
   "diagnostics.ts": "gap: site health check is not yet a tool",
   "students/upload.ts": "gap: student photo upload (stage 4)",
-  "students/[id]/application.ts": "gap: admin exam application is not yet a tool",
+  "students/[id]/application.ts":
+    "gap: admin exam application is not yet a tool",
   "students/[id]/share.ts": "gap: student share links are not yet a tool",
 };
 
@@ -167,15 +172,10 @@ describe("Admin Auggie administration coverage map", () => {
         name.startsWith("panel-upload:"),
       ),
     );
-    // The attach control uploads through three reviewed endpoints: a newsletter
-    // cover (site-media), a gallery album photo (gallery-media), and a download
-    // PDF added or replaced through the downloads endpoint itself. Each is a
-    // conscious decision above; a fourth appearing here needs the same.
-    expect(panelUploads.map(([path]) => path).sort()).toEqual([
-      "downloads.ts",
-      "gallery-media.ts",
-      "site-media.ts",
-    ]);
+    // Only the PDF path remains a target endpoint upload. Photos go through the
+    // assistant's own context-neutral route, which is intentionally excluded
+    // from target endpoint enumeration below.
+    expect(panelUploads.map(([path]) => path).sort()).toEqual(["downloads.ts"]);
     for (const [path, value] of panelUploads) {
       for (const name of Array.isArray(value) ? value : [value]) {
         if (!name.startsWith("panel-upload:")) continue;
@@ -183,5 +183,21 @@ describe("Admin Auggie administration coverage map", () => {
         expect(toolNames.has(tool), `${path} -> ${tool}`).toBe(true);
       }
     }
+  });
+
+  it("stores Admin Auggie photos without asking the user to classify their purpose", () => {
+    const source = readFileSync(
+      resolve(adminApiDir, "auggie/photo.ts"),
+      "utf8",
+    );
+    expect(source).toContain("isSameOriginRequest");
+    expect(source).toContain("requiresCentralAdmin");
+    expect(source).toContain("uploadFilesToR2");
+    expect(source).toContain("INSERT INTO media_assets");
+    expect(source).toContain('action: "admin_ai_photo_uploaded"');
+    expect(source).toContain('source: "admin_auggie"');
+    expect(source).toContain("MEDIA_BUCKET.delete(uploadedKey)");
+    expect(source).not.toContain("attachUse");
+    expect(source).not.toContain("photoPurpose");
   });
 });
